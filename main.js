@@ -79,15 +79,19 @@ function smokeTest(win) {
         if (!window.echoNative) return { ok: false, why: 'native bridge missing' };
         const world = ECHO.generateWorld({ seed: 4242, name: 'Smoke', id: 'smoke' });
         await ECHO.Save.save(world);
+        let raf = 0; const count = () => { raf++; if (raf < 100000) requestAnimationFrame(count); }; requestAnimationFrame(count);
         ECHO.Screens.begin(world, 'Tester', world.settlements[0].id, null, false);
-        await wait(5000);
+        await wait(3000);
+        // Step the game deterministically too (rAF can be throttled on a headless display).
+        for (let i = 0; i < 200; i++) { ECHO.Game.update(0.05); ECHO.Renderer.draw(ECHO.Game, 0.05); if (i % 20 === 0) await wait(1); }
         const ents = ECHO.Game.ents.length;
+        const kinds = ECHO.Game.ents.reduce((a, e) => { a[e.type] = (a[e.type] || 0) + 1; return a; }, {});
         await ECHO.Game.save();
         const list = await ECHO.Save.list();
         const loaded = await ECHO.Save.load('smoke');
         await window.echoNative.deleteWorld('smoke');
         const fonts = document.fonts ? document.fonts.check('16px "Pixelify Sans"') : null;
-        return { ok: ents > 5 && list.some(m => m.id === 'smoke') && !!loaded && !!loaded.player && loaded.player.first === 'Tester', ents, worlds: list.length, day: loaded && loaded.day, fonts };
+        return { ok: ents > 5 && list.some(m => m.id === 'smoke') && !!loaded && !!loaded.player && loaded.player.first === 'Tester', ents, kinds, rafFrames: raf, worlds: list.length, day: loaded && loaded.day, minute: Math.round(ECHO.Game.world.minute), fonts };
       })()`);
     } catch (err) { result = { ok: false, why: String(err) }; }
     const ok = result && result.ok && errors.length === 0;
