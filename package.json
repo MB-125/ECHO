@@ -1,0 +1,86 @@
+{
+  "name": "echo-living-realm",
+  "productName": "ECHO",
+  "version": "0.1.0",
+  "description": "ECHO — The Living Realm. A world that existed before you, continues without you, and remembers what you do.",
+  "main": "main.js",
+  "author": "Merveille <MB-125@users.noreply.github.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/MB-125/ECHO",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MB-125/ECHO.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node tests/run-tests.js",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.mb125.echo",
+    "productName": "ECHO",
+    "copyright": "ECHO — The Living Realm",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "ECHO"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.role-playing-games",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Game",
+      "icon": "build/icon.png",
+      "maintainer": "Merveille <MB-125@users.noreply.github.com>"
+    },
+    "publish": null
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.0.0"
+  }
+}
