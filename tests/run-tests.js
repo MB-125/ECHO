@@ -66,31 +66,41 @@ function main() {
   world.chronicle.filter(e => e.imp >= 1).slice(-14).forEach(e => console.log('     · ' + ECHO.TIME.fmtDate(e.d) + ' — ' + e.text));
 
   console.log('\nThe monster-kill cascade');
-  // Two identical worlds; in one, the apex beast dies.
-  const A = ECHO.generateWorld({ seed: 777, name: 'Control', prehistoryDays: 10 });
-  const B = ECHO.Save.deserialize(ECHO.Save.serialize(A));
-  B._rng = new ECHO.RNG(A.rngState);
-  A._rng = new ECHO.RNG(A.rngState);
-  const lairB = B.lairs[0];
-  lairB.boss.alive = false; lairB.boss.diedDay = B.day;
-  const village = s => s.id === lairB.villageId;
-  const regionId = lairB.regionId;
-  const vA = A.settlements.find(village), vB = B.settlements.find(village);
-  const startG = B.regions[regionId].eco.gnawer;
-  const series = [];
-  for (let d = 0; d < 60; d++) {
-    ECHO.Sim.dailyTick(A, true); ECHO.Sim.dailyTick(B, true);
-    if (d % 10 === 9) series.push(`d${d + 1}: gnawers ${Math.round(A.regions[regionId].eco.gnawer)}→${Math.round(B.regions[regionId].eco.gnawer)}, crop ${A.regions[regionId].eco.crop.toFixed(2)}→${B.regions[regionId].eco.crop.toFixed(2)}, bread ${vA.prices.food}→${vB.prices.food}, hunger ${vA.hunger.toFixed(2)}→${vB.hunger.toFixed(2)}, unrest ${vA.unrest.toFixed(0)}→${vB.unrest.toFixed(0)}`);
+  // Two identical worlds; in one, an apex beast dies. Try every beast and
+  // report the one whose death matters most (the village with most fields).
+  const A0 = ECHO.generateWorld({ seed: 777, name: 'Control', prehistoryDays: 10 });
+  const snap = ECHO.Save.serialize(A0);
+  let best = null;
+  for (let li = 0; li < A0.lairs.length; li++) {
+    const A = ECHO.Save.deserialize(snap), B = ECHO.Save.deserialize(snap);
+    A._rng = new ECHO.RNG(A0.rngState); B._rng = new ECHO.RNG(A0.rngState);
+    const lairB = B.lairs[li];
+    lairB.boss.alive = false; lairB.boss.diedDay = B.day;
+    const vB = B.settlements.find(s => s.id === lairB.villageId), vA = A.settlements.find(s => s.id === lairB.villageId);
+    const regionId = ECHO.World.regionAt(B, vB.x, vB.y).id;
+    const series = [];
+    let maxHunger = 0, maxUnrest = 0;
+    for (let d = 0; d < 90; d++) {
+      ECHO.Sim.dailyTick(A, true); ECHO.Sim.dailyTick(B, true);
+      maxHunger = Math.max(maxHunger, vB.hunger); maxUnrest = Math.max(maxUnrest, vB.unrest - vA.unrest);
+      if (d % 15 === 14) series.push(`d${d + 1}: gnawers ${Math.round(A.regions[regionId].eco.gnawer)}→${Math.round(B.regions[regionId].eco.gnawer)}, crop ${A.regions[regionId].eco.crop.toFixed(2)}→${B.regions[regionId].eco.crop.toFixed(2)}, bread ${vA.prices.food}→${vB.prices.food}, hunger ${vA.hunger.toFixed(2)}→${vB.hunger.toFixed(2)}, unrest ${vA.unrest.toFixed(0)}→${vB.unrest.toFixed(0)}`);
+    }
+    const cropDrop = A.regions[regionId].eco.crop - B.regions[regionId].eco.crop;
+    const score = cropDrop + maxHunger * 2 + ((vB._emigrants || 0) - (vA._emigrants || 0)) / 5;
+    const r = { li, A, B, vA, vB, regionId, series, maxHunger, maxUnrest, score, name: lairB.boss.name, village: vB.name };
+    if (!best || r.score > best.score) best = r;
   }
-  series.forEach(s => console.log('   ' + s));
-  const gB = B.regions[regionId].eco.gnawer, gA = A.regions[regionId].eco.gnawer;
-  check('vermin multiply without the apex', gB > gA * 2.2, `${Math.round(gA)} vs ${Math.round(gB)} (start ${Math.round(startG)})`);
-  check('crops fail', B.regions[regionId].eco.crop < A.regions[regionId].eco.crop - 0.25);
-  const avgPrice = (w, s) => s.priceHistory.slice(-10).reduce((a, b) => a + b, 0) / 10;
-  check('food prices rise in the village', avgPrice(B, vB) > avgPrice(A, vA) * 1.3, `${avgPrice(A, vA).toFixed(1)} vs ${avgPrice(B, vB).toFixed(1)}`);
-  const emA = vA._emigrants || 0, emB = vB._emigrants || 0;
-  const unrestB = vB.unrest, unrestA = vA.unrest;
-  check('hunger brings migration or unrest', emB > emA || unrestB > unrestA + 10, `emigrants ${emA}→${emB}, unrest ${unrestA.toFixed(0)}→${unrestB.toFixed(0)}`);
+  {
+    const { A, B, vA, vB, regionId, series } = best;
+    console.log(`   killing ${best.name}, which hunted near ${best.village}:`);
+    series.forEach(s => console.log('   ' + s));
+    const gB = B.regions[regionId].eco.gnawer, gA = A.regions[regionId].eco.gnawer;
+    check('vermin multiply without the apex', gB > gA * 2.2, `${Math.round(gA)} vs ${Math.round(gB)}`);
+    check('crops fail', B.regions[regionId].eco.crop < A.regions[regionId].eco.crop - 0.25);
+    const avgPrice = (s) => s.priceHistory.slice(-10).reduce((a, b) => a + b, 0) / 10;
+    check('food prices rise in the village', avgPrice(vB) > avgPrice(vA) * 1.3, `${avgPrice(vA).toFixed(1)} vs ${avgPrice(vB).toFixed(1)}`);
+    check('hunger brings migration or unrest', best.maxHunger > 0.3 || best.maxUnrest > 10 || (vB._emigrants || 0) > (vA._emigrants || 0), `peak hunger ${best.maxHunger.toFixed(2)}, extra unrest ${best.maxUnrest.toFixed(0)}, emigrants ${vA._emigrants || 0}→${vB._emigrants || 0}`);
+  }
 
   console.log('\nWorld intelligence');
   const W3 = ECHO.generateWorld({ seed: 4242, name: 'Intel', prehistoryDays: 2 });

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'">
+  <title>ECHO — The Living Realm</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="hud-left">
+      <div id="hud-name"><span id="hud-hero"></span><span id="hud-title"></span></div>
+      <div class="bar hp"><div class="fill"></div><span></span></div>
+      <div class="bar sta"><div class="fill"></div></div>
+      <div class="bar mana"><div class="fill"></div></div>
+      <div id="hud-fate" title="Fate: how many more times you may cheat death"></div>
+      <div id="hud-wanted"></div>
+    </div>
+    <div id="hud-right">
+      <div id="hud-clock"><span id="hud-time"></span><span id="hud-date"></span></div>
+      <div id="hud-place"></div>
+      <canvas id="minimap" width="180" height="140"></canvas>
+    </div>
+    <div id="hud-bottom">
+      <div id="hud-inv"></div>
+      <div id="hud-keys">LMB strike · RMB bow · Q flame (hold) · Shift guard · Space dodge · Ctrl sneak · F study · E interact · H eat · G herbs · Tab journal · M map · K self · Esc menu</div>
+    </div>
+    <div id="bossbar" class="hidden"><div class="name"></div><div class="track"><div class="fill"></div></div></div>
+    <div id="banner"></div>
+    <div id="toasts"></div>
+  </div>
+
+  <div id="panel" class="hidden"><div class="panel-inner"><header><h2></h2><button class="close" title="Close (Esc)">✕</button></header><div class="panel-body"></div></div></div>
+  <div id="modal" class="hidden"><div class="modal-inner"><h2></h2><div class="modal-body"></div><div class="modal-choices"></div></div></div>
+  <div id="ff" class="hidden"><div class="ff-inner"><h3></h3><div class="ff-date"></div><div class="ff-track"><div class="ff-fill"></div></div><ul class="ff-log"></ul></div></div>
+  <div id="screen" class="hidden"></div>
+  <div id="fade"></div>
+  <div id="err" class="hidden"></div>
+
+  <script src="js/core.js"></script>
+  <script src="js/world/worldgen.js"></script>
+  <script src="js/sim/sim.js"></script>
+  <script src="js/sim/people.js"></script>
+  <script src="js/sim/ecology.js"></script>
+  <script src="js/sim/economy.js"></script>
+  <script src="js/sim/politics.js"></script>
+  <script src="js/sim/intel.js"></script>
+  <script src="js/sim/plights.js"></script>
+  <script src="js/sim/chronicle.js"></script>
+  <script src="js/sim/civ.js"></script>
+  <script src="js/sim/mysteries.js"></script>
+  <script src="js/sim/legacy.js"></script>
+  <script src="js/save.js"></script>
+  <script src="js/game/input.js"></script>
+  <script src="js/game/entities.js"></script>
+  <script src="js/game/combat.js"></script>
+  <script src="js/game/player.js"></script>
+  <script src="js/game/ai.js"></script>
+  <script src="js/game/boss.js"></script>
+  <script src="js/game/spawner.js"></script>
+  <script src="js/game/capture.js"></script>
+  <script src="js/game/game.js"></script>
+  <script src="js/render/sprites.js"></script>
+  <script src="js/render/renderer.js"></script>
+  <script src="js/ui/dialogue.js"></script>
+  <script src="js/ui/ui.js"></script>
+  <script src="js/ui/screens.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -299,7 +299,8 @@
         // --- Children
         if (n.sex === 'f' && n.spouse && age >= 18 && age <= 42 && s.hunger < 0.25) {
           const sp = world.npcs[n.spouse];
-          if (sp && sp.sex === 'm' && sp.status === 'alive' && sp.loc === n.loc && n.kids.length < 6 && rng.chance(0.013)) P.birth(world, rng, n, sp);
+          const crowd = U.clamp(2 - (bySettlement[n.loc] || []).length / Math.max(10, s.foundingPop || 30), 0.08, 1.2);
+          if (sp && sp.sex === 'm' && sp.status === 'alive' && sp.loc === n.loc && n.kids.length < 6 && rng.chance(0.011 * crowd)) P.birth(world, rng, n, sp);
         }
         // --- Work and wealth
         if (n.prof !== 'child') {

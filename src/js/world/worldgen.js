@@ -436,48 +436,61 @@
   function placeLairs(world, rng, comp, main) {
     world.lairs = [];
     const villages = rng.shuffle(world.settlements.filter(s => s.kind === 'village').slice());
-    const count = Math.min(3, villages.length);
-    for (let k = 0; k < count; k++) {
-      const v = villages[k];
-      let spot = null;
-      for (let tries = 0; tries < 600 && !spot; tries++) {
-        const a = rng.next() * Math.PI * 2, d = rng.range(19, 30);
-        const x = Math.round(v.x + Math.cos(a) * d), y = Math.round(v.y + Math.sin(a) * d);
-        if (x < 10 || y < 10 || x > W - 10 || y > H - 10) continue;
-        if (comp[y * W + x] !== main) continue;
-        if (world.settlements.some(s => U.dist(s.x, s.y, x, y) < 17)) continue;
-        if (world.lairs.some(l => U.dist(l.x, l.y, x, y) < 25)) continue;
-        const t = World.tile(world, x, y);
-        if (t === TILE.ROAD || t === TILE.WATER || t === TILE.DEEP || t === TILE.ROCK) continue;
-        spot = { x, y };
-      }
-      if (!spot) continue;
-      // Clear an arena with destructible cover stones.
-      const R = 7;
-      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
-        if (dx * dx + dy * dy > R * R) continue;
-        const t = World.tile(world, spot.x + dx, spot.y + dy);
-        if (t !== TILE.WATER && t !== TILE.DEEP && t !== TILE.ROAD && t !== TILE.BRIDGE) World.setTile(world, spot.x + dx, spot.y + dy, TILE.RUIN);
-      }
-      const rocks = [];
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2 + rng.next() * 0.4;
-        rocks.push({ x: spot.x + Math.round(Math.cos(a) * 4.2), y: spot.y + Math.round(Math.sin(a) * 4.2), hp: 60 });
-      }
-      const ak = APEX_KINDS[k % APEX_KINDS.length];
-      const region = World.regionAt(world, spot.x, spot.y);
-      const lair = {
-        id: 'lair' + k, x: spot.x, y: spot.y, rocks, regionId: region.id, villageId: v.id,
-        boss: {
-          id: 'boss' + k, name: rng.pick(ak.base), title: ak.title, kind: ak.kind,
-          maxHp: 420 + k * 60, hp: 420 + k * 60, alive: true, fled: false, absentUntil: -1,
-          armor: { melee: 0, ranged: 0, fire: 0 }, scars: [],
-          memory: { encounters: 0, dodge: { left: 0, right: 0, back: 0 }, blocks: 0, attacksSeen: 0, rangedTime: 0, meleeTime: 0, damageBy: { melee: 0, ranged: 0, fire: 0 }, knownFoes: {} },
-          kills: 0, bornDay: -rng.int(300, 2000)
+    const want = Math.min(3, Math.max(2, villages.length));
+    const clearOf = (x, y, r, bad) => {
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (bad.has(World.tile(world, x + dx, y + dy))) return false;
+      return true;
+    };
+    const WET = new Set([TILE.WATER, TILE.DEEP, TILE.BRIDGE]);
+    const ROADY = new Set([TILE.ROAD, TILE.PLAZA]);
+    const pools = villages.length ? villages : world.settlements.filter(s => s.kind !== 'capital');
+    let k = 0;
+    for (const strict of [7, 5, 3]) {
+      for (const v of pools) {
+        if (world.lairs.length >= want) break;
+        if (world.lairs.some(l => l.villageId === v.id)) continue;
+        let spot = null;
+        for (let tries = 0; tries < 900 && !spot; tries++) {
+          const a = rng.next() * Math.PI * 2, d = rng.range(17, 34);
+          const x = Math.round(v.x + Math.cos(a) * d), y = Math.round(v.y + Math.sin(a) * d);
+          if (x < 10 || y < 10 || x > W - 10 || y > H - 10) continue;
+          if (comp[y * W + x] !== main) continue;
+          if (world.settlements.some(s => U.dist(s.x, s.y, x, y) < 16)) continue;
+          if (world.lairs.some(l => U.dist(l.x, l.y, x, y) < 24)) continue;
+          const t = World.tile(world, x, y);
+          if (WET.has(t) || ROADY.has(t) || t === TILE.ROCK) continue;
+          if (!clearOf(x, y, strict, WET) || !clearOf(x, y, 4, ROADY)) continue;
+          spot = { x, y };
         }
-      };
-      region.apex = lair.id;
-      world.lairs.push(lair);
+        if (!spot) continue;
+          // Clear an arena with destructible cover stones.
+          const R = 7;
+          for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+            if (dx * dx + dy * dy > R * R) continue;
+            const t = World.tile(world, spot.x + dx, spot.y + dy);
+            if (t !== TILE.WATER && t !== TILE.DEEP && t !== TILE.ROAD && t !== TILE.BRIDGE) World.setTile(world, spot.x + dx, spot.y + dy, TILE.RUIN);
+          }
+          const rocks = [];
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2 + rng.next() * 0.4;
+            rocks.push({ x: spot.x + Math.round(Math.cos(a) * 4.2), y: spot.y + Math.round(Math.sin(a) * 4.2), hp: 60 });
+          }
+          const ak = APEX_KINDS[k % APEX_KINDS.length];
+          k++;
+          const region = World.regionAt(world, spot.x, spot.y);
+          const lair = {
+            id: 'lair' + world.lairs.length, x: spot.x, y: spot.y, rocks, regionId: region.id, villageId: v.id,
+            boss: {
+              id: 'boss' + world.lairs.length, name: rng.pick(ak.base), title: ak.title, kind: ak.kind,
+              maxHp: 420 + world.lairs.length * 60, hp: 420 + world.lairs.length * 60, alive: true, fled: false, absentUntil: -1,
+              armor: { melee: 0, ranged: 0, fire: 0 }, scars: [],
+              memory: { encounters: 0, dodge: { left: 0, right: 0, back: 0 }, blocks: 0, attacksSeen: 0, rangedTime: 0, meleeTime: 0, damageBy: { melee: 0, ranged: 0, fire: 0 }, knownFoes: {} },
+              kills: 0, bornDay: -rng.int(300, 2000)
+            }
+          };
+          region.apex = lair.id;
+          world.lairs.push(lair);
+      }
     }
   }
 

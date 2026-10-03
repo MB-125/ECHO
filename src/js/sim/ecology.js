@@ -38,9 +38,11 @@
       // Lair regions are the swarming grounds the apex beasts feed on.
       for (const r of world.regions) r.breed = 1;
       for (const l of world.lairs) {
-        const lr = world.regions[l.regionId];
-        lr.breed = 2.6;
-        for (const nb of ECHO.World.regionNeighbors(world, lr)) nb.breed = Math.max(nb.breed, 1.35);
+        for (const rid of E.huntRegions(world, l)) {
+          const lr = world.regions[rid];
+          lr.breed = 2.6;
+          for (const nb of ECHO.World.regionNeighbors(world, lr)) nb.breed = Math.max(nb.breed, 1.35);
+        }
       }
       for (const r of world.regions) {
         if (r.land < 0.15) { r.eco = null; continue; }
@@ -57,16 +59,21 @@
       }
       for (const r of world.regions) if (r.eco) r.eco.crop = E.cropFactor(world, r);
     },
+    // A great beast hunts its lair's region and the fields of its village.
+    huntRegions(world, l) {
+      const out = [l.regionId];
+      const v = ECHO.Sim.settlement(world, l.villageId);
+      if (v) { const vr = ECHO.World.regionAt(world, v.x, v.y).id; if (!out.includes(vr)) out.push(vr); }
+      return out;
+    },
     apexPressure(world, r) {
       let p = 0;
       for (const l of world.lairs) {
         const b = l.boss;
         if (!b.alive || (b.absentUntil > world.day)) continue;
-        if (l.regionId === r.id) p += 1;
-        else {
-          const lr = world.regions[l.regionId];
-          if (ECHO.World.regionNeighbors(world, lr).includes(r)) p += 0.45;
-        }
+        const hunt = E.huntRegions(world, l);
+        if (hunt.includes(r.id)) p += 1;
+        else if (hunt.some(id => ECHO.World.regionNeighbors(world, world.regions[id]).includes(r))) p += 0.25;
       }
       return Math.min(1.4, p);
     },
@@ -74,11 +81,13 @@
       if (!r.eco) return 1;
       const K = E.capacity(r);
       const dens = r.eco.gnawer / Math.max(1, K.gnawer);
-      return U.clamp(1 - 0.82 * Math.pow(dens, 1.25), 0.12, 1);
+      // Fields shrug off a few vermin; a swarm strips them bare.
+      return U.clamp(1 - 0.88 * Math.pow(U.clamp((dens - 0.4) / 1.1, 0, 1), 1.1), 0.12, 1);
     },
     dailyTick(world, rng) {
       const season = ECHO.TIME.dateOf(world.day).seasonIdx;
       const seasonGrowth = [0.85, 1.25, 1.0, 0.45][season];
+      const verminSeason = [0.9, 1.25, 1.05, 0.7][season]; // vermin winter in the granaries
       const migr = [];
       for (const r of world.regions) {
         const e = r.eco;
@@ -89,7 +98,7 @@
         // Predation
         const eatenH = Math.min(Hh * 0.4, 0.3 * Wf * Hh / (Hh + 30));
         const eatenGw = Math.min(G * 0.15, 0.12 * Wf * G / (G + 80));
-        const apexG = apex * 0.19 * G;
+        const apexG = apex * 0.3 * G;
         const apexW = apex * 0.035 * Wf;
         // People: hunters take hares; farmers and hunters trap vermin.
         let hunted = 0, control = 0;
@@ -102,7 +111,7 @@
         control = Math.min(0.14, control);
         e.control = control;
         const Kg = K.gnawer * (r.breed || 1);
-        G += 0.24 * seasonGrowth * G * (1 - G / Math.max(1, Kg)) - eatenGw - apexG - control * G;
+        G += 0.38 * verminSeason * G * (1 - G / Math.max(1, Kg)) - eatenGw - apexG - control * G;
         Hh += 0.13 * seasonGrowth * Hh * (1 - Hh / Math.max(1, K.hare)) - eatenH - hunted;
         const food = (eatenH + eatenGw * 0.6) / Math.max(1, Wf);
         Wf += Wf * (0.16 * Math.min(1.3, food) - 0.055) - 0.012 * Wf * Wf / Math.max(1, K.wolf) - apexW;
@@ -140,7 +149,7 @@
         // Migration between neighbouring regions evens out populations.
         for (const nb of ECHO.World.regionNeighbors(world, r)) {
           if (!nb.eco) continue;
-          migr.push([r, nb, 'wolf', e.wolf * 0.015], [r, nb, 'gnawer', e.gnawer * 0.012], [r, nb, 'hare', e.hare * 0.01]);
+          migr.push([r, nb, 'wolf', e.wolf * 0.015], [r, nb, 'gnawer', e.gnawer * 0.006], [r, nb, 'hare', e.hare * 0.01]);
         }
         // Wolves prey on lone workers in the wilds when numerous.
         if (e.wolfDanger > 1.1) {

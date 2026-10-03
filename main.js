@@ -21,6 +21,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 640,
     backgroundColor: '#0b0a0f',
+    icon: path.join(__dirname, 'src', 'icon.png'),
     title: 'ECHO — The Living Realm',
     autoHideMenuBar: true,
     webPreferences: {
@@ -32,6 +33,17 @@ function createWindow() {
     }
   });
   Menu.setApplicationMenu(null);
+  // Let the game save the world before the window goes away.
+  let closing = false;
+  win.on('close', (e) => {
+    if (closing) return;
+    e.preventDefault();
+    closing = true;
+    win.webContents.send('app:beforeClose');
+    setTimeout(() => { if (!win.isDestroyed()) win.destroy(); }, 2500);
+  });
+  ipcMain.removeHandler('app:closeNow');
+  ipcMain.handle('app:closeNow', () => { if (!win.isDestroyed()) win.destroy(); });
   win.loadFile(path.join(__dirname, 'src', 'index.html'));
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);

@@ -142,7 +142,8 @@
         } else {
           camp.captives = camp.captives.filter(x => x !== v.id);
           v.status = 'dead'; v.diedDay = world.day; v.cause = 'sold to slavers across the sea';
-          Pl.close(world, p, 'failed', `${P().name(v)} was sold to slavers across the sea. ${p.requester && world.npcs[p.requester] ? world.npcs[p.requester].first + ' still asks travellers if they have seen ' + (v.sex === 'f' ? 'her' : 'him') + '.' : ''}`, 2);
+          const rq = p.requester && world.npcs[p.requester];
+          Pl.close(world, p, 'failed', `${P().name(v)} was sold to slavers across the sea.${rq && rq.status === 'alive' ? ' ' + rq.first + ' still asks travellers if they have seen ' + (v.sex === 'f' ? 'her' : 'him') + '.' : ''}`, 2);
         }
       }
     },

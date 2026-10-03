@@ -40,7 +40,7 @@
       if (house) house.owner = charId;
       const spawn = ECHO.Game ? ECHO.Game.freeSpotNear(world, home.x, home.y + 2) : { x: home.x + 0.5, y: home.y + 2.5 };
       const pl = {
-        charId, first: o.first, last: o.last || home.name + '-born', homeId: home.id, born: world.day - 20 * ECHO.TIME.YEAR_DAYS, alive: true, startDay: world.day,
+        charId, first: o.first, last: o.last || ECHO.makeSurname(rng, (world.factions[home.faction] || {}).culture || 'valdren'), homeId: home.id, born: world.day - 20 * ECHO.TIME.YEAR_DAYS, alive: true, startDay: world.day,
         x: spawn.x, y: spawn.y, hp: 100, maxHp: 100, stamina: 100, maxSta: 100, mana: 60, maxMana: 60, gold: 25,
         skills: { blade: 5, archery: 5, flame: 2, ward: 4, study: 3, shadow: 2, tongue: 4, endurance: 4 },
         behave: { aggression: 0, caution: 0, reckless: 0, mercy: 0, cruelty: 0, betrayal: 0, protect: 0, curiosity: 0, night: 0 },
@@ -89,7 +89,8 @@
         ['Night-born', t('night')]
       ].sort((a, b) => b[1] - a[1]);
       const adj = adjs[0][1] > 0.18 ? adjs[0][0] + ' ' : '';
-      return (val < 12 ? '' : 'the ') + adj + noun;
+      if (val < 12) return adj ? 'the ' + adj + 'Stranger' : 'Nobody in Particular';
+      return 'the ' + adj + noun;
     },
     // A biography assembled from what they actually did.
     biography(world, pl) {
@@ -101,15 +102,15 @@
       lines.push(`Known for ${SKILLS[sk[0][0]].name.toLowerCase()} (${Math.round(sk[0][1])}) and ${SKILLS[sk[1][0]].name.toLowerCase()} (${Math.round(sk[1][1])}).`);
       const t = k => Ch.tendency(pl, k);
       const notes = [];
-      if (t('aggression') > 0.25) notes.push('strikes first and keeps striking — quicker hands, thinner guard');
-      if (t('caution') > 0.25) notes.push('waits for openings; guards cost less');
-      if (t('reckless') > 0.2) notes.push('pours more into each spell than is safe — great power, unstable flame');
-      if (t('protect') > 0.2) notes.push('stands between the weak and harm, and people have noticed');
-      if (t('betrayal') > 0.15) notes.push('has broken faith before, and strangers whisper about it');
-      if (t('cruelty') > 0.2) notes.push('shows little mercy');
-      if (t('mercy') > 0.2) notes.push('spares those who yield');
-      if (t('curiosity') > 0.2) notes.push('stops to study what others only kill');
-      if (t('night') > 0.25) notes.push('does their work after dark');
+      if (t('aggression') > 0.25) notes.push('strike first and keep striking — quicker hands, thinner guard');
+      if (t('caution') > 0.25) notes.push('wait for openings; guarding costs them little');
+      if (t('reckless') > 0.2) notes.push('pour more into each spell than is safe — great power, unstable flame');
+      if (t('protect') > 0.2) notes.push('stand between the weak and harm, and people have noticed');
+      if (t('betrayal') > 0.15) notes.push('have broken faith before, and strangers whisper about it');
+      if (t('cruelty') > 0.2) notes.push('show little mercy');
+      if (t('mercy') > 0.2) notes.push('spare those who yield');
+      if (t('curiosity') > 0.2) notes.push('stop to study what others only kill');
+      if (t('night') > 0.25) notes.push('do their work after dark');
       if (notes.length) lines.push('They ' + U.listJoin(notes) + '.');
       const kills = Object.entries(pl.kills).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${v} ${k}`);
       if (kills.length) lines.push('Has killed ' + U.listJoin(kills) + '.');

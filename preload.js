@@ -9,5 +9,7 @@ contextBridge.exposeInMainWorld('echoNative', {
   saveWorld: (id, json, meta) => ipcRenderer.invoke('worlds:save', id, json, meta),
   deleteWorld: (id) => ipcRenderer.invoke('worlds:delete', id),
   quit: () => ipcRenderer.invoke('app:quit'),
-  toggleFullscreen: () => ipcRenderer.invoke('app:toggleFullscreen')
+  toggleFullscreen: () => ipcRenderer.invoke('app:toggleFullscreen'),
+  onBeforeClose: (cb) => ipcRenderer.on('app:beforeClose', () => cb()),
+  closeNow: () => ipcRenderer.invoke('app:closeNow')
 });

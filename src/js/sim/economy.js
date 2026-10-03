@@ -83,6 +83,11 @@
           s.hunger = U.clamp(s.hunger * 0.5 + short * 0.7, 0, 1);
         }
         s.stock.food *= 0.99;
+        // Vermin raid the granaries too — worst in winter.
+        if (region.eco) {
+          const load = region.eco.gnawer / Math.max(1, ECHO.Ecology.capacity(region).gnawer);
+          if (load > 0.4) s.stock.food *= 1 - Math.min(0.04, (load - 0.4) * 0.025 * (season === 3 ? 2 : 1));
+        }
         s.stock.arms = Math.max(0, s.stock.arms - s.garrison * 0.012);
         s.stock.herbs *= 0.995;
         // --- Famine bookkeeping
