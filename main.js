@@ -45,6 +45,7 @@ function createWindow() {
   ipcMain.removeHandler('app:closeNow');
   ipcMain.handle('app:closeNow', () => { if (!win.isDestroyed()) win.destroy(); });
   win.loadFile(path.join(__dirname, 'src', 'index.html'));
+  if (process.env.ECHO_SMOKE) smokeTest(win);
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
@@ -58,6 +59,44 @@ function createWindow() {
       win.webContents.toggleDevTools();
       event.preventDefault();
     }
+  });
+}
+
+// ---- Smoke test (CI): launch, play a little, save, reload, quit -------------
+function smokeTest(win) {
+  const errors = [];
+  win.webContents.on('console-message', (e, ...args) => {
+    const level = e && e.level != null ? e.level : args[0];
+    const message = e && e.message != null ? e.message : args[1];
+    if (level === 'error' || level === 3) errors.push(String(message));
+  });
+  win.webContents.once('did-finish-load', async () => {
+    let result;
+    try {
+      result = await win.webContents.executeJavaScript(`(async () => {
+        const wait = ms => new Promise(r => setTimeout(r, ms));
+        for (let i = 0; i < 100 && !document.querySelector('button[data-a=new]'); i++) await wait(100);
+        if (!window.echoNative) return { ok: false, why: 'native bridge missing' };
+        const world = ECHO.generateWorld({ seed: 4242, name: 'Smoke', id: 'smoke' });
+        await ECHO.Save.save(world);
+        ECHO.Screens.begin(world, 'Tester', world.settlements[0].id, null, false);
+        await wait(5000);
+        const ents = ECHO.Game.ents.length;
+        await ECHO.Game.save();
+        const list = await ECHO.Save.list();
+        const loaded = await ECHO.Save.load('smoke');
+        await window.echoNative.deleteWorld('smoke');
+        const fonts = document.fonts ? document.fonts.check('16px "Pixelify Sans"') : null;
+        return { ok: ents > 5 && list.some(m => m.id === 'smoke') && !!loaded && !!loaded.player && loaded.player.first === 'Tester', ents, worlds: list.length, day: loaded && loaded.day, fonts };
+      })()`);
+    } catch (err) { result = { ok: false, why: String(err) }; }
+    const ok = result && result.ok && errors.length === 0;
+    console.log('SMOKE RESULT', JSON.stringify(result), 'errors:', JSON.stringify(errors.slice(0, 10)));
+    try {
+      const img = await win.webContents.capturePage();
+      fs.writeFileSync(path.join(process.cwd(), 'smoke.png'), img.toPNG());
+    } catch (e) { /* screenshot optional */ }
+    app.exit(ok ? 0 : 1);
   });
 }
 

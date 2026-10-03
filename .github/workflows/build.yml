@@ -27,8 +27,32 @@ jobs:
       - name: Simulation tests
         run: node tests/run-tests.js
 
-  build:
+  smoke:
+    # Launch the real Electron app headless: create a world, play, save, reload.
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Launch the desktop app
+        run: timeout 180 xvfb-run -a npx electron . --no-sandbox
+        env:
+          ECHO_SMOKE: '1'
+      - name: Screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screenshot
+          path: smoke.png
+          if-no-files-found: ignore
+
+  build:
+    needs: [test, smoke]
     strategy:
       fail-fast: false
       matrix:
