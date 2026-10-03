@@ -91,7 +91,8 @@ function smokeTest(win) {
       })()`);
     } catch (err) { result = { ok: false, why: String(err) }; }
     const ok = result && result.ok && errors.length === 0;
-    console.log('SMOKE RESULT', JSON.stringify(result), 'errors:', JSON.stringify(errors.slice(0, 10)));
+    const line = `${JSON.stringify(result)} errors=${JSON.stringify(errors.slice(0, 5))}`.replace(/[\r\n]+/g, ' ');
+    console.log(ok ? `::notice title=Smoke test passed::${line}` : `::error title=Smoke test failed::${line}`);
     try {
       const img = await win.webContents.capturePage();
       fs.writeFileSync(path.join(process.cwd(), 'smoke.png'), img.toPNG());
