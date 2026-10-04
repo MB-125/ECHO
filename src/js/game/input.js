@@ -18,7 +18,7 @@
       });
       window.addEventListener('blur', () => { In.down.clear(); In.mdown = [false, false, false]; });
       el.addEventListener('mousemove', e => { In.mx = e.clientX; In.my = e.clientY; });
-      el.addEventListener('mousedown', e => { In.mdown[e.button] = true; In.mpressed[e.button] = true; });
+      el.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); In.mdown[e.button] = true; In.mpressed[e.button] = true; });
       window.addEventListener('mouseup', e => { if (In.mdown[e.button]) In.mreleased[e.button] = true; In.mdown[e.button] = false; });
       el.addEventListener('contextmenu', e => e.preventDefault());
       el.addEventListener('wheel', e => { In.wheel += Math.sign(e.deltaY); }, { passive: true });

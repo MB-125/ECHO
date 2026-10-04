@@ -9,7 +9,7 @@
     derived: null, derivedT: 0, draw: 0, drawing: false, charge: 0, charging: false,
     dodgeT: 0, dodgeDir: 0, studyT: 0, studyTarget: null, eatT: 0, sneaking: false,
 
-    reset() { PC.combo = 0; PC.comboT = 9; PC.atkBuf = 0; PC.holdT = 0; PC.heavyHold = false; PC.lungeT = 0; PC.dodgeBuf = 0; PC.derived = null; PC.draw = 0; PC.drawing = false; PC.charge = 0; PC.charging = false; PC.dodgeT = 0; PC.studyT = 0; PC.studyTarget = null; },
+    reset() { PC.combo = 0; PC.comboT = 9; PC.atkBuf = 0; PC.holdT = 0; PC.heavyHold = false; PC.lungeT = 0; PC.dodgeBuf = 0; PC.derived = null; PC.draw = 0; PC.drawing = false; PC.charge = 0; PC.charging = false; PC.dodgeT = 0; PC.studyT = 0; PC.studyTarget = null; PC.lock = null; },
 
     computeDerived(game) {
       const pl = game.pl;
@@ -45,7 +45,18 @@
       if (!PC.derived || PC.derivedT <= 0) { PC.computeDerived(game); PC.derivedT = 1; }
       const D = PC.derived;
       const mouse = game.screenToWorld(In.mx, In.my);
-      const aim = Math.atan2(mouse.y - (pe.y - 0.3), mouse.x - pe.x);
+      let aim = Math.atan2(mouse.y - (pe.y - 0.3), mouse.x - pe.x);
+      // ---- Target lock (R or middle mouse): you always face and aim at the target
+      if ((In.hit('r') || In.mpressed[1]) && !game.ui.blocksWorld()) {
+        if (PC.lock) PC.unlock(game, true);
+        else PC.acquire(game, mouse);
+      }
+      if (PC.lock && !PC.lockValid(game, PC.lock)) {
+        const next = PC.findTarget(game, pe.x, pe.y, 9);
+        PC.lock = next;
+        if (!next) PC.unlock(game, false);
+      }
+      if (PC.lock) aim = Math.atan2(PC.lock.y - pe.y, PC.lock.x - pe.x);
       pe.stamina = pl.stamina; pe.maxSta = pl.maxSta;
       pe.cd = Math.max(0, pe.cd - dt);
       pe.iframes = Math.max(0, pe.iframes - dt);
@@ -89,6 +100,7 @@
       }
       // Face the mouse when fighting, otherwise movement.
       if (pe.attackT > 0) { /* keep the swing's facing */ }
+      else if (PC.lock && PC.dodgeT <= 0) pe.dir = aim; // locked on: strafe, always facing the target
       else if (pe.blocking || PC.drawing || PC.charging || PC.heavyHold || pe.cd > 0.1) pe.dir = aim;
       else if (len) pe.dir = Math.atan2(my, mx);
       pe.flip = Math.cos(pe.dir) < 0;
@@ -211,6 +223,40 @@
       pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40) * dt);
       if (game.time - (game.lastHurtTime || -99) > 8) pl.hp = Math.min(pl.maxHp, pl.hp + 0.5 * dt);
       pe.hp = pl.hp; pe.maxHp = pl.maxHp;
+    },
+
+    // ---- Target lock
+    lockable(game, e) {
+      return e && !e.dead && !e.vanish && !e.hidden && !e.ghost && e !== game.pe && !e.isCompanion &&
+        (e.type === 'boss' || (e.type === 'creature' && e.species !== 'hare') || game.hostileTo(game.pe, e));
+    },
+    lockValid(game, e) {
+      return PC.lockable(game, e) && game.ents.includes(e) && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 18;
+    },
+    // Best target: what the cursor is on, else the nearest threat.
+    findTarget(game, x, y, range, mouse) {
+      const pe = game.pe;
+      let best = null, bs = Infinity;
+      for (const e of game.ents) {
+        if (!PC.lockable(game, e)) continue;
+        const d = U.dist(e.x, e.y, pe.x, pe.y);
+        if (d > range) continue;
+        let sc = U.dist(e.x, e.y, x, y);
+        if (mouse) sc = Math.min(sc, U.dist(e.x, e.y, mouse.x, mouse.y) * 0.6 + d * 0.15);
+        if (e.type === 'boss') sc -= 2;
+        if (sc < bs) { bs = sc; best = e; }
+      }
+      return best;
+    },
+    acquire(game, mouse) {
+      const t = PC.findTarget(game, game.pe.x, game.pe.y, 14, mouse);
+      if (!t) { ECHO.Combat.floater(game.pe.x, game.pe.y - 1.1, 'no target', '#c8c0a8'); return; }
+      PC.lock = t;
+      ECHO.Sfx.play('block', { pitch: 1.6, vol: 0.35 });
+    },
+    unlock(game, manual) {
+      if (PC.lock || manual) ECHO.Sfx.play('dodge', { pitch: 1.4, vol: 0.3 });
+      PC.lock = null;
     },
 
     // Soft aim-assist: the nearest foe within a cone around where you aim.

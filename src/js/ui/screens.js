@@ -108,7 +108,7 @@
     },
     help() {
       const el = Scr.show(`${Scr.logo()}<div class="panel-inner" style="margin:0 auto"><div class="panel-body prose" style="font-size:18px">
-<b>Controls.</b> WASD to move. Left mouse strikes, right mouse draws and looses the bow (hold to draw), Q casts flame (hold to pour more into it — at your peril). Shift raises your guard; tap it just as a blow lands for a perfect guard. Space dodges. Hold Ctrl to sneak (you must sneak to strike someone who isn't your enemy). F studies a creature. E interacts. H eats, G uses herbs. Tab opens the journal, M the map, K your character, Esc the menu.
+<b>Controls.</b> WASD to move. Left mouse strikes, right mouse draws and looses the bow (hold to draw), Q casts flame (hold to pour more into it — at your peril). Shift raises your guard; tap it just as a blow lands for a perfect guard. Space dodges. R (or the middle mouse button) locks onto a foe so you always face it; press again to release. Hold Ctrl to sneak (you must sneak to strike someone who isn't your enemy). F studies a creature. E interacts. H eats, G uses herbs. Tab opens the journal, M the map, K your character, Esc the menu.
 
 <b>The world.</b> Everyone in ECHO is a real, persistent person who lives whether or not you're watching. Kingdoms grow hungry and go to war. Outlaws raid and take captives. Merchants chase profit and flee danger. Beasts multiply or starve. Your actions ripple — but no one will tell you which ripple was yours.
 

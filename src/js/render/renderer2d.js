@@ -172,6 +172,7 @@
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       for (const o of objs) o.draw();
       // Projectiles & effects
+      R.drawLock(game);
       R.drawFx(game);
       // Lighting
       R.drawLighting(game, dt);
@@ -206,8 +207,22 @@
       objs.sort((a, b) => a.y - b.y);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       for (const o of objs) o.draw();
+      R.drawLock(game);
       R.drawFx(game);
       R.drawLabels(game);
+    },
+    drawLock(game) {
+      const e = ECHO.PlayerCtl.lock;
+      if (!e) return;
+      const ctx = R.ctx, Z = R.Z, p = R.toScreen(game, e.x, e.y);
+      const rr = (e.type === 'boss' ? 30 : 11) * Z, t = game.time * 3;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.strokeStyle = 'rgba(255,90,60,0.9)'; ctx.lineWidth = 2 * Z;
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, rr, rr * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#ff5a3c';
+      for (let i = 0; i < 4; i++) { const a = t + i * Math.PI / 2, x = p.x + Math.cos(a) * (rr + 4 * Z), y = p.y + Math.sin(a) * (rr + 4 * Z) * 0.5; ctx.fillRect(x - 2 * Z, y - 2 * Z, 4 * Z, 4 * Z); }
+      const top = p.y - (e.type === 'boss' ? 60 : e.type === 'creature' ? 22 : 34) * Z + Math.sin(t * 2) * 2 * Z;
+      ctx.beginPath(); ctx.moveTo(p.x - 5 * Z, top - 6 * Z); ctx.lineTo(p.x + 5 * Z, top - 6 * Z); ctx.lineTo(p.x, top); ctx.closePath(); ctx.fill();
     },
     shade(hex) { const n = parseInt(hex.slice(1), 16); const f = c => Math.max(0, Math.round(c * 0.92)); return '#' + ((f(n >> 16) << 16) | (f((n >> 8) & 255) << 8) | f(n & 255)).toString(16).padStart(6, '0'); },
     img(game, canvas, x, y, ax, ay, flip) {

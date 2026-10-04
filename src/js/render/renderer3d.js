@@ -886,6 +886,29 @@
         }
       }
       for (const [f, m] of R.fxMeshes) if (!live.has(f) || f.done && f.kind !== 'tele') { R.groups.fx.remove(m); m.geometry.dispose(); m.material.dispose(); if (m.userData.inner) { m.userData.inner.geometry.dispose(); } R.fxMeshes.delete(f); }
+      // Target-lock marker: a turning ring of four arrowheads under the target
+      const lk = ECHO.PlayerCtl.lock;
+      if (!R.lockMesh) {
+        const g = new THREE.Group();
+        const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.7, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff5a3c', transparent: true, opacity: 0.85, depthWrite: false }));
+        g.add(ring);
+        for (let i = 0; i < 4; i++) {
+          const tri = new THREE.Mesh(new THREE.CircleGeometry(0.16, 3).rotateX(-Math.PI / 2), ring.material);
+          const a = i * Math.PI / 2;
+          tri.position.set(Math.cos(a) * 0.86, 0, Math.sin(a) * 0.86);
+          tri.rotation.y = -a + Math.PI;
+          g.add(tri);
+        }
+        g.renderOrder = 3;
+        R.lockMesh = g; R.scene.add(g);
+      }
+      R.lockMesh.visible = !!lk;
+      if (lk) {
+        const sc = lk.type === 'boss' ? 2.6 : lk.species === 'gnawer' ? 0.7 : 1.05;
+        R.lockMesh.position.set(lk.x, R.groundH(lk.x, lk.y) + 0.06, lk.y);
+        R.lockMesh.rotation.y = R.time * 1.6;
+        R.lockMesh.scale.setScalar(sc * (1 + Math.sin(R.time * 6) * 0.04));
+      }
       // Projectiles
       const pl = new Set();
       for (const p of ECHO.Combat.proj) {
@@ -1036,6 +1059,8 @@
       const pe = game.pe;
       let tx = pe ? pe.x : game.cam.x, ty = pe ? pe.y : game.cam.y;
       const rm = ECHO.Interior && ECHO.Interior.cur;
+      const lk = ECHO.PlayerCtl.lock;
+      if (lk && pe && !rm) { tx = U.lerp(tx, lk.x, 0.3); ty = U.lerp(ty, lk.y, 0.3); }
       if (rm) { // frame the room rather than the player alone
         const cx = ECHO.Interior.BASE + rm.W / 2, cy = rm.H / 2;
         tx = U.lerp(tx, cx, rm.W > 12 ? 0.25 : 0.6); ty = U.lerp(ty, cy, 0.55) + 0.6;
@@ -1131,7 +1156,7 @@
         const p = R.project(e.x, e.y, h);
         const hover = U.dist(mouse.x, mouse.y, e.x, e.y) < 0.9;
         // health bar for wounded foes
-        if (e.type !== 'boss' && e.hp < e.maxHp) {
+        if (e.type !== 'boss' && (e.hp < e.maxHp || e === ECHO.PlayerCtl.lock)) {
           const w = 34 * R.dpr, bh = 4 * R.dpr;
           ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - w / 2, p.y - bh, w, bh);
           ctx.fillStyle = game.hostileTo(game.pe, e) ? '#d8463a' : '#c8b46a'; ctx.fillRect(p.x - w / 2, p.y - bh, w * Math.max(0, e.hp / e.maxHp), bh);
@@ -1172,6 +1197,15 @@
         text(f.text, p.x, p.y, f.color);
         ctx.font = `${fs}px "Pixelify Sans", monospace`;
         ctx.globalAlpha = 1;
+      }
+      // a chevron over the locked target
+      const lkt = ECHO.PlayerCtl.lock;
+      if (lkt && R.onScreen(game, lkt.x, lkt.y)) {
+        const h = lkt.type === 'boss' ? 3.9 : lkt.type === 'creature' ? (lkt.species === 'wolf' ? 1.25 : 0.85) : 1.55;
+        const p = R.project(lkt.x, lkt.y, h);
+        const b = Math.sin(R.time * 6) * 3 * R.dpr, w = 9 * R.dpr;
+        ctx.fillStyle = '#ff5a3c'; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 2 * R.dpr;
+        ctx.beginPath(); ctx.moveTo(p.x - w, p.y - 14 * R.dpr + b); ctx.lineTo(p.x + w, p.y - 14 * R.dpr + b); ctx.lineTo(p.x, p.y - 2 * R.dpr + b); ctx.closePath(); ctx.stroke(); ctx.fill();
       }
       // pain: a red vignette when hit, a slow pulse when near death
       if (game.pl) {

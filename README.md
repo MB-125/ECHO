@@ -81,6 +81,7 @@ npm start
 | **Q** (hold) | flame — hold longer for a bigger blast; holding past full *overcharges* it, which is stronger but can turn on you or cost blood when mana runs dry |
 | **Shift** | guard (tap just as a blow lands for a perfect guard) |
 | **Space** | dodge |
+| **R** / middle mouse | lock onto a target — you always face and aim at it; press again to release (switches to the next foe when it falls) |
 | **Ctrl** | sneak — also required to strike someone who isn't your enemy |
 | **F** (hold) | study a creature or boss |
 | **E** | talk / interact / enter and leave buildings |
