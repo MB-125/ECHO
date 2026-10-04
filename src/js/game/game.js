@@ -414,22 +414,28 @@
         out.sort((a, b) => a.d - b.d);
         return out;
       }
-      const s = ECHO.World.settlementAt(world, pe.x, pe.y, 16);
-      if (s) for (const b of s.buildings) {
+      // every town close enough (outlying houses can sit nearer another town's centre)
+      for (const s of world.settlements) if (Math.abs(s.x - pe.x) < 30 && Math.abs(s.y - pe.y) < 30) for (const b of s.buildings) {
+        if (Math.abs(b.x - pe.x) > 8 || Math.abs(b.y - pe.y) > 8) continue;
         const door = { x: b.x + b.w / 2, y: b.y + b.h + 0.3 };
         const labels = { inn: 'Enter the inn — beds, meals', market: 'Visit the market — arrows, food, herbs', smithy: 'Enter the smithy — weapons, arrows', archive: 'Enter the archive', shrine: 'Enter the shrine', temple: 'Enter the temple', keep: 'Enter the keep', board: 'Read the notice board', statue: 'Read the plaque', well: null, lamp: null };
-        if (b.type === 'house') {
-          if (near(door.x, door.y)) out.push({ kind: 'enter', b, s, label: b.legend ? `Enter the house of ${(ECHO.Legacy.legendOf(world, b.legend) || {}).name || 'a legend'}` : b.owner === Game.pl.charId ? 'Enter your house' : 'Enter the house', d: U.dist(door.x, door.y, pe.x, pe.y) });
-          continue;
-        }
-        if (ECHO.Interior.enterable(b)) {
-          if (near(door.x, door.y, 1.9)) out.push({ kind: 'enter', b, s, label: labels[b.type], d: U.dist(door.x, door.y, pe.x, pe.y) });
+        // Doors are forgiving: stand against any wall of a building (or near its
+        // door) and you can go in — no need to walk round to the front.
+        if (b.type === 'house' || ECHO.Interior.enterable(b)) {
+          const ex = Math.max(b.x - pe.x, 0, pe.x - (b.x + b.w)), ey = Math.max(b.y - pe.y, 0, pe.y - (b.y + b.h));
+          const edge = Math.hypot(ex, ey), dd = U.dist(door.x, door.y, pe.x, pe.y);
+          if (edge < 1.15 || dd < 2.2) {
+            const label = b.type === 'house' ? (b.legend ? `Enter the house of ${(ECHO.Legacy.legendOf(world, b.legend) || {}).name || 'a legend'}` : b.owner === Game.pl.charId ? 'Enter your house' : 'Enter the house') : labels[b.type];
+            out.push({ kind: 'enter', b, s, label, d: Math.min(edge, dd) * 0.55 + 0.05 });
+          }
           continue;
         }
         const lab = labels[b.type];
         if (!lab) continue;
         const pt = b.type === 'board' || b.type === 'statue' ? { x: b.x + 0.5, y: b.y + 1.2 } : door;
-        if (near(pt.x, pt.y)) out.push({ kind: 'building', b, s, label: lab, d: U.dist(pt.x, pt.y, pe.x, pe.y) });
+        const ex = Math.max(b.x - pe.x, 0, pe.x - (b.x + b.w)), ey = Math.max(b.y - pe.y, 0, pe.y - (b.y + b.h));
+        const edge = Math.hypot(ex, ey), dd = U.dist(pt.x, pt.y, pe.x, pe.y);
+        if (dd < 1.9 || edge < 1.0) out.push({ kind: 'building', b, s, label: lab, d: Math.min(edge, dd) * 0.6 + 0.05 });
       }
       for (const l of Game.loot) if (l.kind === 'item' && near(l.x, l.y, 1.3)) out.push({ kind: 'item', loot: l, label: `Take ${world.items[l.itemId] ? world.items[l.itemId].name : 'item'}`, d: U.dist(l.x, l.y, pe.x, pe.y) });
       for (const it of Object.values(world.items)) if (!it.holder && it.droppedAt && near(it.droppedAt.x, it.droppedAt.y, 1.3) && !Game.loot.some(l => l.itemId === it.id)) Game.loot.push({ x: it.droppedAt.x, y: it.droppedAt.y, kind: 'item', itemId: it.id, qty: 1 });
