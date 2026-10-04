@@ -172,18 +172,41 @@
     },
     door(b) { return { x: b.x + b.w / 2, y: b.y + b.h + 0.4 }; },
     building(s, type) { return s.buildings.find(b => b.type === type); },
-    target(game, e, npc, minute) {
+    target(game, e, npc, minute, salt = 0) {
       const world = game.world;
       const s = ECHO.Sim.settlement(world, npc.loc);
       if (!s) return null;
       const hour = minute / 60;
       const h = ECHO.hashStr(npc.id);
       const house = Sched.houseOf(game, s, npc);
-      const rnd = (k) => ECHO.hash2(h, Math.floor(hour) + k, world.day);
+      const rnd = (k) => ECHO.hash2(h, Math.floor(hour) + k + salt * 17, world.day);
       const around = (x, y, r) => ({ x: x + (rnd(1) - 0.5) * r * 2, y: y + (rnd(2) - 0.5) * r * 2 });
       const night = hour < 6 || hour >= 22;
       const guardNight = npc.prof === 'guard' && (h % 3 === 0 || ECHO.Civ.has(world, s.faction, 'lamps'));
-      if (night && !guardNight) return house ? { ...Sched.door(house), inside: true } : around(s.x, s.y, 2);
+      const home = house ? { ...Sched.door(house), inside: true } : null;
+      if (night && !guardNight) return home ? { ...home, why: 'sleep' } : around(s.x, s.y, 2);
+      // ---- Aware of their own state and of the world around them.
+      const wx = ECHO.Weather ? ECHO.Weather.here(world, s.x, s.y) : null;
+      const sky = wx ? wx.today : 'clear';
+      const wet = sky === 'rain' || sky === 'snow', wild = sky === 'storm' || sky === 'blizzard';
+      const inn = Sched.building(s, 'inn');
+      const shelter = (why) => (inn && rnd(8) < 0.45 && npc.prof !== 'child' ? { ...Sched.door(inn), inside: true, why } : home ? { ...home, why } : null);
+      const healer = Sched.building(s, 'temple') || Sched.building(s, 'shrine');
+      // the sick keep to their beds, save a morning visit to the healers
+      if (npc.sick && home) {
+        if (healer && hour >= 9 && hour < 10.5) return { ...Sched.door(healer), inside: true, why: 'healer' };
+        return { ...home, why: 'sick' };
+      }
+      // the badly hurt go to be tended
+      if (e && e.hp < e.maxHp * 0.45 && npc.prof !== 'guard') { const t = healer ? { ...Sched.door(healer), inside: true } : home; if (t) return { ...t, why: 'hurt' }; }
+      // nobody but the watch stays out in a storm
+      if (wild && npc.prof !== 'guard') { const t = shelter('storm'); if (t) return t; }
+      // a bitter winter sends people home early
+      if (wx && wx.harsh && hour >= 17 && home && npc.prof !== 'guard') return { ...home, why: 'cold' };
+      // the hungry go looking for bread
+      if (npc.starve > 2 && hour >= 8 && hour < 11) { const m = Sched.building(s, 'market'); if (m) { const d = Sched.door(m); return { ...around(d.x, d.y + 0.6, 1.4), why: 'hungry' }; } }
+      // idling about town — under a roof when it rains
+      const loiter = (x, y, r) => (wet && (npc.prof === 'child' || npc.prof === 'elder' || rnd(9) < 0.7) && shelter('rain')) || around(x, y, r);
       // What's on their mind shapes their day.
       const mind = npc.mind, goal = mind && mind.goal;
       const afraid = mind && mind.v && mind.v.safety < 0.45 && npc.prof !== 'guard' && !npc.traits.includes('brave');
@@ -197,9 +220,8 @@
       const longDay = goal && goal.kind === 'prosper' && hour >= 18 && hour < 20;           // saving up: working late
       if (!longDay && (hour < 7.5 || (hour >= 18 && hour < 22))) {
         // Mornings and evenings: plaza, well, inn.
-        const inn = Sched.building(s, 'inn');
-        if (hour >= 18 && inn && rnd(3) < 0.5 && npc.prof !== 'child') return { ...Sched.door(inn), x: Sched.door(inn).x + (rnd(4) - 0.5) * 3 };
-        return around(s.x, s.y + 1, 3.5);
+        if (hour >= 18 && inn && rnd(3) < (wet ? 0.85 : 0.5) && npc.prof !== 'child') return wet ? { ...Sched.door(inn), inside: true, why: 'rain' } : { ...Sched.door(inn), x: Sched.door(inn).x + (rnd(4) - 0.5) * 3 };
+        return loiter(s.x, s.y + 1, 3.5);
       }
       const at = (type, r = 1.2) => { const b = Sched.building(s, type); if (!b) return around(s.x, s.y, 3); const d = Sched.door(b); return around(d.x, d.y + 0.4, r); };
       switch (npc.prof) {
@@ -233,10 +255,10 @@
           const r = 6 + (h % 4);
           return { x: s.x + Math.cos(a) * r, y: s.y + Math.sin(a) * r };
         }
-        case 'child': return around(s.x, s.y, 4);
-        case 'elder': { const w = Sched.building(s, 'well'); return w ? around(w.x + 0.5, w.y + 1.5, 1.5) : around(s.x, s.y, 2); }
+        case 'child': return loiter(s.x, s.y, 4);
+        case 'elder': { const w = Sched.building(s, 'well'); return wet ? loiter(s.x, s.y, 2) : w ? around(w.x + 0.5, w.y + 1.5, 1.5) : around(s.x, s.y, 2); }
         case 'wanderer': return at('inn', 2);
-        default: return around(s.x, s.y, 4);
+        default: return loiter(s.x, s.y, 4);
       }
     }
   };
@@ -354,7 +376,9 @@
           e.fleeDoor = best || 'none';
         }
         if (e.fleeDoor && e.fleeDoor !== 'none') {
-          if (ECHO.Ent.travel(world, e, e.fleeDoor.x, e.fleeDoor.y, e.speed * 1.3, dt)) {
+          const safe = ECHO.Ent.travel(world, e, e.fleeDoor.x, e.fleeDoor.y, e.speed * 1.3, dt);
+          if (e.navFail) { e.navFail = false; e.fleeDoor = 'none'; return; }   // that door's cut off: just run
+          if (safe) {
             e.hidden = true; e.shelterT = 12 + Math.random() * 10; e.fleeDoor = null; e.goal = null; e.target = null; e.state = 'idle';
           }
           if (e.sayT <= 0 && Math.random() < dt * 0.6) { e.say = threat.type === 'creature' || threat.type === 'boss' ? 'Get inside! Get inside!' : threat.type === 'player' ? 'Stay away from me!' : 'Help! Guards!'; e.sayT = 1.6; }
@@ -483,16 +507,84 @@
       e.schedT = (e.schedT || 0) - dt;
       if (e.schedT <= 0 || !e.goal) {
         e.schedT = 6 + Math.random() * 6;
-        e.goal = Sched.target(game, e, npc, world.minute);
+        const g = Sched.target(game, e, npc, world.minute, e._salt || 0);
+        // a new reason to go somewhere: forget yesterday's dead ends
+        if (!e.goal || !g || g.why !== e.goal.why || U.dist(g.x, g.y, e.goal.x, e.goal.y) > 2) e._fails = 0;
+        e.goal = g;
       }
       if (!e.goal) return;
-      const arrived = ECHO.Ent.travel(world, e, e.goal.x, e.goal.y, e.speed * 0.55, dt);
+      // Can't get there (walled off, blocked, no way round)? Don't shove at it —
+      // think again and pick somewhere else, or stand and wait a little.
+      if (e.navFail) {
+        e.navFail = false; e.path = null; e.stuck = 0; e.moving = false; e._navKey = null;
+        e._fails = (e._fails || 0) + 1;
+        e._salt = (e._salt || 0) + 1;
+        if (e.goal.inside && e._fails <= 2) { e.goal = { ...e.goal, inside: false }; }  // at least wait by the door
+        if (e._fails >= 3) { e.goal = null; e.schedT = 3 + Math.random() * 4; return; }
+        e.goal = Sched.target(game, e, npc, world.minute, e._salt) || e.goal;
+        if (e._fails >= 2) e.goal = { x: e.x + (Math.random() - 0.5) * 3, y: e.y + (Math.random() - 0.5) * 3 };
+        return;
+      }
+      // Mind the folk in the way: step round someone standing in your path.
+      Person.courtesy(game, e, dt);
+      const arrived = ECHO.Ent.travel(world, e, e.goal.x + (e._sideX || 0), e.goal.y + (e._sideY || 0), e.speed * (e.goal.why === 'storm' || e.goal.why === 'rain' ? 0.75 : 0.55), dt);
       if (arrived) {
-        e.moving = false;
+        e.moving = false; e._fails = 0;
         if (e.goal.inside) e.hidden = true;
+        else Person.settle(game, e, npc, dt);
         // Fidget at the goal
-        if (Math.random() < dt * 0.08) e.goal = { x: e.goal.x + (Math.random() - 0.5) * 2.5, y: e.goal.y + (Math.random() - 0.5) * 1.6, inside: e.goal.inside };
+        if (Math.random() < dt * 0.08) e.goal = { x: e.goal.x + (Math.random() - 0.5) * 2.5, y: e.goal.y + (Math.random() - 0.5) * 1.6, inside: e.goal.inside, why: e.goal.why };
       } else e.hidden = false;
+      // A word now and then about why they're hurrying.
+      if (!arrived && e.goal.why && e.sayT <= 0 && game.pe && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 7 && Math.random() < dt * 0.04) {
+        const L = { rain: ['Out of this rain…', 'Soaked through, again.'], storm: ['Get indoors — it\'s a wild one!', 'Gods, this wind!'], sick: ['*cough* … need to lie down.', 'I feel terrible.'], healer: ['Going to see the healers.'], hurt: ['Need these wounds seen to…'], cold: ['Too cold to be out.', 'Home, and a fire.'], hungry: ['There must be bread somewhere.', 'Haven\'t eaten in days.'], sleep: ['Late. Home to bed.'] }[e.goal.why];
+        if (L) { e.say = L[Math.floor(Math.random() * L.length)]; e.sayT = 2.5; }
+      }
+    },
+
+    // Someone standing right in the way: step to one side rather than walk into them.
+    courtesy(game, e, dt) {
+      if ((e._sideT = (e._sideT || 0) - dt) > 0) return;
+      e._sideT = 0.35;
+      e._sideX = 0; e._sideY = 0;
+      if (!e.moving) return;
+      const fx = Math.cos(e.dir), fy = Math.sin(e.dir);
+      for (const o of game.ents) {
+        if (o === e || o.dead || o.hidden || o.type === 'creature') continue;
+        const dx = o.x - e.x, dy = o.y - e.y;
+        const ahead = dx * fx + dy * fy;
+        if (ahead < 0.2 || ahead > 1.4) continue;
+        const side = -dx * fy + dy * fx;
+        if (Math.abs(side) > 0.7) continue;
+        // pass on the side away from them, if there's room there
+        const sgn = side > 0 ? -1 : 1;
+        const sx = -fy * sgn * 0.9, sy = fx * sgn * 0.9;
+        if (ECHO.Ent.fits(game.world, e.x + sx, e.y + sy)) { e._sideX = sx; e._sideY = sy; e._sideT = 0.7; }
+        return;
+      }
+    },
+
+    // Arrived somewhere: face something sensible — the person you came to talk
+    // to, the stall you're minding, the street — instead of a blank wall.
+    settle(game, e, npc, dt) {
+      if ((e._faceT = (e._faceT || 0) - dt) > 0) return;
+      e._faceT = 2 + Math.random() * 3;
+      let best = null, bd = 2.6;
+      for (const o of game.ents) {
+        if (o === e || o.dead || o.hidden || o.type !== 'person' && o.type !== 'player') continue;
+        const d = U.dist(e.x, e.y, o.x, o.y);
+        if (d < bd && (o.type === 'player' || !o.moving)) { bd = d; best = o; }
+      }
+      if (best) { e.dir = Math.atan2(best.y - e.y, best.x - e.x); e.flip = Math.cos(e.dir) < 0; return; }
+      // otherwise, if staring at a wall, turn to the way with the most open ground
+      const openAt = a => { let n = 0; for (let k = 1; k <= 4; k++) if (!ECHO.World.isSolid(game.world, e.x + Math.cos(a) * k * 0.7, e.y + Math.sin(a) * k * 0.7)) n++; else break; return n; };
+      if (openAt(e.dir) >= 3) return;
+      let ba = e.dir, bo = -1;
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4, open = openAt(a);
+        if (open > bo) { bo = open; ba = a; }
+      }
+      e.dir = ba; e.flip = Math.cos(ba) < 0;
     },
 
     chatter(game, e, npc, dt) {
@@ -524,7 +616,7 @@
         if (want && (!e.goal || U.dist(want.x, want.y, e.goal.x, e.goal.y) > 1.2)) e.goal = want; // follow, don't shadow every step
       }
       if (ECHO.Ent.travel(world, e, e.goal.x, e.goal.y, e.speed * 0.45, dt)) e.moving = false;
-      if ((e.stuck || 0) > 0.8) { e.goal = null; e.path = null; e.stuck = 0; e.moving = false; e.schedT = 2 + Math.random() * 3; } // can't get there: stand a while
+      if ((e.stuck || 0) > 0.8 || e.navFail) { e.navFail = false; e.goal = null; e.path = null; e.stuck = 0; e.moving = false; e.schedT = 2 + Math.random() * 3; } // can't get there: stand a while
       Person.chatter(game, e, npc, dt);
     },
 

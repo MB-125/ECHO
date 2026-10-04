@@ -80,23 +80,80 @@
     // Follow an A* path (computed lazily) for longer distances. Paths are
     // "string-pulled": corners you can see past are skipped, so walkers move
     // in smooth straight lines instead of tile-by-tile zigzags.
+    // Would a body of radius r fit standing here?
+    fits(world, x, y, r = 0.3) {
+      const S = (a, b) => ECHO.World.isSolid(world, a, b);
+      return !S(x, y) && !S(x - r, y - r) && !S(x + r, y - r) && !S(x - r, y + r) && !S(x + r, y + r) && !S(Math.floor(x) + 0.5, Math.floor(y) + 0.5);
+    },
+    // The nearest place to (x, y) where a body can actually stand — a goal
+    // inside a wall, a tree or a pond is moved to the closest open ground.
+    freeSpot(world, x, y, maxR = 5, r = 0.32) {
+      if (Ent.fits(world, x, y, r)) return { x, y };
+      for (let rad = 0.5; rad <= maxR; rad += 0.5) {
+        const n = Math.max(8, Math.round(rad * 8));
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          const px = x + Math.cos(a) * rad, py = y + Math.sin(a) * rad;
+          if (Ent.fits(world, px, py, r)) return { x: px, y: py };
+        }
+      }
+      return null;
+    },
+    // Follow an A* path (computed lazily) for longer distances. Paths are
+    // "string-pulled": corners you can see past are skipped, so walkers move
+    // in smooth straight lines instead of tile-by-tile zigzags.
+    // Walkers never shove against a wall: an impossible goal is moved to open
+    // ground, a blocked straight line falls back to a path, and a goal with no
+    // way there at all sets e.navFail so the walker can choose something else.
     travel(world, e, tx, ty, speed, dt) {
       if (e.x >= 9000 || tx >= 9000) return Ent.seek(world, e, tx, ty, speed, dt, 0.3);
+      // where can we actually stand near the goal?
+      const key = Math.round(tx * 4) + ',' + Math.round(ty * 4);
+      if (e._navKey !== key) {
+        e._navKey = key;
+        e._navTo = Ent.freeSpot(world, tx, ty, 5);
+        e.navFail = !e._navTo;
+      }
+      if (!e._navTo) { e.moving = false; e.path = null; return false; }
+      tx = e._navTo.x; ty = e._navTo.y;
       const d = U.dist(e.x, e.y, tx, ty);
-      if (d < 0.4) { e.path = null; e.moving = false; return true; }
+      if (d < 0.4) { e.path = null; e.moving = false; e._repaths = 0; return true; }
       // In the open: just walk there.
       e.losT = (e.losT || 0) - dt;
-      if (e.losT <= 0) { e.losT = 0.25; e.direct = d < 18 && Ent.clearLine(world, e.x, e.y, tx, ty, e.r * 0.9); }
-      if (e.direct) { e.path = null; return Ent.seek(world, e, tx, ty, speed, dt, 0.35); }
-      const needPath = !e.path || e.pathGoal !== ((tx | 0) + ',' + (ty | 0)) || (e.stuck || 0) > 0.6;
-      if (needPath && d > 1.5 && (e.pathT || 0) <= 0) {
+      e.noDirectT = Math.max(0, (e.noDirectT || 0) - dt);
+      if (e.losT <= 0) { e.losT = 0.25; e.direct = e.noDirectT <= 0 && d < 18 && Ent.clearLine(world, e.x, e.y, tx, ty, e.r * 0.9); }
+      if (e.direct) {
+        e.path = null;
+        const r = Ent.seek(world, e, tx, ty, speed, dt, 0.35);
+        // the straight line lied (a trunk, a corner): plan a proper route instead
+        if ((e.stuck || 0) > 0.4) { e.direct = false; e.noDirectT = 3; e.losT = 0.25; }
+        return r;
+      }
+      const goalKey = (tx | 0) + ',' + (ty | 0);
+      if (e.pathGoal !== goalKey) e._repaths = 0;
+      const needPath = !e.path || e.pathGoal !== goalKey || (e.stuck || 0) > 0.6;
+      if (needPath && d > 1.2 && (e.pathT || 0) <= 0) {
         e.pathT = 0.8;
+        if (e.pathGoal === goalKey && e.path !== undefined) e._repaths = (e._repaths || 0) + 1;
         const W = world.W;
         const cost = (x, y, i) => (ECHO.World.isSolid(world, x + 0.5, y + 0.5) ? Infinity : 1 / ECHO.World.speedAt(world, x, y));
         const p = ECHO.World.findPath(world, e.x, e.y, tx, ty, cost, 2500);
-        e.path = p ? p.slice(1).map(i => ({ x: (i % W) + 0.5, y: ((i / W) | 0) + 0.5 })) : null;
-        e.pathGoal = (tx | 0) + ',' + (ty | 0);
+        // through a wood, step past each trunk rather than into it
+        const wp = i => {
+          const x = i % W, y = (i / W) | 0;
+          if (world.tiles[i] !== ECHO.TILE.TREE) return { x: x + 0.5, y: y + 0.5 };
+          const tr = ECHO.World.trunk(world, x, y);
+          let ox = x + 0.5 - tr.x, oy = y + 0.5 - tr.y; const L = Math.hypot(ox, oy) || 1;
+          if (L < 0.45) { ox = ox / L * 0.45; oy = oy / L * 0.45; }
+          return { x: tr.x + ox, y: tr.y + oy };
+        };
+        e.path = p ? p.slice(1).map(wp) : null;
+        e.pathGoal = goalKey;
         e.stuck = 0;
+        // no way there, or we keep getting stuck on the way: give up on it
+        if (!p || e._repaths > 4) { e.navFail = true; e.path = null; e.moving = false; return false; }
+        e.navFail = false;
+        if (e.path.length) e.path[e.path.length - 1] = { x: tx, y: ty };
       }
       e.pathT = (e.pathT || 0) - dt;
       if (e.path && e.path.length) {
@@ -106,7 +163,10 @@
         if (Ent.seek(world, e, n.x, n.y, speed, dt, 0.3)) { e.path.shift(); e.moving = e.path.length > 0; }
         return false;
       }
-      return Ent.seek(world, e, tx, ty, speed, dt, 0.35);
+      if (e.navFail) { e.moving = false; return false; }
+      const r = Ent.seek(world, e, tx, ty, speed, dt, 0.35);
+      if ((e.stuck || 0) > 1.2) { e.navFail = true; e.moving = false; }
+      return r;
     },
     separate(ents, dt) {
       // Soft separation between bodies.

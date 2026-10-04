@@ -128,8 +128,10 @@
           const goal = ECHO.AI.Sched.target(game, null, npc, world.minute);
           let x = goal ? goal.x : s.x, y = goal ? goal.y : s.y;
           // Spawn at their destination so the town looks lived-in.
+          const spot = ECHO.Ent.freeSpot(world, x, y, 5);
+          if (spot) { x = spot.x; y = spot.y; }
           let tries = 0;
-          while (ECHO.World.isSolid(world, x, y) && tries++ < 10) { x = s.x + (Math.random() - 0.5) * 6; y = s.y + (Math.random() - 0.5) * 6; }
+          while (!ECHO.Ent.fits(world, x, y) && tries++ < 20) { x = s.x + (Math.random() - 0.5) * 6; y = s.y + (Math.random() - 0.5) * 6; }
           const e = S.makePerson(game, npc, x, y, npc.prof === 'guard' ? 'guard' : 'villager');
           e.homeSid = s.id;
           if (goal && goal.inside) { e.hidden = true; e.goal = goal; }
