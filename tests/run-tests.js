@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -137,6 +137,32 @@ function main() {
   console.log('   towns:', sizes.join(', '));
   const save = ECHO.Save.serialize(W4);
   check('five-year save stays reasonable', save.length < 4e6, (save.length / 1024).toFixed(0) + ' KB');
+
+  console.log('\nMinds: purpose, perception, reciprocity');
+  {
+    const W = ECHO.generateWorld({ seed: 4242, name: 'Minds' });
+    for (let i = 0; i < 90; i++) ECHO.Sim.dailyTick(W, true);
+    const adults = Object.values(W.npcs).filter(n => n.status === 'alive' && n.prof !== 'child');
+    const withGoal = adults.filter(n => n.mind && (n.mind.goal || n.mind.last));
+    const kinds = {};
+    for (const n of Object.values(W.npcs)) if (n.status === 'alive' && n.mind && n.mind.goal) kinds[n.mind.goal.kind] = (kinds[n.mind.goal.kind] || 0) + 1;
+    check('nearly everyone has something they are living for', withGoal.length / adults.length > 0.85, `${withGoal.length}/${adults.length}`);
+    check('goals are varied', Object.keys(kinds).length >= 7, JSON.stringify(kinds));
+    const doneCount = adults.reduce((a, n) => a + (n.mind ? n.mind.done : 0), 0);
+    check('goals get achieved', doneCount > adults.length * 0.3, doneCount + ' achieved in 90 days');
+    const sample = adults.filter(n => n.mind && n.mind.goal).slice(0, 4).map(n => `${n.first} (${n.prof}): ${ECHO.Minds.describeGoal(W, n)}`);
+    sample.forEach(t => console.log('     · ' + t));
+    check('people perceive their world', adults.every(n => !n.mind || !n.mind.v || (n.mind.v.safety >= 0 && n.mind.v.safety <= 1)) && adults.some(n => n.mind && n.mind.v), ECHO.Minds.describeWorld(W, adults[0]).slice(0, 90) + '…');
+    // A murder by the player is not forgotten by the family.
+    W.player = W.player || ECHO.Legacy.newCharacter ? W.player : W.player;
+    const pl = W.player || (W.player = { charId: 'c-test', first: 'Test', last: 'Hero', alive: true, known: [] });
+    const victim = adults.find(n => n.spouse && n.kids.length && W.npcs[n.spouse] && W.npcs[n.spouse].status === 'alive');
+    const widow = victim && W.npcs[victim.spouse];
+    ECHO.People.kill(W, victim, 'cut down', pl.first + ' ' + pl.last, 'player');
+    const g = widow && widow.mind && widow.mind.goal;
+    check('the bereaved seek revenge on the killer', g && g.kind === 'avenge' && g.target.type === 'player', g ? ECHO.Minds.describeGoal(W, widow) : 'no goal');
+    check('and hate them for it', (widow.op[pl.charId] || 0) <= -70, String(widow.op[pl.charId]));
+  }
 
   console.log(`\n${passes} passed, ${failures} failed`);
   process.exit(failures ? 1 : 0);

@@ -458,7 +458,8 @@
 
     newReeve(world, s) {
       const pool = P().residents(world, s).filter(n => P().age(world, n) > 24 && n.prof !== 'child' && n.prof !== 'bandit');
-      pool.sort((a, b) => (b.wealth + b.renown * 3) - (a.wealth + a.renown * 3));
+      const ambition = n => (n.mind && n.mind.goal && n.mind.goal.kind === 'lead' ? 60 : 0);
+      pool.sort((a, b) => (b.wealth + b.renown * 3 + ambition(b)) - (a.wealth + a.renown * 3 + ambition(a)));
       const r = pool[0];
       if (!r) { s.ruler = null; return; }
       s.ruler = r.id; r.title = 'Reeve'; r.prof = r.prof === 'guard' ? 'guard' : 'reeve';

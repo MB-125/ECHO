@@ -242,7 +242,7 @@
 
     // ------------------------------------------------------------ Crime & reputation
     witnessed(x, y, exclude) {
-      return Game.ents.some(o => o.type === 'person' && !o.dead && !o.hidden && !o.sleeping && o !== exclude && o.role !== 'bandit' && o.role !== 'captive' && !o.isCompanion && U.dist(o.x, o.y, x, y) < (Game.isNight() ? 7 : 12) && ECHO.Ent.lineOfSight(Game.world, o.x, o.y, x, y));
+      return Game.ents.some(o => o.type === 'person' && !o.dead && !o.hidden && !o.sleeping && o !== exclude && o.role !== 'bandit' && o.role !== 'captive' && !o.isCompanion && !(o.npcId && Game.world.npcs[o.npcId] && ECHO.Minds.covers(Game.world, Game.world.npcs[o.npcId], Game.pl)) && U.dist(o.x, o.y, x, y) < (Game.isNight() ? 7 : 12) && ECHO.Ent.lineOfSight(Game.world, o.x, o.y, x, y));
     },
     crime(target, kind) {
       const world = Game.world, pl = Game.pl;
@@ -291,6 +291,12 @@
           for (const p of ECHO.Plights.open(world)) if (p.kind === 'bounty' && p.campId === (ctx.camp && ctx.camp.id)) { p.claimable = true; p.claimableDay = world.day; }
           ECHO.Character.behave(pl, 'protect', 0.4);
         }
+        return;
+      }
+      // They came at you first: a killing, but not a murder.
+      if (ent.startedFight) {
+        ECHO.Chronicle.deed(world, { text: `${npc.first} ${npc.last} attacked ${pl.first} ${pl.last}${npc.mind && npc.mind.goal && npc.mind.goal.kind === 'avenge' ? ' to avenge ' + npc.mind.goal.target.victim : ''}, and died for it.`, importance: 1, x: ent.x, y: ent.y, rep: -2, tag: 'fight' });
+        ECHO.Character.behave(pl, 'aggression', 0.2);
         return;
       }
       // Killing ordinary people

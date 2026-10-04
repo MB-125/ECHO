@@ -240,13 +240,17 @@
         npc.op[pl.charId] = (npc.op[pl.charId] || 0) + (P().has(npc, 'kind') ? 1.5 : 0.7);
       }
       const say = t => { speech.textContent = t; };
+      let helpMode = false;
       say(ECHO.Dialogue.greeting(world, npc, pl));
       const render = () => {
         opts.innerHTML = '';
         const add = (label, fn) => { const b = document.createElement('button'); b.textContent = label; b.addEventListener('click', fn); opts.appendChild(b); };
         add('What news?', () => { const r = ECHO.Dialogue.news(world, npc); say(r.text); });
         add('Tell me about yourself.', () => say(ECHO.Dialogue.aboutSelf(world, npc)));
-        add('What of this place?', () => say(ECHO.Dialogue.aboutPlace(world, npc)));
+        add('What of this place?', () => { ECHO.Minds.viewOf(world, npc); say(ECHO.Dialogue.aboutPlace(world, npc) + '\n\n' + ECHO.Minds.describeWorld(world, npc)); });
+        add('What do you want most?', () => { ECHO.Minds.viewOf(world, npc); say(ECHO.Minds.describeGoal(world, npc)); helpMode = true; render(); });
+        add('What do you make of me?', () => say(ECHO.Minds.describePlayer(world, npc, pl)));
+        if (helpMode) for (const h of ECHO.Minds.helpOptions(world, npc, pl)) add(`↳ ${h.label}`, () => { say(ECHO.Minds.help(world, npc, pl, h.id)); render(); });
         add('Any tales of heroes?', () => say(ECHO.Dialogue.aboutLegends(world, npc)));
         if (npc.carry) add('That blade you carry…', () => say(ECHO.Dialogue.aboutItem(world, npc, pl)));
         // Plights this person asked for
@@ -291,10 +295,15 @@
       }
     },
     goods: ['food', 'meat', 'hide', 'herbs', 'ore', 'timber', 'arms'],
-    priceOf(s, g) {
-      if (g === 'meat') return U.round1(s.prices.food * 1.2);
-      if (g === 'hide') return U.round1(6 + s.prosperity / 25);
-      return s.prices[g];
+    // Prices bend to your name: heroes pay less, villains pay more.
+    priceOf(s, g, selling) {
+      const base = g === 'meat' ? s.prices.food * 1.2 : g === 'hide' ? 6 + s.prosperity / 25 : s.prices[g];
+      const m = ECHO.Minds.priceMult(ECHO.Game.world, s, ECHO.Game.pl);
+      return U.round1(selling ? base / m : base * m);
+    },
+    nameNote(s) {
+      const m = ECHO.Minds.priceMult(ECHO.Game.world, s, ECHO.Game.pl);
+      return m < 0.95 ? `<span class="gold">Your good name gets you ${Math.round((1 - m) * 100)}% off here.</span>` : m > 1.05 ? `<span class="ember">They know your name here. Everything costs ${Math.round((m - 1) * 100)}% more.</span>` : '';
     },
     // What each shop is for — used by the signs over buildings and by prompts.
     SHOPS: {
@@ -320,6 +329,7 @@
     openMarket(s) {
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const body = UI.openPanel(`Market of ${s.name}`, '', 'market');
+      if (ECHO.Minds.refuses(world, s, pl)) { body.innerHTML = `<p class="prose">The stallholders turn their backs on you. "We don't trade with your kind here. Go on — before someone calls the guard."</p>`; return; }
       const render = () => {
         const hist = s.priceHistory.slice(-20);
         const max = Math.max(...hist, 1);
@@ -329,7 +339,7 @@
           const price = UI.priceOf(s, g);
           const sellOnly = g === 'meat' || g === 'hide';
           const stock = sellOnly ? null : Math.round(s.stock[g]);
-          const sell = U.round1(price * 0.85);
+          const sell = U.round1(UI.priceOf(s, g, true) * 0.85);
           return `<div class="ware"><div class="ware-ic">${W.icon}</div><div class="ware-main">
             <div class="ware-top"><b>${W.name}</b>${sellOnly ? '<span class="dim">they buy it</span>' : `<span class="gold">${price} cr</span>`}</div>
             <div class="ware-use">${W.use}</div>
@@ -339,25 +349,26 @@
               <button class="small" data-sell="${g}" ${!(pl.inv[g] > 0) ? 'disabled' : ''}>Sell 1</button>
               <button class="small" data-sellall="${g}" ${!(pl.inv[g] > 0) ? 'disabled' : ''}>Sell all</button></div></div></div>`;
         };
-        body.innerHTML = `<div class="market-top"><span>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns</span>
+        const am = ECHO.Minds.priceMult(world, s, pl), arrowP = Math.round(6 * am);
+        body.innerHTML = `<div class="market-top"><span>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns ${UI.nameNote(s)}</span>
             <span class="dim">${s.hunger > 0.2 ? `<span class="ember">The town is hungry.</span> Selling food here eases it — and people remember.` : s.stock.food > ECHO.Economy.need(world, s) * 12 ? 'The granaries are full.' : 'Stores are ordinary.'}</span></div>
           <div class="ware featured"><div class="ware-ic">🏹</div><div class="ware-main">
-            <div class="ware-top"><b>Arrows</b><span class="gold">10 for 6 cr</span></div>
+            <div class="ware-top"><b>Arrows</b><span class="gold">10 for ${arrowP} cr</span></div>
             <div class="ware-use">Ammunition for your bow (right mouse). You have <b>${pl.inv.arrows}</b>.</div>
-            <div class="row"><button data-arrows="1" ${pl.gold < 6 ? 'disabled' : ''}>Buy 10</button><button data-arrows="3" ${pl.gold < 18 ? 'disabled' : ''}>Buy 30</button></div></div></div>
+            <div class="row"><button data-arrows="1" ${pl.gold < arrowP ? 'disabled' : ''}>Buy 10</button><button data-arrows="3" ${pl.gold < arrowP * 3 ? 'disabled' : ''}>Buy 30</button></div></div></div>
           <h4 class="ware-h">Supplies</h4><div class="wares">${['food', 'herbs'].map(card).join('')}</div>
           <h4 class="ware-h">Sell your hunt</h4><div class="wares">${['meat', 'hide'].map(card).join('')}</div>
           <h4 class="ware-h">Trade goods</h4><div class="wares">${['ore', 'timber', 'arms'].map(card).join('')}</div>
           <p class="dim" style="margin-top:10px">Prices move with what is in the stores. Bread here has cost: <span style="display:inline-flex;align-items:flex-end;height:30px;vertical-align:middle">${spark}</span></p>`;
         body.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
           const d = btn.dataset;
-          if (d.arrows) { const n = +d.arrows; if (pl.gold >= 6 * n) { pl.gold -= 6 * n; pl.inv.arrows += 10 * n; s.wealth += 6 * n; ECHO.Sfx.play('coin'); } }
+          if (d.arrows) { const n = +d.arrows; if (pl.gold >= arrowP * n) { pl.gold -= arrowP * n; pl.inv.arrows += 10 * n; s.wealth += arrowP * n; ECHO.Sfx.play('coin'); } }
           const buy = (g, n) => { for (let i = 0; i < n; i++) { const p = UI.priceOf(s, g); if (pl.gold < p || s.stock[g] < 1) break; pl.gold -= p; s.stock[g] -= 1; pl.inv[g] = (pl.inv[g] || 0) + 1; s.wealth += p; ECHO.Economy.updatePrices(world, s); } ECHO.Sfx.play('coin'); };
           const sell = (g, n) => {
             let sold = 0;
             for (let i = 0; i < n; i++) {
               if (!(pl.inv[g] > 0)) break;
-              const p = U.round1(UI.priceOf(s, g) * 0.85);
+              const p = U.round1(UI.priceOf(s, g, true) * 0.85);
               pl.inv[g]--; pl.gold += p; sold++;
               if (g === 'meat') s.stock.food += 1.2; else if (g !== 'hide') s.stock[g] += 1;
               ECHO.Economy.updatePrices(world, s);
@@ -393,7 +404,10 @@
         { kind: 'bow', name: 'Recurve bow', dmg: 16, price: 90 },
         { kind: 'bow', name: era >= 2 ? (arcane ? 'Wand-bow' : 'Spring bow') : null, dmg: 22, price: 210 }
       ].filter(w => w.name);
+      const pm = ECHO.Minds.priceMult(world, s, pl);
+      for (const w of wares) w.price = Math.round(w.price * pm);
       const body = UI.openPanel(`Smithy of ${s.name}`, '', 'smithy');
+      if (ECHO.Minds.refuses(world, s, pl)) { body.innerHTML = `<p class="prose">${smith ? esc(smith.first) : 'The smith'} doesn't look up from the anvil. "I don't arm murderers. Get out of my forge."</p>`; return; }
       const render = () => {
         body.innerHTML = `<p class="prose">${smith ? `<b>${esc(P().name(smith))}</b> wipes soot from ${smith.sex === 'f' ? 'her' : 'his'} hands. "Everything here is my own work."` : 'The forge is cold; an apprentice minds the stock.'}</p>
           <p>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns. Wielding: <b>${esc(world.items[pl.weapon] ? world.items[pl.weapon].name : 'nothing')}</b>.</p>
@@ -422,6 +436,7 @@
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const keeper = P().residents(world, s).find(n => n.prof === 'innkeeper');
       const body = UI.openPanel(`The inn at ${s.name}`, '', 'inn');
+      if (ECHO.Minds.refuses(world, s, pl)) { body.innerHTML = `<p class="prose">${keeper ? esc(keeper.first) : 'The innkeeper'} folds their arms. "No rooms. Not for you. Not tonight, not ever."</p>`; return; }
       const room = 5, week = 25, season = 70;
       body.innerHTML = `<p class="prose">${keeper ? `<b>${esc(P().name(keeper))}</b> pours you something warm. "${esc(ECHO.Dialogue.ambient(world, keeper, null) || 'What\'ll it be?')}"` : 'The common room is warm and loud.'}</p>
         <div class="list">
@@ -737,7 +752,7 @@
       let tab = tab0 || 'tasks', kind = 'all';
       const body = UI.openPanel('Journal', '', 'journal');
       const render = () => {
-        const tabs = [['tasks', 'Promises'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
+        const tabs = [['tasks', 'Promises'], ['people', 'People'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'tasks') {
           const mine = world.plights.filter(p => pl.accepted.includes(p.id));
@@ -745,6 +760,19 @@
           const closed = mine.filter(p => p.status !== 'open').slice(-10).reverse();
           html += open.length ? open.map(p => { const s = ECHO.Sim.settlement(world, p.sid); const left = p.deadline - world.day; return `<div class="card"><h4>${UI.plightTitle(p)}${p.claimable ? ' — <span class="gold">return to claim</span>' : ''}</h4><div>${esc(p.text)}</div><div class="dim">${s ? esc(s.name) : ''} · ${left > 0 ? left + ' days left' : 'overdue — the world may have moved on'}${p.kind === 'beasts' ? ` · ${p.progress}/${p.need}` : ''}${p.kind === 'famine' ? ` · ${p.progress}/${p.need} food delivered` : ''}</div></div>`; }).join('') : '<p class="dim">You have made no promises. Notice boards and troubled people will ask.</p>';
           if (closed.length) html += `<h3 class="gold">How things ended</h3>${closed.map(p => `<div class="card"><h4>${UI.plightTitle(p)} — ${p.status === 'done' ? 'you saw it through' : p.status === 'resolved' ? 'resolved without you' : 'too late'}</h4><div class="dim">${esc(p.outcome || p.text)}</div></div>`).join('')}`;
+        } else if (tab === 'people') {
+          // Everyone you've met or who has strong feelings about you — and what they're living for.
+          const ppl = Object.values(world.npcs).filter(n => n.status === 'alive' && (n._talkedDay || Math.abs(n.op[pl.charId] || 0) >= 30 || (n.mind && n.mind.goal && n.mind.goal.kind === 'avenge' && n.mind.goal.target.id === pl.charId)))
+            .sort((a, b) => Math.abs(b.op[pl.charId] || 0) - Math.abs(a.op[pl.charId] || 0)).slice(0, 40);
+          const feel = op => op > 60 ? '<span class="gold">devoted to you</span>' : op > 25 ? 'thinks well of you' : op < -60 ? '<span class="ember">hates you</span>' : op < -25 ? '<span class="ember">distrusts you</span>' : 'undecided about you';
+          html += ppl.length ? ppl.map(n => {
+            const st = ECHO.Sim.settlement(world, n.loc || n.home);
+            const g = n.mind && n.mind.goal;
+            const hunting = g && g.kind === 'avenge' && g.target.id === pl.charId;
+            return `<div class="card"><h4>${esc(P().fullTitle(world, n))} <span class="dim">· ${esc(P().role(world, n))}${st ? ' of ' + esc(st.name) : ''}</span></h4>
+              <div>${feel(n.op[pl.charId] || 0)}${hunting ? ' — <span class="ember">wants revenge for ' + esc(g.target.victim) + '</span>' : ''}</div>
+              <div class="dim">${g ? esc(ECHO.Minds.describeGoal(world, n)) : 'No great plans right now.'}</div></div>`;
+          }).join('') : '<p class="dim">You haven\'t really met anyone yet. Talk to people — everyone here has a life, and something they want.</p>';
         } else if (tab === 'heard') {
           const kinds = ['all', 'war', 'politics', 'economy', 'crime', 'nature', 'intel', 'era', 'mystery', 'legacy', 'plight'];
           const known = ECHO.Chronicle.knownEntries(world).filter(e => kind === 'all' || e.kind === kind).slice(-150).reverse();
@@ -755,6 +783,10 @@
         } else {
           html += `<div class="prose" style="font-size:17px">
 <b>Nothing waits for you.</b> Every person in this world has a life — they eat, trade, marry, feud, raise children, change trades, turn outlaw, go to war, and die. Requests for help have deadlines; if you don't come, someone else might — or no one will.
+
+<b>Everyone wants something.</b> Each person has a purpose of their own — saving for a stall, courting a neighbour, mastering their trade, rising in the guard, a pilgrimage, the reeve's chair, getting the children away from the monster in the hills. Ask them what they want most; help them, and they remember it. They see their world for themselves: how safe it is, whether there is bread, whether their ruler is any good, and what they have heard about you.
+
+<b>Actions come back to you.</b> Kill someone and their family may come for you. Heroes pay less at market and get gifts on the street; villains pay more, are refused service, and watch people run from them. Good friends will look the other way.
 
 <b>Everything is connected.</b> The great beasts keep the vermin down. Kill one, and the vermin multiply; crops fail; bread prices climb; people go hungry, migrate, riot, turn to banditry. Kingdoms short of food grow desperate. Nobody will tell you this happened because of you. You will just see it.
 

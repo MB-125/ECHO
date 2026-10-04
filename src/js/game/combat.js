@@ -314,7 +314,7 @@
           const camp = npc.camp && world.camps.find(c => c.id === npc.camp);
           const wasLeader = camp && camp.leader === npc.id;
           if (camp) camp.members = camp.members.filter(id => id !== npc.id);
-          ECHO.People.kill(world, npc, cause, killerName);
+          ECHO.People.kill(world, npc, cause, killerName, byPlayer && killerName && from === game.pe ? 'player' : from && from.npcId ? from.npcId : null);
           if (byPlayer) game.personKilledByPlayer(target, npc, type, { night, wasLeader, camp, stealth: !!src.stealth });
           if (camp && wasLeader) ECHO.Politics.campSuccession(world, camp);
         }

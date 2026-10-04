@@ -173,6 +173,7 @@
       ECHO.Ecology.dailyTick(world, rng);
       ECHO.Economy.dailyTick(world, rng);
       ECHO.People.dailyTick(world, rng);
+      ECHO.Minds.dailyTick(world, rng);
       ECHO.Politics.dailyTick(world, rng);
       ECHO.Intel.dailyTick(world, rng);
       ECHO.Plights.dailyTick(world, rng);

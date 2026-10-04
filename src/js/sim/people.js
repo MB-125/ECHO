@@ -190,9 +190,10 @@
       }
     },
 
-    kill(world, n, cause, killerName) {
+    kill(world, n, cause, killerName, killerRef) {
       if (n.status === 'dead') return;
       n.status = 'dead'; n.diedDay = world.day; n.cause = cause;
+      delete n.mind;
       world.stats.deaths++;
       const s = ECHO.Sim.settlement(world, n.home);
       if (s) s.residents = s.residents.filter(id => id !== n.id);
@@ -222,7 +223,8 @@
           kind: 'death', importance: important ? 2 : (n.op && Object.keys(n.op).length ? 1 : 0), sid: n.home, npcs: [n.id]
         });
       }
-      ECHO.emit('npc:death', { npc: n, cause });
+      if (ECHO.Minds) ECHO.Minds.onDeath(world, n, cause, killerName, killerRef);
+      ECHO.emit('npc:death', { npc: n, cause, killerRef });
     },
 
     birth(world, rng, mom, dad) {
@@ -352,6 +354,9 @@
       const s = ECHO.Sim.settlement(world, n.loc || n.home);
       const parent = n.parents.map(id => world.npcs[id]).find(p => p && p.prof !== 'elder' && p.prof !== 'ruler');
       let prof = parent && rng.chance(0.55) ? parent.prof : rng.pick(['farmer', 'farmer', 'hunter', 'woodcutter', 'merchant', 'guard', 'herbalist']);
+      // Childhood dreams sometimes come true.
+      const dream = n.mind && n.mind.goal && n.mind.goal.kind === 'child' ? n.mind.goal.dream : null;
+      if (dream && rng.chance(0.5)) prof = /knight|captain/.test(dream) ? 'guard' : /scholar/.test(dream) ? 'scholar' : /inventor/.test(dream) ? 'scholar' : /smith/.test(dream) ? 'smith' : /merchant/.test(dream) ? 'merchant' : /hunter/.test(dream) ? 'hunter' : /priest/.test(dream) ? 'priest' : prof;
       if (n.flags.survivor || P.has(n, 'brave') && rng.chance(0.5)) prof = 'guard';
       if (['ruler', 'reeve', 'innkeeper', 'bandit'].includes(prof)) prof = 'farmer';
       if (s && s.kind === 'temple' && rng.chance(0.4)) prof = 'priest';
@@ -379,7 +384,7 @@
           P.remember(world, winner, `fought ${loser.first} in the street`, 'conflict', loser.id, 2);
           P.remember(world, loser, `was beaten by ${winner.first}`, 'trauma', winner.id, 3);
           if (rng.chance(0.08)) {
-            P.kill(world, loser, 'slain in a feud', P.name(winner));
+            P.kill(world, loser, 'slain in a feud', P.name(winner), winner.id);
             winner.flags.murderer = true;
             const s = ECHO.Sim.settlement(world, winner.loc);
             if (s) s.unrest = Math.min(100, s.unrest + 4);

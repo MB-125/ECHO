@@ -24,10 +24,17 @@
       return 'plain';
     },
 
+    praise(world, npc, pl) {
+      const sd = ECHO.hashStr(npc.id + world.day);
+      const helped = npc.mem.some(m => m.type === 'gratitude' && m.t.includes(pl.first));
+      return pick(helped ? [`${pl.first}! I haven't forgotten what you did.`, 'There they are — the one who helped us!', 'Bless you, friend.'] : [`Look — it's ${pl.first}!`, `${pl.first} ${pl.last}… they say you're a hero.`, 'Good day to you, friend!', 'An honour.'], sd);
+    },
     greeting(world, npc, pl) {
       const op = D.opinion(world, npc, pl);
       const sd = seedOf(world, npc);
       const name = pl.first;
+      const g = npc.mind && npc.mind.goal;
+      if (g && g.kind === 'avenge' && g.target.type === 'player' && g.target.id === pl.charId) return pick([`You. You killed my ${g.target.rel}. You have the nerve to speak to me?`, `${g.target.victim} is in the ground because of you. Say what you came to say.`], sd);
       const legendFor = npc.namedAfter && ECHO.Legacy.legendOf(world, npc.namedAfter);
       const lines = [];
       if (npc.prof === 'bandit') lines.push(pick(['What do you want? Make it quick.', 'You lost? These woods aren\'t kind to the lost.', 'Keep your hands where I can see them.'], sd));
@@ -59,6 +66,8 @@
         return pick(['Quiet night.', 'Pass the skin.', 'Did you hear something?', 'I hate these woods.'], sd);
       }
       if (ent && ent.role === 'traveler' && ent.gear.cart) return pick(['Mind the cart!', 'Long road ahead.', 'Prices are better in the south, they say.'], sd);
+      if (r > 0.72) { const gl = ECHO.Minds.goalLine(world, npc, sd); if (gl) return gl; }
+      if (npc.mind && npc.mind.v && npc.mind.v.safety < 0.45 && r > 0.6) return pick([`Have you heard? ${U.cap(npc.mind.v.threat || 'something')}…`, 'Bar the doors tonight.', `Nobody's safe with ${npc.mind.v.threat || 'that'} about.`], sd);
       if (s && s.hunger > 0.25 && r < 0.6) return pick([`Bread at ${s.prices.food} crowns…`, 'Another day of thin soup.', 'The children are hungry.', 'When does the grain come?'], sd);
       // Rumours: talk about recent news they have heard.
       if (s && r < 0.45) {

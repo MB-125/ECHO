@@ -5,6 +5,8 @@
   const { U } = ECHO;
   const G = () => ECHO.Game;
   const SP = ECHO.SPECIES;
+  const P = () => ECHO.People;
+  const Dialogue = () => ECHO.Dialogue;
 
   // ------------------------------------------------------------ Targets
   function findTarget(game, e, sight) {
@@ -179,7 +181,18 @@
       const night = hour < 6 || hour >= 22;
       const guardNight = npc.prof === 'guard' && (h % 3 === 0 || ECHO.Civ.has(world, s.faction, 'lamps'));
       if (night && !guardNight) return house ? { ...Sched.door(house), inside: true } : around(s.x, s.y, 2);
-      if (hour < 7.5 || (hour >= 18 && hour < 22)) {
+      // What's on their mind shapes their day.
+      const mind = npc.mind, goal = mind && mind.goal;
+      const afraid = mind && mind.v && mind.v.safety < 0.45 && npc.prof !== 'guard' && !npc.traits.includes('brave');
+      if (afraid && hour >= 19 && house) return { ...Sched.door(house), inside: true };      // home before dark
+      if (goal && goal.kind === 'faith' && hour >= 7 && hour < 8.5) { const sh = Sched.building(s, 'temple') || Sched.building(s, 'shrine'); if (sh) return around(Sched.door(sh).x, Sched.door(sh).y + 0.6, 1.2); }
+      if (goal && goal.kind === 'lore' && hour >= 12 && hour < 14) { const ar = Sched.building(s, 'archive'); if (ar) return around(Sched.door(ar).x, Sched.door(ar).y + 0.5, 1); }
+      if (goal && goal.kind === 'love' && hour >= 18 && hour < 21 && goal.crush) {
+        const c = world.npcs[goal.crush]; const ch = c && Sched.houseOf(game, s, c);
+        if (ch) { const d = Sched.door(ch); return { x: d.x + (rnd(5) - 0.5) * 2.5, y: d.y + 0.8 }; }   // lingering near their door
+      }
+      const longDay = goal && goal.kind === 'prosper' && hour >= 18 && hour < 20;           // saving up: working late
+      if (!longDay && (hour < 7.5 || (hour >= 18 && hour < 22))) {
         // Mornings and evenings: plaza, well, inn.
         const inn = Sched.building(s, 'inn');
         if (hour >= 18 && inn && rnd(3) < 0.5 && npc.prof !== 'child') return { ...Sched.door(inn), x: Sched.door(inn).x + (rnd(4) - 0.5) * 3 };
@@ -194,7 +207,8 @@
         }
         case 'hunter': case 'woodcutter': case 'herbalist': {
           const a = (h % 628) / 100 + Math.floor(hour / 2);
-          return { x: s.x + Math.cos(a) * 17, y: s.y + Math.sin(a) * 17 };
+          const r = afraid ? 9 : 17;   // frightened folk keep close to the walls
+          return { x: s.x + Math.cos(a) * r, y: s.y + Math.sin(a) * r };
         }
         case 'smith': return at('smithy', 0.8);
         case 'merchant': case 'reeve': return at('market', 1.5);
@@ -248,8 +262,14 @@
           const out = game.freeSpotNear(world, e.x, e.y);
           e.x = out.x; e.y = out.y; e.hidden = false; e.goal = null;
           e.say = e.role === 'guard' ? 'Halt!' : 'Who goes there?'; e.sayT = 1.5;
-        } else { e.target = null; Person.routine(game, e, npc, dt); return; }
+        } else {
+          e.target = null;
+          if (e.shelterT > 0) { e.shelterT -= dt; e.moving = false; return; } // waiting out the danger indoors
+          Person.routine(game, e, npc, dt); return;
+        }
       }
+      // A mind of their own: grudges, fear, gratitude, admiration.
+      if (!e.indoor && Person.mindful(game, e, npc, dt, target, fighter)) return;
       if (target && target !== e.target && fighter) Person.alertFriends(game, e, target);
       e.target = target;
 
@@ -304,9 +324,86 @@
 
     flee(game, e, threat, dt) {
       e.state = 'flee';
+      const world = game.world;
+      // Townsfolk run for the nearest house and bar the door; others just run.
+      if (!e.indoor && e.homeSid && (threat.type !== 'player' || (e.fleeHome == null))) {
+        const s = ECHO.Sim.settlement(world, e.homeSid);
+        if (s && !e.fleeDoor) {
+          let best = null, bd = 14;
+          for (const b of s.buildings) {
+            if (b.type !== 'house' && b.type !== 'inn' && b.type !== 'shrine' && b.type !== 'temple') continue;
+            const d = Sched.door(b), dd = U.dist(d.x, d.y, e.x, e.y);
+            // don't run toward the danger
+            if (U.dist(d.x, d.y, threat.x, threat.y) < U.dist(e.x, e.y, threat.x, threat.y) - 1) continue;
+            if (dd < bd) { bd = dd; best = d; }
+          }
+          e.fleeDoor = best || 'none';
+        }
+        if (e.fleeDoor && e.fleeDoor !== 'none') {
+          if (ECHO.Ent.travel(world, e, e.fleeDoor.x, e.fleeDoor.y, e.speed * 1.3, dt)) {
+            e.hidden = true; e.shelterT = 12 + Math.random() * 10; e.fleeDoor = null; e.goal = null; e.target = null; e.state = 'idle';
+          }
+          if (e.sayT <= 0 && Math.random() < dt * 0.6) { e.say = threat.type === 'creature' || threat.type === 'boss' ? 'Get inside! Get inside!' : threat.type === 'player' ? 'Stay away from me!' : 'Help! Guards!'; e.sayT = 1.6; }
+          return;
+        }
+      }
       const a = Math.atan2(e.y - threat.y, e.x - threat.x);
-      ECHO.Ent.seek(game.world, e, e.x + Math.cos(a) * 3, e.y + Math.sin(a) * 3, e.speed * 1.25, dt, 0.1);
-      if (e.sayT <= 0 && Math.random() < dt * 0.5) { e.say = threat.type === 'creature' ? 'Wolves!' : 'Help!'; e.sayT = 1.5; }
+      ECHO.Ent.seek(world, e, e.x + Math.cos(a) * 3, e.y + Math.sin(a) * 3, e.speed * 1.25, dt, 0.1);
+      if (e.sayT <= 0 && Math.random() < dt * 0.5) { e.say = threat.type === 'creature' ? 'Wolves!' : threat.type === 'player' ? 'Stay away from me!' : 'Help!'; e.sayT = 1.5; }
+    },
+
+    // How a person's mind shapes what they do when you are around.
+    mindful(game, e, npc, dt, target, fighter) {
+      const world = game.world, pe = game.pe, pl = game.pl;
+      const mind = npc.mind;
+      if (!mind || !pl || e.role === 'bandit' || e.isCompanion || e.role === 'captive') return false;
+      const d = U.dist(e.x, e.y, pe.x, pe.y);
+      if (d > 10) { e.fleeDoor = null; return false; }
+      const op = npc.op[pl.charId] || 0;
+      const g = mind.goal;
+      const sees = d < 9 && ECHO.Ent.lineOfSight(world, e.x, e.y, pe.x, pe.y);
+      const say = (t, k = 2.4) => { if (e.sayT <= 0) { e.say = t; e.sayT = k; } };
+      // The bereaved: they know your face.
+      if (g && g.kind === 'avenge' && g.target.type === 'player' && g.target.id === pl.charId && sees) {
+        const brave = (npc.skill.fight >= 18 || P().has(npc, 'brave') || P().has(npc, 'hot-headed')) && !P().has(npc, 'cowardly') && npc.prof !== 'child' && npc.prof !== 'elder';
+        if (brave) {
+          if (!e.aggro) { e.aggro = true; e.startedFight = true; e.target = pe; e.say = `${g.target.victim}! You killed my ${g.target.rel}!`; e.sayT = 3; ECHO.Sfx.play('growl', { pitch: 1.6, vol: 0.4 }); }
+          return false; // fight as normal, now that they are hostile
+        }
+        if (d < 7) { Person.flee(game, e, pe, dt); say(`Murderer! You killed ${g.target.victim}!`, 3); return true; }
+      }
+      if (target) return false; // something more urgent is going on
+      // Fear of someone with blood on their hands.
+      if (op < -50 && !fighter && d < 4.5 && sees) { Person.flee(game, e, pe, dt); return true; }
+      e.fleeDoor = null;
+      // Gratitude: a gift, once in a while, from those you helped.
+      if ((mind.owe || 0) > 0 && op > 35 && d < 2.6 && (!mind.giftDay || world.day - mind.giftDay >= 8)) {
+        mind.giftDay = world.day; mind.owe--;
+        const r = Math.random();
+        let what;
+        if (npc.wealth > 30 && r < 0.4) { const c = Math.round(Math.min(25, npc.wealth * 0.15)); npc.wealth -= c; pl.gold += c; what = `${c} crowns`; }
+        else if (r < 0.7) { pl.inv.food = (pl.inv.food || 0) + 2; what = 'a loaf and some cheese'; }
+        else { pl.inv.herbs = (pl.inv.herbs || 0) + 1; what = 'a bundle of herbs'; }
+        e.dir = Math.atan2(pe.y - e.y, pe.x - e.x); e.moving = false;
+        e.say = 'Wait — this is for you. For what you did.'; e.sayT = 3;
+        ECHO.UI.toast(`${npc.first} presses ${what} into your hands. "For what you did."`, 'mercy', 4);
+        ECHO.Sfx.play('coin');
+        return true;
+      }
+      // Admiration (or a cold stare): they stop and look at you.
+      if (sees && d < 3.2 && Math.abs(op) > 45 && !e._lookT) e._lookT = 4 + Math.random() * 3;
+      if (e._lookT > 0) {
+        e._lookT -= dt;
+        if (e._lookT <= 0) { e._lookT = -20; return false; }
+        e.moving = false; e.dir = Math.atan2(pe.y - e.y, pe.x - e.x);
+        if (op > 45) say(Dialogue().praise(world, npc, pl), 2.6);
+        else say(['Hmph.', 'We know what you are.', 'Keep walking.', '…'][ECHO.hashStr(npc.id) % 4], 2);
+        return true;
+      }
+      if (e._lookT < 0) e._lookT = Math.min(0, e._lookT + dt);
+      // Friends warn you of danger.
+      if (op > 25 && d < 3 && mind.v && mind.v.safety < 0.6 && mind.v.threat && mind._warned !== world.day && Math.random() < 0.3) { mind._warned = world.day; say(`Careful out there — ${mind.v.threat}.`, 3); }
+      return false;
     },
 
     fight(game, e, npc, dt, target) {
