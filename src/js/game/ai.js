@@ -57,7 +57,8 @@
     wander(game, e, dt, speed) {
       if (!e.wt || e.t > e.wt) {
         e.wt = e.t + 1.5 + Math.random() * 3;
-        const a = Math.random() * Math.PI * 2;
+        // amble: keep roughly the same heading, drifting a little each time
+        const a = e.wa = (e.wa == null ? Math.random() * Math.PI * 2 : e.wa) + (Math.random() - 0.5) * 1.6;
         e.wx = e.x + Math.cos(a) * 3; e.wy = e.y + Math.sin(a) * 3;
         if (e.home) { e.wx = U.lerp(e.wx, e.home.x, 0.3); e.wy = U.lerp(e.wy, e.home.y, 0.3); }
         e.idle = Math.random() < 0.4;
@@ -68,12 +69,13 @@
     hare(game, e, dt, speed) {
       const threat = game.ents.find(o => !o.dead && !o.hidden && (o === game.pe || o.type === 'person' || (o.type === 'creature' && o.species === 'wolf')) && U.dist(o.x, o.y, e.x, e.y) < (o === game.pe && game.pe.sneaking ? 2.5 : 5));
       if (threat || e.state === 'flee') {
-        if (threat) e.fleeFrom = { x: threat.x, y: threat.y };
+        if (threat) { e.fleeFrom = { x: threat.x, y: threat.y }; e.calmT = 3; }
         e.state = 'flee';
-        const a = Math.atan2(e.y - e.fleeFrom.y, e.x - e.fleeFrom.x) + Math.sin(e.t * 5) * 0.4;
+        const a = Math.atan2(e.y - e.fleeFrom.y, e.x - e.fleeFrom.x) + Math.sin(e.t * 2.2) * 0.35;
         ECHO.Ent.seek(game.world, e, e.x + Math.cos(a) * 2, e.y + Math.sin(a) * 2, speed, dt, 0.1);
         if (!threat && U.dist(e.x, e.y, e.fleeFrom.x, e.fleeFrom.y) > 9) e.state = 'idle';
-      } else Creature.wander(game, e, dt, speed);
+      } else if ((e.calmT = (e.calmT || 0) - dt) > 0) { e.moving = false; }  // catch its breath before wandering back
+      else Creature.wander(game, e, dt, speed);
     },
     gnawer(game, e, dt, speed, target) {
       const friends = game.ents.filter(o => o.species === 'gnawer' && !o.dead && U.dist(o.x, o.y, e.x, e.y) < 4).length;
@@ -370,7 +372,7 @@
         e.moving = false;
         if (e.goal.inside) e.hidden = true;
         // Fidget at the goal
-        if (Math.random() < dt * 0.3) e.goal = { x: e.goal.x + (Math.random() - 0.5) * 1.5, y: e.goal.y + (Math.random() - 0.5) * 1.0, inside: e.goal.inside };
+        if (Math.random() < dt * 0.08) e.goal = { x: e.goal.x + (Math.random() - 0.5) * 2.5, y: e.goal.y + (Math.random() - 0.5) * 1.6, inside: e.goal.inside };
       } else e.hidden = false;
     },
 
@@ -399,9 +401,11 @@
       // Bodyguards stay near the chief.
       if (e.guarding) {
         const lead = game.ents.find(o => o.npcId === e.guarding && !o.dead);
-        if (lead) e.goal = { x: lead.x + Math.cos(e.id) * 1.4, y: lead.y + Math.sin(e.id) * 1.4 };
+        const want = lead && { x: lead.x + Math.cos(e.id) * 1.4, y: lead.y + Math.sin(e.id) * 1.4 };
+        if (want && (!e.goal || U.dist(want.x, want.y, e.goal.x, e.goal.y) > 1.2)) e.goal = want; // follow, don't shadow every step
       }
       if (ECHO.Ent.travel(world, e, e.goal.x, e.goal.y, e.speed * 0.45, dt)) e.moving = false;
+      if ((e.stuck || 0) > 0.8) { e.goal = null; e.path = null; e.stuck = 0; e.moving = false; e.schedT = 2 + Math.random() * 3; } // can't get there: stand a while
       Person.chatter(game, e, npc, dt);
     },
 

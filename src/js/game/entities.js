@@ -50,30 +50,49 @@
     seek(world, e, tx, ty, speed, dt, arrive = 0.25) {
       const dx = tx - e.x, dy = ty - e.y;
       const d = Math.hypot(dx, dy);
-      if (d < arrive) { e.moving = false; return true; }
+      // Once settled, don't twitch back into motion for a nudge of a few inches.
+      if (d < arrive || (!e.moving && d < arrive + 0.45 && e.type !== 'player')) { e.moving = false; return true; }
       const sp = speed * ECHO.World.speedAt(world, e.x, e.y) * dt;
       const k = Math.min(1, sp / d);
       const before = { x: e.x, y: e.y };
       Ent.move(world, e, dx * k, dy * k);
       e.moving = true;
-      e.dir = Math.atan2(dy, dx);
-      if (Math.abs(dx) > 0.01) e.flip = dx < 0;
+      // turn toward where we actually went (not where a wall deflected us)
+      if (d > arrive + 0.12) e.dir = Math.atan2(dy, dx); // no last-inch spins on arrival
+      if (Math.abs(dx) > 0.3 || (Math.abs(dx) > 0.05 && Math.abs(dx) > Math.abs(dy) * 0.5)) e.flip = dx < 0;
       // stuck detection → try a path
       if (Math.abs(e.x - before.x) + Math.abs(e.y - before.y) < sp * 0.15) {
         e.stuck = (e.stuck || 0) + dt;
       } else e.stuck = 0;
       return false;
     },
-    // Follow an A* path (computed lazily) for longer distances.
+    // Can a body of radius r walk straight from a to b?
+    clearLine(world, ax, ay, bx, by, r = 0.3) {
+      const d = U.dist(ax, ay, bx, by);
+      if (d < 0.01) return true;
+      const ux = (bx - ax) / d, uy = (by - ay) / d, px = -uy * r, py = ux * r;
+      for (let t = 0.25; t < d; t += 0.3) {
+        const x = ax + ux * t, y = ay + uy * t;
+        if (ECHO.World.isSolid(world, x, y) || ECHO.World.isSolid(world, x + px, y + py) || ECHO.World.isSolid(world, x - px, y - py)) return false;
+      }
+      return true;
+    },
+    // Follow an A* path (computed lazily) for longer distances. Paths are
+    // "string-pulled": corners you can see past are skipped, so walkers move
+    // in smooth straight lines instead of tile-by-tile zigzags.
     travel(world, e, tx, ty, speed, dt) {
       if (e.x >= 9000 || tx >= 9000) return Ent.seek(world, e, tx, ty, speed, dt, 0.3);
       const d = U.dist(e.x, e.y, tx, ty);
       if (d < 0.4) { e.path = null; e.moving = false; return true; }
+      // In the open: just walk there.
+      e.losT = (e.losT || 0) - dt;
+      if (e.losT <= 0) { e.losT = 0.25; e.direct = d < 18 && Ent.clearLine(world, e.x, e.y, tx, ty, e.r * 0.9); }
+      if (e.direct) { e.path = null; return Ent.seek(world, e, tx, ty, speed, dt, 0.35); }
       const needPath = !e.path || e.pathGoal !== ((tx | 0) + ',' + (ty | 0)) || (e.stuck || 0) > 0.6;
       if (needPath && d > 1.5 && (e.pathT || 0) <= 0) {
         e.pathT = 0.8;
         const W = world.W;
-        const cost = (x, y, i) => (ECHO.World.isSolid(world, x, y) ? Infinity : 1 / ECHO.World.speedAt(world, x, y));
+        const cost = (x, y, i) => (ECHO.World.isSolid(world, x + 0.5, y + 0.5) ? Infinity : 1 / ECHO.World.speedAt(world, x, y));
         const p = ECHO.World.findPath(world, e.x, e.y, tx, ty, cost, 2500);
         e.path = p ? p.slice(1).map(i => ({ x: (i % W) + 0.5, y: ((i / W) | 0) + 0.5 })) : null;
         e.pathGoal = (tx | 0) + ',' + (ty | 0);
@@ -81,8 +100,10 @@
       }
       e.pathT = (e.pathT || 0) - dt;
       if (e.path && e.path.length) {
+        // skip every waypoint we can already walk past in a straight line
+        while (e.path.length > 1 && Ent.clearLine(world, e.x, e.y, e.path[1].x, e.path[1].y, e.r * 0.9)) e.path.shift();
         const n = e.path[0];
-        if (Ent.seek(world, e, n.x, n.y, speed, dt, 0.3)) e.path.shift();
+        if (Ent.seek(world, e, n.x, n.y, speed, dt, 0.3)) { e.path.shift(); e.moving = e.path.length > 0; }
         return false;
       }
       return Ent.seek(world, e, tx, ty, speed, dt, 0.35);
@@ -101,7 +122,10 @@
           const min = (a.r + b.r) * 0.9;
           const d2 = dx * dx + dy * dy;
           if (d2 > 0.0001 && d2 < min * min) {
-            const d = Math.sqrt(d2), push = (min - d) * 0.5 * Math.min(1, dt * 12);
+            const settled = !a.moving && !b.moving;
+            const d = Math.sqrt(d2);
+            if (settled && d > min * 0.6) continue;  // standing side by side is fine
+            const push = (min - d) * 0.5 * Math.min(1, dt * (settled ? 4 : 8));
             const ux = dx / d, uy = dy / d;
             const wa = a.type === 'boss' ? 0.1 : b.type === 'boss' ? 0.9 : 0.5;
             a.pushx = (a.pushx || 0) - ux * push * (1 - wa) * 2;

@@ -682,9 +682,9 @@
     },
     animatePerson(game, e, v, dt) {
       const P = v.inst.parts;
-      const moving = e.moving && !e.dead;
+      const moving = (v.mv || 0) > 0.5 && !e.dead;
       const ph = e.anim * 11;
-      const sw = moving ? Math.sin(ph) * 0.65 : 0;
+      const sw = e.dead ? 0 : Math.sin(ph) * 0.65 * (v.mv || 0);
       P.legL.rotation.z = sw; P.legR.rotation.z = -sw;
       let aL = -sw * 0.8, aR = sw * 0.8, aLx = 0, aRx = 0, twist = 0, lean = 0;
       const ease = t => 1 - Math.pow(1 - t, 3);
@@ -714,7 +714,7 @@
       if (seated) { P.legL.rotation.z = P.legR.rotation.z = -1.45; aL = aR = -0.45; }
       P.armL.rotation.z = aL; P.armR.rotation.z = aR;
       P.armL.rotation.x = aLx; P.armR.rotation.x = aRx;
-      P.body.position.y = 0.42 + (moving ? Math.abs(Math.sin(ph)) * 0.04 : Math.sin(R.time * 2 + v.bob) * 0.006);
+      P.body.position.y = 0.42 + Math.abs(Math.sin(ph)) * 0.04 * (v.mv || 0) + Math.sin(R.time * 2 + v.bob) * 0.006 * (1 - (v.mv || 0));
       P.body.rotation.z = lean * 0.6;
       P.head.rotation.z = e.sayT > 0 ? Math.sin(R.time * 9) * 0.06 : 0;
       v.twist = twist;
@@ -741,18 +741,18 @@
     },
     animateCreature(game, e, v) {
       const P = v.inst.parts;
-      const moving = e.moving && !e.dead;
+      const moving = (v.mv || 0) > 0.5 && !e.dead;
       const sp = e.species === 'gnawer' ? 22 : e.species === 'hare' ? 14 : 13;
       const ph = e.anim * sp;
-      const sw = moving ? Math.sin(ph) * 0.7 : 0;
+      const sw = e.dead ? 0 : Math.sin(ph) * 0.7 * (v.mv || 0);
       if (P.legFL) { P.legFL.rotation.z = sw; P.legBR.rotation.z = sw; P.legFR.rotation.z = -sw; P.legBL.rotation.z = -sw; }
       if (P.tail) P.tail.rotation.y = Math.sin(R.time * 5 + v.bob) * 0.3;
       v.yOff = 0;
-      if (e.species === 'hare' && moving) v.yOff = Math.abs(Math.sin(ph * 0.5)) * 0.18;
+      if (e.species === 'hare') v.yOff = Math.abs(Math.sin(ph * 0.5)) * 0.18 * (v.mv || 0);
       if (e.species === 'wolf') {
         const crouch = e.state === 'windup' ? 0.12 : 0;
         v.tell = e.state === 'windup' ? 1 : 0;
-        P.body.position.y = 0.42 - crouch + (moving ? Math.abs(Math.sin(ph)) * 0.03 : 0);
+        P.body.position.y = 0.42 - crouch + Math.abs(Math.sin(ph)) * 0.03 * (v.mv || 0);
         P.head.rotation.z = e.state === 'lunge' ? 0.3 : e.state === 'windup' ? -0.15 : 0;
       }
     },
@@ -784,6 +784,15 @@
         if (e.hidden) continue;
         v.cfgT -= dt;
         if (v.cfgT <= 0) { v.cfgT = 1; R.configure(game, e, v); v.baseScale = root.scale.x; }
+        // Smooth what the eye sees: position eases toward the simulation,
+        // and "walking" fades in and out instead of flickering on and off.
+        if (v.px == null || Math.hypot(e.x - v.px, e.y - v.py) > 1.5 || e === game.pe) { v.px = e.x; v.py = e.y; }
+        else { const kp = 1 - Math.exp(-dt * 16); v.px += (e.x - v.px) * kp; v.py += (e.y - v.py) * kp; }
+        const spd = dt > 0 ? Math.hypot(e.x - (v.lx == null ? e.x : v.lx), e.y - (v.ly == null ? e.y : v.ly)) / dt : 0;
+        v.lx = e.x; v.ly = e.y;
+        v.spd = v.spd == null ? spd : v.spd + (spd - v.spd) * Math.min(1, dt * 10);
+        const wantMv = e.moving || v.spd > 0.35 ? 1 : 0;
+        if (dt > 0) v.mv = (v.mv == null ? wantMv : v.mv + (wantMv - v.mv) * Math.min(1, dt * 7));
         if (e.type === 'player' || e.type === 'person') R.animatePerson(game, e, v, dt);
         else if (e.type === 'creature') R.animateCreature(game, e, v);
         else R.animateBoss(game, e, v);
@@ -792,11 +801,13 @@
         if (e.dead && e.deathAngle != null) target = e.deathAngle + Math.PI; // face the blow, fall away from it
         if (e.indoor && !e.moving && !e.dead && e.indoor.pose !== 'stand' && (e.seated || e.sleeping)) { target = e.indoor.dir; v.dir = target; }
         if (e.rollT > 0 && e.rollDir != null) { target = e.rollDir; v.dir = target; }
-        v.dir += U.angleDiff(v.dir, target) * Math.min(1, dt * (e.dead ? 30 : 14));
+        const turn = U.angleDiff(v.dir, target);
+        // NPCs ignore tiny heading wobbles and turn at a natural pace
+        if (e === game.pe || e.dead || Math.abs(turn) > 0.18 || (v.mv || 0) > 0.5) v.dir += turn * Math.min(1, dt * (e.dead ? 30 : e === game.pe ? 14 : 9));
         root.rotation.y = Math.PI - v.dir + (v.twist || 0);
         v.twist = 0;
-        const gy = R.groundH(e.x, e.y);
-        root.position.set(e.x, gy + (v.yOff || 0), e.y);
+        const gy = R.groundH(v.px, v.py);
+        root.position.set(v.px, gy + (v.yOff || 0), v.py);
         // hurt: squash and recoil
         const base = v.baseScale || (v.baseScale = root.scale.x);
         const hk = e.hurtT > 0 && !e.dead ? e.hurtT / 0.18 : 0;
