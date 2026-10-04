@@ -43,7 +43,7 @@ jobs:
       - name: Install
         run: npm ci
       - name: Launch the desktop app
-        run: timeout 180 xvfb-run -a npx electron . --no-sandbox
+        run: timeout 240 xvfb-run -a -s '-screen 0 1440x900x24' npx electron . --no-sandbox --ignore-gpu-blocklist --use-angle=swiftshader --enable-unsafe-swiftshader
         env:
           ECHO_SMOKE: '1'
       - name: Screenshot
