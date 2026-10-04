@@ -9,6 +9,7 @@
     derived: null, derivedT: 0, draw: 0, drawing: false, charge: 0, charging: false,
     dodgeT: 0, dodgeDir: 0, studyT: 0, studyTarget: null, eatT: 0, sneaking: false,
 
+    ROLL: 0.38,
     reset() { PC.combo = 0; PC.comboT = 9; PC.atkBuf = 0; PC.holdT = 0; PC.heavyHold = false; PC.lungeT = 0; PC.dodgeBuf = 0; PC.derived = null; PC.draw = 0; PC.drawing = false; PC.charge = 0; PC.charging = false; PC.dodgeT = 0; PC.studyT = 0; PC.studyTarget = null; PC.lock = null; },
 
     computeDerived(game) {
@@ -79,7 +80,8 @@
 
       if (PC.dodgeT > 0) {
         PC.dodgeT -= dt;
-        const sp = 10.5 * dt;
+        // burst out of the dive, slow as you come up out of the roll
+        const sp = 10 * (0.45 + 0.75 * Math.max(0, PC.dodgeT) / PC.ROLL) * dt;
         ECHO.Ent.move(world, pe, Math.cos(PC.dodgeDir) * sp, Math.sin(PC.dodgeDir) * sp);
         if (Math.random() < 0.6) ECHO.Combat.fx.push({ kind: 'p', x: pe.x, y: pe.y + 0.2, vx: 0, vy: 0, t: 0, life: 0.3, color: 'rgba(200,190,170,0.6)', size: 2 });
       } else if (pe.stagger <= 0) {
@@ -129,7 +131,7 @@
           pe.x = bx; pe.y = by; pe.iframes = 0.35;
           ECHO.Combat.burst(pe.x, pe.y, '#9fd3ff', 14, 3, 0.4, 2);
         } else {
-          PC.dodgeT = 0.3; PC.dodgeDir = dir; pe.iframes = 0.28; pe.rollT = 0.3; pe.rollDir = dir;
+          PC.dodgeT = PC.ROLL; PC.dodgeDir = dir; pe.iframes = 0.3; pe.rollT = PC.ROLL; pe.rollDur = PC.ROLL; pe.rollDir = dir; pe.dir = dir;
           ECHO.Combat.burst(pe.x, pe.y + 0.2, '#b8a888', 6, 1.5, 0.4, 2);
         }
       }

@@ -723,7 +723,21 @@
       else if (e.yielded || e.role === 'captive') v.yOff = -0.18;
       else if (seated) v.yOff = e.indoor.spot && /bench/.test(e.indoor.spot.tag) ? 0 : 0.02;
       // dodge roll: tuck and tumble
-      if (e.rollT > 0) { const k = 1 - e.rollT / 0.3; v.inst.root.rotation.z = k * Math.PI * 2; v.yOff = Math.sin(k * Math.PI) * 0.2 + 0.25 * Math.sin(k * Math.PI); }
+      // Dodge roll: dip into a tuck, tumble over the shoulders around the body's
+      // centre (not the feet), then rise out of the crouch.
+      v.roll = null;
+      if (e.rollT > 0) {
+        const k = 1 - e.rollT / (e.rollDur || 0.38);
+        const spin = k < 0.12 ? 0 : k > 0.86 ? 1 : (k - 0.12) / 0.74;
+        const tuck = Math.sin(Math.min(1, k / 0.92) * Math.PI);            // 0 → 1 → 0
+        const eased = spin * spin * (3 - 2 * spin);
+        P.legL.rotation.z = P.legR.rotation.z = -1.7 * tuck;              // knees to chest
+        P.armL.rotation.z = P.armR.rotation.z = -1.2 - 0.5 * tuck;         // arms wrapped in
+        P.armL.rotation.x = 0.5 * tuck; P.armR.rotation.x = -0.5 * tuck;
+        P.body.rotation.z = 0.35 * tuck;                                   // curl the back
+        P.head.rotation.z = 0.4 * tuck;                                    // tuck the chin
+        v.roll = { angle: eased * Math.PI * 2, tuck, k };
+      }
     },
     animateCreature(game, e, v) {
       const P = v.inst.parts;
@@ -777,6 +791,7 @@
         let target = e.dir != null ? e.dir : 0;
         if (e.dead && e.deathAngle != null) target = e.deathAngle + Math.PI; // face the blow, fall away from it
         if (e.indoor && !e.moving && !e.dead && e.indoor.pose !== 'stand' && (e.seated || e.sleeping)) { target = e.indoor.dir; v.dir = target; }
+        if (e.rollT > 0 && e.rollDir != null) { target = e.rollDir; v.dir = target; }
         v.dir += U.angleDiff(v.dir, target) * Math.min(1, dt * (e.dead ? 30 : 14));
         root.rotation.y = Math.PI - v.dir + (v.twist || 0);
         v.twist = 0;
@@ -786,6 +801,16 @@
         const base = v.baseScale || (v.baseScale = root.scale.x);
         const hk = e.hurtT > 0 && !e.dead ? e.hurtT / 0.18 : 0;
         root.scale.set(base * (1 + hk * 0.12), base * (1 - hk * 0.14), base * (1 + hk * 0.12));
+        if (v.roll) {
+          // rotate about a pivot at hip height; the body sinks into the tuck as it turns
+          const c = 0.42 * base, th = v.roll.angle;
+          const sink = 0.22 * base * v.roll.tuck;
+          const ox = c * Math.sin(th), oy = c - c * Math.cos(th) - sink;   // pivot (0,c): feet swing up and over
+          const yaw = root.rotation.y;
+          root.rotation.z = th;
+          root.position.x += ox * Math.cos(yaw); root.position.z -= ox * Math.sin(yaw); root.position.y += oy;
+          root.scale.y *= 1 - 0.12 * v.roll.tuck;
+        }
         // death: thrown backward, then sink and fade
         if (e.dead) {
           const k = Math.min(1, (e.deathT || 0) * 4);
