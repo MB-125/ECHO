@@ -84,6 +84,7 @@
       ctx.imageSmoothingEnabled = false;
       ctx.fillStyle = '#0b0a0f';
       ctx.fillRect(0, 0, R.cw, R.ch);
+      if (ECHO.Interior && ECHO.Interior.cur) return R.drawRoom(game, ECHO.Interior.cur);
       const halfW = R.cw / 2 / (TS * Z), halfH = R.ch / 2 / (TS * Z);
       const x0 = Math.floor(cam.x - halfW) - 1, x1 = Math.ceil(cam.x + halfW) + 1;
       const y0 = Math.floor(cam.y - halfH) - 1, y1 = Math.ceil(cam.y + halfH) + 3;
@@ -180,6 +181,35 @@
       R.drawLabels(game);
     },
 
+    // Simple top-down room view for the 2D renderer.
+    FURN_COL: { bed: '#8a3a3a', table: '#7a5634', chair: '#6a4a2c', stool: '#6a4a2c', counter: '#5a3e26', barrel: '#6e4a28', crate: '#8a6a3a', hearth: '#5a554e', shelf: '#4a3420', desk: '#6a4a2c', lectern: '#5a3e26', altar: '#d8d0c0', throne: '#c8a040', bench: '#6a4a2c', rug: '#7a2e2e', anvil: '#3a3a40', forge: '#4a4440', rack: '#5a4a3a', chest: '#7a5a2a', candles: '#f0e0b0', standard: '#6f8fc4', pillar: '#a8a094' },
+    drawRoom(game, L) {
+      const ctx = R.ctx, B = ECHO.Interior.BASE, Z = R.Z;
+      const floorCol = { wood: '#6e4c2e', stone: '#6a655d', marble: '#cfc8ba' }[L.floor];
+      const wallCol = { plaster: '#b8a47e', stone: '#5e5850', marble: '#bdb5a6' }[L.wall];
+      for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) {
+        const p = R.toScreen(game, B + x, y);
+        const edge = x === 0 || y === 0 || x === L.W - 1 || y === L.H - 1;
+        ctx.fillStyle = edge ? (x === L.doorX && y === L.H - 1 ? '#2a1c12' : wallCol) : ((x + y) % 2 ? floorCol : R.shade(floorCol));
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(TS * Z), Math.ceil(TS * Z));
+      }
+      const objs = [];
+      for (const f of L.furn) objs.push({ y: f.y + f.h / 2, draw: () => {
+        const p = R.toScreen(game, B + f.x - f.w / 2 * f.scale, f.y - f.h / 2 * f.scale);
+        const w = f.w * TS * Z * f.scale * 0.92, h = f.h * TS * Z * f.scale * 0.92;
+        ctx.fillStyle = (f.colors && f.colors.banner && f.model !== 'throne') ? f.colors.banner : (R.FURN_COL[f.model] || '#6a4a2c');
+        ctx.fillRect(Math.round(p.x), Math.round(p.y), w, h);
+        ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(Math.round(p.x), Math.round(p.y + h - 3 * Z), w, 3 * Z);
+        if (f.light) game.light(B + f.x, f.y, f.light.r * 0.6, 0.5, f.light.color);
+      } });
+      for (const e of game.ents) if (!e.hidden) objs.push({ y: e.y, draw: () => R.entity(game, e) });
+      objs.sort((a, b) => a.y - b.y);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      for (const o of objs) o.draw();
+      R.drawFx(game);
+      R.drawLabels(game);
+    },
+    shade(hex) { const n = parseInt(hex.slice(1), 16); const f = c => Math.max(0, Math.round(c * 0.92)); return '#' + ((f(n >> 16) << 16) | (f((n >> 8) & 255) << 8) | f(n & 255)).toString(16).padStart(6, '0'); },
     img(game, canvas, x, y, ax, ay, flip) {
       const p = R.toScreen(game, x, y);
       const Z = R.Z;

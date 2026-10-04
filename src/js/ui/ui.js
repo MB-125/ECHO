@@ -79,7 +79,7 @@
       if (UI.miniT <= 0) { UI.miniT = 0.4; UI.minimap(game); }
     },
     minimap(game) {
-      const world = game.world, pe = game.pe;
+      const world = game.world, pe = ECHO.Interior.cur ? { x: game.pl.x, y: game.pl.y, dir: game.pe.dir } : game.pe;
       const c = $('#minimap'), g = c.getContext('2d');
       if (!UI.miniBase) UI.miniBase = ECHO.Renderer.mapImage(world);
       const scale = 2.2;
@@ -141,12 +141,13 @@
     },
 
     // ------------------------------------------------------------ Fade, modal, panel
-    fadeOut(cb) {
+    fadeOut(cb, ms = 900) {
       const f = $('#fade');
+      f.style.transitionDuration = (ms / 1000) + 's';
       f.classList.add('on');
-      setTimeout(() => { if (cb) cb(); }, 900);
+      setTimeout(() => { if (cb) cb(); }, ms);
     },
-    fadeIn() { $('#fade').classList.remove('on'); },
+    fadeIn(ms) { const f = $('#fade'); f.style.transitionDuration = ms ? (ms / 1000) + 's' : ''; f.classList.remove('on'); },
     modal(o) {
       UI.fadeIn();
       UI.modalOpen = true;
@@ -757,7 +758,7 @@
         const t = camp || lair;
         if (t) { g.strokeStyle = '#ffe08a'; g.lineWidth = 2; g.beginPath(); g.arc(t.x * s, t.y * s, 5 * s, 0, Math.PI * 2); g.stroke(); }
       }
-      g.fillStyle = '#fff'; g.beginPath(); g.arc(game.pe.x * s, game.pe.y * s, Math.max(4, s * 1.4), 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(game.pl.x * s, game.pl.y * s, Math.max(4, s * 1.4), 0, Math.PI * 2); g.fill();
       g.strokeStyle = '#000'; g.lineWidth = 2; g.stroke();
     },
     openCharacter() {

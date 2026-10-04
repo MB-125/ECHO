@@ -232,6 +232,7 @@
         <button data-a="save">Save now</button>
         <div class="card"><h4>View distance</h4><div class="row"><button class="small" data-z="-1">Closer</button><button class="small" data-z="1">Farther</button><span class="dim">${UI.settings.zoom}</span></div></div>
         <div class="card"><h4>Graphics</h4><div class="row"><button class="small" data-g="3d" ${ECHO.render3d ? 'disabled' : ''}>3D</button><button class="small" data-g="2d" ${ECHO.render3d ? '' : 'disabled'}>Classic 2D</button><span class="dim">${ECHO.render3d ? 'Using 3D' : 'Using classic 2D'}</span></div></div>
+        <div class="card"><h4>Sound</h4><div class="row"><button class="small" data-s="on" ${ECHO.Sfx.enabled ? 'disabled' : ''}>On</button><button class="small" data-s="off" ${ECHO.Sfx.enabled ? '' : 'disabled'}>Off</button></div></div>
         <button data-a="help">How the world works</button>
         <button data-a="title">Save and return to title</button>
         ${window.echoNative ? '<button data-a="quit">Save and quit</button>' : ''}</div>`, 'pause');
@@ -253,6 +254,7 @@
         await ECHO.Game.save();
         location.reload();
       }));
+      body.querySelectorAll('button[data-s]').forEach(b => b.addEventListener('click', () => { ECHO.Sfx.setEnabled(b.dataset.s === 'on'); Scr.openPause(); }));
       body.querySelectorAll('button[data-z]').forEach(b => b.addEventListener('click', () => {
         UI.settings.zoom = U.clamp(UI.settings.zoom + +b.dataset.z, -2, 3);
         try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ }

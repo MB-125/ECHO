@@ -3,6 +3,7 @@
   window.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('game');
     ECHO.Input.attach(canvas);
+    ECHO.Sfx.init();
     ECHO.UI.init();
     await ECHO.chooseRenderer();
     ECHO.Renderer.init(canvas);

@@ -18,12 +18,14 @@
     idx: (x, y) => y * W + x,
     inBounds: (x, y) => x >= 0 && y >= 0 && x < W && y < H,
     tile(world, x, y) {
+      if (x >= 9000 && ECHO.Interior) return ECHO.Interior.tile(x, y);
       x |= 0; y |= 0;
       if (x < 0 || y < 0 || x >= W || y >= H) return TILE.DEEP;
       return world.tiles[y * W + x];
     },
     setTile(world, x, y, t) { if (x >= 0 && y >= 0 && x < W && y < H) world.tiles[y * W + x] = t; },
     isSolid(world, x, y) {
+      if (x >= 9000 && ECHO.Interior) return ECHO.Interior.isSolid(x, y);
       x = Math.floor(x); y = Math.floor(y);
       if (x < 0 || y < 0 || x >= W || y >= H) return true;
       const i = y * W + x;
@@ -77,6 +79,7 @@
     // A* over tiles. Used for roads at generation and for travel at runtime.
     findPath(world, sx, sy, tx, ty, costFn, maxIter = 60000) {
       sx |= 0; sy |= 0; tx |= 0; ty |= 0;
+      if (sx < 0 || sy < 0 || tx < 0 || ty < 0 || sx >= W || sy >= H || tx >= W || ty >= H) return null;
       const N = W * H;
       const g = new Float32Array(N).fill(Infinity);
       const came = new Int32Array(N).fill(-1);

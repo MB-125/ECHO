@@ -20,6 +20,7 @@
     },
 
     place(game, x, y) {
+      if (ECHO.Interior.cur) ECHO.Interior.leave(game, true);
       const spot = game.freeSpotNear(game.world, x, y);
       game.pe.x = spot.x; game.pe.y = spot.y; game.pl.x = spot.x; game.pl.y = spot.y;
       game.cam.x = spot.x; game.cam.y = spot.y;

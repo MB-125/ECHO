@@ -772,6 +772,213 @@ def rift():
     return m
 
 
+
+# ================================================================= INTERIOR FURNITURE
+@model
+def bed():
+    m = Model('bed')
+    b = m.part('building')
+    b.box((1.8, .9, .3), (0, 0, .25), 'wood').box((1.7, .82, .14), (0, 0, .45), 'canvas').box((.35, .7, .1), (-.65, 0, .55), 'white')
+    b.box((1.1, .86, .06), (.25, 0, .53), 'red').box((.08, .9, .7), (-.88, 0, .35), 'darkwood')
+    return m
+
+
+@model
+def table():
+    m = Model('table')
+    b = m.part('building')
+    b.box((1.4, .9, .08), (0, 0, .72), 'wood')
+    for sx in (-.6, .6):
+        for sy in (-.35, .35):
+            b.box((.08, .08, .7), (sx, sy, .35), 'darkwood')
+    b.cyl(.08, .12, (.3, .1, .82), 'darkwood', seg=6).box((.2, .2, .04), (-.3, -.1, .78), 'straw')
+    return m
+
+
+@model
+def chair():
+    m = Model('chair')
+    b = m.part('building')
+    b.box((.42, .42, .06), (0, 0, .42), 'wood').box((.06, .42, .5), (.19, 0, .7), 'wood')
+    for sx in (-.17, .17):
+        for sy in (-.17, .17):
+            b.box((.05, .05, .42), (sx, sy, .21), 'darkwood')
+    return m
+
+
+@model
+def stool():
+    m = Model('stool')
+    b = m.part('building')
+    b.cyl(.2, .06, (0, 0, .45), 'wood', seg=8)
+    for i in range(3):
+        a = i * 2.1
+        b.box((.05, .05, .45), (.12 * math.cos(a), .12 * math.sin(a), .22), 'darkwood')
+    return m
+
+
+@model
+def counter():
+    m = Model('counter')
+    b = m.part('building')
+    b.box((3.2, .7, 1.0), (0, 0, .5), 'darkwood').box((3.3, .8, .08), (0, 0, 1.04), 'wood')
+    for i in range(4):
+        b.cyl(.06, .14, (-1.2 + i * .7, .1, 1.15), 'glow' if i == 1 else 'darkwood', seg=6)
+    return m
+
+
+@model
+def barrel():
+    m = Model('barrel')
+    b = m.part('building')
+    b.cyl(.3, .8, (0, 0, .4), 'wood', seg=10, r2=.3).cyl(.32, .06, (0, 0, .18), 'iron', seg=10).cyl(.32, .06, (0, 0, .62), 'iron', seg=10)
+    return m
+
+
+@model
+def crate():
+    m = Model('crate')
+    b = m.part('building')
+    b.box((.7, .7, .6), (0, 0, .3), 'wood').box((.72, .06, .62), (0, -.33, .3), 'darkwood').box((.06, .72, .62), (.33, 0, .3), 'darkwood')
+    return m
+
+
+@model
+def hearth():
+    m = Model('hearth')
+    b = m.part('building')
+    b.box((2.0, .9, 1.6), (0, .2, .8), 'stone').box((1.2, .6, .9), (0, -.05, .45), 'iron').box((2.2, 1.0, .2), (0, .15, 1.6), 'darkstone')
+    b.box((.8, .5, 1.4), (0, .35, 2.3), 'stone')
+    m.part('fire', (0, -.1, .15)).cone(.3, .6, (0, -.1, .45), 'flame', seg=6).cone(.18, .4, (.15, -.05, .35), 'glow', seg=5)
+    return m
+
+
+@model
+def shelf():
+    m = Model('shelf')
+    b = m.part('building')
+    b.box((1.6, .4, 2.0), (0, 0, 1.0), 'darkwood')
+    cols = ['red', 'banner', 'leaves2', 'straw', 'cape', 'tent']
+    for row in range(4):
+        z = .25 + row * .45
+        b.box((1.5, .36, .04), (0, -.02, z - .02), 'wood')
+        x = -.68
+        i = row
+        while x < .65:
+            w = .07 + ((i * 37) % 5) * .02
+            b.box((w, .26, .3 - ((i * 13) % 3) * .04), (x + w / 2, -.05, z + .15), cols[i % len(cols)])
+            x += w + .015
+            i += 1
+    return m
+
+
+@model
+def desk():
+    m = Model('desk')
+    b = m.part('building')
+    b.box((1.2, .7, .08), (0, 0, .75), 'wood').box((1.2, .06, .7), (0, .32, .38), 'darkwood').box((.06, .7, .7), (-.57, 0, .38), 'darkwood').box((.06, .7, .7), (.57, 0, .38), 'darkwood')
+    b.box((.4, .3, .03), (-.15, -.05, .8), 'paper').box((.25, .2, .12), (.35, .1, .85), 'red')
+    m.part('candle', (.4, -.15, .8)).box((.05, .05, .14), (.4, -.15, .86), 'white').ball(.04, (.4, -.15, .96), 'flame', sub=0)
+    return m
+
+
+@model
+def lectern():
+    m = Model('lectern')
+    b = m.part('building')
+    b.box((.12, .12, 1.0), (0, 0, .5), 'darkwood').box((.6, .5, .06), (0, 0, 1.05), 'wood', rot=(-20, 0, 0)).box((.5, .4, .06), (0, -.02, 1.1), 'paper', rot=(-20, 0, 0))
+    return m
+
+
+@model
+def altar():
+    m = Model('altar')
+    b = m.part('building')
+    b.box((1.8, .9, .9), (0, 0, .45), 'plaster').box((2.0, 1.0, .1), (0, 0, .95), 'gold').box((.4, .4, .5), (0, .1, 1.25), 'stone')
+    m.part('fire', (0, .1, 1.5)).ball(.18, (0, .1, 1.62), 'flame', sub=1, scale=(1, 1, 1.6))
+    return m
+
+
+@model
+def throne():
+    m = Model('throne')
+    b = m.part('building')
+    b.box((2.4, 1.8, .3), (0, 0, .15), 'stone').box((1.0, .9, .5), (0, .2, .55), 'red').box((1.1, .2, 1.7), (0, .62, 1.15), 'gold')
+    b.box((.18, .9, .5), (-.5, .2, .85), 'gold').box((.18, .9, .5), (.5, .2, .85), 'gold').ball(.12, (0, .62, 2.05), 'banner', sub=0)
+    return m
+
+
+@model
+def bench():
+    m = Model('bench')
+    b = m.part('building')
+    b.box((1.8, .45, .07), (0, 0, .45), 'wood')
+    for sx in (-.75, .75):
+        b.box((.08, .4, .45), (sx, 0, .22), 'darkwood')
+    return m
+
+
+@model
+def rug():
+    m = Model('rug')
+    b = m.part('building')
+    b.box((2.4, 1.6, .02), (0, 0, .01), 'red').box((2.0, 1.2, .025), (0, 0, .012), 'awning2').box((1.6, .8, .03), (0, 0, .014), 'banner')
+    return m
+
+
+@model
+def anvil():
+    m = Model('anvil')
+    b = m.part('building')
+    b.box((.35, .3, .4), (0, 0, .2), 'darkwood').box((.6, .26, .14), (0, 0, .47), 'iron').cone(.1, .25, (.38, 0, .47), 'iron', seg=4, rot=(0, 90, 0))
+    return m
+
+
+@model
+def forge():
+    m = Model('forge')
+    b = m.part('building')
+    b.box((1.6, 1.2, .8), (0, 0, .4), 'stone').box((1.2, .9, .1), (0, -.05, .82), 'darkstone').box((.7, .7, 1.6), (0, .35, 1.6), 'stone')
+    m.part('fire', (0, -.05, .85)).box((1.0, .7, .12), (0, -.05, .9), 'flame').ball(.15, (.2, -.1, 1.0), 'glow', sub=0)
+    return m
+
+
+@model
+def rack():
+    m = Model('rack')
+    b = m.part('building')
+    b.box((1.6, .2, .08), (0, 0, .2), 'wood').box((1.6, .2, .08), (0, 0, 1.3), 'wood').box((.08, .2, 1.4), (-.76, 0, .7), 'wood').box((.08, .2, 1.4), (.76, 0, .7), 'wood')
+    for i in range(5):
+        x = -.55 + i * .27
+        b.box((.04, .04, 1.1), (x, -.08, .78), 'metal' if i % 2 == 0 else 'wood').box((.14, .05, .04), (x, -.08, .35), 'gold' if i % 2 == 0 else 'metal')
+    b.cyl(.22, .04, (.0, -.14, 1.5), 'wood', seg=10, rot=(90, 0, 0))
+    return m
+
+
+@model
+def chest():
+    m = Model('chest')
+    b = m.part('building')
+    b.box((.9, .55, .45), (0, 0, .22), 'wood').box((.92, .57, .18), (0, 0, .52), 'darkwood').box((.95, .06, .62), (-.3, 0, .31), 'iron').box((.95, .06, .62), (.3, 0, .31), 'iron', rot=(0, 0, 0)).box((.1, .04, .12), (0, -.29, .42), 'gold')
+    return m
+
+
+@model
+def candles():
+    m = Model('candles')
+    b = m.part('building')
+    b.box((.08, .08, 1.1), (0, 0, .55), 'iron').cyl(.2, .04, (0, 0, .03), 'iron', seg=6).cyl(.18, .04, (0, 0, 1.1), 'iron', seg=6)
+    m.part('fire', (0, 0, 1.2)).box((.04, .04, .1), (.08, 0, 1.17), 'white').ball(.04, (.08, 0, 1.25), 'flame', sub=0).box((.04, .04, .1), (-.08, 0, 1.17), 'white').ball(.04, (-.08, 0, 1.25), 'flame', sub=0)
+    return m
+
+
+@model
+def standard():
+    m = Model('standard')
+    b = m.part('building')
+    b.box((.06, .06, 2.2), (0, 0, 1.1), 'darkwood').box((.5, .5, .08), (0, 0, .04), 'iron').box((.7, .04, 1.0), (.0, -.05, 1.55), 'banner').box((.3, .05, .3), (0, -.08, 1.6), 'gold')
+    return m
+
 # ----------------------------------------------------------------- run
 if __name__ == '__main__':
     only = set(a for a in sys.argv[1:] if not a.startswith('-'))

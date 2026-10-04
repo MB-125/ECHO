@@ -24,6 +24,12 @@ Every system below is real and connected to the others. Nothing is scripted.
 
 ![A boss returns, armored against what hurt it](docs/boss-returns.png)
 
+**Combat with weight.** Strikes chain into a three-hit combo that ends in a spinning finisher; hold the button for a heavy, guard-breaking blow that staggers whatever it hits. Every hit lands with a beat of hit-stop, sparks, a camera kick and synthesized sound; kills throw bodies back; a perfect guard rings like a bell and slows time for a moment. Foes flash before they strike so you can read them. A dodge-roll and buffered inputs keep it responsive, and loosing an arrow just as the bow reaches full draw makes a perfect shot.
+
+**Walk inside.** Houses, inns, smithies, archives, shrines, temples and keeps can be entered. Each room is laid out and furnished (Blender-built beds, tables, hearths, shelves, thrones), and holds the people who would really be there at that hour: the innkeeper behind the bar and patrons at the tables in the evening, a family asleep at night, the ruler on the throne with guards at the pillars. Rent a bed, kneel at the shrine, read the archive, petition the throne — or slip into a stranger's house at night and search the cupboard, if no one wakes.
+
+![Inside the inn of an evening](docs/interior-inn.png)
+
 **No classes.** You become what you repeatedly do. Eight skills grow by use, and your *tendencies* change how your body fights: aggression quickens your strikes but thins your guard; patience makes guarding cheap; reckless overcasting makes fire mighty and unstable. Your title is a biography of how you played.
 
 **Death makes stories.** Beasts leave you to be found by a named villager, and each fall wears your fate thinner. People take you captive, take your sword, and rise in status for it — you might meet them later as a chieftain carrying your blade. Escape, pay a ransom, or wait for rescue, and come back to a world that moved on without you.
@@ -70,14 +76,14 @@ npm start
 | | |
 |---|---|
 | **WASD** | move |
-| **Left mouse** | strike |
+| **Left mouse** | strike (click in rhythm for a 3-hit combo; hold and release for a heavy blow) |
 | **Right mouse** (hold) | draw and loose the bow |
 | **Q** (hold) | flame — hold longer to pour more in, at your peril |
 | **Shift** | guard (tap just as a blow lands for a perfect guard) |
 | **Space** | dodge |
 | **Ctrl** | sneak — also required to strike someone who isn't your enemy |
 | **F** (hold) | study a creature or boss |
-| **E** | talk / interact |
+| **E** | talk / interact / enter and leave buildings |
 | **H / G** | eat / use herbs |
 | **Tab** · **M** · **K** | journal · map · character |
 | **Esc** | menu · **F11** fullscreen |

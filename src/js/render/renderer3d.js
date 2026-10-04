@@ -108,7 +108,7 @@
       R.mat.propFade = R.mat.prop.clone(); R.mat.propFade.transparent = true; R.mat.propFade.opacity = 0.28; R.mat.propFade.depthWrite = false;
       R.mat.windowFade = R.mat.window.clone(); R.mat.windowFade.transparent = true; R.mat.windowFade.opacity = 0.28; R.mat.windowFade.depthWrite = false;
       R.groups = {};
-      for (const g of ['terrain', 'props', 'towns', 'sites', 'ents', 'fx']) { R.groups[g] = new THREE.Group(); s.add(R.groups[g]); }
+      for (const g of ['terrain', 'props', 'towns', 'sites', 'room', 'ents', 'fx']) { R.groups[g] = new THREE.Group(); s.add(R.groups[g]); }
       R.ray = new THREE.Raycaster();
       R.v3 = new THREE.Vector3();
       R.initParticles();
@@ -135,7 +135,8 @@
       R.world = world;
       for (const k of Object.keys(R.chunks)) R.dropChunk(k);
       R.chunks = {};
-      for (const g of ['towns', 'sites', 'ents', 'fx']) R.clear(R.groups[g]);
+      for (const g of ['towns', 'sites', 'ents', 'fx', 'room']) R.clear(R.groups[g]);
+      R.roomKey = null;
       R.views.clear(); R.fxMeshes.clear(); R.projMeshes.clear(); R.lootMeshes.clear();
       R.towns = {};
       R.buildHeights(world);
@@ -172,7 +173,7 @@
       return R.hc[cy * (W + 1) + cx];
     },
     groundH(x, y) {
-      if (!R.hc) return 0;
+      if (!R.hc || x >= 9000) return 0;
       const t = ECHO.World.tile(R.world, x, y);
       if (t === TILE.BRIDGE) return 0.05;
       const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
@@ -462,6 +463,134 @@
       }
     },
 
+    // ---------------------------------------------------------------- interiors
+    // Rooms are built from their layout: a tiled floor, walls (the south wall
+    // kept low so the camera can see in), windows that follow the daylight,
+    // and Blender-built furniture.
+    FLOORS: {
+      wood: (x, y) => { const plank = (y * 3 + ((x + (y % 2) * 0.5) / 2.5 | 0)) * 7919 % 100 / 100; return ['#7a5634', '#6e4c2e', '#835c38', '#73512f'][(plank * 4) | 0]; },
+      stone: (x, y) => ['#6f6a62', '#77726a', '#68635c', '#7d776d'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4],
+      marble: (x, y) => ((x + y) % 2 ? '#d8d2c6' : '#bfb7a8')
+    },
+    WALLS: { plaster: ['#cbb894', '#5a3e26'], stone: ['#7c766c', '#5a554e'], marble: ['#e0d9cc', '#a89e8c'] },
+    buildRoom(game, L) {
+      const g = R.groups.room;
+      for (const o of g.children.slice()) { g.remove(o); if (o.geometry && o.userData.own) o.geometry.dispose(); }
+      R.roomWindows = [];
+      const B = ECHO.Interior.BASE;
+      // floor: one quad per tile, coloured by pattern
+      const n = (L.W - 2) * (L.H - 2);
+      const pos = new Float32Array(n * 18), col = new Float32Array(n * 18);
+      const tmp = new THREE.Color();
+      let o = 0;
+      for (let y = 1; y < L.H - 1; y++) for (let x = 1; x < L.W - 1; x++) {
+        tmp.set(R.FLOORS[L.floor](x, y)).convertSRGBToLinear();
+        const j = 0.94 + ((x * 13 + y * 7) % 5) * 0.03;
+        const X = B + x, quad = [[X, y], [X, y + 1], [X + 1, y], [X + 1, y], [X, y + 1], [X + 1, y + 1]];
+        for (const [qx, qy] of quad) { pos[o] = qx; pos[o + 1] = 0; pos[o + 2] = qy; col[o] = tmp.r * j; col[o + 1] = tmp.g * j; col[o + 2] = tmp.b * j; o += 3; }
+      }
+      const fg = new THREE.BufferGeometry();
+      fg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      fg.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      fg.computeVertexNormals();
+      const floor = new THREE.Mesh(fg, R.mat.terrain); floor.receiveShadow = true; floor.userData.own = true; g.add(floor);
+      // walls
+      const [wc, tc] = R.WALLS[L.wall] || R.WALLS.stone;
+      const wallMat = new THREE.MeshStandardMaterial({ color: C(wc), roughness: 0.92 });
+      const trimMat = new THREE.MeshStandardMaterial({ color: C(tc), roughness: 0.85 });
+      const box = (x, y, w, h, d, mat, yb = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, yb + h / 2, y); m.castShadow = true; m.receiveShadow = true; m.userData.own = true; g.add(m); return m; };
+      const WH = L.type === 'keep' || L.type === 'temple' ? 3.4 : 2.6;
+      box(B + L.W / 2, 0.5, L.W, WH, 1, wallMat);                         // north
+      box(B + 0.5, L.H / 2, 1, WH, L.H, wallMat);                         // west
+      box(B + L.W - 0.5, L.H / 2, 1, WH, L.H, wallMat);                   // east
+      // south wall: low, with a doorway
+      const dx = L.doorX;
+      box(B + dx / 2, L.H - 0.5, dx, 0.45, 1, wallMat);
+      box(B + dx + 1 + (L.W - dx - 1) / 2, L.H - 0.5, L.W - dx - 1, 0.45, 1, wallMat);
+      box(B + dx + 0.5, L.H - 0.5, 1, 0.04, 1, trimMat);                   // threshold
+      const mat = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.6), new THREE.MeshBasicMaterial({ color: '#fff0c0', transparent: true, opacity: 0.25, depthWrite: false }));
+      mat.rotation.x = -Math.PI / 2; mat.position.set(B + dx + 0.5, 0.02, L.H - 1.2); mat.userData.own = true; g.add(mat);
+      R.roomDoorGlow = mat;
+      // timber posts / pilasters and a trim along the top
+      for (let x = 0; x < L.W; x += 3) box(B + x + 0.5, 1.02, 0.22, WH, 0.12, trimMat);
+      for (let y = 1; y < L.H - 1; y += 3) { box(B + 1.04, y + 0.5, 0.1, WH, 0.22, trimMat); box(B + L.W - 1.04, y + 0.5, 0.1, WH, 0.22, trimMat); }
+      box(B + L.W / 2, 1.04, L.W, 0.16, 0.1, trimMat, WH - 0.3);
+      // windows on the north wall let the day in
+      const wmat = new THREE.MeshBasicMaterial({ color: '#cfe0ff' });
+      for (let x = 2.5; x < L.W - 2; x += L.W > 12 ? 4 : 3.5) {
+        if (L.furn.some(f => Math.abs(f.x - x) < 1.2 && f.y < 2 && (f.model === 'hearth' || f.model === 'shelf' || f.model === 'forge' || f.model === 'throne' || f.model === 'altar'))) continue;
+        const w = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.9), wmat); w.position.set(B + x, 1.55, 1.005); w.userData.own = true; g.add(w);
+        box(B + x, 1.0, 1.0, 0.08, 0.14, trimMat, 1.04);
+        R.roomWindows.push({ x: B + x, y: 1.4 });
+      }
+      R.roomWinMat = wmat;
+      // furniture
+      for (const f of L.furn) {
+        const baked = ECHO.Models.bake(f.model, f.colors);
+        if (!baked) continue;
+        for (const part of ['base', 'glow', 'window']) {
+          if (!baked[part]) continue;
+          const mesh = new THREE.Mesh(baked[part], part === 'base' ? R.mat.prop : part === 'glow' ? R.mat.glow : R.mat.window);
+          mesh.position.set(B + f.x, 0, f.y);
+          mesh.rotation.y = f.rot;
+          mesh.scale.setScalar(f.scale);
+          mesh.castShadow = part === 'base'; mesh.receiveShadow = true;
+          g.add(mesh);
+          if (part === 'glow' && (f.model === 'hearth' || f.model === 'candles' || f.model === 'forge')) (R.roomFlames = R.roomFlames || []).push(mesh);
+        }
+      }
+      // a dark void around the room
+      const under = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshBasicMaterial({ color: '#050407' }));
+      under.rotation.x = -Math.PI / 2; under.position.set(B + L.W / 2, -0.02, L.H / 2); under.userData.own = true; g.add(under);
+    },
+    setInteriorMode(on) {
+      if (R.indoors === on) return;
+      R.indoors = on;
+      for (const k of ['terrain', 'props', 'towns', 'sites']) R.groups[k].visible = !on;
+      R.groups.room.visible = on;
+      if (R.water) R.water.visible = !on;
+      if (!on) { R.clear(R.groups.room); R.roomKey = null; R.roomFlames = []; R.firstFrame = true; R.sitesT = 0; }
+    },
+    updateInteriorLighting(game, L) {
+      const world = game.world;
+      const dl = T.daylight(world.minute);
+      const B = ECHO.Interior.BASE;
+      R.hemi.intensity = 0.22 + 0.18 * dl;
+      R.hemi.color.set('#ffd9b0').convertSRGBToLinear();
+      R.hemi.groundColor.set('#2a1c12').convertSRGBToLinear();
+      // a soft key light from the windows for shadows
+      R.sun.position.set(B + L.W / 2 - 4, 14, -6);
+      R.sun.target.position.set(B + L.W / 2, 0, L.H / 2);
+      R.sun.intensity = 0.25 + 0.55 * dl;
+      R.sun.color.set(dl > 0.3 ? '#fff0dc' : '#9ab0ff').convertSRGBToLinear();
+      R.sun.castShadow = true;
+      R.moon.intensity = 0;
+      R.scene.background = R.bgDark = R.bgDark || new THREE.Color('#050407');
+      R.scene.fog.color.set('#050407'); R.scene.fog.near = 60; R.scene.fog.far = 120;
+      R.renderer.toneMappingExposure = 1.15;
+      R.mat.window.emissiveIntensity = 0.6;
+      if (R.roomWinMat) R.roomWinMat.color.copy(lerpC(C('#1a2440'), C('#e8f0ff'), dl));
+      if (R.roomDoorGlow) R.roomDoorGlow.material.opacity = 0.12 + 0.2 * dl;
+      const cand = [];
+      const tgt = R.camTarget;
+      const push = (x, y, r, a, color, h = 1.1) => cand.push({ x, y, r, a, color, h, d: (x - tgt.x) ** 2 + (y - tgt.z) ** 2 });
+      for (const l of L.lights) push(l.x, l.y, l.r, l.a, l.color, l.h);
+      for (const w of R.roomWindows || []) if (dl > 0.2) push(w.x, w.y, 4, 0.7 * dl, '#cfe0ff', 1.6);
+      for (const Lg of (game._updLights || game.lights || [])) push(Lg.x, Lg.y, Lg.r, Lg.a, Lg.color, 1.3);
+      for (const p of ECHO.Combat.proj) if (p.kind === 'fire') push(p.x, p.y, 3.5 + p.radius, 1.4, '#ff9a3c', 0.6);
+      cand.sort((a, b) => a.d - b.d);
+      const flick = 1 + Math.sin(R.time * 11) * 0.05 + Math.sin(R.time * 23) * 0.04;
+      for (let i = 0; i < MAX_LIGHTS; i++) {
+        const P = R.points[i], c = cand[i];
+        if (!c) { P.intensity = 0; continue; }
+        P.position.set(c.x, c.h, c.y);
+        P.color.copy(C(c.color));
+        P.distance = c.r * 2.1;
+        P.intensity = c.a * 1.7 * flick;
+      }
+      R.snow.visible = false;
+    },
+
     // ---------------------------------------------------------------- entities
     view(game, e) {
       let v = R.views.get(e);
@@ -532,7 +661,7 @@
       M.show(inst, 'shield', !!gear.shield || (e.type === 'player' && pl && pl.skills.ward > 25));
       M.show(inst, 'bow', !!gear.bow);
       M.show(inst, 'spear', !!gear.spear);
-      M.show(inst, 'torch', !!gear.torch || (e.type === 'player' && game.isNight()));
+      M.show(inst, 'torch', !ECHO.Interior.cur && (!!gear.torch || (e.type === 'player' && game.isNight())));
       M.show(inst, 'staff', prof === 'elder');
       const fighter = e.type === 'player' ? !!(pl && pl.weapon) : (prof === 'guard' || bandit || prof === 'wanderer' || e.role === 'soldier' || !!e.carrying || e.isCompanion);
       M.show(inst, 'sword', fighter && !gear.spear && !gear.bow);
@@ -549,8 +678,17 @@
       const ph = e.anim * 11;
       const sw = moving ? Math.sin(ph) * 0.65 : 0;
       P.legL.rotation.z = sw; P.legR.rotation.z = -sw;
-      let aL = -sw * 0.8, aR = sw * 0.8, aLx = 0, aRx = 0;
-      if (e.attackT) aR = -1.9 * (e.attackT / 0.18) - 0.2;
+      let aL = -sw * 0.8, aR = sw * 0.8, aLx = 0, aRx = 0, twist = 0, lean = 0;
+      const ease = t => 1 - Math.pow(1 - t, 3);
+      if (e.attackT && e.attackDur) {
+        const p = ease(1 - e.attackT / e.attackDur);
+        switch (e.attackKind) {
+          case 'back': aR = U.lerp(0.5, -2.3, p); aRx = U.lerp(0.2, -1.3, p); twist = U.lerp(0.6, -0.7, p); break;
+          case 'finisher': aR = -1.55; aRx = -1.2; aL = -1.2; aLx = 1.0; twist = -p * Math.PI * 2; break;
+          case 'heavy': aR = aL = U.lerp(-3.1, 0.3, p); lean = U.lerp(-0.25, 0.45, p); break;
+          default: aR = U.lerp(-2.7, 0.5, p); aRx = U.lerp(-0.6, 0.5, p); twist = U.lerp(-0.6, 0.6, p); lean = 0.12 * p;
+        }
+      } else if (e.attackT) aR = -1.9 * (e.attackT / 0.18) - 0.2;
       if (e.state === 'windup' || e.state === 'attack') aR = -1.4;
       if (e.blocking) { aL = -1.3; aLx = 0.5; }
       if (e === game.pe) {
@@ -558,16 +696,26 @@
         if (PC.drawing) { aL = -1.5; aR = -1.3; }
         if (PC.charging) { aL = -1.7 - Math.sin(R.time * 20) * 0.05; aR = -1.7; }
         if (PC.studyT > 0) { aR = -0.7; }
+        if (PC.heavyHold) { const c = Math.min(1, PC.holdT / 0.75); aR = aL = -2.2 - c * 0.9 + Math.sin(R.time * 40) * 0.03 * c; lean = -0.25 * c; }
       }
       if (e.yielded) { aL = -2.6; aR = -2.6; }
       if (e.role === 'captive') { aL = 0.4; aR = 0.4; }
+      // Windups glint so you can read the attack coming.
+      if (e.state === 'windup' && e !== game.pe) { lean = -0.18; v.tell = 1; } else v.tell = 0;
+      const seated = e.seated && !moving && e.indoor;
+      if (seated) { P.legL.rotation.z = P.legR.rotation.z = -1.45; aL = aR = -0.45; }
       P.armL.rotation.z = aL; P.armR.rotation.z = aR;
       P.armL.rotation.x = aLx; P.armR.rotation.x = aRx;
       P.body.position.y = 0.42 + (moving ? Math.abs(Math.sin(ph)) * 0.04 : Math.sin(R.time * 2 + v.bob) * 0.006);
+      P.body.rotation.z = lean * 0.6;
       P.head.rotation.z = e.sayT > 0 ? Math.sin(R.time * 9) * 0.06 : 0;
-      if (e.sleeping) { v.inst.root.rotation.z = Math.PI / 2; v.yOff = 0.18; }
-      else if (e.yielded || e.role === 'captive') { v.inst.root.rotation.z = 0; v.yOff = -0.18; }
-      else { v.inst.root.rotation.z = 0; v.yOff = 0; }
+      v.twist = twist;
+      v.inst.root.rotation.z = 0; v.yOff = 0;
+      if (e.sleeping) { v.inst.root.rotation.z = Math.PI / 2; v.yOff = e.indoor && e.indoor.pose === 'bed' && !e.indoor.floor ? 0.62 : 0.18; }
+      else if (e.yielded || e.role === 'captive') v.yOff = -0.18;
+      else if (seated) v.yOff = e.indoor.spot && /bench/.test(e.indoor.spot.tag) ? 0 : 0.02;
+      // dodge roll: tuck and tumble
+      if (e.rollT > 0) { const k = 1 - e.rollT / 0.3; v.inst.root.rotation.z = k * Math.PI * 2; v.yOff = Math.sin(k * Math.PI) * 0.2 + 0.25 * Math.sin(k * Math.PI); }
     },
     animateCreature(game, e, v) {
       const P = v.inst.parts;
@@ -581,6 +729,7 @@
       if (e.species === 'hare' && moving) v.yOff = Math.abs(Math.sin(ph * 0.5)) * 0.18;
       if (e.species === 'wolf') {
         const crouch = e.state === 'windup' ? 0.12 : 0;
+        v.tell = e.state === 'windup' ? 1 : 0;
         P.body.position.y = 0.42 - crouch + (moving ? Math.abs(Math.sin(ph)) * 0.03 : 0);
         P.head.rotation.z = e.state === 'lunge' ? 0.3 : e.state === 'windup' ? -0.15 : 0;
       }
@@ -592,6 +741,7 @@
       const sw = moving ? Math.sin(ph) * 0.45 : 0;
       if (P.legFL) { P.legFL.rotation.z = sw; P.legBR.rotation.z = sw; P.legFR.rotation.z = -sw; P.legBL.rotation.z = -sw; }
       const open = (e.state === 'windup' || e.state === 'feint') ? Math.min(1, e.t * 2.5) : e.state === 'strike' ? 1 : e.state === 'roar' ? 1 : 0;
+      v.tell = e.state === 'windup' ? 1 : 0;
       if (P.jaw) P.jaw.rotation.z = -0.6 * open;
       if (P.head) P.head.rotation.z = e.state === 'roar' ? -0.4 : e.state === 'windup' ? -0.2 : 0;
       if (P.wingL) { const f = e.state === 'roar' ? Math.sin(R.time * 14) * 0.6 : 0.1 * Math.sin(R.time * 2); P.wingL.rotation.x = f; P.wingR.rotation.x = -f; }
@@ -611,29 +761,43 @@
         root.visible = !e.hidden;
         if (e.hidden) continue;
         v.cfgT -= dt;
-        if (v.cfgT <= 0) { v.cfgT = 1; R.configure(game, e, v); }
+        if (v.cfgT <= 0) { v.cfgT = 1; R.configure(game, e, v); v.baseScale = root.scale.x; }
         if (e.type === 'player' || e.type === 'person') R.animatePerson(game, e, v, dt);
         else if (e.type === 'creature') R.animateCreature(game, e, v);
         else R.animateBoss(game, e, v);
         // facing: smooth turn toward e.dir
-        const target = e.dir != null ? e.dir : 0;
-        v.dir += U.angleDiff(v.dir, target) * Math.min(1, dt * 14);
-        root.rotation.y = Math.PI - v.dir;
+        let target = e.dir != null ? e.dir : 0;
+        if (e.dead && e.deathAngle != null) target = e.deathAngle + Math.PI; // face the blow, fall away from it
+        if (e.indoor && !e.moving && !e.dead && e.indoor.pose !== 'stand' && (e.seated || e.sleeping)) { target = e.indoor.dir; v.dir = target; }
+        v.dir += U.angleDiff(v.dir, target) * Math.min(1, dt * (e.dead ? 30 : 14));
+        root.rotation.y = Math.PI - v.dir + (v.twist || 0);
+        v.twist = 0;
         const gy = R.groundH(e.x, e.y);
         root.position.set(e.x, gy + (v.yOff || 0), e.y);
-        // death
+        // hurt: squash and recoil
+        const base = v.baseScale || (v.baseScale = root.scale.x);
+        const hk = e.hurtT > 0 && !e.dead ? e.hurtT / 0.18 : 0;
+        root.scale.set(base * (1 + hk * 0.12), base * (1 - hk * 0.14), base * (1 + hk * 0.12));
+        // death: thrown backward, then sink and fade
         if (e.dead) {
-          const k = Math.min(1, (e.deathT || 0) * 3);
-          root.rotation.x = k * Math.PI / 2 * (v.bob > 3 ? 1 : -1);
-          root.position.y = gy + 0.1 - (e.deathT || 0) * 0.08;
+          const k = Math.min(1, (e.deathT || 0) * 4);
+          const fall = (1 - Math.pow(1 - k, 2)) * Math.PI / 2;
+          if (e.deathAngle != null) { root.rotation.z = -fall; root.rotation.x = 0; }
+          else root.rotation.x = fall * (v.bob > 3 ? 1 : -1);
+          root.position.y = gy + 0.1 + Math.sin(k * Math.PI) * 0.25 - Math.max(0, (e.deathT || 0) - 1) * 0.08;
           const op = Math.max(0, 1 - Math.max(0, (e.deathT || 0) - 1.5) / 1.5);
           for (const m of v.inst.mats) { if (op < 1) { m.transparent = true; m.opacity = op; } }
         } else root.rotation.x = 0;
-        // hurt flash & burning
-        const flash = e.hurtT > 0 ? 1 : 0;
-        if (flash !== v.flash || e.burn > 0) {
-          v.flash = flash;
-          for (const m of v.inst.mats) if (m.emissive) { m.emissive.setRGB(flash ? 0.9 : (e.burn > 0 ? 0.5 : 0), flash ? 0.15 : (e.burn > 0 ? 0.18 : 0), flash ? 0.1 : 0); }
+        // hurt flash (white-hot then red), attack tells, burning
+        const flash = e.hurtT > 0 ? (e.hurtT > 0.12 ? 2 : 1) : 0;
+        const tell = v.tell ? (Math.sin(R.time * 30) > 0 ? 2 : 1) : 0;
+        if (flash !== v.flash || tell !== v.tellW || e.burn > 0) {
+          v.flash = flash; v.tellW = tell;
+          let r = 0, g2 = 0, b = 0;
+          if (e.burn > 0) { r = 0.5; g2 = 0.18; }
+          if (tell) { const t = tell === 2 ? 0.55 : 0.3; r = t; g2 = t * 0.8; b = t * 0.6; }
+          if (flash === 2) { r = 1.4; g2 = 1.3; b = 1.2; } else if (flash === 1) { r = 0.9; g2 = 0.15; b = 0.1; }
+          for (const m of v.inst.mats) if (m.emissive) m.emissive.setRGB(r, g2, b);
         }
         // stealthy player while sneaking
         if (e === game.pe) {
@@ -684,14 +848,14 @@
       for (const f of fx) {
         if (f.kind !== 'p' && f.kind !== 'smoke') continue;
         if (n >= pa.count) break;
-        if (f.h0 == null) { f.h0 = 0.45 + Math.random() * 0.3; f.vz = 0.8 + Math.random() * 2.2; }
+        if (f.h0 == null) { f.h0 = f.spark ? 0.6 + Math.random() * 0.3 : 0.45 + Math.random() * 0.3; f.vz = f.spark ? 1.5 + Math.random() * 3 : 0.8 + Math.random() * 2.2; }
         let h;
         if (f.kind === 'smoke') { h = 1.0 + f.t * 0.7; f.x += (f.vx || 0) * dt; f.y += 0; }
         else h = Math.max(0.03, f.h0 + f.vz * f.t - 4 * f.t * f.t);
         pa.setXYZ(n, f.x, R.groundH(f.x, f.y) + h, f.y);
         const fade = 1 - f.t / f.life;
         if (f.kind === 'smoke') tmp.setRGB(0.55, 0.55, 0.55).multiplyScalar(0.4 + fade * 0.6);
-        else { const pc = R.parseColor(f.color); tmp.copy(pc.c).convertSRGBToLinear().multiplyScalar(0.4 + 0.6 * fade); }
+        else { const pc = R.parseColor(f.color); tmp.copy(pc.c).convertSRGBToLinear().multiplyScalar(f.spark ? 1.6 * fade + 0.2 : 0.4 + 0.6 * fade); }
         ca.setXYZ(n, tmp.r, tmp.g, tmp.b);
         n++;
       }
@@ -712,8 +876,9 @@
           if (f.done) m.visible = false;
         } else if (f.kind === 'slash') {
           m.position.set(f.x, R.groundH(f.x, f.y) + 0.55, f.y);
-          m.material.opacity = 0.9 * (1 - prog);
-          m.scale.setScalar(0.75 + prog * 0.3);
+          m.material.opacity = 0.95 * (1 - prog * prog);
+          m.scale.setScalar(f.style === 'heavy' ? 0.6 + prog * 0.6 : 0.75 + prog * 0.3);
+          if (f.style === 'finisher') m.rotation.y = -prog * 1.2;
         } else {
           m.position.set(f.x, R.groundH(f.x, f.y) + 0.08, f.y);
           m.scale.setScalar(Math.max(0.01, f.radius * (0.3 + prog * 0.7)));
@@ -776,7 +941,8 @@
         return m;
       }
       if (f.kind === 'slash') {
-        const geo = new THREE.RingGeometry(f.range * 0.55, f.range, 18, 1, -f.angle - f.arc / 2, f.arc);
+        const inner = f.style === 'heavy' ? 0.3 : f.style === 'finisher' ? 0.62 : 0.55;
+        const geo = new THREE.RingGeometry(f.range * inner, f.range, f.arc > 4 ? 40 : 18, 1, -f.angle - f.arc / 2, f.arc);
         geo.rotateX(-Math.PI / 2);
         const pc = R.parseColor(f.color);
         const m = flat(geo, pc.c, 0.9);
@@ -868,27 +1034,40 @@
       R.waterTime.value = R.time;
       // camera
       const pe = game.pe;
-      const tx = pe ? pe.x : game.cam.x, ty = pe ? pe.y : game.cam.y;
+      let tx = pe ? pe.x : game.cam.x, ty = pe ? pe.y : game.cam.y;
+      const rm = ECHO.Interior && ECHO.Interior.cur;
+      if (rm) { // frame the room rather than the player alone
+        const cx = ECHO.Interior.BASE + rm.W / 2, cy = rm.H / 2;
+        tx = U.lerp(tx, cx, rm.W > 12 ? 0.25 : 0.6); ty = U.lerp(ty, cy, 0.55) + 0.6;
+      }
       const gh = R.groundH(tx, ty);
       R.camTarget = R.camTarget || new THREE.Vector3(tx, gh, ty);
       if (Math.abs(R.camTarget.x - tx) + Math.abs(R.camTarget.z - ty) > 12) { R.camTarget.set(tx, gh, ty); R.firstFrame = true; R.sitesT = 0; }
       const k = Math.min(1, dt * 7);
       R.camTarget.x = U.lerp(R.camTarget.x, tx, k); R.camTarget.z = U.lerp(R.camTarget.z, ty, k); R.camTarget.y = U.lerp(R.camTarget.y, gh, k);
-      const D = R.camDistNow = R.camDist * (1 + R.zoomExtra);
+      const room = ECHO.Interior && ECHO.Interior.cur;
+      R.setInteriorMode(!!room);
+      if (room && R.roomKey !== room) { R.roomKey = room; R.roomFlames = []; R.buildRoom(game, room); R.camTarget.set(tx, 0, ty); }
+      const punch = game.camPunch || 0;
+      const D = R.camDistNow = R.camDist * (1 + R.zoomExtra) * (room ? U.clamp(0.5 + room.H * 0.035, 0.72, 0.95) : 1) * (1 - Math.min(0.12, punch * 0.07));
       let sx = 0, sy = 0;
       if (game.shakeT > 0) { sx = (Math.random() - 0.5) * game.shakeA * 0.4; sy = (Math.random() - 0.5) * game.shakeA * 0.4; }
+      const kk = game.camKick || { x: 0, y: 0 };
+      sx += kk.x; sy += kk.y;
       R.camera.position.set(R.camTarget.x + sx, R.camTarget.y + D * 0.86, R.camTarget.z + D * 0.6 + sy);
       R.camera.lookAt(R.camTarget.x + sx, R.camTarget.y + 0.5, R.camTarget.z + sy);
       R.camera.updateMatrixWorld();
-      R.updateChunks(game);
-      R.updateTowns(game);
-      R.updateSites(game, dt);
-      for (const f of R.flames || []) { f.scale.y = 1 + Math.sin(R.time * 13 + f.position.x) * 0.15; }
-      if (R.rift) R.rift.rotation.y += dt * 0.6;
-      R.updateOcclusion(game);
+      if (!room) {
+        R.updateChunks(game);
+        R.updateTowns(game);
+        R.updateSites(game, dt);
+        for (const f of R.flames || []) { f.scale.y = 1 + Math.sin(R.time * 13 + f.position.x) * 0.15; }
+        if (R.rift) R.rift.rotation.y += dt * 0.6;
+        R.updateOcclusion(game);
+      } else for (const f of R.roomFlames || []) f.scale.y = f.scale.x * (1 + Math.sin(R.time * 13 + f.position.x) * 0.12);
       R.updateEntities(game, dt);
       R.updateFx(game, dt);
-      R.updateLighting(game, dt);
+      if (room) R.updateInteriorLighting(game, room); else R.updateLighting(game, dt);
       R.renderer.render(R.scene, R.camera);
       R.drawOverlay(game);
     },
@@ -987,11 +1166,22 @@
         const rise = (f.y0 - f.y) * 1.2;
         const p = R.project(f.x, f.y0, 1.3 + rise);
         if (p.z > 1) continue;
-        ctx.globalAlpha = Math.max(0, 1 - f.t / f.life);
-        if (f.big) ctx.font = `${Math.round(fs * 1.35)}px "Pixelify Sans", monospace`;
+        ctx.globalAlpha = Math.max(0, 1 - Math.max(0, f.t / f.life - 0.4) / 0.6);
+        const pop = 1 + Math.max(0, 0.14 - f.t) * (f.big ? 6 : 4);
+        ctx.font = `${Math.round(fs * (f.big ? 1.35 : 1) * pop)}px "Pixelify Sans", monospace`;
         text(f.text, p.x, p.y, f.color);
-        if (f.big) ctx.font = `${fs}px "Pixelify Sans", monospace`;
+        ctx.font = `${fs}px "Pixelify Sans", monospace`;
         ctx.globalAlpha = 1;
+      }
+      // pain: a red vignette when hit, a slow pulse when near death
+      if (game.pl) {
+        const low = game.pl.hp / game.pl.maxHp < 0.3 && !game.pl.capture ? 0.18 + Math.sin(R.time * 5) * 0.1 : 0;
+        const a = Math.max(game.hurtFlashT ? game.hurtFlashT * 0.55 : 0, low);
+        if (a > 0.01) {
+          const gr = ctx.createRadialGradient(R.cw / 2, R.ch / 2, Math.min(R.cw, R.ch) * 0.3, R.cw / 2, R.ch / 2, Math.max(R.cw, R.ch) * 0.7);
+          gr.addColorStop(0, 'rgba(120,0,0,0)'); gr.addColorStop(1, `rgba(150,8,8,${Math.min(0.75, a)})`);
+          ctx.fillStyle = gr; ctx.fillRect(0, 0, R.cw, R.ch);
+        }
       }
       // bow / flame / study gauge under the player
       if (game.pe) {

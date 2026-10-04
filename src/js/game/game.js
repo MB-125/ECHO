@@ -8,6 +8,9 @@
     world: null, pl: null, pe: null, ents: [], time: 0, running: false, loot: [],
     cam: { x: 0, y: 0 }, zoom: 3, shakeT: 0, shakeA: 0, lights: [], currentSid: null, currentRegion: null,
     saveTimer: 0, exploreTimer: 0, lastFrame: 0, ff: null,
+    // Combat feel: hit-stop freezes the action for a few frames, slow-mo
+    // stretches big moments, kick/punch nudge the camera, hurt flashes red.
+    freezeT: 0, slowT: 0, slowScale: 1, camKick: { x: 0, y: 0 }, camPunch: 0, hurtFlashT: 0,
 
     // ------------------------------------------------------------ Lifecycle
     start(world) {
@@ -15,6 +18,8 @@
       Game.pl = world.player;
       Game.ui = ECHO.UI;
       Game.ents = []; Game.loot = [];
+      ECHO.Interior.cur = null;
+      if (Game.pl.x >= 9000 || !isFinite(Game.pl.x)) { const h = ECHO.Sim.settlement(world, Game.pl.homeId) || world.settlements[0]; Game.pl.x = h.x + 0.5; Game.pl.y = h.y + 2.5; }
       ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset();
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
@@ -41,9 +46,24 @@
       const dt = Math.min(0.05, (ts - Game.lastFrame) / 1000);
       Game.lastFrame = ts;
       try {
+        let simDt = dt;
         if (Game.ff) Game.stepFastForward();
-        else if (Game.world && Game.pl && !ECHO.UI.paused()) Game.update(dt);
-        if (Game.world) ECHO.Renderer.draw(Game, dt);
+        else if (Game.world && Game.pl && !ECHO.UI.paused()) {
+          if (Game.freezeT > 0) {
+            // Hold combat presses made during hit-stop for the first frame after it.
+            Game.freezeT -= dt; simDt = 0;
+            const pm = Game.pendM = Game.pendM || [false, false, false];
+            for (let i = 0; i < 3; i++) pm[i] = pm[i] || In.mpressed[i];
+            for (const k of [' ', 'q', 'Shift']) if (In.pressed.has(k)) (Game.pendK = Game.pendK || new Set()).add(k);
+          } else {
+            if (Game.pendM) { for (let i = 0; i < 3; i++) In.mpressed[i] = In.mpressed[i] || Game.pendM[i]; Game.pendM = null; }
+            if (Game.pendK) { for (const k of Game.pendK) In.pressed.add(k); Game.pendK = null; }
+            if (Game.slowT > 0) { Game.slowT -= dt; simDt = dt * Game.slowScale; }
+            Game.update(simDt);
+          }
+          Game.feel(dt);
+        }
+        if (Game.world) ECHO.Renderer.draw(Game, simDt);
         ECHO.UI.frame(Game, dt);
       } catch (err) { console.error(err); ECHO.UI.error && ECHO.UI.error(err); }
       In.endFrame();
@@ -62,7 +82,8 @@
       Game.pl.lanternOn = Game.isNight();
       // Player
       ECHO.PlayerCtl.update(Game, dt);
-      Game.pl.x = Game.pe.x; Game.pl.y = Game.pe.y;
+      if (ECHO.Interior.cur) { Game.pl.x = ECHO.Interior.cur.outside.x; Game.pl.y = ECHO.Interior.cur.outside.y; }
+      else { Game.pl.x = Game.pe.x; Game.pl.y = Game.pe.y; }
       // Others
       for (const e of Game.ents) {
         if (e === Game.pe || e.dead) continue;
@@ -76,7 +97,7 @@
       Game.pe.anim += dt * (Game.pe.moving ? 1 : 0.3);
       if (Game.pe.attackT) Game.pe.attackT = Math.max(0, Game.pe.attackT - dt);
       ECHO.Ent.separate(Game.ents, dt);
-      for (const e of Game.ents) if (!e.dead) ECHO.Ent.applyPush(world, e);
+      for (const e of Game.ents) if (!e.dead || (e.deathT || 0) < 0.5) ECHO.Ent.applyPush(world, e);
       ECHO.Combat.updateProjectiles(dt);
       ECHO.Combat.updateBurning(dt);
       // Corpses fade
@@ -85,7 +106,7 @@
       ECHO.Spawner.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
-      if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; Game.explore(); Game.checkPlace(); }
+      if (Game.exploreTimer <= 0 && !ECHO.Interior.cur) { Game.exploreTimer = 1; Game.explore(); Game.checkPlace(); }
       Game.saveTimer += dt;
       if (Game.saveTimer > 180) { Game.saveTimer = 0; Game.save(); }
       // Camera
@@ -133,6 +154,8 @@
     },
 
     // ------------------------------------------------------------ Helpers
+    // Where something happening at (x,y) is, in the world (rooms map to their door).
+    wp(x, y) { return x >= 9000 && ECHO.Interior.cur ? ECHO.Interior.cur.outside : { x, y }; },
     addEnt(e) {
       // Never place a body inside a wall, tree or river.
       const w = Game.world, r = e.r * 0.85;
@@ -151,6 +174,18 @@
       const L = { x, y, r, a, color };
       if (ttl) { L.ttl = ttl; (Game.flashLights = Game.flashLights || []).push(L); }
       else Game.lights.push(L);
+    },
+    hitStop(t) { Game.freezeT = Math.min(0.2, Math.max(Game.freezeT, t)); },
+    slowMo(t, scale) { Game.slowT = t; Game.slowScale = scale; },
+    kick(angle, amt) { Game.camKick.x += Math.cos(angle) * amt; Game.camKick.y += Math.sin(angle) * amt; },
+    punch(amt) { Game.camPunch = Math.min(1.2, Game.camPunch + amt); },
+    hurtFlash(a) { Game.hurtFlashT = Math.max(Game.hurtFlashT, a); },
+    // Camera springs back; runs every frame even during hit-stop.
+    feel(dt) {
+      const k = Math.exp(-dt * 14);
+      Game.camKick.x *= k; Game.camKick.y *= k;
+      Game.camPunch *= Math.exp(-dt * 9);
+      Game.hurtFlashT = Math.max(0, Game.hurtFlashT - dt * 1.8);
     },
     shake(a) { Game.shakeT = 0.25; Game.shakeA = Math.max(Game.shakeA * (Game.shakeT > 0 ? 1 : 0), a); },
     noise(x, y, r) {
@@ -227,10 +262,11 @@
       const now = Game.time;
       if (!target.crimeLogged || now - target.crimeLogged > 30) {
         target.crimeLogged = now;
-        const s = ECHO.World.nearestSettlement(world, target.x, target.y);
+        const wpos = Game.wp(target.x, target.y);
+        const s = ECHO.World.nearestSettlement(world, wpos.x, wpos.y);
         ECHO.Chronicle.deed(world, {
           text: kind === 'murder' ? `${pl.first} ${pl.last} murdered ${ECHO.People.name(npc)}${s ? ' near ' + s.name : ''}.` : `${pl.first} ${pl.last} attacked ${ECHO.People.name(npc)}${s ? ' in ' + s.name : ''}.`,
-          importance: kind === 'murder' ? 2 : 1, x: target.x, y: target.y, rep: kind === 'murder' ? -18 : -6, factionRep: { [f]: kind === 'murder' ? -25 : -8 }, tag: 'betray'
+          importance: kind === 'murder' ? 2 : 1, x: wpos.x, y: wpos.y, rep: kind === 'murder' ? -18 : -6, factionRep: { [f]: kind === 'murder' ? -25 : -8 }, tag: 'betray'
         });
       }
     },
@@ -372,12 +408,22 @@
         else if (e.role === 'captive') out.push({ kind: 'free', ent: e, label: `Free ${ECHO.People.name(world.npcs[e.npcId])}`, d: U.dist(e.x, e.y, pe.x, pe.y) });
         else if (!Game.hostileTo(pe, e) && !e.sleeping) out.push({ kind: 'talk', ent: e, label: `Talk to ${ECHO.People.name(world.npcs[e.npcId])}`, d: U.dist(e.x, e.y, pe.x, pe.y) });
       }
+      if (ECHO.Interior.cur) {
+        out.push(...ECHO.Interior.interactables(Game));
+        for (const l of Game.loot) if (l.kind === 'item' && near(l.x, l.y, 1.3)) out.push({ kind: 'item', loot: l, label: `Take ${world.items[l.itemId] ? world.items[l.itemId].name : 'item'}`, d: U.dist(l.x, l.y, pe.x, pe.y) });
+        out.sort((a, b) => a.d - b.d);
+        return out;
+      }
       const s = ECHO.World.settlementAt(world, pe.x, pe.y, 16);
       if (s) for (const b of s.buildings) {
         const door = { x: b.x + b.w / 2, y: b.y + b.h + 0.3 };
-        const labels = { inn: 'Enter the inn', market: 'Visit the market', smithy: 'Visit the smithy', archive: 'Enter the archive', shrine: 'Visit the shrine', temple: 'Enter the temple', keep: 'Approach the keep', board: 'Read the notice board', statue: 'Read the plaque', well: null, lamp: null };
-        if (b.type === 'house' && (b.legend || b.owner === Game.pl.charId)) {
-          if (near(door.x, door.y)) out.push({ kind: 'house', b, s, label: b.legend ? `Enter the house of ${(ECHO.Legacy.legendOf(world, b.legend) || {}).name || 'a legend'}` : 'Enter your house', d: U.dist(door.x, door.y, pe.x, pe.y) });
+        const labels = { inn: 'Enter the inn', market: 'Visit the market', smithy: 'Enter the smithy', archive: 'Enter the archive', shrine: 'Enter the shrine', temple: 'Enter the temple', keep: 'Enter the keep', board: 'Read the notice board', statue: 'Read the plaque', well: null, lamp: null };
+        if (b.type === 'house') {
+          if (near(door.x, door.y)) out.push({ kind: 'enter', b, s, label: b.legend ? `Enter the house of ${(ECHO.Legacy.legendOf(world, b.legend) || {}).name || 'a legend'}` : b.owner === Game.pl.charId ? 'Enter your house' : 'Enter the house', d: U.dist(door.x, door.y, pe.x, pe.y) });
+          continue;
+        }
+        if (ECHO.Interior.enterable(b)) {
+          if (near(door.x, door.y, 1.9)) out.push({ kind: 'enter', b, s, label: labels[b.type], d: U.dist(door.x, door.y, pe.x, pe.y) });
           continue;
         }
         const lab = labels[b.type];
@@ -405,6 +451,9 @@
         case 'spare': return Game.spare(it.ent);
         case 'free': return Game.freeCaptive(it.ent);
         case 'building': return ECHO.UI.openBuilding(it.b, it.s);
+        case 'enter': return ECHO.Interior.enter(Game, it.b, it.s);
+        case 'leave': return ECHO.Interior.leave(Game);
+        case 'furn': return ECHO.Interior.use(Game, it.furn);
         case 'house': return ECHO.UI.openHouse(it.b, it.s);
         case 'item': return Game.takeItem(it.loot.itemId);
         case 'tablet': return ECHO.UI.openTablet(it.ruin);

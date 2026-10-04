@@ -9,7 +9,7 @@
     derived: null, derivedT: 0, draw: 0, drawing: false, charge: 0, charging: false,
     dodgeT: 0, dodgeDir: 0, studyT: 0, studyTarget: null, eatT: 0, sneaking: false,
 
-    reset() { PC.derived = null; PC.draw = 0; PC.drawing = false; PC.charge = 0; PC.charging = false; PC.dodgeT = 0; PC.studyT = 0; PC.studyTarget = null; },
+    reset() { PC.combo = 0; PC.comboT = 9; PC.atkBuf = 0; PC.holdT = 0; PC.heavyHold = false; PC.lungeT = 0; PC.dodgeBuf = 0; PC.derived = null; PC.draw = 0; PC.drawing = false; PC.charge = 0; PC.charging = false; PC.dodgeT = 0; PC.studyT = 0; PC.studyTarget = null; },
 
     computeDerived(game) {
       const pl = game.pl;
@@ -63,7 +63,7 @@
       const len = Math.hypot(mx, my);
       if (len) { mx /= len; my /= len; }
 
-      pe.blocking = In.key('Shift') && pl.stamina > 4 && PC.dodgeT <= 0 && !PC.drawing;
+      pe.blocking = In.key('Shift') && pl.stamina > 4 && PC.dodgeT <= 0 && !PC.drawing && !(pe.attackT > 0);
       if (In.hit('Shift')) game.blockStart = game.time;
 
       if (PC.dodgeT > 0) {
@@ -76,6 +76,8 @@
         if (pe.blocking) sp *= 0.45;
         if (PC.drawing) sp *= 0.55;
         if (PC.charging) sp *= 0.6;
+        if (PC.heavyHold) sp *= 0.55;
+        if (pe.attackT > 0) sp *= 0.5;
         if (PC.sneaking) sp *= 0.5;
         if (PC.studyT > 0) sp *= 0.3;
         if (pl.stamina < 1 && len) sp *= 0.75;
@@ -86,20 +88,26 @@
         } else pe.moving = false;
       }
       // Face the mouse when fighting, otherwise movement.
-      if (pe.blocking || PC.drawing || PC.charging || pe.cd > 0.1) pe.dir = aim;
+      if (pe.attackT > 0) { /* keep the swing's facing */ }
+      else if (pe.blocking || PC.drawing || PC.charging || PC.heavyHold || pe.cd > 0.1) pe.dir = aim;
       else if (len) pe.dir = Math.atan2(my, mx);
       pe.flip = Math.cos(pe.dir) < 0;
 
-      // ---- Dodge
-      if (In.hit(' ') && PC.dodgeT <= 0 && pl.stamina >= 16 && pe.stagger <= 0) {
+      // ---- Dodge (a roll; Echo Step turns it into a blink)
+      if (In.hit(' ')) PC.dodgeBuf = 0.18;
+      PC.dodgeBuf = Math.max(0, (PC.dodgeBuf || 0) - dt);
+      if (PC.dodgeBuf > 0 && PC.dodgeT <= 0 && pl.stamina >= 16 && pe.stagger <= 0 && !(pe.attackT > 0.08)) {
+        PC.dodgeBuf = 0;
         pl.stamina -= 18;
         const dir = len ? Math.atan2(my, mx) : aim + Math.PI;
         Ch().behave(pl, 'caution', 0.02);
         Ch().train(pl, 'endurance', 0.08);
         ECHO.Boss.noteDodge(game, dir);
+        ECHO.Sfx.play('dodge');
+        PC.heavyHold = false; PC.holdT = 0;
         if (pl.spells.includes('echostep')) {
-          // Blink: step through space, leaving an echo behind.
           ECHO.Combat.fx.push({ kind: 'echo', x: pe.x, y: pe.y, t: 0, life: 0.6, flip: pe.flip });
+          ECHO.Combat.burst(pe.x, pe.y, '#9fd3ff', 10, 3, 0.4, 2);
           let bx = pe.x, by = pe.y;
           for (let i = 0; i < 16; i++) {
             const nx = bx + Math.cos(dir) * 0.22, ny = by + Math.sin(dir) * 0.22;
@@ -107,48 +115,64 @@
             bx = nx; by = ny;
           }
           pe.x = bx; pe.y = by; pe.iframes = 0.35;
-          ECHO.Combat.burst(pe.x, pe.y, '#9fd3ff', 10, 3, 0.4, 2);
+          ECHO.Combat.burst(pe.x, pe.y, '#9fd3ff', 14, 3, 0.4, 2);
         } else {
-          PC.dodgeT = 0.27; PC.dodgeDir = dir; pe.iframes = 0.26;
+          PC.dodgeT = 0.3; PC.dodgeDir = dir; pe.iframes = 0.28; pe.rollT = 0.3; pe.rollDir = dir;
+          ECHO.Combat.burst(pe.x, pe.y + 0.2, '#b8a888', 6, 1.5, 0.4, 2);
         }
       }
+      if (pe.rollT) pe.rollT = Math.max(0, pe.rollT - dt);
 
-      // ---- Melee (left mouse)
-      if (In.mpressed[0] && !game.ui.blocksWorld() && pe.cd <= 0 && pl.stamina >= 4 && PC.dodgeT <= 0 && pe.stagger <= 0) {
-        pe.cd = D.meleeCd;
-        pl.stamina -= D.meleeStam;
-        pe.attackT = 0.18; pe.attackAngle = aim;
-        const weapon = world.items[pl.weapon];
-        // Sneak attacks on the sleeping or unaware.
-        let stealth = false;
-        for (const e of game.ents) {
-          if (e.type !== 'person' || e.dead || !game.hostileTo(pe, e)) continue;
-          if (U.dist(e.x, e.y, pe.x, pe.y) > 1.6) continue;
-          if (e.sleeping || (PC.sneaking && e.state !== 'chase' && e.state !== 'attack' && e.state !== 'alert')) stealth = true;
-        }
-        const hits = ECHO.Combat.melee(pe, { angle: aim, arc: 1.9, range: D.meleeRange, dmg: D.meleeDmg * (0.9 + Math.random() * 0.2), knock: 0.14, stealth, rocks: false });
-        ECHO.Combat.slash(pe.x, pe.y - 0.25, aim, D.meleeRange + 0.2, 1.9, weapon && weapon.legend ? 'rgba(255,230,160,0.9)' : 'rgba(255,255,255,0.85)');
-        Ch().behave(pl, 'aggression', 0.012);
-        if (hits.length) {
-          Ch().train(pl, 'blade', 0.14 * hits.length);
-          if (stealth) { Ch().train(pl, 'shadow', 0.5); Ch().behave(pl, 'night', 0.03); }
-          if (weapon) weapon.hits = (weapon.hits || 0) + hits.length;
-        }
-        game.noise(pe.x, pe.y, 5);
+      // ---- Melee: a three-strike combo (the third is a spinning finisher),
+      // or hold the button for a heavy, guard-breaking blow.
+      const canSwing = () => !game.ui.blocksWorld() && pe.cd <= 0 && pl.stamina >= 4 && PC.dodgeT <= 0 && pe.stagger <= 0 && !PC.drawing && !PC.charging;
+      if (In.mpressed[0] && !game.ui.blocksWorld()) { PC.atkBuf = 0.22; PC.holdT = 0; }
+      PC.atkBuf = Math.max(0, (PC.atkBuf || 0) - dt);
+      PC.comboT = (PC.comboT || 0) + dt;
+      if (PC.atkBuf > 0 && canSwing()) {
+        PC.atkBuf = 0;
+        PC.combo = PC.comboT < 0.75 ? ((PC.combo || 0) + 1) % 3 : 0;
+        PC.comboT = 0;
+        PC.swing(game, aim, D, PC.combo === 2 ? 'finisher' : 'combo');
+      }
+      // charge a heavy blow by holding
+      if (In.mdown[0] && !game.ui.blocksWorld() && PC.dodgeT <= 0) {
+        PC.holdT = (PC.holdT || 0) + dt;
+        if (PC.holdT > 0.28 && !PC.heavyHold && pl.stamina >= 22) { PC.heavyHold = true; ECHO.Sfx.play('fireCharge', { vol: 0.5 }); }
+        if (PC.heavyHold && Math.random() < dt * 25) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + Math.cos(aim) * 0.4, y: pe.y + Math.sin(aim) * 0.4, vx: (Math.random() - 0.5), vy: (Math.random() - 0.5), t: 0, life: 0.25, color: PC.holdT > 0.75 ? '#fff2b0' : '#c8c0a8', size: 2 });
+      }
+      if (!In.mdown[0]) {
+        if (PC.heavyHold && PC.holdT >= 0.75 && pe.stagger <= 0 && PC.dodgeT <= 0) { pe.cd = 0; PC.swing(game, aim, D, 'heavy'); PC.combo = 0; }
+        PC.heavyHold = false; PC.holdT = 0;
+      }
+      if (PC.lungeT > 0) {
+        PC.lungeT -= dt;
+        ECHO.Ent.move(world, pe, Math.cos(PC.lungeDir) * PC.lungeSpd * dt, Math.sin(PC.lungeDir) * PC.lungeSpd * dt);
       }
 
-      // ---- Bow (right mouse: hold to draw, release to loose)
+      // ---- Bow (right mouse: hold to draw, release to loose; release just
+      // as it reaches full draw for a perfect shot)
       const bow = world.items[pl.bow];
-      if (In.mpressed[2] && !game.ui.blocksWorld() && bow && pl.inv.arrows > 0 && PC.dodgeT <= 0) { PC.drawing = true; PC.draw = 0; }
+      if (In.mpressed[2] && !game.ui.blocksWorld() && bow && pl.inv.arrows > 0 && PC.dodgeT <= 0) { PC.drawing = true; PC.draw = 0; PC.fullT = -1; ECHO.Sfx.play('bowDraw'); }
       if (PC.drawing) {
+        const was = PC.draw;
         PC.draw = Math.min(1, PC.draw + dt / D.drawTime);
+        if (was < 1 && PC.draw >= 1) PC.fullT = 0;
+        if (PC.fullT >= 0) PC.fullT += dt;
         if (!In.mdown[2]) {
           PC.drawing = false;
           if (PC.draw > 0.15 && pl.inv.arrows > 0) {
             pl.inv.arrows--;
+            const perfect = PC.fullT >= 0 && PC.fullT < 0.2;
             const power = 0.35 + 0.65 * PC.draw;
-            const spread = (1 - PC.draw) * 0.12;
-            ECHO.Combat.shoot(pe, aim + (Math.random() - 0.5) * spread, { kind: 'arrow', speed: 11 + 9 * PC.draw, dmg: D.bowDmg * power, life: 1.2, type: 'ranged' });
+            const spread = perfect ? 0 : (1 - PC.draw) * 0.12;
+            const target = PC.assist(game, aim, 9, 0.18);
+            const a2 = target ? Math.atan2(target.y - pe.y, target.x - pe.x) : aim;
+            const p = ECHO.Combat.shoot(pe, a2 + (Math.random() - 0.5) * spread, { kind: 'arrow', speed: (11 + 9 * PC.draw) * (perfect ? 1.25 : 1), dmg: D.bowDmg * power * (perfect ? 1.35 : 1), life: 1.2, type: 'ranged' });
+            p.crit = perfect;
+            ECHO.Sfx.play('bowRelease');
+            if (perfect) { ECHO.Sfx.play('perfect'); ECHO.Combat.floater(pe.x, pe.y - 1.1, 'perfect', '#fff2b0'); Ch().train(pl, 'archery', 0.1); }
+            game.kick(a2 + Math.PI, 0.08);
             Ch().train(pl, 'archery', 0.05);
             game.noise(pe.x, pe.y, 2.5);
           }
@@ -157,7 +181,7 @@
       }
 
       // ---- Flame (Q: hold to overcast)
-      if (In.hit('q') && !game.ui.blocksWorld() && PC.dodgeT <= 0) { PC.charging = true; PC.charge = 0; }
+      if (In.hit('q') && !game.ui.blocksWorld() && PC.dodgeT <= 0) { PC.charging = true; PC.charge = 0; ECHO.Sfx.play('fireCharge'); }
       if (PC.charging) {
         PC.charge = Math.min(1.25, PC.charge + dt * 0.9);
         if (Math.random() < dt * 20) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + Math.cos(aim) * 0.5, y: pe.y - 0.3 + Math.sin(aim) * 0.5, vx: (Math.random() - 0.5), vy: -0.8, t: 0, life: 0.3, color: pl.spells.includes('starfire') ? '#bfe3ff' : '#ffb347', size: 2 });
@@ -185,6 +209,62 @@
       pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40) * dt);
       if (game.time - (game.lastHurtTime || -99) > 8) pl.hp = Math.min(pl.maxHp, pl.hp + 0.5 * dt);
       pe.hp = pl.hp; pe.maxHp = pl.maxHp;
+    },
+
+    // Soft aim-assist: the nearest foe within a cone around where you aim.
+    assist(game, aim, range, cone) {
+      const pe = game.pe;
+      let best = null, bs = Infinity;
+      for (const e of game.ents) {
+        if (e.dead || e.hidden || e === pe || e.isCompanion || !game.hostileTo(pe, e)) continue;
+        const d = U.dist(e.x, e.y, pe.x, pe.y);
+        if (d > range) continue;
+        const da = Math.abs(U.angleDiff(aim, Math.atan2(e.y - pe.y, e.x - pe.x)));
+        if (da > cone * Math.PI) continue;
+        const sc = d + da * 3;
+        if (sc < bs) { bs = sc; best = e; }
+      }
+      return best;
+    },
+    swing(game, aim, D, kind) {
+      const pe = game.pe, pl = game.pl, world = game.world;
+      const SPEC = {
+        combo: { dmg: 1, arc: 1.9, range: 0, knock: 0.24, cd: 0.8, sta: 1, stagger: 0, stop: 0.055, sfx: 'swing' },
+        finisher: { dmg: 1.6, arc: Math.PI * 1.9, range: 0.3, knock: 0.5, cd: 1.55, sta: 1.35, stagger: 0.45, stop: 0.09, sfx: 'swingHeavy' },
+        heavy: { dmg: 2.4, arc: 2.5, range: 0.4, knock: 0.7, cd: 1.6, sta: 2.4, stagger: 0.85, stop: 0.13, sfx: 'swingHeavy', guardbreak: true }
+      }[kind];
+      // lock on to the foe you are facing, and step into the blow
+      const tgt = PC.assist(game, aim, D.meleeRange + 1.6, 0.33);
+      if (tgt) aim = Math.atan2(tgt.y - pe.y, tgt.x - pe.x);
+      const gap = tgt ? U.dist(tgt.x, tgt.y, pe.x, pe.y) - tgt.r - pe.r : 1;
+      PC.lungeDir = aim; PC.lungeT = 0.1; PC.lungeSpd = kind === 'heavy' ? 7 : U.clamp(gap * 9, 1.5, 6);
+      pe.dir = aim; pe.flip = Math.cos(aim) < 0;
+      pe.cd = D.meleeCd * SPEC.cd;
+      pl.stamina -= D.meleeStam * SPEC.sta;
+      pe.attackT = kind === 'combo' ? 0.2 : 0.3; pe.attackDur = pe.attackT; pe.attackAngle = aim;
+      pe.attackKind = kind === 'combo' ? (PC.combo === 1 ? 'back' : 'fore') : kind;
+      const weapon = world.items[pl.weapon];
+      let stealth = false;
+      for (const e of game.ents) {
+        if (e.type !== 'person' || e.dead || !game.hostileTo(pe, e)) continue;
+        if (U.dist(e.x, e.y, pe.x, pe.y) > 1.8) continue;
+        if (e.sleeping || (PC.sneaking && e.state !== 'chase' && e.state !== 'attack' && e.state !== 'alert')) stealth = true;
+      }
+      ECHO.Sfx.play(SPEC.sfx, { pitch: kind === 'combo' ? (PC.combo === 1 ? 1.15 : 1) : 1 });
+      const hits = ECHO.Combat.melee(pe, { angle: aim, arc: SPEC.arc, range: D.meleeRange + SPEC.range, dmg: D.meleeDmg * SPEC.dmg * (0.9 + Math.random() * 0.2), knock: SPEC.knock, stealth, stagger: SPEC.stagger, guardbreak: SPEC.guardbreak, heavy: kind !== 'combo', rocks: kind === 'heavy' });
+      const col = weapon && weapon.legend ? 'rgba(255,230,160,0.95)' : kind === 'heavy' ? 'rgba(255,240,200,0.95)' : 'rgba(255,255,255,0.85)';
+      ECHO.Combat.slash(pe.x, pe.y, aim, D.meleeRange + SPEC.range + 0.2, Math.min(SPEC.arc, Math.PI * 1.95), col, kind);
+      if (kind === 'heavy') { ECHO.Combat.ring(pe.x + Math.cos(aim) * 1.1, pe.y + Math.sin(aim) * 1.1, 1.6, 'rgba(255,230,180,0.8)', 0.35); game.shake(0.35); }
+      Ch().behave(pl, 'aggression', kind === 'combo' ? 0.012 : 0.03);
+      if (hits.length) {
+        game.hitStop(SPEC.stop + (stealth ? 0.05 : 0));
+        game.kick(aim, kind === 'combo' ? 0.1 : 0.2);
+        if (kind !== 'combo') game.punch(kind === 'heavy' ? 1 : 0.6);
+        Ch().train(pl, 'blade', 0.14 * hits.length);
+        if (stealth) { Ch().train(pl, 'shadow', 0.5); Ch().behave(pl, 'night', 0.03); }
+        if (weapon) weapon.hits = (weapon.hits || 0) + hits.length;
+      }
+      game.noise(pe.x, pe.y, 5);
     },
 
     castFlame(game, aim, D) {
@@ -221,6 +301,8 @@
         p.star = star;
       }
       game.noise(pe.x, pe.y, 7);
+      ECHO.Sfx.play('fireCast');
+      game.kick(aim + Math.PI, 0.1);
       PC.charge = 0;
     },
 

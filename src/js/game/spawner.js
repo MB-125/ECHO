@@ -28,6 +28,7 @@
         const far = e.type === 'creature' ? 30 : e.type === 'boss' ? 30 : 44;
         if (d > far || e.despawnSoon) { e.dead = true; e.vanish = true; if (e.type === 'boss') game.ui.bossBar(null); }
       }
+      if (ECHO.Interior.cur) { ECHO.Interior.update(game, 0.5); S.companion(game); return; }
       S.creatures(game);
       S.people(game);
       S.camps(game);

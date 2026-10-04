@@ -18,8 +18,15 @@
         C.fx.push({ kind: 'p', x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0, life: life * (0.6 + Math.random() * 0.6), color, size });
       }
     },
-    slash(x, y, angle, range, arc, color = 'rgba(255,255,255,0.85)') {
-      C.fx.push({ kind: 'slash', x, y, angle, range, arc, t: 0, life: 0.16, color });
+    slash(x, y, angle, range, arc, color = 'rgba(255,255,255,0.85)', kind = 'combo') {
+      C.fx.push({ kind: 'slash', x, y, angle, range, arc, t: 0, life: kind === 'heavy' ? 0.26 : kind === 'finisher' ? 0.22 : 0.16, color, style: kind });
+    },
+    // Bright sparks thrown along a direction — steel on steel, blade on bone.
+    sparks(x, y, angle, color = '#fff2c0', n = 8, speed = 6) {
+      for (let i = 0; i < n; i++) {
+        const a = angle + (Math.random() - 0.5) * 1.4, s = speed * (0.5 + Math.random() * 0.7);
+        C.fx.push({ kind: 'p', x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, t: 0, life: 0.18 + Math.random() * 0.15, color, size: 1.5, spark: true });
+      }
     },
     ring(x, y, radius, color, life = 0.4) { C.fx.push({ kind: 'ring', x, y, radius, t: 0, life, color }); },
     telegraph(o) { const f = { kind: 'tele', t: 0, ...o }; C.fx.push(f); return f; },
@@ -37,7 +44,7 @@
         if (Math.abs(U.angleDiff(o.angle, a)) > o.arc / 2 && d > e.r + 0.3) continue;
         hits.push(e);
       }
-      for (const e of hits) C.damage(e, o.dmg, { type: 'melee', from: att, angle: Math.atan2(e.y - att.y, e.x - att.x), knock: o.knock || 0.12, crit: o.crit, unblockable: o.unblockable, stealth: o.stealth });
+      for (const e of hits) C.damage(e, o.dmg, { type: 'melee', from: att, angle: Math.atan2(e.y - att.y, e.x - att.x), knock: o.knock || 0.12, crit: o.crit, unblockable: o.unblockable || o.guardbreak, guardbreak: o.guardbreak, stealth: o.stealth, stagger: o.stagger, heavy: o.heavy });
       // Strike cover stones (bosses)
       if (o.rocks) for (const l of game.world.lairs) for (const r of l.rocks) {
         if (r.hp <= 0) continue;
@@ -71,6 +78,8 @@
       C.burst(p.x, p.y, '#ffb347', 18 + R * 10, 5, 0.6, 3);
       C.burst(p.x, p.y, '#ff5a1f', 12, 3, 0.8, 2);
       C.ring(p.x, p.y, R, 'rgba(255,170,60,0.8)', 0.35);
+      if (ECHO.Sfx) ECHO.Sfx.play('explode', { pitch: 1.2 - Math.min(0.5, R * 0.1) });
+      if (U.dist(p.x, p.y, game.pe.x, game.pe.y) < 12) game.shake(Math.min(0.4, 0.12 + R * 0.06));
       game.light(p.x, p.y, R * 3 + 1, 0.9, '#ff9a3c', 0.25);
       for (const e of game.ents) {
         if (e.dead || e.hidden || e.ghost) continue;
@@ -95,7 +104,7 @@
           if (ECHO.World.isSolid(world, p.x, p.y) && ECHO.World.tile(world, p.x, p.y) !== ECHO.TILE.WATER) {
             p.done = true;
             if (p.kind === 'fire') C.explode(p);
-            else C.burst(p.x, p.y, '#c9b28a', 4, 2, 0.3, 1);
+            else { C.burst(p.x, p.y, '#c9b28a', 4, 2, 0.3, 1); if (p.from === game.pe && ECHO.Sfx) ECHO.Sfx.play('arrowHit', { vol: 0.4 }); }
             break;
           }
           for (const e of game.ents) {
@@ -105,7 +114,7 @@
             if (!canHit) continue;
             p.done = true;
             if (p.kind === 'fire') C.explode(p);
-            else C.damage(e, p.dmg, { type: 'ranged', from: p.from, angle: p.angle, knock: 0.08 });
+            else C.damage(e, p.dmg, { type: 'ranged', from: p.from, angle: p.angle, knock: p.crit ? 0.22 : 0.08, crit: p.crit, stagger: p.crit ? 0.35 : 0 });
             break;
           }
         }
@@ -144,6 +153,12 @@
         if (target === game.pe) game.pl.stamina = Math.max(0, game.pl.stamina - amount * 0.6 * (ECHO.PlayerCtl.derived ? ECHO.PlayerCtl.derived.blockMul : 1));
         else target.stamina = Math.max(0, (target.stamina || 0) - amount * 0.6);
         C.burst(target.x + Math.cos(incoming) * 0.4, target.y + Math.sin(incoming) * 0.4, '#e8e2c8', 6, 3, 0.25, 2);
+        C.sparks(target.x + Math.cos(incoming) * 0.4, target.y - 0.3 + Math.sin(incoming) * 0.4, incoming, perfect ? '#fff6c8' : '#ffd890', perfect ? 14 : 7);
+        if (isPlayer || from === game.pe) {
+          if (ECHO.Sfx) ECHO.Sfx.play(perfect ? 'parry' : 'block');
+          game.hitStop(perfect ? 0.12 : 0.05);
+          if (perfect) { game.punch(0.5); game.slowMo(0.35, 0.35); }
+        }
         if (isPlayer) {
           ECHO.Character.train(game.pl, 'ward', perfect ? 0.6 : 0.25);
           ECHO.Character.behave(game.pl, 'caution', 0.04);
@@ -157,11 +172,19 @@
       if (type === 'ranged' && target.gear.shield && facingIncoming && Math.random() < 0.72) {
         C.burst(target.x, target.y - 0.2, '#d8c9a0', 5, 2, 0.3, 2);
         C.floater(target.x, target.y - 0.9, 'blocked', '#d8c9a0');
+        if (from === game.pe && ECHO.Sfx) ECHO.Sfx.play('shieldBlock');
         return 0;
       }
-      if (type === 'melee' && target.gear.shield && facingIncoming && target.state !== 'attack' && Math.random() < 0.35) {
+      if (type === 'melee' && target.gear.shield && facingIncoming && target.state !== 'attack' && !src.guardbreak && Math.random() < 0.35) {
         dmg *= 0.3;
         C.burst(target.x, target.y - 0.2, '#d8c9a0', 4, 2, 0.3, 2);
+        C.sparks(target.x, target.y - 0.3, incoming, '#ffe0a0', 6);
+        if (from === game.pe && ECHO.Sfx) ECHO.Sfx.play('shieldBlock');
+        if (from === game.pe) game.hitStop(0.04);
+      } else if (src.guardbreak && (target.blocking || target.gear.shield) && facingIncoming) {
+        C.floater(target.x, target.y - 1.1, 'guard broken', '#ffcf8a');
+        target.blocking = false;
+        if (target.type !== 'player') target.stamina = 0;
       }
       // Fire wards and evolved hides
       if (type === 'fire') {
@@ -188,6 +211,14 @@
       dmg = Math.max(1, Math.round(dmg));
       target.hp -= dmg;
       target.hurtT = 0.18;
+      target.hurtDir = src.angle != null ? src.angle : target.hurtDir;
+      // Stagger interrupts whatever the target was winding up.
+      if (src.stagger && target !== game.pe && (target.type !== 'boss' || src.heavy)) {
+        const st = target.type === 'boss' ? src.stagger * 0.5 : src.stagger;
+        target.stagger = Math.max(target.stagger || 0, st);
+        if (target.species === 'wolf' && (target.state === 'windup' || target.state === 'lunge')) { target.state = 'retreat'; target.t = 0; }
+        if (target.type === 'boss' && st > 0.3) C.floater(target.x, target.y - 2, 'staggered', '#ffe08a');
+      }
       if (target === game.pe) { game.pl.hp = target.hp; game.lastHurtTime = game.time; }
       if (from === game.pe && target !== game.pe) {
         const sk = type === 'melee' ? 'blade' : type === 'ranged' ? 'archery' : 'flame';
@@ -199,8 +230,23 @@
       C.floater(target.x + (Math.random() - 0.5) * 0.4, target.y - 0.9, (crit ? '✦' : '') + dmg, col, crit);
       C.burst(target.x, target.y - 0.2, target.type === 'person' || target === game.pe ? '#a8323a' : target.species === 'gnawer' ? '#6b5a3a' : '#7b2a2a', 4 + Math.min(10, dmg / 3), 2.5, 0.4, 2);
       if (target === game.pe) {
-        game.shake(Math.min(0.5, dmg / 40));
+        game.shake(Math.min(0.5, 0.12 + dmg / 40));
         game.lastHitBy = from;
+        game.hurtFlash(Math.min(1, 0.35 + dmg / 30));
+        game.hitStop(Math.min(0.09, 0.03 + dmg / 400));
+        if (src.angle != null) game.kick(src.angle, 0.14);
+        if (ECHO.Sfx) ECHO.Sfx.play('hurt');
+      } else if (from === game.pe || (from && from.isCompanion)) {
+        // The feel of landing a blow
+        const ang = src.angle != null ? src.angle : 0;
+        if (type === 'melee' || type === 'ranged') C.sparks(target.x - Math.cos(ang) * 0.2, target.y - 0.35, ang, crit ? '#fff2a0' : '#ffe6c8', crit ? 12 : 6, crit ? 8 : 6);
+        if (ECHO.Sfx) {
+          if (crit || src.stealth) ECHO.Sfx.play('crit');
+          if (type === 'ranged') ECHO.Sfx.play('arrowHit');
+          else if (type === 'melee') ECHO.Sfx.play(src.heavy ? 'hitHeavy' : 'hit', { pitch: target.type === 'boss' ? 0.7 : target.species === 'gnawer' ? 1.3 : 1 });
+        }
+        if (type === 'ranged' && from === game.pe) game.hitStop(crit ? 0.07 : 0.025);
+        if (crit) game.punch(0.4);
       }
       // Being hit makes non-hostile people angry at the player.
       if (from === game.pe && target.type === 'person' && target.hp > 0 && !game.hostileTo(target, game.pe)) game.crime(target, 'assault');
@@ -222,6 +268,16 @@
       target.dead = true;
       target.deathT = 0;
       const byPlayer = from === game.pe || (from && from.isCompanion);
+      // Death has weight: a beat of stillness, then the body is thrown.
+      const ka = src.angle != null ? src.angle : Math.atan2(target.y - game.pe.y, target.x - game.pe.x);
+      target.deathAngle = ka;
+      if (target.type !== 'boss') { const kb = (src.knock || 0.12) * 1.8 + 0.15; target.kbx += Math.cos(ka) * kb; target.kby += Math.sin(ka) * kb; }
+      if (byPlayer) {
+        if (ECHO.Sfx) ECHO.Sfx.play('kill', { pitch: target.species === 'gnawer' || target.species === 'hare' ? 1.5 : 1 });
+        game.hitStop(target.type === 'boss' ? 0.2 : target.species === 'hare' || target.species === 'gnawer' ? 0.06 : 0.1);
+        game.punch(target.type === 'boss' ? 1 : 0.5);
+        if (target.type === 'boss') game.slowMo(1.6, 0.25);
+      }
       const night = game.isNight();
       const region = ECHO.World.regionAt(world, target.x, target.y);
       if (target.type === 'creature') {

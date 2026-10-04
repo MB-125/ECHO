@@ -63,6 +63,7 @@
       b.memory.encounters++;
       e.enc.started = true;
       game.shake(0.5);
+      if (ECHO.Sfx) ECHO.Sfx.play('roar');
       game.ui.bossBar(e);
       if (known) {
         ECHO.Combat.floater(e.x, e.y - 2.2, '— it remembers you —', '#ffcf8a', true);
@@ -266,7 +267,7 @@
         }
       }
       // visuals
-      if (sh.shape === 'circle') { ECHO.Combat.ring(sh.cx != null ? sh.cx : e.x, sh.cy != null ? sh.cy : e.y, sh.radius, sh.unblockable ? 'rgba(190,120,255,0.8)' : 'rgba(255,220,200,0.8)', 0.3); game.shake(0.3); }
+      if (sh.shape === 'circle') { ECHO.Combat.ring(sh.cx != null ? sh.cx : e.x, sh.cy != null ? sh.cy : e.y, sh.radius, sh.unblockable ? 'rgba(190,120,255,0.8)' : 'rgba(255,220,200,0.8)', 0.3); game.shake(0.3); if (ECHO.Sfx) ECHO.Sfx.play('stomp'); }
       else if (sh.fire) { for (let i = 0; i < 30; i++) { const t = Math.random() * sh.len; ECHO.Combat.fx.push({ kind: 'p', x: e.x + Math.cos(e.aim) * t, y: e.y + Math.sin(e.aim) * t, vx: (Math.random() - 0.5) * 2, vy: -1 - Math.random(), t: 0, life: 0.5, color: Math.random() < 0.5 ? '#ffb347' : '#ff5a1f', size: 3 }); } game.light(e.x + Math.cos(e.aim) * 3, e.y + Math.sin(e.aim) * 3, 6, 0.4, '#ff8a2a'); }
       else ECHO.Combat.slash(e.x, e.y - 0.3, e.aim, (sh.len || 2.5) + 0.3, sh.arc || 0.8, 'rgba(255,230,210,0.85)');
       if (sh.also) ECHO.Combat.slash(e.x, e.y - 0.3, sh.also.angle, sh.also.len, sh.also.arc, 'rgba(255,200,190,0.6)');

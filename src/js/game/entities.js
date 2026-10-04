@@ -56,6 +56,7 @@
     },
     // Follow an A* path (computed lazily) for longer distances.
     travel(world, e, tx, ty, speed, dt) {
+      if (e.x >= 9000 || tx >= 9000) return Ent.seek(world, e, tx, ty, speed, dt, 0.3);
       const d = U.dist(e.x, e.y, tx, ty);
       if (d < 0.4) { e.path = null; e.moving = false; return true; }
       const needPath = !e.path || e.pathGoal !== ((tx | 0) + ',' + (ty | 0)) || (e.stuck || 0) > 0.6;
@@ -81,10 +82,10 @@
       const n = ents.length;
       for (let i = 0; i < n; i++) {
         const a = ents[i];
-        if (a.dead || a.hidden || a.ghost) continue;
+        if (a.dead || a.hidden || a.ghost || a.seated || (a.sleeping && a.indoor)) continue;
         for (let j = i + 1; j < n; j++) {
           const b = ents[j];
-          if (b.dead || b.hidden || b.ghost) continue;
+          if (b.dead || b.hidden || b.ghost || b.seated || (b.sleeping && b.indoor)) continue;
           const dx = b.x - a.x, dy = b.y - a.y;
           if (Math.abs(dx) > 1.5 || Math.abs(dy) > 1.5) continue;
           const min = (a.r + b.r) * 0.9;
@@ -112,6 +113,10 @@
     lineOfSight(world, ax, ay, bx, by) {
       const d = U.dist(ax, ay, bx, by);
       const steps = Math.ceil(d * 2);
+      if (ax >= 9000) {
+        for (let i = 1; i < steps; i++) { const t = i / steps; if (ECHO.Interior.isSolid(U.lerp(ax, bx, t), U.lerp(ay, by, t)) && i < steps - 1) return false; }
+        return true;
+      }
       for (let i = 1; i < steps; i++) {
         const t = i / steps;
         const x = U.lerp(ax, bx, t), y = U.lerp(ay, by, t);

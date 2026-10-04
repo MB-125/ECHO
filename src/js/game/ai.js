@@ -145,6 +145,7 @@
           e.state = 'stalk';
           if (d < 3.4 && e.cd <= 0 && Math.random() < dt * 2.2 && ECHO.Ent.lineOfSight(world, e.x, e.y, target.x, target.y)) {
             e.state = 'windup'; e.t = 0; e.windEnd = 0.38 - (pack > 2 ? 0.08 : 0);
+            if (ECHO.Sfx && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 10) ECHO.Sfx.play('growl', { pitch: e.mutation ? 0.8 : 1, vol: 0.8 });
             e.lungeAngle = Math.atan2(target.y - e.y, target.x - e.x);
             e.lungeDur = Math.min(0.42, (d + 0.4) / 9.5);
             e.cd = 1.6 + Math.random();
@@ -225,6 +226,7 @@
       if (e.state === 'stagger') e.state = 'idle';
       if (e.role === 'captive') { e.moving = false; return; }
       if (e.yielded) { e.moving = false; e.state = 'yield'; return; }
+      if (e.indoor && e.sleeping) { e.moving = false; if (!e.aggro) return; e.sleeping = false; e.seated = false; }
 
       // Sleeping outlaws (unless they have learned to keep watch)
       if (e.role === 'bandit' && game.isNight() && !ECHO.Intel.has(world, 'ashfang', 'nightwatch') && !e.aggro && e.state !== 'chase' && e.state !== 'attack' && !e.isGuardPost) {
@@ -258,6 +260,7 @@
       }
       if (e.state === 'chase' || e.state === 'attack' || e.state === 'flee') e.state = 'idle';
       // Peaceful routine
+      if (e.indoor) return Person.indoorIdle(game, e, npc, dt);
       if (e.role === 'traveler' || e.role === 'soldier') return Person.followJourney(game, e, dt);
       if (e.role === 'bandit') return Person.campLife(game, e, npc, dt);
       Person.routine(game, e, npc, dt);
@@ -272,6 +275,20 @@
         o.target = target; o.sleeping = false;
         if (Math.random() < 0.3) { o.say = o.role === 'bandit' ? 'There!' : 'To arms!'; o.sayT = 1.5; }
       }
+    },
+
+    indoorIdle(game, e, npc, dt) {
+      const h = e.indoor;
+      const d = U.dist(e.x, e.y, h.x, h.y);
+      // Seats and beds sit inside furniture: settle straight into them once close.
+      if (d > 0.35 && h.pose !== 'stand' && d < 1.6) { e.x = h.x; e.y = h.y; }
+      else if (d > 0.35) { e.seated = false; ECHO.Ent.seek(game.world, e, h.x, h.y, e.speed * 0.5, dt, 0.25); return; }
+      e.moving = false;
+      e.seated = h.pose === 'sit';
+      const pe = game.pe;
+      const near = pe && U.dist(e.x, e.y, pe.x, pe.y) < 3;
+      e.dir = near ? Math.atan2(pe.y - e.y, pe.x - e.x) : h.dir;
+      Person.chatter(game, e, npc, dt);
     },
 
     flee(game, e, threat, dt) {
@@ -325,6 +342,7 @@
         e.moving = false;
         if (e.cd <= 0) {
           e.state = 'windup'; e.t = 0; e.windEnd = 0.38 - skill * 0.0012; e.aimAngle = ang; e.meleeWind = true;
+          if (target === game.pe && ECHO.Sfx) ECHO.Sfx.play('swing', { pitch: 0.7, vol: 0.35 });
           ECHO.Combat.telegraph({ x: e.x, y: e.y - 0.1, angle: ang, len: reach + 0.3, arc: spear ? 0.7 : 1.6, life: e.windEnd, shape: 'cone', color: 'rgba(255,90,70,0.22)' });
         }
       }
