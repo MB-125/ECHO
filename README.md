@@ -78,7 +78,7 @@ npm start
 | **WASD** | move |
 | **Left mouse** | strike (click in rhythm for a 3-hit combo; hold and release for a heavy blow) |
 | **Right mouse** (hold) | draw and loose the bow |
-| **Q** (hold) | flame — hold longer to pour more in, at your peril |
+| **Q** (hold) | flame — hold longer for a bigger blast; holding past full *overcharges* it, which is stronger but can turn on you or cost blood when mana runs dry |
 | **Shift** | guard (tap just as a blow lands for a perfect guard) |
 | **Space** | dodge |
 | **Ctrl** | sneak — also required to strike someone who isn't your enemy |

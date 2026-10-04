@@ -210,6 +210,9 @@
       if (crit) dmg *= 1.8;
       if (src.stealth) dmg *= 3;
       dmg = Math.max(1, Math.round(dmg));
+      // Your own fire can hurt you badly, but never below 15% of your life.
+      if (target === game.pe && (from === game.pe || !from)) { const floor = Math.max(1, target.maxHp * 0.15); if (target.hp - dmg < floor) dmg = Math.max(0, Math.floor(target.hp - floor)); }
+      if (dmg <= 0) { if (target === game.pe) target.burn = 0; return 0; }
       target.hp -= dmg;
       target.hurtT = 0.18;
       target.hurtDir = src.angle != null ? src.angle : target.hurtDir;

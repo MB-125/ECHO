@@ -183,7 +183,9 @@
       // ---- Flame (Q: hold to overcast)
       if (In.hit('q') && !game.ui.blocksWorld() && PC.dodgeT <= 0) { PC.charging = true; PC.charge = 0; ECHO.Sfx.play('fireCharge'); }
       if (PC.charging) {
+        const was = PC.charge;
         PC.charge = Math.min(1.25, PC.charge + dt * 0.9);
+        if (was <= 1 && PC.charge > 1) { ECHO.Combat.floater(pe.x, pe.y - 1.1, 'overcharged — unstable!', '#ff5a1f'); ECHO.Sfx.play('fireCharge', { pitch: 1.4 }); }
         if (Math.random() < dt * 20) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + Math.cos(aim) * 0.5, y: pe.y - 0.3 + Math.sin(aim) * 0.5, vx: (Math.random() - 0.5), vy: -0.8, t: 0, life: 0.3, color: pl.spells.includes('starfire') ? '#bfe3ff' : '#ffb347', size: 2 });
         game.light(pe.x, pe.y, 2 + PC.charge * 2, 0.08, '#ff9a3c');
         if (!In.key('q')) { PC.charging = false; PC.castFlame(game, aim, D); }
@@ -271,19 +273,33 @@
       const pl = game.pl, pe = game.pe;
       const charge = PC.charge;
       const cost = 14 + charge * 22;
+      const over = charge > 1; // held past full: you asked for more than is safe
       let overdraw = 0;
       if (pl.mana >= cost) pl.mana -= cost;
-      else {
+      else if (!over || pl.hp <= pl.maxHp * 0.3) {
+        // Not enough mana: the flame gutters out instead of eating you alive.
+        if (pl.mana < 14) {
+          ECHO.Combat.floater(pe.x, pe.y - 1, 'no mana', '#8fb4ff');
+          ECHO.Combat.burst(pe.x + Math.cos(aim) * 0.5, pe.y + Math.sin(aim) * 0.5, '#6a6a6a', 6, 1.5, 0.4, 2);
+          PC.charge = 0;
+          return;
+        }
+        // ...or comes out as small as the mana you have
+        PC.charge = Math.max(0, (pl.mana - 14) / 22 - 1e-6);
+        return PC.castFlame(game, aim, D);
+      } else {
+        // Overcharged with too little mana: blood for fire, but never below a third of your life.
         overdraw = cost - pl.mana; pl.mana = 0;
-        pl.hp -= overdraw * 0.6;
-        ECHO.Combat.floater(pe.x, pe.y - 1, 'blood for fire', '#ff7b5a');
-        if (pl.hp <= 1) { pl.hp = 1; }
+        const bleed = Math.min(overdraw * 0.6, Math.max(0, pl.hp - pl.maxHp * 0.3));
+        pl.hp -= bleed;
+        ECHO.Combat.floater(pe.x, pe.y - 1, `blood for fire −${Math.round(bleed)}`, '#ff7b5a');
       }
       if (charge > 0.6 || overdraw > 0) Ch().behave(pl, 'reckless', 0.1 + charge * 0.15 + (overdraw ? 0.25 : 0));
       Ch().train(pl, 'flame', 0.12 + charge * 0.1);
       ECHO.Civ.magicUsed(game.world, pe.x, pe.y, 0.25 + charge * 0.3);
       const star = pl.spells.includes('starfire');
-      const instab = star ? 0 : D.flameInstab + (overdraw ? 0.28 : 0) + Math.max(0, charge - 1) * 0.3;
+      // Only an overcharged or blood-fed flame can turn; an ordinary cast is safe.
+      const instab = star || (!over && !overdraw) ? 0 : D.flameInstab + (overdraw ? 0.28 : 0) + (charge - 1) * 0.3 + 0.08;
       const dmg = D.flameDmg * (1 + charge * 0.9) * (overdraw ? 1.3 : 1);
       const radius = 0.9 + charge * 0.9 + D.reck * 0.4;
       if (Math.random() < instab) {
