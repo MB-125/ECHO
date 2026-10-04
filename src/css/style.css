@@ -26,6 +26,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--pixel); user-select: none; }
 canvas#game { position: fixed; inset: 0; display: block; image-rendering: pixelated; cursor: crosshair; }
+canvas#overlay { position: fixed; inset: 0; display: block; pointer-events: none; }
 .hidden { display: none !important; }
 button { font-family: var(--pixel); font-size: 15px; color: var(--ink); background: #2a2219; border: 2px solid var(--edge); padding: 7px 14px; cursor: pointer; border-radius: 2px; }
 button:hover:not(:disabled) { background: #3a2e20; border-color: var(--gold); color: #fff6dc; }

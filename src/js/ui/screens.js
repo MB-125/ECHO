@@ -231,6 +231,7 @@
         <button data-a="journal">Journal (Tab)</button><button data-a="map">Map (M)</button><button data-a="char">Character (K)</button>
         <button data-a="save">Save now</button>
         <div class="card"><h4>View distance</h4><div class="row"><button class="small" data-z="-1">Closer</button><button class="small" data-z="1">Farther</button><span class="dim">${UI.settings.zoom}</span></div></div>
+        <div class="card"><h4>Graphics</h4><div class="row"><button class="small" data-g="3d" ${ECHO.render3d ? 'disabled' : ''}>3D</button><button class="small" data-g="2d" ${ECHO.render3d ? '' : 'disabled'}>Classic 2D</button><span class="dim">${ECHO.render3d ? 'Using 3D' : 'Using classic 2D'}</span></div></div>
         <button data-a="help">How the world works</button>
         <button data-a="title">Save and return to title</button>
         ${window.echoNative ? '<button data-a="quit">Save and quit</button>' : ''}</div>`, 'pause');
@@ -245,6 +246,12 @@
         if (a === 'save') { await ECHO.Game.save(); UI.toast('The world is saved.', 'info', 2); UI.closePanel(); }
         if (a === 'title') { await ECHO.Game.save(); UI.closePanel(); Scr.title(); }
         if (a === 'quit') { await ECHO.Game.save(); window.echoNative.closeNow(); }
+      }));
+      body.querySelectorAll('button[data-g]').forEach(b => b.addEventListener('click', async () => {
+        UI.settings.graphics = b.dataset.g;
+        try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ }
+        await ECHO.Game.save();
+        location.reload();
       }));
       body.querySelectorAll('button[data-z]').forEach(b => b.addEventListener('click', () => {
         UI.settings.zoom = U.clamp(UI.settings.zoom + +b.dataset.z, -2, 3);

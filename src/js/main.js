@@ -3,8 +3,10 @@
   window.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('game');
     ECHO.Input.attach(canvas);
-    ECHO.Renderer.init(canvas);
     ECHO.UI.init();
+    await ECHO.chooseRenderer();
+    ECHO.Renderer.init(canvas);
+    if (!ECHO.render3d) document.getElementById('overlay').style.display = 'none';
     // Keep the frame loop alive behind menus so screens animate.
     ECHO.Game.running = true;
     ECHO.Game.lastFrame = performance.now();

@@ -5,7 +5,7 @@
   const TS = 16, CH = 16;
   const T = ECHO.TIME;
 
-  const R = ECHO.Renderer = {
+  const R = ECHO.Renderer2D = {
     canvas: null, ctx: null, light: null, lctx: null, Z: 3, dpr: 1, cw: 0, ch: 0,
     chunks: {}, world: null, snow: [], mapCanvas: null,
 

@@ -4,3 +4,4 @@ dist/
 .DS_Store
 *.log
 smoke.png
+assets/models/*.blend1

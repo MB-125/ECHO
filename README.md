@@ -4,7 +4,11 @@
 
 ECHO is a desktop RPG built around one idea: **consequence**. You begin as an ordinary person in a world that is already alive — kingdoms, a religious order, outlaws, monsters, an economy and an ecosystem — and none of it waits for you.
 
-![A town at morning](docs/town.png)
+![A town at morning, in 3D](docs/town.png)
+
+**Now in 3D.** Every building, tree, person, beast and boss is a low-poly model built in Blender (`blender/build_assets.py`), drawn with Three.js under a moving sun with real shadows, fog, lanterns and campfires that light the dark, windows that glow at night, crops that thin when vermin eat the fields, and snow in winter. Machines without 3D support fall back to the classic pixel-art view automatically (also switchable in the Esc menu).
+
+![Night falls on a camp](docs/camp-night.png)
 
 ## What's in this build
 
@@ -18,7 +22,7 @@ Every system below is real and connected to the others. Nothing is scripted.
 
 **Bosses that learn.** Apex monsters watch which way you dodge and strike where you're going. Turtle behind your guard and they break it. Snipe from cover and they smash the cover. Beaten, they flee — and come back armored against whatever hurt them most, and they remember you.
 
-![A boss returns, armored against fire](docs/boss-returns.png)
+![A boss returns, armored against what hurt it](docs/boss-returns.png)
 
 **No classes.** You become what you repeatedly do. Eight skills grow by use, and your *tendencies* change how your body fights: aggression quickens your strikes but thins your guard; patience makes guarding cheap; reckless overcasting makes fire mighty and unstable. Your title is a biography of how you played.
 
@@ -41,6 +45,8 @@ Every system below is real and connected to the others. Nothing is scripted.
 ![Night](docs/night.png)
 
 ## Play
+
+**Play in the browser:** `npm run build:web` produces one self-contained page at `dist/web/index.html`.
 
 **Download:** grab the latest installer from [Releases](https://github.com/MB-125/ECHO/releases), or the newest build from the [Actions](https://github.com/MB-125/ECHO/actions) tab (open a run → *Artifacts*).
 
@@ -98,7 +104,15 @@ Runs the world simulation headless: generation, save/load, a year of history, fi
 
 ## How it's built
 
-Plain JavaScript and HTML canvas in an Electron shell — no engine, no build step. All art is drawn procedurally in code.
+Plain JavaScript in an Electron shell, rendered with Three.js — no game engine. The 3D models are generated from code in Blender:
+
+```bash
+pip install bpy                      # Blender as a Python module (Python 3.11)
+python blender/build_assets.py       # builds assets/models/*.glb
+node tools/pack-models.js            # packs them into src/js/render/models-data.js
+```
+
+![The model set, built in Blender](docs/blender-models.png)
 
 ```
 main.js, preload.js        Electron window + save files
@@ -116,7 +130,10 @@ src/js/sim/                the living world (runs with or without the player)
   mysteries.js             procedural language, tablets, the vault
   legacy.js                skills, Becoming, permanent death, legends
 src/js/game/               real-time layer: player, AI, bosses, combat, capture
-src/js/render/             procedural pixel art, lighting
+src/js/render/renderer3d.js 3D world: terrain, instanced props, animation, lighting
+src/js/render/models.js     loads and prepares the Blender models
+src/js/render/renderer2d.js classic pixel-art renderer (fallback)
+blender/build_assets.py     every 3D model, built from code in Blender
 src/js/ui/                 HUD, dialogue, trade, archive, screens
 tests/run-tests.js         headless simulation tests
 ```

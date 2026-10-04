@@ -9,6 +9,7 @@
 </head>
 <body>
   <canvas id="game"></canvas>
+  <canvas id="overlay"></canvas>
 
   <!-- HUD -->
   <div id="hud" class="hidden">
@@ -41,6 +42,8 @@
   <div id="fade"></div>
   <div id="err" class="hidden"></div>
 
+  <script src="vendor/three.min.js"></script>
+  <script src="vendor/GLTFLoader.js"></script>
   <script src="js/core.js"></script>
   <script src="js/world/worldgen.js"></script>
   <script src="js/sim/sim.js"></script>
@@ -65,7 +68,10 @@
   <script src="js/game/capture.js"></script>
   <script src="js/game/game.js"></script>
   <script src="js/render/sprites.js"></script>
-  <script src="js/render/renderer.js"></script>
+  <script src="js/render/renderer2d.js"></script>
+  <script src="js/render/models-data.js"></script>
+  <script src="js/render/models.js"></script>
+  <script src="js/render/renderer3d.js"></script>
   <script src="js/ui/dialogue.js"></script>
   <script src="js/ui/ui.js"></script>
   <script src="js/ui/screens.js"></script>
