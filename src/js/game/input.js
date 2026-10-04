@@ -10,7 +10,7 @@
         const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
         if (!In.down.has(k)) In.pressed.add(k);
         In.down.add(k);
-        if (['Tab', ' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault();
+        if (['Tab', ' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F1', '/'].includes(e.key)) e.preventDefault();
       });
       window.addEventListener('keyup', e => {
         const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;

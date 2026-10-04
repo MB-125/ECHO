@@ -73,6 +73,8 @@ npm start
 
 ### Controls
 
+A see-through controls card sits on the left of the screen while you play (it dims during fights); **F1** hides or shows it.
+
 | | |
 |---|---|
 | **WASD** | move |

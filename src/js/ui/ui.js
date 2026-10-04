@@ -43,6 +43,7 @@
         if (In.pressed.has('m')) UI.openMap();
         if (In.pressed.has('c') && !In.down.has('Control')) { /* c also sneaks; character sheet on K */ }
         if (In.pressed.has('k')) UI.openCharacter();
+        if (In.pressed.has('F1') || In.pressed.has('/') || In.pressed.has('?')) UI.toggleHelp();
       } else if (UI.panelOpen) {
         if ((In.pressed.has('Tab') || In.pressed.has('j')) && UI.panelKind === 'journal') UI.closePanel();
         else if (In.pressed.has('m') && UI.panelKind === 'map') UI.closePanel();
@@ -50,9 +51,24 @@
       }
       UI.hud(game, dt);
     },
+    // The controls card: shown until the player hides it (F1), remembered.
+    toggleHelp(force) {
+      UI.settings.hideHelp = force != null ? !force : !UI.settings.hideHelp;
+      try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ }
+      UI.applyHelp();
+    },
+    applyHelp() {
+      const hide = !!UI.settings.hideHelp;
+      $('#hud-help').classList.toggle('hidden', hide);
+      $('#hud-help-tab').classList.toggle('hidden', !hide);
+      $('#hud-keys').classList.toggle('hidden', !hide);
+    },
     hud(game, dt) {
       const pl = game.pl, world = game.world;
       const set = (sel, v) => { const el = $(sel); if (el && el.textContent !== v) el.textContent = v; };
+      if (!UI.helpApplied) { UI.helpApplied = true; UI.applyHelp(); }
+      const fighting = game.combatT != null && game.time - game.combatT < 4;
+      if (fighting !== UI.wasFighting) { UI.wasFighting = fighting; $('#hud').classList.toggle('fighting', fighting); }
       set('#hud-hero', pl.first + ' ' + pl.last);
       set('#hud-title', ECHO.Character.title(pl));
       $('#hud-left .hp .fill').style.transform = `scaleX(${U.clamp(pl.hp / pl.maxHp, 0, 1)})`;
