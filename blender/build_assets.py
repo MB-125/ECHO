@@ -552,6 +552,83 @@ def smithy():
 
 
 @model
+def mill():
+    """Windmill: stone tower, cap roof, and a sail cross on its own part so it can turn."""
+    m = Model('mill')
+    b = m.part('building')
+    b.cyl(1.05, 2.6, (0, 0, 1.3), 'plaster', seg=8, r2=.8)
+    b.cyl(1.12, .14, (0, 0, .07), 'stone', seg=8)
+    b.cone(1.0, 1.0, (0, 0, 3.1), 'roof', seg=8)
+    b.box((.5, .1, .8), (0, -.98, .4), 'darkwood')
+    b.box((.32, .08, .32), (0, -.86, 1.7), 'window')
+    for i, (x, y) in enumerate([(-1.6, -.4), (-1.9, .3), (1.5, .6)]):
+        b.box((.4, .4, .32), (x, y, .16), 'canvas', rot=(0, 0, i * 25))
+    b.box((.12, .9, .12), (0, -.5, 2.55), 'darkwood', rot=(90, 0, 0))
+    sails = m.part('sails', pivot=(0, -1.05, 2.55))
+    # four arms in the X-Z plane, each with a canvas sail
+    sails.box((3.1, .06, .1), (0, -1.08, 2.55), 'darkwood').box((.1, .06, 3.1), (0, -1.08, 2.55), 'darkwood')
+    for (dx, dz, w, h) in [(.85, .18, 1.2, .3), (-.85, -.18, 1.2, .3), (-.18, .85, .3, 1.2), (.18, -.85, .3, 1.2)]:
+        sails.box((w, .04, h), (dx, -1.1, 2.55 + dz), 'canvas')
+    return m
+
+
+@model
+def mine():
+    """Mine mouth cut into a rock face: timber frame, rails and an ore cart."""
+    m = Model('mine')
+    b = m.part('building')
+    b.ball(1.5, (0, .5, .5), 'rock', sub=1, scale=(1.5, 1.0, 1.0))
+    b.ball(.9, (-1.4, .6, .3), 'darkstone', sub=1)
+    b.ball(.8, (1.5, .5, .25), 'rock', sub=1)
+    b.box((1.0, .5, 1.0), (0, -.45, .5), 'window')
+    b.box((.14, .14, 1.15), (-.55, -.7, .57), 'wood').box((.14, .14, 1.15), (.55, -.7, .57), 'wood')
+    b.box((1.35, .16, .16), (0, -.7, 1.15), 'wood')
+    b.box((.06, 1.6, .05), (-.25, -1.3, .03), 'iron').box((.06, 1.6, .05), (.25, -1.3, .03), 'iron')
+    for y in (-.7, -1.1, -1.5, -1.9):
+        b.box((.75, .1, .04), (0, y, .02), 'darkwood')
+    b.box((.6, .45, .32), (0, -1.6, .3), 'wood').box((.5, .35, .1), (0, -1.6, .5), 'darkstone')
+    for x in (-.22, .22):
+        b.cyl(.08, .06, (x, -1.83, .14), 'iron', rot=(90, 0, 0), seg=6).cyl(.08, .06, (x, -1.37, .14), 'iron', rot=(90, 0, 0), seg=6)
+    b.box((.18, .18, .9), (.95, -.9, .45), 'darkwood').box((.5, .05, .25), (.95, -1.0, .8), 'wood')
+    b.box((.08, .08, .4), (.95, -.95, 1.0), 'darkwood').box((.14, .14, .14), (.95, -.95, 1.25), 'glow')
+    return m
+
+
+@model
+def lumber():
+    """Lumber camp: stacked logs, a sawhorse with a log, a lean-to and a chopping block."""
+    m = Model('lumber')
+    b = m.part('building')
+    for i, z in enumerate((.15, .42, .69)):
+        n = 3 - i
+        for k in range(n):
+            b.cyl(.15, 1.8, (-1.0 + 0 * k, -0.6 + (k - (n - 1) / 2) * .31, z), 'trunk', rot=(0, 90, 0), seg=7)
+    b.box((.1, .5, .6), (.4, -.6, .3), 'darkwood', rot=(0, 20, 0)).box((.1, .5, .6), (1.2, -.6, .3), 'darkwood', rot=(0, -20, 0))
+    b.cyl(.13, 1.3, (.8, -.6, .58), 'trunk', rot=(0, 90, 0), seg=7)
+    b.box((.9, .03, .12), (.8, -.75, .78), 'iron')
+    b.box((1.8, 1.2, .08), (.4, .7, 1.1), 'wood', rot=(18, 0, 0))
+    b.box((.12, .12, 1.15), (-.4, .2, .58), 'darkwood').box((.12, .12, 1.15), (1.2, .2, .58), 'darkwood')
+    b.box((.12, .12, .8), (-.4, 1.2, .4), 'darkwood').box((.12, .12, .8), (1.2, 1.2, .4), 'darkwood')
+    b.cyl(.25, .4, (-1.3, .6, .2), 'trunk', seg=8).box((.05, .3, .05), (-1.25, .6, .48), 'darkwood', rot=(0, 30, 0))
+    for (x, y) in [(-.1, 1.05), (.3, 1.0), (.75, 1.05)]:
+        b.cyl(.12, .5, (x, y, .25), 'wood', seg=6)
+    return m
+
+
+@model
+def stocks():
+    """The town stocks: wooden pillory on a low platform."""
+    m = Model('stocks')
+    b = m.part('building')
+    b.box((1.4, .9, .12), (0, 0, .06), 'darkwood')
+    b.box((.12, .12, 1.0), (-.55, 0, .6), 'wood').box((.12, .12, 1.0), (.55, 0, .6), 'wood')
+    b.box((1.3, .14, .32), (0, 0, .95), 'wood')
+    for x in (-.3, 0, .3):
+        b.cyl(.06, .16, (x, -.02, .95), 'darkwood', rot=(90, 0, 0), seg=6)
+    return m
+
+
+@model
 def market():
     m = Model('market')
     b = m.part('building')

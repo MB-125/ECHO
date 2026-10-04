@@ -126,15 +126,18 @@
       const el = Scr.show(`${Scr.logo('A new world, with its own history, its own tongue, its own fate.')}
         <div class="form"><label>Name of the world<input id="wn" value="${rng.pick(names)}" maxlength="24"></label>
         <label>Seed (leave blank for chance)<input id="ws" placeholder="any words or numbers"></label>
+        <label>Pace of life<select id="wp"><option value="brisk">Brisk — a day passes in 6 minutes</option><option value="steady">Steady — a day passes in 12 minutes</option><option value="lifelike">Lifelike — a day passes in 24 minutes</option></select></label>
         <div class="actions"><button data-a="back">Back</button><button class="primary" data-a="go">Create</button></div></div>`);
       el.querySelector('[data-a=back]').addEventListener('click', () => Scr.title());
       el.querySelector('[data-a=go]').addEventListener('click', async () => {
         const name = el.querySelector('#wn').value.trim() || 'Nameless';
+        const pace = (el.querySelector('#wp') || {}).value || 'brisk';
         const seedText = el.querySelector('#ws').value.trim();
         const seed = seedText ? (/^\d+$/.test(seedText) ? (+seedText >>> 0) : ECHO.hashStr(seedText)) : (Math.random() * 4294967295) >>> 0;
         Scr.show(`${Scr.logo('Raising mountains, digging rivers, founding towns, raising generations…')}<p style="text-align:center" class="dim">${esc(name)} — seed ${seed}</p>`);
         await new Promise(r => setTimeout(r, 60));
         const world = ECHO.generateWorld({ seed, name, id: 'w' + seed.toString(36) + Date.now().toString(36).slice(-4) });
+        world.pace = pace;
         await ECHO.Save.save(world);
         Scr.characterCreation(world, false);
       });
@@ -232,6 +235,7 @@
         <button data-a="save">Save now</button>
         <div class="card"><h4>View distance</h4><div class="row"><button class="small" data-z="-1">Closer</button><button class="small" data-z="1">Farther</button><span class="dim">${UI.settings.zoom}</span></div></div>
         <div class="card"><h4>Graphics</h4><div class="row"><button class="small" data-g="3d" ${ECHO.render3d ? 'disabled' : ''}>3D</button><button class="small" data-g="2d" ${ECHO.render3d ? '' : 'disabled'}>Classic 2D</button><span class="dim">${ECHO.render3d ? 'Using 3D' : 'Using classic 2D'}</span></div></div>
+        <div class="card"><h4>Pace of life</h4><div class="row">${['brisk', 'steady', 'lifelike'].map(p => `<button class="small" data-p="${p}" ${(ECHO.Game.world && (ECHO.Game.world.pace || 'brisk')) === p ? 'disabled' : ''}>${{ brisk: 'Brisk', steady: 'Steady', lifelike: 'Lifelike' }[p]}</button>`).join('')}</div><div class="dim">A day lasts ${{ brisk: 6, steady: 12, lifelike: 24 }[(ECHO.Game.world && ECHO.Game.world.pace) || 'brisk']} real minutes. Slower pace: lives, seasons and wars unfold more gradually around you.</div></div>
         <div class="card"><h4>Sound</h4><div class="row"><button class="small" data-s="on" ${ECHO.Sfx.enabled ? 'disabled' : ''}>On</button><button class="small" data-s="off" ${ECHO.Sfx.enabled ? '' : 'disabled'}>Off</button></div></div>
         <button data-a="help">How the world works</button>
         <button data-a="title">Save and return to title</button>
@@ -254,6 +258,7 @@
         await ECHO.Game.save();
         location.reload();
       }));
+      body.querySelectorAll('button[data-p]').forEach(b => b.addEventListener('click', () => { if (ECHO.Game.world) ECHO.Game.world.pace = b.dataset.p; Scr.openPause(); }));
       body.querySelectorAll('button[data-s]').forEach(b => b.addEventListener('click', () => { ECHO.Sfx.setEnabled(b.dataset.s === 'on'); Scr.openPause(); }));
       body.querySelectorAll('button[data-z]').forEach(b => b.addEventListener('click', () => {
         UI.settings.zoom = U.clamp(UI.settings.zoom + +b.dataset.z, -2, 3);

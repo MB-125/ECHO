@@ -54,7 +54,11 @@
         s.cropFactor = region.eco ? region.eco.crop : 1;
         const residents = ECHO.People.residents(world, s);
         const counts = {};
-        for (const n of residents) counts[n.prof] = (counts[n.prof] || 0) + 1;
+        // the sick and the jailed don't work
+        for (const n of residents) { if (n.sick || (n.jailUntil || 0) > world.day) continue; counts[n.prof] = (counts[n.prof] || 0) + 1; }
+        s._counts = counts;
+        const PF = ECHO.Production ? ECHO.Production.factors(world, s) : { flour: 1, ore: 1, timber: 1 };
+        const weather = ECHO.Weather ? ECHO.Weather.cropMult(world, s) : 1;
         s._hunters = counts.hunter || 0;
         s._farmers = counts.farmer || 0;
         s.garrison = (counts.guard || 0);
@@ -64,18 +68,19 @@
         const farmers = counts.farmer || 0;
         const farmCap = Math.max(4, s.farmTiles / 5);
         const effFarmers = Math.min(farmers, farmCap) + Math.max(0, farmers - farmCap) * 0.3;
-        let food = effFarmers * 4.6 * s.cropFactor * SEASON_YIELD[season] * (civ('mills') ? 1.25 : 1) * (civ('aetherwells') ? 1.15 : 1);
+        let food = effFarmers * 4.6 * s.cropFactor * weather * PF.flour * SEASON_YIELD[season] * (civ('mills') ? 1.25 : 1) * (civ('aetherwells') ? 1.15 : 1);
         if (region.eco) food += (counts.hunter || 0) * 2.0 * U.clamp(region.eco.hare / (ECHO.Ecology.capacity(region).hare * 0.45), 0.15, 1.1);
         s.stock.food += food;
-        s.stock.ore += (counts.miner || 0) * (region.hill > 0.06 ? 1.2 : 0.35);
-        s.stock.timber += (counts.woodcutter || 0) * 1.3;
+        s.stock.ore += (counts.miner || 0) * PF.ore;
+        s.stock.timber += (counts.woodcutter || 0) * 1.3 * PF.timber;
         s.stock.herbs += (counts.herbalist || 0) * 0.8 + (counts.priest || 0) * 0.1;
-        const smithWork = Math.min((counts.smith || 0) * 1.2, s.stock.ore);
-        s.stock.ore -= smithWork;
+        // the forge needs ore and charcoal (timber)
+        const smithWork = Math.min((counts.smith || 0) * 1.2, s.stock.ore, s.stock.timber / 0.6);
+        s.stock.ore -= smithWork; s.stock.timber -= smithWork * 0.3;
         s.stock.arms += smithWork * 0.7 * (civ('tempered') ? 1.2 : 1);
         s._lastFood = food;
         // --- Consumption
-        const need = Eco.need(world, s);
+        const need = Eco.need(world, s) * (ECHO.Weather ? ECHO.Weather.needMult(world, s) : 1);
         if (s.stock.food >= need) { s.stock.food -= need; s.hunger = Math.max(0, s.hunger - 0.25); }
         else {
           const short = 1 - s.stock.food / need;
@@ -127,13 +132,13 @@
 
     startCaravans(world, rng) {
       for (const s of world.settlements) {
-        if (s.faction === 'ashfang') continue;
+        if (s.faction === 'ashfang' || s.quarantine) continue;
         const merchants = ECHO.People.residents(world, s).filter(n => n.prof === 'merchant' && !n.journey);
         for (const m of merchants) {
           if (!rng.chance(0.18)) continue;
           let best = null, bestProfit = 25;
           for (const t of world.settlements) {
-            if (t === s || t.faction === 'ashfang') continue;
+            if (t === s || t.faction === 'ashfang' || t.quarantine) continue;
             const ft = world.factions[t.faction], fs = world.factions[s.faction];
             if (fs.atWar[t.faction] || ft.atWar[s.faction]) continue;
             const route = ECHO.Sim.route(world, s.id, t.id);

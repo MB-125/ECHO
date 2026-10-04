@@ -188,7 +188,7 @@
       const fac = s ? s.faction : 'valdren';
       const era = s ? (world.factions[fac] ? world.factions[fac].tech.era : 0) : 0;
       const path = s && world.factions[fac] ? world.factions[fac].tech.path : null;
-      const key = [b.type, b.w, b.h, fac, era, path, b.legend ? 1 : 0, b.ruined ? 1 : 0, b.id.length % 3].join('|');
+      const key = [b.type, b.w, b.h, fac, era, path, b.legend ? 1 : 0, b.ruined ? 1 : 0, b.id.length % 3, b.fac ? b.fac.state : ''].join('|');
       if (S.bCache[key]) return S.bCache[key];
       const W = b.w * 16, H = b.h * 16 + 14;
       const c = document.createElement('canvas');
@@ -218,7 +218,30 @@
       };
       const door = (x, col = '#4a3420') => { R(col, x, H - 11, 6, 11); R(shade(col, 0.2), x + 1, H - 10, 4, 1); R('#d8b860', x + 4, H - 6, 1, 1); };
       const window_ = (x, y) => { R('#2a2a33', x, y, 4, 4); R('#4a5a6a', x, y, 4, 1); };
+      const burnt = b.fac && (b.fac.state === 'burned' || b.fac.state === 'ruined');
+      const ch = c2 => burnt ? shade('#3a3430', 0) : c2;
       switch (b.type) {
+        case 'mill': {
+          R(ch('#d8ccb0'), 8, 10, W - 16, H - 10); R(ch('#a89a80'), 8, H - 4, W - 16, 4);
+          for (let y = 0; y < 10; y++) R(ch(roof[0]), 10 + (10 - y) / 2, y, W - 20 - (10 - y), 1);
+          R('#4a3420', W / 2 - 3, H - 9, 6, 9);
+          if (!burnt) { g.save(); g.translate(W / 2, 14); g.strokeStyle = '#4a3420'; g.lineWidth = 2; for (let k = 0; k < 4; k++) { g.rotate(Math.PI / 2); g.beginPath(); g.moveTo(0, 0); g.lineTo(0, 13); g.stroke(); g.fillStyle = '#e8dcc0'; g.fillRect(1, 3, 4, 9); } g.restore(); }
+          break;
+        }
+        case 'mine': {
+          R(ch('#8a857c'), 0, 8, W, H - 8); R(ch('#6e6a62'), 2, 4, W - 6, 8);
+          R('#15130f', W / 2 - 6, H - 14, 12, 14); R(ch('#7a5a36'), W / 2 - 8, H - 16, 16, 3); R(ch('#7a5a36'), W / 2 - 8, H - 16, 2, 16); R(ch('#7a5a36'), W / 2 + 6, H - 16, 2, 16);
+          break;
+        }
+        case 'lumber': {
+          for (let i = 0; i < 3; i++) for (let k = 0; k < 3 - i; k++) { R(ch('#6e4a2c'), 2 + k * 7 + i * 3, H - 6 - i * 5, 7, 5); R(ch('#c8a070'), 2 + k * 7 + i * 3, H - 6 - i * 5, 2, 5); }
+          R(ch('#7a5a36'), W - 14, H - 18, 12, 2); R(ch('#4a3420'), W - 13, H - 16, 2, 16); R(ch('#4a3420'), W - 4, H - 16, 2, 16);
+          break;
+        }
+        case 'stocks': {
+          R('#4a3420', 1, H - 3, W - 2, 3); R('#6e4a2c', 3, H - 14, 2, 12); R('#6e4a2c', W - 5, H - 14, 2, 12); R('#7a5a36', 1, H - 12, W - 2, 4);
+          break;
+        }
         case 'house': {
           drawRoof(b.legend ? ['#6a6a7a', '#8a8a9a'] : roof);
           drawWall();

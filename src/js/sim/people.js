@@ -13,6 +13,7 @@
     farmer: { label: 'farmer', work: 'fields' },
     hunter: { label: 'hunter', work: 'wilds' },
     miner: { label: 'miner', work: 'hills' },
+    miller: { label: 'miller', work: 'mill' },
     woodcutter: { label: 'woodcutter', work: 'wilds' },
     smith: { label: 'smith', work: 'smithy' },
     herbalist: { label: 'herbalist', work: 'wilds' },
@@ -194,6 +195,7 @@
       if (n.status === 'dead') return;
       n.status = 'dead'; n.diedDay = world.day; n.cause = cause;
       delete n.mind;
+      if (ECHO.Property && world._prop) ECHO.Property.onDeath(world, n);
       world.stats.deaths++;
       const s = ECHO.Sim.settlement(world, n.home);
       if (s) s.residents = s.residents.filter(id => id !== n.id);
@@ -356,7 +358,7 @@
       let prof = parent && rng.chance(0.55) ? parent.prof : rng.pick(['farmer', 'farmer', 'hunter', 'woodcutter', 'merchant', 'guard', 'herbalist']);
       // Childhood dreams sometimes come true.
       const dream = n.mind && n.mind.goal && n.mind.goal.kind === 'child' ? n.mind.goal.dream : null;
-      if (dream && rng.chance(0.5)) prof = /knight|captain/.test(dream) ? 'guard' : /scholar/.test(dream) ? 'scholar' : /inventor/.test(dream) ? 'scholar' : /smith/.test(dream) ? 'smith' : /merchant/.test(dream) ? 'merchant' : /hunter/.test(dream) ? 'hunter' : /priest/.test(dream) ? 'priest' : prof;
+      if (dream && rng.chance(0.3) && (!s || !ECHO.Minds || ECHO.Minds.spareFarmer(world, s))) prof = /knight|captain/.test(dream) ? 'guard' : /scholar/.test(dream) ? 'scholar' : /inventor/.test(dream) ? 'scholar' : /smith/.test(dream) ? 'smith' : /merchant/.test(dream) ? 'merchant' : /hunter/.test(dream) ? 'hunter' : /priest/.test(dream) ? 'priest' : prof;
       if (n.flags.survivor || P.has(n, 'brave') && rng.chance(0.5)) prof = 'guard';
       if (['ruler', 'reeve', 'innkeeper', 'bandit'].includes(prof)) prof = 'farmer';
       if (s && s.kind === 'temple' && rng.chance(0.4)) prof = 'priest';
@@ -389,6 +391,7 @@
             const s = ECHO.Sim.settlement(world, winner.loc);
             if (s) s.unrest = Math.min(100, s.unrest + 4);
             if (rng.chance(0.6)) P.becomeOutlaw(world, rng, winner, 'fled after killing ' + loser.first);
+            else if (ECHO.Law) ECHO.Law.npcCrime(world, rng, { by: winner.id, kind: 'murder', victim: loser.id, sid: winner.loc });
           }
         } else if (rng.chance(0.2)) {
           ECHO.Chronicle.add(world, { text: `A bitter feud between ${P.name(a)} and ${P.name(b)} divides ${ECHO.Sim.settlement(world, a.loc).name}.`, kind: 'life', importance: 0, sid: a.loc, npcs: [a.id, b.id] });

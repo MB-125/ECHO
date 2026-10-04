@@ -59,6 +59,19 @@
       o.start(t0); o.stop(t0 + dur + 0.05);
     },
 
+    // A looping bed of rain, faded to the given level (0..1).
+    setRain(level) {
+      if (!S.ctx || S.ctx.state !== 'running') return;
+      if (!S.rainNode && level > 0) {
+        const src = S.ctx.createBufferSource(); src.buffer = S.noiseBuf; src.loop = true;
+        const f = S.ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 0.5;
+        const f2 = S.ctx.createBiquadFilter(); f2.type = 'highshelf'; f2.frequency.value = 4000; f2.gain.value = -8;
+        const g = S.ctx.createGain(); g.gain.value = 0;
+        src.connect(f); f.connect(f2); f2.connect(g); g.connect(S.master); src.start();
+        S.rainNode = { src, g };
+      }
+      if (S.rainNode) S.rainNode.g.gain.setTargetAtTime(level * 0.16, S.ctx.currentTime, 0.8);
+    },
     // ---- the sounds
     play(name, o = {}) {
       if (!S.ctx || !S.enabled || S.ctx.state !== 'running') return;
@@ -119,6 +132,11 @@
         case 'door': S.tone(t, 0.35, 'triangle', 140, 110, 0.12 * v, 0.05); S.noise(t + 0.25, 0.12, 'lowpass', 800, 200, 0.7, 0.35 * v); break;
         case 'coin': S.tone(t, 0.12, 'square', 1900, 1900, 0.06 * v); S.tone(t + 0.07, 0.22, 'square', 2530, 2530, 0.06 * v); break;
         case 'heal': S.tone(t, 0.5, 'sine', 520, 780, 0.15 * v, 0.05); S.tone(t + 0.1, 0.5, 'sine', 660, 990, 0.1 * v, 0.05); break;
+        case 'thunder':
+          S.noise(t, 2.6, 'lowpass', 300 * r(), 40, 0.8, 0.9 * v, 0.04);
+          S.noise(t + 0.05, 1.2, 'lowpass', 900, 100, 0.7, 0.4 * v, 0.01);
+          S.tone(t, 2.2, 'sine', 48, 28, 0.35 * v, 0.1);
+          break;
         case 'levelup': [523, 659, 784].forEach((f, i) => S.tone(t + i * 0.08, 0.4, 'triangle', f, f, 0.12 * v)); break;
       }
     }

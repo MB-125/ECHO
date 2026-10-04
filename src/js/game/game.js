@@ -77,7 +77,7 @@
       Game.lights = [];
       // World time
       const before = world.day;
-      ECHO.Sim.advance(world, dt * T.MIN_PER_SEC);
+      ECHO.Sim.advance(world, dt * Game.minPerSec());
       if (world.day !== before) Game.onNewDay();
       Game.pl.lanternOn = Game.isNight();
       // Player
@@ -106,7 +106,7 @@
       ECHO.Spawner.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
-      if (Game.exploreTimer <= 0 && !ECHO.Interior.cur) { Game.exploreTimer = 1; Game.explore(); Game.checkPlace(); }
+      if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
       Game.saveTimer += dt;
       if (Game.saveTimer > 180) { Game.saveTimer = 0; Game.save(); }
       // Camera
@@ -125,6 +125,7 @@
       const world = Game.world, pl = Game.pl;
       for (const f in pl.wanted) { pl.wanted[f] = Math.max(0, pl.wanted[f] - 12); if (!pl.wanted[f]) delete pl.wanted[f]; }
       ECHO.UI.onNewDay(world);
+      for (const t of ECHO.Property.playerBills(world, pl)) ECHO.UI.toast(t, 'info', 5);
       Game.save();
     },
 
@@ -174,6 +175,29 @@
       const L = { x, y, r, a, color };
       if (ttl) { L.ttl = ttl; (Game.flashLights = Game.flashLights || []).push(L); }
       else Game.lights.push(L);
+    },
+    // How fast the world's clock runs: the player's pace setting.
+    PACES: { brisk: 4, steady: 2, lifelike: 1 },
+    minPerSec() { return Game.PACES[(Game.world && Game.world.pace) || 'brisk'] || 4; },
+    // Sickness and the weather on your own body, once a second.
+    healthTick(sec) {
+      const world = Game.world, pl = Game.pl;
+      if (!pl || pl.capture || Game.defeating) return;
+      const hours = sec * Game.minPerSec() / 60;
+      const s = ECHO.World.settlementAt(world, pl.x, pl.y, 14);
+      if (s && ECHO.Disease && !pl.sick) {
+        const d = ECHO.Disease.exposePlayer(world, pl, s, hours * (ECHO.Interior.cur ? 2 : 1));
+        if (d) ECHO.UI.toast(`You feel feverish and weak. You've caught ${d.name}. (Herbs or a priest may help.)`, 'warn', 6);
+      }
+      if (pl.sick) {
+        pl.sick.t = (pl.sick.t || 0) + hours;
+        if (pl.hp > pl.maxHp * 0.35) pl.hp = Math.max(pl.maxHp * 0.35, pl.hp - 0.35 * sec);
+        pl.stamina = Math.min(pl.stamina, pl.maxSta * 0.7);
+        if (pl.sick.t >= 24) { pl.sick.t -= 24; if (--pl.sick.days <= 0) { (pl.immune = pl.immune || []).push(pl.sick.d); delete pl.sick; ECHO.UI.toast('The fever breaks. You feel like yourself again.', 'mercy', 4); } }
+      }
+      // cold and storms wear on you out in the open
+      const wx = ECHO.Weather && !ECHO.Interior.cur ? ECHO.Weather.here(world, pl.x, pl.y) : null;
+      if (wx && (wx.today === 'blizzard' || (wx.harsh && Game.isNight())) && !s && pl.stamina > 20) pl.stamina -= 2 * sec;
     },
     hitStop(t) { Game.freezeT = Math.min(0.2, Math.max(Game.freezeT, t)); },
     slowMo(t, scale) { Game.slowT = t; Game.slowScale = scale; },
@@ -251,6 +275,7 @@
       target.aggro = true;
       const seen = Game.witnessed(Game.pe.x, Game.pe.y, target) || kind !== 'murder';
       if (!seen) return;
+      ECHO.Court.record(Game, kind, { victimEnt: target, known: kind !== 'murder' });
       const f = npc.faction;
       const before = pl.wanted[f] || 0;
       pl.wanted[f] = Math.min(200, before + (kind === 'murder' ? 90 : 35));
@@ -427,11 +452,18 @@
         const labels = { inn: 'Enter the inn — beds, meals', market: 'Visit the market — arrows, food, herbs', smithy: 'Enter the smithy — weapons, arrows', archive: 'Enter the archive', shrine: 'Enter the shrine', temple: 'Enter the temple', keep: 'Enter the keep', board: 'Read the notice board', statue: 'Read the plaque', well: null, lamp: null };
         // Doors are forgiving: stand against any wall of a building (or near its
         // door) and you can go in — no need to walk round to the front.
+        if (b.fac) {
+          const ex = Math.max(b.x - pe.x, 0, pe.x - (b.x + b.w)), ey = Math.max(b.y - pe.y, 0, pe.y - (b.y + b.h));
+          const edge = Math.hypot(ex, ey);
+          const lbl = ECHO.Production.KINDS[b.type].label;
+          if (edge < 1.3) out.push({ kind: 'facility', b, s, label: b.fac.state === 'working' || b.fac.state === 'damaged' ? `Look over the ${lbl}` : `The ${b.fac.state} ${lbl}`, d: edge * 0.6 + 0.05 });
+          continue;
+        }
         if (b.type === 'house' || ECHO.Interior.enterable(b)) {
           const ex = Math.max(b.x - pe.x, 0, pe.x - (b.x + b.w)), ey = Math.max(b.y - pe.y, 0, pe.y - (b.y + b.h));
           const edge = Math.hypot(ex, ey), dd = U.dist(door.x, door.y, pe.x, pe.y);
           if (edge < 1.15 || dd < 2.2) {
-            const label = b.type === 'house' ? (b.legend ? `Enter the house of ${(ECHO.Legacy.legendOf(world, b.legend) || {}).name || 'a legend'}` : b.owner === Game.pl.charId ? 'Enter your house' : 'Enter the house') : labels[b.type];
+            const label = b.type === 'house' ? (b.legend ? `Enter the house of ${(ECHO.Legacy.legendOf(world, b.legend) || {}).name || 'a legend'}` : ECHO.Interior.isMine(b, Game.pl) ? 'Enter your house' : 'Enter the house') : labels[b.type];
             out.push({ kind: 'enter', b, s, label, d: Math.min(edge, dd) * 0.55 + 0.05 });
           }
           continue;
@@ -464,6 +496,7 @@
         case 'free': return Game.freeCaptive(it.ent);
         case 'building': return ECHO.UI.openBuilding(it.b, it.s);
         case 'enter': return ECHO.Interior.enter(Game, it.b, it.s);
+        case 'facility': return ECHO.UI.openFacility(it.b, it.s);
         case 'leave': return ECHO.Interior.leave(Game);
         case 'furn': return ECHO.Interior.use(Game, it.furn);
         case 'house': return ECHO.UI.openHouse(it.b, it.s);

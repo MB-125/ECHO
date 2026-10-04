@@ -118,6 +118,13 @@
         for (const npc of present) {
           if (count >= cap) break;
           if (spawned.has(npc.id) || npc.id === (game.pl.companion)) continue;
+          if ((npc.jailUntil || 0) > world.day) continue; // in the cells
+          const stocks = npc.stocksDay === world.day && s.buildings.find(b => b.type === 'stocks');
+          if (stocks) {
+            const e = S.makePerson(game, npc, stocks.x + 0.5, stocks.y + 0.45, 'villager');
+            e.pilloried = true; e.homeSid = s.id; e.dir = Math.PI / 2; game.ents.push(e); count++;
+            continue;
+          }
           const goal = ECHO.AI.Sched.target(game, null, npc, world.minute);
           let x = goal ? goal.x : s.x, y = goal ? goal.y : s.y;
           // Spawn at their destination so the town looks lived-in.
@@ -223,7 +230,8 @@
           if (game.ents.some(e => e.npcId === id && !e.dead)) return;
           const role = j.kind === 'army' ? 'soldier' : (n.prof === 'guard' ? 'soldier' : 'traveler');
           const e = S.makePerson(game, n, p.x + slot * 0.6, p.y, role);
-          e.journeyId = j.id; e.slot = slot;
+          e.journeyId = j.id; e.slot = slot; e.journeyKind = j.kind;
+          if (j.kind === 'army') { e.gear.spear = slot % 3 === 1; e.gear.shield = true; }
           if (j.kind === 'caravan' && slot === 0) e.gear.cart = true;
           game.addEnt(e);
         });

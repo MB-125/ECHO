@@ -17,6 +17,7 @@
   const I = ECHO.Interior = {
     BASE, cur: null,
     enterable(b) { return !!NAMES[b.type]; },
+    isMine(b, pl) { return !!pl && (b.owner === pl.charId || b.tenant === pl.charId); },
     inside(x) { return x >= BASE - 50; },
 
     // ---------------------------------------------------------------- collision
@@ -41,7 +42,7 @@
         case 'shrine': return `The shrine of ${s.name}`;
         case 'temple': return `The temple of the Lantern`;
         case 'keep': return `The hall of ${s.name}`;
-        default: return b.owner === (world.player && world.player.charId) ? 'Your house' : owner ? `The house of ${owner}` : `A house in ${s.name}`;
+        default: return I.isMine(b, world.player) ? 'Your house' : owner ? `The house of ${owner}` : `A house in ${s.name}`;
       }
     },
     layout(game, b, s) {
@@ -70,7 +71,7 @@
       const north = -Math.PI / 2, south = Math.PI / 2;
       switch (b.type) {
         case 'house': {
-          const mine = b.owner === (pl && pl.charId);
+          const mine = I.isMine(b, pl);
           const legendHouse = !!b.legend;
           f('hearth', 4.5, 1.4, { w: 2, h: 1, light: { r: 6, a: 1.3, color: '#ff9a4a', h: 0.8 } });
           f('bed', 2.1, 2.2, { w: 2, h: 1, action: 'sleep', label: mine ? 'Sleep in your bed' : 'A bed' });
@@ -167,7 +168,7 @@
       const hour = world.minute / 60;
       const night = hour < 6 || hour >= 22;
       if (b.type === 'house') {
-        const mine = b.owner === pl.charId;
+        const mine = I.isMine(b, pl);
         if (mine || b.legend) return null;
         if (night && !ECHO.PlayerCtl.sneaking) return 'The door is barred for the night. (Sneak to try the shutters.)';
         return null;
@@ -194,7 +195,7 @@
         I.update(game, 0, true);
         ECHO.UI.fadeIn(350);
         ECHO.UI.banner(L.name, '', true);
-        if (b.type === 'house' && b.owner !== game.pl.charId && !b.legend) {
+        if (b.type === 'house' && !I.isMine(b, game.pl) && !b.legend) {
           const home = I.householdHere(game);
           if (home.length && home.every(n => !I.isAsleep(game, n))) {
             const o = home[0];
@@ -349,7 +350,7 @@
         case 'keep': return UI.openKeep(s);
         case 'heirloom': case 'ownchest': return UI.openHouse(b, s);
         case 'sleep':
-          if (b.owner === pl.charId || (b.legend && pl.legacyOf === b.legend)) return UI.sleepUntilMorning(s);
+          if (I.isMine(b, pl) || (b.legend && pl.legacyOf === b.legend)) return UI.sleepUntilMorning(s);
           return UI.toast('This is not your bed.', 'info', 2);
         case 'cupboard': return I.steal(game);
       }
@@ -372,6 +373,7 @@
         npc.op[pl.charId] = (npc.op[pl.charId] || 0) - 35;
         P().remember(world, npc, `caught ${pl.first} ${pl.last} stealing from the house`, 'trauma', null, 3);
         pl.wanted[L.s.faction] = Math.min(200, (pl.wanted[L.s.faction] || 0) + 25);
+        ECHO.Court.record(game, 'theft', { s: L.s, victim: npc.id, witnesses: watchers.map(e => e.npcId), value: coin + food * 4 });
         ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} was caught stealing from a house in ${L.s.name}.`, importance: 1, x: L.outside.x, y: L.outside.y, rep: -5, factionRep: { [L.s.faction]: -6 }, tag: 'betray' });
         ECHO.UI.toast(`${npc.first} saw you. You took ${food} food and ${coin} crowns.`, 'warn', 4);
       } else ECHO.UI.toast(`You take ${food} food and ${coin} crowns. No one saw.`, 'info', 3);

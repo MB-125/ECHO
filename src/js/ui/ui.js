@@ -77,9 +77,11 @@
       $('#hud-left .mana .fill').style.transform = `scaleX(${U.clamp(pl.mana / pl.maxMana, 0, 1)})`;
       set('#hud-fate', 'Fate ' + '◆'.repeat(Math.max(0, pl.fate)) + '◇'.repeat(Math.max(0, 3 - pl.fate)));
       const wanted = Object.entries(pl.wanted || {}).filter(([, v]) => v > 20).map(([f]) => world.factions[f].short);
-      set('#hud-wanted', wanted.length ? 'Wanted by ' + wanted.join(', ') : '');
+      const ban = Object.entries(pl.banished || {}).filter(([, d]) => d > world.day).map(([f]) => world.factions[f] ? world.factions[f].short : f);
+      set('#hud-wanted', [wanted.length ? 'Wanted by ' + wanted.join(', ') : '', ban.length ? 'Banished from ' + ban.join(', ') : '', pl.sick ? 'Sick: ' + pl.sick.name : ''].filter(Boolean).join(' · '));
       set('#hud-time', T.clock(world.minute));
-      set('#hud-date', T.fmtDate(world.day));
+      const wx = ECHO.Weather ? ECHO.Weather.here(world, pl.x, pl.y) : null;
+      set('#hud-date', T.fmtDate(world.day) + (wx && !ECHO.Interior.cur ? ' · ' + ECHO.Weather.word(wx) : ''));
       const s = game.currentSid ? ECHO.Sim.settlement(world, game.currentSid) : null;
       const reg = game.currentRegion;
       set('#hud-place', s ? `${s.name} · ${reg ? U.cap(reg.name) : ''}` : (reg ? U.cap(reg.name) : ''));
@@ -250,7 +252,25 @@
         add('What of this place?', () => { ECHO.Minds.viewOf(world, npc); say(ECHO.Dialogue.aboutPlace(world, npc) + '\n\n' + ECHO.Minds.describeWorld(world, npc)); });
         add('What do you want most?', () => { ECHO.Minds.viewOf(world, npc); say(ECHO.Minds.describeGoal(world, npc)); helpMode = true; render(); });
         add('What do you make of me?', () => say(ECHO.Minds.describePlayer(world, npc, pl)));
+        add('Who are the people in your life?', () => say(ECHO.Minds.describePeople(world, npc)));
         if (helpMode) for (const h of ECHO.Minds.helpOptions(world, npc, pl)) add(`↳ ${h.label}`, () => { say(ECHO.Minds.help(world, npc, pl, h.id)); render(); });
+        // money they owe you
+        if (npc.debt && npc.debt.to === 'player:' + pl.charId && world.day >= npc.debt.due - 10) add(`About the ${npc.debt.amt} crowns you owe me…`, () => {
+          if (npc.wealth >= npc.debt.amt) { npc.wealth -= npc.debt.amt; ECHO.Property.income(world, pl, npc.debt.amt, 'Repaid loans'); say(`Here. Every crown of it. Thank you for trusting me.`); delete npc.debt; render(); return; }
+          say(`I… I don't have it. Not yet. Please — a little more time.`);
+          opts.innerHTML = '';
+          add('Give them another two weeks.', () => { npc.debt.due = world.day + 14; npc.debt.defaulted = false; npc.op[pl.charId] = (npc.op[pl.charId] || 0) + 10; say('Bless you. I won\'t forget it.'); render(); });
+          add('Forgive the debt.', () => { delete npc.debt; npc.op[pl.charId] = (npc.op[pl.charId] || 0) + 30; ECHO.People.remember(world, npc, `had a debt forgiven by ${pl.first} ${pl.last}`, 'gratitude', null, 4); npc.mind && (npc.mind.owe = (npc.mind.owe || 0) + 2); say('You… truly? I don\'t know what to say.'); render(); });
+          const st = ECHO.Sim.settlement(world, npc.loc || npc.home);
+          if (st && world.day > npc.debt.due) add('Take it to the reeve.', () => {
+            const h = npc.house && st.buildings.find(b => b.id === npc.house);
+            if (h) { h.npcOwner = null; h.owner = pl.charId; npc.house = null; npc.lodge = null; ECHO.Property.assignTown(world, st); say(`The reeve rules for you. ${npc.first}'s house is yours now. ${npc.first} looks at you like you've taken everything.`); }
+            else { npc.jailUntil = world.day + Math.ceil(npc.debt.amt / 6); say(`The reeve sends ${npc.first} to the cells to work off the debt.`); }
+            npc.op[pl.charId] = -70; ECHO.People.remember(world, npc, `was ruined by ${pl.first} ${pl.last} over a debt`, 'trauma', null, 4);
+            ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} took ${ECHO.People.name(npc)} of ${st.name} before the reeve over a debt of ${npc.debt.amt} crowns.`, importance: 1, sid: st.id, rep: -3, tag: 'cruel' });
+            delete npc.debt; render();
+          });
+        });
         add('Any tales of heroes?', () => say(ECHO.Dialogue.aboutLegends(world, npc)));
         if (npc.carry) add('That blade you carry…', () => say(ECHO.Dialogue.aboutItem(world, npc, pl)));
         // Plights this person asked for
@@ -314,7 +334,17 @@
       temple: { title: 'Temple', sub: 'healing · blessings', icon: '✚' },
       archive: { title: 'Archive', sub: 'the chronicle · old tongues', icon: '✎' },
       keep: { title: 'Keep', sub: 'the ruler · titles · justice', icon: '♛' },
-      board: { title: 'Notice board', sub: 'pleas · bounties', icon: '✉' }
+      board: { title: 'Notice board', sub: 'pleas · laws · property', icon: '✉' },
+      mill: { title: 'Mill', sub: 'flour for the town', icon: '✣' },
+      mine: { title: 'Mine', sub: 'ore for the smith', icon: '⛏' },
+      lumber: { title: 'Lumber camp', sub: 'timber and charcoal', icon: '🪓' }
+    },
+    shopInfo(b, s) {
+      const base = UI.SHOPS[b.type];
+      if (!base || !b.fac) return base;
+      const st = b.fac.state;
+      if (st === 'working') return base;
+      return { ...base, sub: st === 'burned' ? 'BURNED — ' + base.sub.split(' ')[0] + ' is short' : st === 'rebuilding' ? 'being rebuilt' : st === 'damaged' ? 'flood-damaged' : 'in ruin' };
     },
     // What each market good does for you.
     WARES: {
@@ -484,7 +514,7 @@
           <div class="list"><div class="card"><h4>Ask for healing — 5 crowns</h4><div class="row"><button data-a="heal" ${pl.gold < 5 || pl.hp >= pl.maxHp ? 'disabled' : ''}>Be healed</button></div></div>
           <div class="card"><h4>Give alms — 20 crowns</h4><div class="dim">Feeds the poor of ${esc(s.name)}. The Lantern remembers generosity.</div><div class="row"><button data-a="alms" ${pl.gold < 20 ? 'disabled' : ''}>Give</button></div></div></div>`;
         body.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
-          if (btn.dataset.a === 'heal') { pl.gold -= 5; pl.hp = pl.maxHp; game.pe.burn = 0; }
+          if (btn.dataset.a === 'heal') { pl.gold -= 5; pl.hp = pl.maxHp; game.pe.burn = 0; if (pl.sick) { (pl.immune = pl.immune || []).push(pl.sick.d); delete pl.sick; UI.toast('The priest\'s remedies break your fever.', 'mercy', 3); } }
           if (btn.dataset.a === 'alms') {
             pl.gold -= 20; s.stock.food += 6; s.unrest = Math.max(0, s.unrest - 3);
             ECHO.Character.behave(pl, 'mercy', 0.2);
@@ -599,13 +629,119 @@
       ECHO.Chronicle.deed(world, { text: p.outcome, importance: 2, sid: p.sid, rep: 6, tag: 'protect', factionRep: s ? { [s.faction]: 4 } : {} });
       UI.toast(`${p.reward ? '+' + p.reward + ' crowns. ' : ''}${s ? 'The people of ' + s.name + ' will remember this.' : ''}`, 'mercy', 4);
     },
-    openBoard(s) {
-      const body = UI.openPanel(`Notice board — ${s.name}`, '<p class="dim">Pleas, bounties and warnings, nailed up by people who will not wait forever.</p><div class="list" id="pl"></div>', 'board');
-      UI.fillPlights(body.querySelector('#pl'), s);
-      // Beasts plights become claimable when complete
-      const world = ECHO.Game.world;
-      for (const p of world.plights) if (p.status === 'open' && p.kind === 'beasts' && p.progress >= p.need && !p.claimable) { p.claimable = true; UI.fillPlights(body.querySelector('#pl'), s); }
-      for (const p of world.plights) if (p.status === 'open' && p.kind === 'apex' && p.playerDone && !p.claimable) { p.claimable = true; UI.fillPlights(body.querySelector('#pl'), s); }
+    openBoard(s, tab0) {
+      const game = ECHO.Game, world = game.world, pl = game.pl;
+      let tab = tab0 || 'pleas';
+      const body = UI.openPanel(`Notice board — ${s.name}`, '', 'board');
+      const render = () => {
+        const tabs = [['pleas', 'Pleas & bounties'], ['law', 'The law here'], ['deeds', 'Property & business'], ['affairs', 'Town affairs']];
+        let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+        if (tab === 'pleas') html += '<p class="dim">Pleas, bounties and warnings, nailed up by people who will not wait forever.</p><div class="list" id="pl"></div>';
+        else if (tab === 'law') {
+          const lines = ECHO.Law.summary(world, s);
+          const mine = ECHO.Law.openAgainstPlayer(world, pl).filter(c => c.faction === s.faction);
+          html += `<div class="card"><h4>${esc(lines[0])}</h4>${lines.slice(1).map(l => `<div>${esc(l)}</div>`).join('')}</div>`;
+          if (mine.length) html += `<div class="card"><h4 class="ember">Charges against you</h4>${mine.map(c => `<div>${esc(U.cap(ECHO.Law.CRIME_WORD[c.kind]))}${c.victimName ? ' against ' + esc(c.victimName) : ''} — ${c.witnesses.length} witness${c.witnesses.length === 1 ? '' : 'es'}</div>`).join('')}<div class="dim">Guards will try to arrest you. You may give yourself up at the keep, or pay at the arrest if the law allows fines.</div></div>`;
+          const trials = world.chronicle.filter(e => e.kind === 'crime' && e.sid === s.id && /tried|hanged|banished|stocks/.test(e.text)).slice(-6).reverse();
+          if (trials.length) html += `<h4 class="ware-h">Recent judgements</h4>${trials.map(e => `<div class="card"><span class="dim">${T.fmtDate(e.d)}</span> — ${esc(e.text)}</div>`).join('')}`;
+        } else if (tab === 'deeds') html += UI.deedsHtml(s);
+        else {
+          const lines = [];
+          const wx = ECHO.Weather.at(world, s);
+          lines.push(`Weather: ${ECHO.Weather.word(wx)}.`);
+          const need = ECHO.Economy.need(world, s);
+          lines.push(`Granaries: about ${Math.round(s.stock.food / Math.max(1, need))} days of bread. Bread costs ${s.prices.food} crowns.`);
+          const st = ECHO.Production.status(world, s);
+          for (const k of ['mill', 'mine', 'lumber']) { const x = st[k]; if (x) lines.push(`The ${ECHO.Production.KINDS[k].label}: ${x.run > 0 ? `working (${x.workers} at work)` : x.why}.`); }
+          const sick = ECHO.Disease.sickIn(world, s);
+          if (sick.length) lines.push(`<span class="ember">Sickness: ${sick.length} sick with ${ECHO.Disease.get(world, sick[0].sick.d).name}.${s.quarantine ? ' The gates are shut.' : ''}</span>`);
+          else lines.push('No sickness in town.');
+          html += `<div class="card">${lines.map(l => `<div>${l}</div>`).join('')}</div>`;
+        }
+        body.innerHTML = html;
+        body.querySelectorAll('button[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
+        if (tab === 'pleas') {
+          UI.fillPlights(body.querySelector('#pl'), s);
+          for (const p of world.plights) if (p.status === 'open' && p.kind === 'beasts' && p.progress >= p.need && !p.claimable) { p.claimable = true; UI.fillPlights(body.querySelector('#pl'), s); }
+          for (const p of world.plights) if (p.status === 'open' && p.kind === 'apex' && p.playerDone && !p.claimable) { p.claimable = true; UI.fillPlights(body.querySelector('#pl'), s); }
+        }
+        if (tab === 'deeds') UI.bindDeeds(body, s, render);
+      };
+      render();
+    },
+    // A mill, mine or lumber camp: who works it, who owns it, what it gives.
+    openFacility(b, s) {
+      const game = ECHO.Game, world = game.world, pl = game.pl;
+      const K = ECHO.Production.KINDS[b.type];
+      const st = ECHO.Production.status(world, s)[b.type];
+      const owner = b.npcOwner && world.npcs[b.npcOwner];
+      const workers = ECHO.People.residents(world, s).filter(n => n.prof === K.prof);
+      const what = { mill: 'grinds the town\'s grain into flour — without it, bread comes slow and dear', mine: 'brings up the ore the smith needs for tools and arms', lumber: 'cuts the timber that keeps roofs mended and the forge burning' }[b.type];
+      const state = b.fac.state;
+      const lines = [`The ${K.label} of ${s.name} ${what}.`,
+        state === 'working' || state === 'damaged' ? (workers.length ? `${workers.length} at work here: ${U.listJoin(workers.slice(0, 4).map(n => n.first))}${workers.length > 4 ? ' and others' : ''}.` : 'No one works it now. It stands idle.') : state === 'burned' ? 'It is a burned shell. The town feels the loss already.' : state === 'rebuilding' ? `Carpenters are rebuilding it — ${b.fac.days} days to go.` : 'It has fallen into ruin.',
+        state === 'damaged' ? 'Flood-damaged: it limps along at half strength until it is repaired.' : '',
+        owner ? `It belongs to ${P().name(owner)}.` : 'It belongs to the town.'];
+      const choices = [{ label: 'Leave it be' }];
+      if (state === 'working' || state === 'damaged') choices.push({ label: `Set the ${K.label} alight`, sub: `Arson. ${s.name} will feel it — and if anyone sees you, so will you.`, onPick: () => UI.arson(b, s) });
+      UI.modal({ title: `The ${K.label} of ${s.name}`, html: lines.filter(Boolean).map(l => `<p>${esc(l)}</p>`).join(''), choices });
+      void st;
+    },
+    arson(b, s) {
+      const game = ECHO.Game, world = game.world, pl = game.pl;
+      const witnesses = ECHO.Court.witnessIds(game, game.pe.x, game.pe.y);
+      ECHO.Production.burn(world, s, b, witnesses.length ? `${pl.first} ${pl.last}` : null);
+      ECHO.Sfx.play('fireCast'); ECHO.Sfx.play('explode', { pitch: 0.7, vol: 0.6 });
+      ECHO.Character.behave(pl, 'cruelty', 0.6); ECHO.Character.behave(pl, 'reckless', 0.3);
+      const owner = b.npcOwner && world.npcs[b.npcOwner];
+      if (witnesses.length) {
+        ECHO.Court.record(game, 'arson', { s, witnesses, value: 100 });
+        pl.wanted[s.faction] = Math.min(200, (pl.wanted[s.faction] || 0) + 70);
+        ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} burned the ${ECHO.Production.KINDS[b.type].label} of ${s.name}.`, importance: 2, sid: s.id, rep: -15, factionRep: { [s.faction]: -15 }, tag: 'betray' });
+        if (owner) { owner.op[pl.charId] = -90; ECHO.People.remember(world, owner, `saw ${pl.first} ${pl.last} burn the ${b.type}`, 'trauma', null, 4); }
+        UI.toast('Someone saw you. They are shouting for the guard.', 'warn', 4);
+      } else UI.toast('The flames take hold. No one saw.', 'info', 4);
+      for (let i = 0; i < 30; i++) ECHO.Combat.fx.push({ kind: 'p', x: b.x + Math.random() * b.w, y: b.y + Math.random() * b.h, vx: (Math.random() - 0.5), vy: -1.5, t: 0, life: 0.8, color: Math.random() < 0.5 ? '#ffb347' : '#ff5a1f', size: 3 });
+    },
+    deedsHtml(s) {
+      const game = ECHO.Game, world = game.world, pl = game.pl;
+      const Pp = ECHO.Property;
+      Pp.ensure(world);
+      const H = Pp.holdings(world, pl);
+      let html = `<p>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns.</p>`;
+      // your holdings
+      const L = pl.ledger || {};
+      const inc = Object.entries(L).map(([k, v]) => `<div>${esc(k)}: <span class="gold">${(v.prevWeek || v.week).toFixed(1)}</span> crowns last week · ${v.total.toFixed(0)} in all</div>`).join('');
+      html += `<div class="card"><h4>Your holdings</h4>${H.houses.map(h => `<div>${h.rented ? 'Renting' : 'Own'} a house in ${esc(h.s.name)}${h.rented ? ` — ${h.b.rent} crowns a week` : ''}</div>`).join('')}
+        ${H.shares.map(x => `<div>${Math.round(x.sh.frac * 100)}% of the ${x.b.type === 'lumber' ? 'lumber camp' : x.b.type} of ${esc(x.s.name)}${x.b.fac && x.b.fac.state !== 'working' ? ' — <span class="ember">' + x.b.fac.state + '</span>' : ''}</div>`).join('')}
+        ${H.fields.map(f => `<div>${f.n} field${f.n > 1 ? 's' : ''} at ${esc((ECHO.Sim.settlement(world, f.sid) || {}).name || '?')}</div>`).join('')}
+        ${H.loans.map(n => `<div>${esc(P().name(n))} owes you ${n.debt.amt} crowns${n.debt.defaulted ? ' — <span class="ember">overdue</span>' : ''}</div>`).join('')}
+        ${!H.houses.length && !H.shares.length && !H.fields.length && !H.loans.length ? '<div class="dim">Nothing yet.</div>' : ''}${inc ? '<h4 class="ware-h">Income</h4>' + inc : ''}</div>`;
+      // houses
+      const sale = Pp.forSale(world, s).slice(0, 4);
+      html += `<h4 class="ware-h">Houses</h4>` + (sale.length ? sale.map((x, i) => `<div class="card"><div>A house in ${esc(s.name)}${x.seller ? ` — offered by ${esc(P().name(x.seller))}${x.seller.debt ? ' (in debt)' : ''}` : ' — held by the town'}</div>
+        <div class="row"><button class="small" data-buyh="${i}" ${pl.gold < x.price ? 'disabled' : ''}>Buy (${x.price} cr)</button>${!x.seller ? `<button class="small" data-renth="${i}" ${pl.gold < Math.round(x.price / 12) ? 'disabled' : ''}>Rent (${Math.round(x.price / 12)} cr a week)</button>` : ''}</div></div>`).join('') : '<div class="dim">No houses are for sale here right now.</div>');
+      // businesses
+      const biz = s.buildings.filter(b => ['mill', 'mine', 'lumber', 'smithy', 'inn'].includes(b.type));
+      html += `<h4 class="ware-h">Invest in a business</h4>` + biz.map((b, i) => {
+        const owner = b.npcOwner && world.npcs[b.npcOwner];
+        const price = Math.round(Pp.businessValue(world, s, b) * 0.25);
+        const state = b.fac ? b.fac.state : 'working';
+        return `<div class="card"><div><b>${b.type === 'lumber' ? 'Lumber camp' : U.cap(b.type)}</b>${owner ? ' — owned by ' + esc(P().name(owner)) : ''} · <span class="${state === 'working' ? '' : 'ember'}">${state}</span></div><div class="dim">A quarter share pays a quarter of the takings — while it keeps working.</div><div class="row"><button class="small" data-inv="${i}" ${pl.gold < price ? 'disabled' : ''}>Buy a quarter share (${price} cr)</button></div></div>`;
+      }).join('');
+      const fieldPrice = Math.round(45 + (s.prosperity || 50) * 0.4);
+      html += `<h4 class="ware-h">Land</h4><div class="card"><div>A field outside ${esc(s.name)}, worked by a tenant who sends you half the harvest. Income follows the seasons, the weather and the vermin.</div><div class="row"><button class="small" data-field="1" ${pl.gold < fieldPrice ? 'disabled' : ''}>Buy a field (${fieldPrice} cr)</button></div></div>`;
+      UI._deeds = { sale, biz };
+      return html;
+    },
+    bindDeeds(body, s, render) {
+      const game = ECHO.Game, world = game.world, pl = game.pl, Pp = ECHO.Property;
+      const D = UI._deeds;
+      const say = t => { UI.toast(t, 'info', 5); render(); };
+      body.querySelectorAll('button[data-buyh]').forEach(b => b.addEventListener('click', () => { const x = D.sale[+b.dataset.buyh]; say(Pp.buyHouse(world, pl, s, x.b, x.price)); }));
+      body.querySelectorAll('button[data-renth]').forEach(b => b.addEventListener('click', () => { const x = D.sale[+b.dataset.renth]; say(Pp.rentHouse(world, pl, s, x.b)); }));
+      body.querySelectorAll('button[data-inv]').forEach(b => b.addEventListener('click', () => say(Pp.invest(world, pl, s, D.biz[+b.dataset.inv]))));
+      body.querySelectorAll('button[data-field]').forEach(b => b.addEventListener('click', () => say(Pp.buyField(world, pl, s))));
     },
 
     // ------------------------------------------------------------ Archive
@@ -785,6 +921,10 @@
 <b>Nothing waits for you.</b> Every person in this world has a life — they eat, trade, marry, feud, raise children, change trades, turn outlaw, go to war, and die. Requests for help have deadlines; if you don't come, someone else might — or no one will.
 
 <b>Everyone wants something.</b> Each person has a purpose of their own — saving for a stall, courting a neighbour, mastering their trade, rising in the guard, a pilgrimage, the reeve's chair, getting the children away from the monster in the hills. Ask them what they want most; help them, and they remember it. They see their world for themselves: how safe it is, whether there is bread, whether their ruler is any good, and what they have heard about you.
+
+<b>There is law.</b> Each realm — and each town — has its own. Read it on the notice board. Crimes are remembered with their witnesses; guards will try to arrest you; courts judge you, and townsfolk too.
+
+<b>Weather, sickness and work.</b> Droughts, floods and bitter winters change the harvest. Plagues spread along the roads. Mills, mines and lumber camps are worked by real people — lose them, and the town feels it. You can buy houses, fields and shares, and lend money; the notice board's Property page shows what's for sale.
 
 <b>Actions come back to you.</b> Kill someone and their family may come for you. Heroes pay less at market and get gifts on the street; villains pay more, are refused service, and watch people run from them. Good friends will look the other way.
 

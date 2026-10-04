@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -162,6 +162,64 @@ function main() {
     const g = widow && widow.mind && widow.mind.goal;
     check('the bereaved seek revenge on the killer', g && g.kind === 'avenge' && g.target.type === 'player', g ? ECHO.Minds.describeGoal(W, widow) : 'no goal');
     check('and hate them for it', (widow.op[pl.charId] || 0) <= -70, String(widow.op[pl.charId]));
+  }
+
+  console.log('\nLaw, weather, disease, property, production');
+  {
+    const mk = () => ECHO.generateWorld({ seed: 9090, name: 'Real' });
+    const A = mk(), B = mk();
+    for (let i = 0; i < 5; i++) { ECHO.Sim.dailyTick(A, true); ECHO.Sim.dailyTick(B, true); }
+    const facs = A.settlements.flatMap(s => s.buildings.filter(b => b.fac).map(b => b.type));
+    check('towns have mills, mines and lumber camps', facs.includes('mill') && facs.length >= A.settlements.length, facs.join(','));
+    // burn the mill of the biggest farming town in A only
+    const town = A.settlements.filter(s => ECHO.Production.facility(A, s, 'mill')).sort((a, b) => b.farmTiles - a.farmTiles)[0];
+    const twin = B.settlements.find(s => s.id === town.id);
+    ECHO.Production.burn(A, town, ECHO.Production.facility(A, town, 'mill'), 'a test');
+    let fa = 0, fb = 0;
+    for (let i = 0; i < 4; i++) { ECHO.Sim.dailyTick(A, true); ECHO.Sim.dailyTick(B, true); fa += town._lastFood; fb += twin._lastFood; }
+    check('burning the mill cuts the flour', fa < fb * 0.85, `${fa.toFixed(0)} vs ${fb.toFixed(0)} sacks over 4 days`);
+    // killing the miners stops the ore
+    const mt = A.settlements.find(s => ECHO.Production.facility(A, s, 'mine') && ECHO.People.residents(A, s).some(n => n.prof === 'miner'));
+    if (mt) {
+      const o0 = mt.stock.ore;
+      for (const n of ECHO.People.residents(A, mt).filter(n => n.prof === 'miner')) ECHO.People.kill(A, n, 'test');
+      ECHO.Sim.dailyTick(A, true);
+      const st = ECHO.Production.status(A, mt).mine;
+      check('killing the miners stops the mine', st.run === 0, `${st.why}; ore ${o0.toFixed(0)} → ${mt.stock.ore.toFixed(0)}`);
+    }
+    // property and inheritance
+    const owner = Object.values(A.npcs).find(n => n.status === 'alive' && n.house && n.kids.some(id => A.npcs[id] && A.npcs[id].status === 'alive') && !n.spouse);
+    const owned = A.settlements.flatMap(s => s.buildings).filter(b => b.type === 'house' && b.npcOwner).length;
+    check('houses have owners', owned > 10, owned + ' owned houses');
+    if (owner) {
+      const hid = owner.house;
+      ECHO.People.kill(A, owner, 'test');
+      const b = A.settlements.flatMap(s => s.buildings).find(x => x.id === hid);
+      const heir = A.npcs[b.npcOwner];
+      check('a house passes to an heir', heir && owner.kids.includes(heir.id), heir ? ECHO.People.name(heir) : 'nobody');
+    }
+    // two years of weather, plague, debt and law
+    for (let i = 0; i < 300; i++) ECHO.Sim.dailyTick(A, true);
+    const nature = A.chronicle.filter(e => e.kind === 'nature').map(e => e.text);
+    check('weather happens: droughts, floods or bitter winters', nature.some(t => /Drought|burst its banks|bitter winter/.test(t)), (nature.find(t => /Drought|burst|bitter/.test(t)) || '').slice(0, 80));
+    const dz = A.diseases || [];
+    check('sickness breaks out and is recorded', dz.length > 0, dz.map(d => `${d.name}: ${d.cases} sick, ${d.deaths} dead`).slice(0, 3).join('; '));
+    const rng = ECHO.Sim.rngFor(A);
+    for (let k = 0; k < 12 && !A.chronicle.some(e => e.kind === 'crime' && /was tried/.test(e.text)); k++) {
+      const st = A.settlements.find(x => x.faction !== 'ashfang' && ECHO.People.residents(A, x).length > 5);
+      const res = ECHO.People.residents(A, st);
+      ECHO.Law.npcCrime(A, rng, { by: res[k % res.length].id, kind: 'theft', victim: res[(k + 1) % res.length].id, sid: st.id, amt: 12 });
+    }
+    const trials = A.chronicle.filter(e => e.kind === 'crime' && /tried|hanged|banished/.test(e.text));
+    check('townsfolk are tried under the law', trials.length > 0, (trials[0] || {}).text);
+    { const st = A.settlements.find(x => ECHO.People.residents(A, x).some(n => n.wealth > 80)); const poor = ECHO.People.residents(A, st).find(n => n.prof !== 'child' && !n.debt); poor.wealth = 0; poor.starve = 3; ECHO.Property.borrow(A, rng, poor, st); }
+    const debts = Object.values(A.npcs).filter(n => n.debt).length;
+    check('people borrow money', debts > 0 || A.chronicle.some(e => /debt/.test(e.text)), debts + ' in debt now');
+    const sv = s => ECHO.Law.sentenceFor(A, s, 'murder', 0);
+    const codes = A.settlements.map(s => s.faction + ':' + (sv(s) || {}).p);
+    check('each realm has its own law', new Set(codes.map(c => c.split(':')[1])).size >= 2, [...new Set(codes)].join(' '));
+    const pop = Object.values(A.npcs).filter(n => n.status === 'alive').length;
+    check('the realm survives its hardships', pop > 120, pop + ' alive');
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

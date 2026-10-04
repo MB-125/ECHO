@@ -223,7 +223,7 @@
       if (!pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (26 + pl.skills.endurance * 0.15) * dt);
       if (pe.blocking) pl.stamina = Math.max(0, pl.stamina - 3 * dt * D.blockMul);
       pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40) * dt);
-      if (game.time - (game.lastHurtTime || -99) > 8) pl.hp = Math.min(pl.maxHp, pl.hp + 0.5 * dt);
+      if (game.time - (game.lastHurtTime || -99) > 8 && !pl.sick) pl.hp = Math.min(pl.maxHp, pl.hp + 0.5 * dt);
       pe.hp = pl.hp; pe.maxHp = pl.maxHp;
     },
 
@@ -365,6 +365,12 @@
         p.star = star;
       }
       game.noise(pe.x, pe.y, 7);
+      // Some towns forbid fire within their walls.
+      const town = !ECHO.Interior.cur && ECHO.World.settlementAt(game.world, pe.x, pe.y, 12);
+      if (town && ECHO.Law.code(game.world, town).noFlame) {
+        const c = ECHO.Court.record(game, 'flame', { s: town });
+        if (c) { pl.wanted[town.faction] = Math.min(200, (pl.wanted[town.faction] || 0) + 25); game.ui.toast(`Fire is forbidden within the walls of ${town.name}. You were seen.`, 'warn', 4); }
+      }
       ECHO.Sfx.play('fireCast');
       game.kick(aim + Math.PI, 0.1);
       PC.charge = 0;
@@ -429,7 +435,10 @@
     },
     useHerbs(game) {
       const pl = game.pl;
-      if (pl.inv.herbs > 0 && pl.hp < pl.maxHp) { pl.inv.herbs--; pl.hp = Math.min(pl.maxHp, pl.hp + 45); game.pe.burn = 0; ECHO.Combat.burst(game.pe.x, game.pe.y, '#7fd67f', 10, 2, 0.6, 2); }
+      if (pl.inv.herbs > 0 && (pl.hp < pl.maxHp || pl.sick)) {
+        pl.inv.herbs--; pl.hp = Math.min(pl.maxHp, pl.hp + 45); game.pe.burn = 0; ECHO.Combat.burst(game.pe.x, game.pe.y, '#7fd67f', 10, 2, 0.6, 2); ECHO.Sfx.play('heal');
+        if (pl.sick && Math.random() < 0.45) { (pl.immune = pl.immune || []).push(pl.sick.d); delete pl.sick; game.ui.toast('The herbs break your fever.', 'mercy', 3); }
+      }
       else if (!pl.inv.herbs) game.ui.toast('No herbs left.', 'warn', 2);
     }
   };

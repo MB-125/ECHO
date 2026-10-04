@@ -24,6 +24,29 @@
       return 'plain';
     },
 
+    // Why someone is on the road, in their own words.
+    journeyLine(world, npc) {
+      const j = npc.journey && (world.journeys || []).find(x => x.id === npc.journey);
+      if (!j) return null;
+      const S2 = id => (ECHO.Sim.settlement(world, id) || {}).name || 'somewhere';
+      const from = S2(j.from), to = S2(j.to), why = j.meta && j.meta.why;
+      switch (j.kind) {
+        case 'caravan': return `I'm taking ${Object.keys(j.cargo || { goods: 1 }).join(' and ')} from ${from} to ${to}. Prices are better there.`;
+        case 'aid': return `Grain for the hungry of ${to}, by order of the crown. Stand aside.`;
+        case 'army': return `We march on ${to}. Stay off the road if you know what's good for you.`;
+        case 'pilgrim': return npc.home === j.to ? `Coming home from the pilgrimage. I've seen the great temple at ${from}.` : `I'm on pilgrimage to ${to}. I've saved a long time for this.`;
+        case 'return': return `Heading home to ${to}.`;
+        case 'migrate':
+          if (why === 'hunger') return `We're leaving ${from}. There's no bread there anymore. They say ${to} has food.`;
+          if (why === 'fear') return `We left ${from} — too close to what's out there. ${to} should be safer.`;
+          if (why === 'fortune') return `There was nothing for me in ${from}. I'm going to ${to} to make something of myself.`;
+          if (why === 'banished') return `They banished me from ${from}. I'll start again in ${to}.`;
+          if (why === 'redemption') return `I'm going home to ${to}. I'm done with the Ashfang.`;
+          if (why === 'resettle') return `The crown is sending us to settle ${to}.`;
+          return `I'm moving from ${from} to ${to}.`;
+        default: return `On the road from ${from} to ${to}.`;
+      }
+    },
     praise(world, npc, pl) {
       const sd = ECHO.hashStr(npc.id + world.day);
       const helped = npc.mem.some(m => m.type === 'gratitude' && m.t.includes(pl.first));
@@ -34,6 +57,9 @@
       const sd = seedOf(world, npc);
       const name = pl.first;
       const g = npc.mind && npc.mind.goal;
+      const road = D.journeyLine(world, npc);
+      if (road && !(g && g.kind === 'avenge' && g.target.type === 'player')) return (op < -40 ? 'Keep your distance. ' : 'Well met on the road. ') + road;
+      if (npc.sick) return pick(['*cough* Stay back, friend — I\'ve the fever.', `Forgive me… I'm not well. ${ECHO.Disease.get(world, npc.sick.d) ? U.cap(ECHO.Disease.get(world, npc.sick.d).name) + '.' : ''}`], sd);
       if (g && g.kind === 'avenge' && g.target.type === 'player' && g.target.id === pl.charId) return pick([`You. You killed my ${g.target.rel}. You have the nerve to speak to me?`, `${g.target.victim} is in the ground because of you. Say what you came to say.`], sd);
       const legendFor = npc.namedAfter && ECHO.Legacy.legendOf(world, npc.namedAfter);
       const lines = [];
@@ -66,7 +92,10 @@
         return pick(['Quiet night.', 'Pass the skin.', 'Did you hear something?', 'I hate these woods.'], sd);
       }
       if (ent && ent.role === 'traveler' && ent.gear.cart) return pick(['Mind the cart!', 'Long road ahead.', 'Prices are better in the south, they say.'], sd);
+      if (npc.sick && r < 0.5) return pick(['*cough* *cough*', 'I can\'t stop shaking…', 'So hot. Why is it so hot?'], sd);
+      if (npc.journey && r < 0.5) { const jl = D.journeyLine(world, npc); if (jl) return jl.split('. ')[0] + '.'; }
       if (r > 0.72) { const gl = ECHO.Minds.goalLine(world, npc, sd); if (gl) return gl; }
+      if (r > 0.6 && r <= 0.72) { const gs = ECHO.Minds.gossipAbout(world, npc, sd); if (gs) return gs; }
       if (npc.mind && npc.mind.v && npc.mind.v.safety < 0.45 && r > 0.6) return pick([`Have you heard? ${U.cap(npc.mind.v.threat || 'something')}…`, 'Bar the doors tonight.', `Nobody's safe with ${npc.mind.v.threat || 'that'} about.`], sd);
       if (s && s.hunger > 0.25 && r < 0.6) return pick([`Bread at ${s.prices.food} crowns…`, 'Another day of thin soup.', 'The children are hungry.', 'When does the grain come?'], sd);
       // Rumours: talk about recent news they have heard.
@@ -104,7 +133,9 @@
 
     // ---- Topics
     news(world, npc) {
-      const s = ECHO.Sim.settlement(world, npc.loc);
+      // travellers bring the news of the town they left
+      const j = npc.journey && (world.journeys || []).find(x => x.id === npc.journey);
+      const s = ECHO.Sim.settlement(world, npc.loc) || (j && ECHO.Sim.settlement(world, j.from));
       if (!s) return { text: 'I don\'t know anything.', learned: [] };
       const pl = ECHO.Game.pl;
       const news = ECHO.Chronicle.rumorsAt(world, s, 8, 30).filter(e => e.imp >= 1 && !(pl && e.char === pl.charId && e.kind === 'player')).slice(0, 6);

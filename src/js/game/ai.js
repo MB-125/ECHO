@@ -163,6 +163,9 @@
   // ------------------------------------------------------------ Schedules
   const Sched = {
     houseOf(game, s, npc) {
+      // their own house, their spouse's or parents', or the room they rent
+      const own = ECHO.Property && game.world._prop ? ECHO.Property.homeOf(game.world, npc) : null;
+      if (own) return own;
       const houses = s.buildings.filter(b => b.type === 'house');
       if (!houses.length) return null;
       return houses[ECHO.hashStr(npc.last + npc.home) % houses.length];
@@ -205,12 +208,21 @@
           const d = 11 + (h % 5);
           return { x: s.x + Math.cos(a) * d, y: s.y + Math.sin(a) * d };
         }
-        case 'hunter': case 'woodcutter': case 'herbalist': {
+        case 'woodcutter': {
+          const f = s.buildings.find(b => b.type === 'lumber');
+          if (f && f.fac && f.fac.state === 'working') { const d = Sched.door(f); return { x: d.x + (rnd(6) - 0.5) * 3, y: d.y + rnd(7) * 1.2 }; }
+        } // falls through to the wilds
+        case 'hunter': case 'herbalist': {
           const a = (h % 628) / 100 + Math.floor(hour / 2);
           const r = afraid ? 9 : 17;   // frightened folk keep close to the walls
           return { x: s.x + Math.cos(a) * r, y: s.y + Math.sin(a) * r };
         }
         case 'smith': return at('smithy', 0.8);
+        case 'miller': case 'miner': {
+          const f = s.buildings.find(b => b.type === (npc.prof === 'miller' ? 'mill' : 'mine'));
+          if (f) { const d = Sched.door(f); return { x: d.x + (rnd(6) - 0.5) * 2, y: d.y + 0.3 + rnd(7) * 0.8 }; }
+          return around(s.x, s.y, 4);
+        }
         case 'merchant': case 'reeve': return at('market', 1.5);
         case 'innkeeper': return at('inn', 0.6);
         case 'priest': return s.kind === 'temple' ? at('temple', 2) : at('shrine', 1);
@@ -241,8 +253,10 @@
       if (e.stagger > 0) { e.stagger -= dt; e.state = 'stagger'; return; }
       if (e.state === 'stagger') e.state = 'idle';
       if (e.role === 'captive') { e.moving = false; return; }
+      if (e.pilloried) { e.moving = false; e.dir = Math.PI / 2; if (e.sayT <= 0 && Math.random() < dt * 0.05) { e.say = ['Water… please.', 'It was only bread!', 'Don\'t look at me.', 'Let me out of here!'][Math.floor(Math.random() * 4)]; e.sayT = 3; } return; }
       if (e.yielded) { e.moving = false; e.state = 'yield'; return; }
       if (e.indoor && e.sleeping) { e.moving = false; if (!e.aggro) return; e.sleeping = false; e.seated = false; }
+      if (npc.sick && !e._sickSlow) { e._sickSlow = true; e.speed *= 0.6; }
 
       // Sleeping outlaws (unless they have learned to keep watch)
       if (e.role === 'bandit' && game.isNight() && !ECHO.Intel.has(world, 'ashfang', 'nightwatch') && !e.aggro && e.state !== 'chase' && e.state !== 'attack' && !e.isGuardPost) {
@@ -410,6 +424,14 @@
       const world = game.world;
       const d = U.dist(e.x, e.y, target.x, target.y);
       const ang = Math.atan2(target.y - e.y, target.x - e.x);
+      // The law tries words before swords.
+      if (target === game.pe && (e.role === 'guard' || e.role === 'soldier') && ECHO.Court.shouldArrest(game, e)) {
+        e.state = 'chase';
+        if (d > 1.8) { ECHO.Ent.travel(world, e, target.x, target.y, e.speed * 1.1, dt); if (e.sayT <= 0) { e.say = 'Halt! You there!'; e.sayT = 2; } return; }
+        e.moving = false; e.dir = ang;
+        ECHO.Court.arrest(game, e);
+        return;
+      }
       e.dir = ang; e.flip = Math.cos(ang) < 0;
       const skill = npc.skill.fight;
       const archer = e.gear.bow;
@@ -511,9 +533,12 @@
       const j = (world.journeys || []).find(x => x.id === e.journeyId);
       if (!j) { e.despawnSoon = true; return; }
       const p = ECHO.Sim.journeyPos(world, j);
-      const ox = (e.slot || 0) * 0.6;
-      if (U.dist(e.x, e.y, p.x + ox, p.y) > 6) { e.x = p.x + ox; e.y = p.y; }
-      ECHO.Ent.seek(world, e, p.x + ox, p.y + (e.slot % 2) * 0.4, e.speed * 0.9, dt, 0.15);
+      // armies march in ranks; everyone else straggles in a line
+      const sl = e.slot || 0;
+      const ox = j.kind === 'army' ? (sl % 3 - 1) * 0.8 : sl * 0.6, oy = j.kind === 'army' ? Math.floor(sl / 3) * 0.9 : (sl % 2) * 0.4;
+      if (U.dist(e.x, e.y, p.x + ox, p.y + oy) > 6) { e.x = p.x + ox; e.y = p.y + oy; }
+      const npc = world.npcs[e.npcId];
+      ECHO.Ent.seek(world, e, p.x + ox, p.y + oy, e.speed * (npc && npc.sick ? 0.6 : 0.9), dt, 0.15);
     },
 
     companion(game, e, npc, dt, target) {

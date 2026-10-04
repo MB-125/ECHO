@@ -356,24 +356,39 @@
 
     // ---------------------------------------------------------------- towns
     ROOF: { valdren: ['#4a5a78', '#6f8fc4'], ashmere: ['#9a4a35', '#5fae84'], lantern: ['#b08a3a', '#e6c06a'], ashfang: ['#5a3a2a', '#d0563c'] },
-    MODEL_OF: { house: 'house', inn: 'inn', market: 'market', smithy: 'smithy', board: 'board', shrine: 'shrine', archive: 'archive', keep: 'keep', temple: 'temple', well: 'well', lamp: 'lamp', statue: 'statue' },
+    MODEL_OF: { house: 'house', inn: 'inn', market: 'market', smithy: 'smithy', board: 'board', shrine: 'shrine', archive: 'archive', keep: 'keep', temple: 'temple', well: 'well', lamp: 'lamp', statue: 'statue', mill: 'mill', mine: 'mine', lumber: 'lumber', stocks: 'stocks' },
     updateTowns(game) {
       const world = game.world;
       for (const s of world.settlements) {
         const d = U.dist(s.x, s.y, R.camTarget.x, R.camTarget.z);
         const fac = world.factions[s.faction];
-        const key = [s.faction, fac ? fac.tech.era : 0, s.buildings.length, s.buildings.filter(b => b.legend).length].join('|');
+        const key = [s.faction, fac ? fac.tech.era : 0, s.buildings.length, s.buildings.filter(b => b.legend).length, s.buildings.filter(b => b.fac).map(b => b.fac.state[0]).join('')].join('|');
         const cur = R.towns[s.id];
         if (d > 48) { if (cur) { R.groups.towns.remove(cur.group); delete R.towns[s.id]; } continue; }
         if (cur && cur.key === key) continue;
         if (cur) R.groups.towns.remove(cur.group);
         const group = new THREE.Group();
         const roof = R.ROOF[s.faction] || R.ROOF.valdren;
-        const lamps = [];
+        const lamps = [], sails = [], smokes = [];
         for (const b of s.buildings) {
           const name = R.MODEL_OF[b.type];
           if (!name) continue;
           const colors = { roof: b.legend && b.type === 'house' ? '#5a5a6e' : roof[0], banner: roof[1] };
+          const lost = b.fac && (b.fac.state === 'burned' || b.fac.state === 'ruined');
+          if (lost) Object.assign(colors, { wood: '#2a221c', darkwood: '#1c1814', plaster: '#3e3832', roof: '#24201d', canvas: '#3a3632', trunk: '#2a2018', stone: '#4a4640', rock: '#5a5650' });
+          if (b.fac) smokes.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, lost, kind: b.type, b });
+          if (b.type === 'mill' && !lost) {
+            // the mill gets a live model so its sails can turn
+            const inst = ECHO.Models.instance('mill', { roof: roof[0] });
+            if (inst) {
+              const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+              inst.root.position.set(cx, R.groundH(cx, cy), cy);
+              inst.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+              group.add(inst.root);
+              sails.push({ inst, b });
+              continue;
+            }
+          }
           if (b.type === 'lamp' && fac && fac.tech.era >= 4) colors.glow = fac.tech.path === 'arcane' ? '#bfe8ff' : '#fff0a0';
           if (fac && fac.tech.era >= 2 && (b.type === 'house' || b.type === 'inn')) colors.wall = '#b8b0a2';
           const baked = ECHO.Models.bake(name, colors);
@@ -392,7 +407,7 @@
           if (b.type === 'lamp') lamps.push({ x: cx, y: cy, era: fac ? fac.tech.era : 0, arcane: fac && fac.tech.path === 'arcane' });
         }
         R.groups.towns.add(group);
-        R.towns[s.id] = { key, group, lamps };
+        R.towns[s.id] = { key, group, lamps, sails, smokes };
       }
     },
 
@@ -588,7 +603,10 @@
         P.distance = c.r * 2.1;
         P.intensity = c.a * 1.7 * flick;
       }
-      R.snow.visible = false;
+      R.snow.visible = false; R.rain.visible = false;
+      const wx = ECHO.Weather ? ECHO.Weather.here(world, L.outside.x, L.outside.y) : { today: 'clear' };
+      if (ECHO.Sfx.setRain) ECHO.Sfx.setRain(wx.today === 'storm' ? 0.35 : wx.today === 'rain' ? 0.2 : 0);
+      if (R.roomWinMat && (wx.today === 'rain' || wx.today === 'storm' || wx.today === 'cloudy' || wx.today === 'fog')) R.roomWinMat.color.multiplyScalar(0.6);
     },
 
     // ---------------------------------------------------------------- entities
@@ -883,6 +901,15 @@
       R.snow = new THREE.Points(sg, new THREE.PointsMaterial({ size: 0.09, color: '#f0f6ff', transparent: true, opacity: 0.9, depthWrite: false }));
       R.snow.frustumCulled = false;
       R.scene.add(R.snow);
+      // rain: short falling streaks around the camera
+      const RN = 1400;
+      const rp = new Float32Array(RN * 6);
+      for (let i = 0; i < RN; i++) { const x = Math.random() * 50 - 25, y = Math.random() * 20, z = Math.random() * 50 - 25; rp.set([x, y, z, x + 0.06, y - 0.55, z + 0.03], i * 6); }
+      const rg = new THREE.BufferGeometry(); rg.setAttribute('position', new THREE.BufferAttribute(rp, 3));
+      R.rain = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ color: '#a8bcd0', transparent: true, opacity: 0.45, depthWrite: false }));
+      R.rain.frustumCulled = false; R.rain.visible = false;
+      R.scene.add(R.rain);
+      R.flashT = 0;
     },
     parseColor(str) {
       const m = /rgba?\(([^)]+)\)/.exec(str || '');
@@ -1045,20 +1072,31 @@
       const tgt = R.camTarget;
       R.sun.position.set(tgt.x - Math.cos(ang) * 30, 8 + Math.sin(Math.max(0.15, ang)) * 34, tgt.z + 18);
       R.sun.target.position.copy(tgt);
-      R.sun.intensity = 1.35 * Math.max(0, dl);
+      const wx = ECHO.Weather ? ECHO.Weather.here(world, tgt.x, tgt.z) : { today: 'clear' };
+      const cloud = { clear: 1, heat: 1.08, cloudy: 0.62, fog: 0.55, rain: 0.48, storm: 0.32, snow: 0.6, blizzard: 0.38 }[wx.today] || 1;
+      R.cloud = cloud; R.wx = wx;
+      R.sun.intensity = 1.35 * Math.max(0, dl) * cloud;
       R.sun.color.copy(lerpC(C('#fff4e0'), C('#ff9a5a'), Math.max(dusk, 0)));
       R.sun.castShadow = dl > 0.05;
       R.moon.position.set(tgt.x + 20, 40, tgt.z + 10); R.moon.target.position.copy(tgt);
       R.moon.intensity = 0.32 * (1 - dl);
-      R.hemi.intensity = 0.28 + 0.42 * dl;
+      R.hemi.intensity = (0.28 + 0.42 * dl) * (0.75 + 0.25 * cloud);
+      // lightning
+      if (wx.today === 'storm' || wx.today === 'blizzard') {
+        if (R.flashT <= 0 && Math.random() < dt * 0.08) { R.flashT = 0.25; setTimeout(() => ECHO.Sfx.play('thunder'), 300 + Math.random() * 1500); }
+      }
+      if (R.flashT > 0) { R.flashT -= dt; if (Math.sin(R.flashT * 60) > 0) R.hemi.intensity += 2.2; }
       R.hemi.color.copy(lerpC(C('#3a4a78'), C('#d6e6ff'), dl));
       R.hemi.groundColor.copy(lerpC(C('#141018'), C('#4a4030'), dl));
       let fog = lerpC(C('#0d1222'), C(season === 3 ? '#c8d4dc' : '#a9c2d4'), dl);
+      if (cloud < 0.9) fog = lerpC(fog, C('#7c8690').multiplyScalar(Math.max(0.2, dl)), 0.5);
+      if (wx.today === 'heat') fog = lerpC(fog, C('#e8d8b0'), 0.25 * dl);
       if (dusk > 0) fog = lerpC(fog, C('#d88a5a'), dusk * 0.45);
       R.scene.fog.color.copy(fog);
       R.scene.background = R.scene.fog.color;
-      R.scene.fog.near = R.camDistNow * 1.15;
-      R.scene.fog.far = R.camDistNow * (season === 3 ? 2.6 : 3.4);
+      const fogK = wx.today === 'fog' ? 0.45 : wx.today === 'blizzard' ? 0.5 : wx.today === 'storm' || wx.today === 'rain' ? 0.75 : 1;
+      R.scene.fog.near = R.camDistNow * 1.15 * fogK;
+      R.scene.fog.far = R.camDistNow * (season === 3 ? 2.6 : 3.4) * fogK;
       R.renderer.toneMappingExposure = 1.0 + (1 - dl) * 0.35;
       R.mat.window.emissiveIntensity = R.mat.windowFade.emissiveIntensity = (1 - dl) * 1.6;
       // Point lights: game lights + scene lights, nearest first
@@ -1088,7 +1126,23 @@
         L.intensity = c.a * 1.6 * flick * (night ? 1 : 0.5);
       }
       // seasons: snow
-      R.snow.visible = season === 3;
+      const snowing = wx.today === 'snow' || wx.today === 'blizzard' || (season === 3 && wx.today !== 'clear' && wx.today !== 'heat');
+      R.snow.visible = snowing;
+      const raining = !snowing && (wx.today === 'rain' || wx.today === 'storm');
+      R.rain.visible = raining;
+      if (raining) {
+        R.rain.position.set(tgt.x, 0, tgt.z);
+        const rpos = R.rain.geometry.attributes.position, fall = dt * (wx.today === 'storm' ? 26 : 18);
+        for (let i = 0; i < rpos.count; i += 2) {
+          let y = rpos.getY(i) - fall;
+          if (y < 0) y += 20;
+          rpos.setY(i, y); rpos.setY(i + 1, y - 0.55);
+          if (wx.today === 'storm') { rpos.setX(i + 1, rpos.getX(i) + 0.25); }
+        }
+        rpos.needsUpdate = true;
+        R.rain.material.opacity = wx.today === 'storm' ? 0.6 : 0.42;
+      }
+      if (ECHO.Sfx.setRain) ECHO.Sfx.setRain(raining ? (wx.today === 'storm' ? 1 : 0.6) : 0);
       if (R.snow.visible) {
         const sp = R.snow.geometry.attributes.position;
         for (let i = 0; i < sp.count; i++) {
@@ -1139,6 +1193,14 @@
         R.updateTowns(game);
         R.updateSites(game, dt);
         for (const f of R.flames || []) { f.scale.y = 1 + Math.sin(R.time * 13 + f.position.x) * 0.15; }
+        for (const t of Object.values(R.towns)) {
+          for (const m of t.sails || []) if (m.inst.parts.sails && m.b.fac.state === 'working') m.inst.parts.sails.rotation.z += dt * 0.9;
+          for (const sm of t.smokes || []) {
+            const rate = sm.lost && game.world.day - (sm.b.fac.lostDay || 0) < 6 ? 14 : sm.kind === 'mine' && sm.b.fac.state === 'working' ? 0.6 : 0;
+            if (rate && Math.random() < dt * rate) ECHO.Combat.fx.push({ kind: 'smoke', x: sm.x + (Math.random() - 0.5) * 1.5, y: sm.y + (Math.random() - 0.5), vx: (Math.random() - 0.3) * 0.4, vy: 0, t: 0, life: 3 + Math.random() * 2, size: 3 });
+            if (sm.lost && game.world.day - (sm.b.fac.lostDay || 0) < 2 && Math.random() < dt * 20) ECHO.Combat.fx.push({ kind: 'p', x: sm.x + (Math.random() - 0.5) * 1.6, y: sm.y + (Math.random() - 0.5) * 1.2, vx: 0, vy: -1.2, t: 0, life: 0.6, color: Math.random() < 0.5 ? '#ffb347' : '#ff5a1f', size: 2 });
+          }
+        }
         if (R.rift) R.rift.rotation.y += dt * 0.6;
         R.updateOcclusion(game);
       } else for (const f of R.roomFlames || []) f.scale.y = f.scale.x * (1 + Math.sin(R.time * 13 + f.position.x) * 0.12);
@@ -1184,13 +1246,13 @@
       return p.z < 1 && p.x > -m && p.y > -m && p.x < R.cw + m && p.y < R.ch + m;
     },
 
-    SIGN_H: { keep: 6.4, temple: 6.2, inn: 4.3, archive: 4.3, smithy: 3.4, shrine: 3.6, market: 2.9, board: 2.3 },
+    SIGN_H: { keep: 6.4, temple: 6.2, inn: 4.3, archive: 4.3, smithy: 3.4, shrine: 3.6, market: 2.9, board: 2.3, mill: 4.4, mine: 2.6, lumber: 2.2 },
     drawShopSigns(game, ctx, fs) {
       const world = game.world, pe = game.pe;
       const s = ECHO.World.settlementAt(world, pe.x, pe.y, 26);
       if (!s) return;
       for (const b of s.buildings) {
-        const info = ECHO.UI.SHOPS[b.type];
+        const info = ECHO.UI.shopInfo(b, s);
         if (!info) continue;
         const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
         const d = U.dist(cx, cy, pe.x, pe.y);

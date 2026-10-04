@@ -81,6 +81,7 @@
       for (const id of j.npcs) { const n = world.npcs[id]; if (n) { n.loc = null; n.journey = j.id; } }
       world.journeys = world.journeys || [];
       world.journeys.push(j);
+      if (ECHO.Disease) ECHO.Disease.onJourneyStart(world, j);
       return j;
     },
     journeyPos(world, j) {
@@ -109,6 +110,7 @@
           if (dest.faction !== 'ashfang' && world.factions[dest.faction].type !== 'bandits') n.faction = dest.faction;
         }
       }
+      if (ECHO.Disease) ECHO.Disease.onJourneyEnd(world, j, arrived);
       ECHO.emit('journey:end', { journey: j, arrived });
       if (arrived) {
         if (j.kind === 'caravan' || j.kind === 'aid') ECHO.Economy.caravanArrive(world, j);
@@ -171,9 +173,15 @@
       const rng = Sim.rngFor(world);
       world.day++;
       ECHO.Ecology.dailyTick(world, rng);
+      if (ECHO.Production) ECHO.Production.ensure(world);
+      if (ECHO.Weather) ECHO.Weather.dailyTick(world, rng);
       ECHO.Economy.dailyTick(world, rng);
+      if (ECHO.Production) ECHO.Production.dailyTick(world, rng);
+      if (ECHO.Property) ECHO.Property.dailyTick(world, rng);
       ECHO.People.dailyTick(world, rng);
       ECHO.Minds.dailyTick(world, rng);
+      if (ECHO.Disease) ECHO.Disease.dailyTick(world, rng);
+      if (ECHO.Law) ECHO.Law.dailyTick(world, rng);
       ECHO.Politics.dailyTick(world, rng);
       ECHO.Intel.dailyTick(world, rng);
       ECHO.Plights.dailyTick(world, rng);

@@ -107,7 +107,7 @@
         done: (w, n, s, g, rng) => {
           n.wealth -= (g.target - g.start) * 0.8;
           n.renown += 3; s.prosperity = Math.min(100, (s.prosperity || 50) + 0.6);
-          if (/stall|shop|wagon/.test(g.dream) && n.prof === 'farmer') n.prof = 'merchant';
+          if (/stall|shop|wagon/.test(g.dream) && n.prof === 'farmer' && M.spareFarmer(w, s)) n.prof = 'merchant';
           P().remember(w, n, `finally got ${g.dream}`, 'pride', null, 3);
           if (rng.chance(0.35)) ECHO.Chronicle.add(w, { text: `${P().name(n)} of ${s.name} saved long enough to buy ${g.dream.replace(/^my /, 'their ')}.`, kind: 'life', importance: 0, sid: s.id, npcs: [n.id] });
         },
@@ -222,6 +222,7 @@
         step: (w, n, s, g) => {
           if (--g.days > 0) return null;
           const f = w.factions[n.faction];
+          if (n.prof === 'farmer' && !M.spareFarmer(w, s)) { P().remember(w, n, `swore to stand against ${g.threat}, but the fields still need working`, 'change', null, 1); return 'fail'; }
           if (f && f.type === 'kingdom') { n.prof = 'guard'; n.skill.fight = Math.max(n.skill.fight, 22); } else n.prof = 'hunter';
           P().remember(w, n, `took up arms against ${g.threat}`, 'change', null, 3);
           ECHO.Chronicle.add(w, { text: `${P().name(n)} of ${s.name} put down their tools and took up arms against ${g.threat}.`, kind: 'life', importance: 0, sid: s.id, npcs: [n.id] });
@@ -306,7 +307,7 @@
             // confront them when they are in the same place
             if (o.loc && o.loc === n.loc && rng.chance(P().has(n, 'hot-headed') ? 0.06 : 0.02)) {
               const win = rng.chance(n.skill.fight / (n.skill.fight + o.skill.fight + 1));
-              if (win && rng.chance(0.35)) { P().kill(w, o, `slain by ${n.first} in revenge for ${t.victim}`, P().name(n), n.id); n.flags.avenger = true; return 'done'; }
+              if (win && rng.chance(0.35)) { P().kill(w, o, `slain by ${n.first} in revenge for ${t.victim}`, P().name(n), n.id); n.flags.avenger = true; if (ECHO.Law) ECHO.Law.npcCrime(w, rng, { by: n.id, kind: 'murder', victim: o.id, sid: n.loc }); return 'done'; }
               P().remember(w, n, `fought ${o.first} over ${t.victim} and ${win ? 'won' : 'lost'}`, 'conflict', o.id, 2);
             }
           } else if (t.type === 'player') {
@@ -365,6 +366,11 @@
       }
     },
 
+    // Can the town spare a farmer for another trade?
+    spareFarmer(world, s) {
+      const farmers = (s._counts && s._counts.farmer) || P().residents(world, s).filter(n => n.prof === 'farmer').length;
+      return farmers > Math.max(4, (s.farmTiles || 0) / 5) * 1.1 && s.hunger < 0.1;
+    },
     // ---------------------------------------------------------------- daily tick
     ensure(n) { if (!n.mind) n.mind = { goal: null, v: null, cool: 0, done: 0, failed: 0 }; return n.mind; },
     // Make sure a person has a current view (e.g. right after loading a save).
@@ -460,6 +466,7 @@
       if (g.kind === 'avenge' && g.target.type === 'npc') out.push({ id: 'justice', label: `"I'll see ${g.target.name.split(' ')[0]} answers for it."` });
       if (g.kind === 'avenge' && g.target.type === 'player') { out.push({ id: 'blood', label: 'Offer blood-money (60 crowns)', cost: 60 }); out.push({ id: 'sorry', label: '"I am sorry."' }); }
       if (g.kind === 'flee' || g.kind === 'defend') out.push({ id: 'promise', label: `"I'll deal with ${g.threat || 'it'}."` });
+      if ((g.kind === 'hunger' || g.kind === 'prosper' || g.kind === 'faith') && !n.debt && ECHO.Property) out.push({ id: 'lend', label: 'Lend 30 crowns (repay 34.5 within the month)', cost: 30 });
       return out;
     },
     help(world, n, pl, id) {
@@ -512,6 +519,7 @@
           if (soft && Math.random() < 0.35) { n.mind.goal = null; n.op[pl.charId] = -30; P().remember(world, n, `forgave ${pl.first} ${pl.last}`, 'change', null, 3); return '…I don\'t forgive you. But I won\'t carry this anymore. Leave me be.'; }
           return 'Sorry. Sorry! Get away from me.';
         }
+        case 'lend': return ECHO.Property.lend(world, pl, n, 30);
         case 'promise':
           n.mind.promise = pl.charId; thank(5, 1);
           return 'You\'d do that? Then maybe we\'ll stay a little longer.';
@@ -576,6 +584,63 @@
       else if (op < -20) bits.push('I don\'t trust you.');
       else if (heard.length) bits.push('I haven\'t made up my mind about you.');
       return bits.join(' ');
+    },
+
+    // ---------------------------------------------------------------- people they know
+    shortGoal(world, o) {
+      const g = o.mind && o.mind.goal;
+      if (!g) return null;
+      const S2 = id => (S().settlement(world, id) || {}).name;
+      switch (g.kind) {
+        case 'prosper': return `saving up for ${g.dream.replace(/^my /, 'their ')}`;
+        case 'love': { const c = g.crush && world.npcs[g.crush]; return c ? `sweet on ${c.first} ${c.last}` : 'looking for someone to marry'; }
+        case 'family': return 'hoping for a child';
+        case 'master': return `set on becoming a master ${P().role(world, o)}`;
+        case 'rank': return 'chasing a promotion';
+        case 'flee': return `talking about leaving${g.dest ? ' for ' + S2(g.dest) : ''}`;
+        case 'defend': return 'about to take up arms';
+        case 'faith': return g.stage === 'saving' ? 'saving for a pilgrimage' : 'on pilgrimage';
+        case 'lore': return 'buried in the old carvings';
+        case 'lead': return 'angling to be reeve';
+        case 'fortune': return `planning to try their luck in ${S2(g.dest) || 'the city'}`;
+        case 'hunger': return 'struggling to feed the family';
+        case 'avenge': return `out for revenge on ${g.target.name}`;
+        default: return null;
+      }
+    },
+    // What someone says about the people in their life.
+    describePeople(world, n) {
+      const pick = [];
+      const add = (o, rel) => { if (o && !pick.some(p => p.o === o)) pick.push({ o, rel }); };
+      if (n.spouse) add(world.npcs[n.spouse], n.spouse && world.npcs[n.spouse] && world.npcs[n.spouse].sex === 'f' ? 'my wife' : 'my husband');
+      const rels = Object.entries(n.rel).map(([id, v]) => ({ o: world.npcs[id], v })).filter(x => x.o);
+      const friend = rels.filter(x => x.v > 45).sort((a, b) => b.v - a.v)[0];
+      const foe = rels.filter(x => x.v < -35).sort((a, b) => a.v - b.v)[0];
+      if (friend) add(friend.o, 'my friend');
+      if (foe) add(foe.o, 'that one');
+      for (const id of n.kids) { const k = world.npcs[id]; if (k && P().age(world, k) > 14) { add(k, k.sex === 'f' ? 'my daughter' : 'my son'); break; } }
+      for (const id of n.parents) { const p = world.npcs[id]; if (p) { add(p, p.sex === 'f' ? 'my mother' : 'my father'); break; } }
+      if (!pick.length) return 'I keep to myself, mostly.';
+      const lines = pick.slice(0, 4).map(({ o, rel }) => {
+        const nm = `${o.first}${rel.startsWith('my') ? '' : ' ' + o.last}`;
+        if (o.status === 'dead') return `${U.cap(rel)}, ${nm}… died ${T.fmtShort(o.diedDay || world.day)} — ${o.cause}.`;
+        if (o.status === 'captive') return `${U.cap(rel)}, ${nm}, was taken by the Ashfang.`;
+        if (o.journey) { const j = (world.journeys || []).find(x => x.id === o.journey); const to = j && S().settlement(world, j.to); return `${U.cap(rel)}, ${nm}, is on the road${to ? ' to ' + to.name : ''}${j && j.kind === 'pilgrim' ? ' — a pilgrimage' : j && j.kind === 'army' ? ' with the army' : ''}.`; }
+        if (o.loc && o.loc !== n.loc) { const t = S().settlement(world, o.loc); return `${U.cap(rel)}, ${nm}, lives in ${t ? t.name : 'another town'} now.`; }
+        if ((o.jailUntil || 0) > world.day) return `${U.cap(rel)}, ${nm}, is in the cells. Don't ask.`;
+        const g = M.shortGoal(world, o);
+        const tone = rel === 'that one' ? `${nm}? Don't get me started. ` : `${U.cap(rel)}, ${nm}`;
+        return rel === 'that one' ? `${tone}${g ? 'Always ' + g + ', as if anyone cares.' : ''}` : `${tone}${g ? ' — ' + g + '.' : '.'}${o.sick ? ' Sick with fever, poor soul.' : ''}`;
+      });
+      return lines.join(' ');
+    },
+    gossipAbout(world, n, seed) {
+      const ids = Object.keys(n.rel).filter(id => world.npcs[id] && world.npcs[id].status === 'alive');
+      if (!ids.length) return null;
+      const o = world.npcs[ids[Math.abs(seed) % ids.length]];
+      const g = M.shortGoal(world, o);
+      if (!g) return null;
+      return `${o.first}'s ${g}, you know.`;
     },
 
     // ---------------------------------------------------------------- consequences

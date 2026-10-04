@@ -92,6 +92,11 @@
         if (!e.dead) { e.burn = Math.max(e.burn, 2 * p.power); e.burnFrom = p.from; }
       }
       for (const l of game.world.lairs) for (const r of l.rocks) if (r.hp > 0 && U.dist(p.x, p.y, r.x + 0.5, r.y + 0.5) < R + 0.6) C.hitRock(l, r, 25);
+      // a big enough fire sets wooden workplaces alight
+      if (p.from === game.pe && R >= 1.3 && !ECHO.Interior.cur) for (const st of game.world.settlements) {
+        if (Math.abs(st.x - p.x) > 30 || Math.abs(st.y - p.y) > 30) continue;
+        for (const b of st.buildings) if (b.fac && (b.fac.state === 'working' || b.fac.state === 'damaged') && U.dist(p.x, p.y, b.x + b.w / 2, b.y + b.h / 2) < R + 1 && Math.random() < 0.5) ECHO.UI.arson(b, st);
+      }
     },
     updateProjectiles(dt) {
       const game = G();
@@ -253,6 +258,7 @@
         if (crit) game.punch(0.4);
       }
       // Being hit makes non-hostile people angry at the player.
+      if (from === game.pe && (target.role === 'guard' || target.role === 'soldier')) game.lastHitGuard = game.time;
       if (from === game.pe && target.type === 'person' && target.hp > 0 && !game.hostileTo(target, game.pe)) game.crime(target, 'assault');
       if (from === game.pe && target.type !== 'player') {
         target.aggro = true;

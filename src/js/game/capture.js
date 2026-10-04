@@ -24,7 +24,7 @@
       ECHO.UI.fadeOut(() => {
         if (npc && npc.status === 'alive') {
           if (npc.faction === 'ashfang') Cap.captured(game, npc, from);
-          else Cap.jailed(game, npc);
+          else ECHO.Court.trial(game, ECHO.Sim.settlement(world, npc.loc || npc.home) || ECHO.World.nearestSettlement(world, game.pe.x, game.pe.y, t => t.faction === npc.faction), from, true);
         } else Cap.wounded(game, from);
       });
     },

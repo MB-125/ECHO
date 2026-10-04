@@ -177,8 +177,18 @@
       R.drawFx(game);
       // Lighting
       R.drawLighting(game, dt);
-      // Season
-      if (season === 3) R.drawSnow(game, dt);
+      // Weather
+      const wx = ECHO.Weather ? ECHO.Weather.here(world, game.pe.x, game.pe.y) : { today: 'clear' };
+      if (season === 3 || wx.today === 'snow' || wx.today === 'blizzard') { if (wx.today !== 'clear' || season === 3) R.drawSnow(game, dt); }
+      if (wx.today === 'rain' || wx.today === 'storm') {
+        const ctx2 = R.ctx; ctx2.setTransform(1, 0, 0, 1, 0, 0);
+        ctx2.fillStyle = 'rgba(30,40,60,0.18)'; ctx2.fillRect(0, 0, R.cw, R.ch);
+        ctx2.strokeStyle = 'rgba(180,200,230,0.35)'; ctx2.lineWidth = 1;
+        ctx2.beginPath();
+        const n = wx.today === 'storm' ? 220 : 130, tt = game.time;
+        for (let i = 0; i < n; i++) { const x = (ECHO.hash2(i, 1, 7) * R.cw + tt * 60) % R.cw, y = (ECHO.hash2(i, 2, 7) * R.ch + tt * (500 + i % 5 * 40)) % R.ch; ctx2.moveTo(x, y); ctx2.lineTo(x + 4, y + 14); }
+        ctx2.stroke();
+      } else if (wx.today === 'fog' || wx.today === 'cloudy') { R.ctx.setTransform(1, 0, 0, 1, 0, 0); R.ctx.fillStyle = wx.today === 'fog' ? 'rgba(200,205,210,0.25)' : 'rgba(40,45,55,0.12)'; R.ctx.fillRect(0, 0, R.cw, R.ch); }
       // Overlays: labels, bubbles, floaters
       R.drawLabels(game);
     },
@@ -565,7 +575,7 @@
       // shop signs
       const st = ECHO.World.settlementAt(world, game.pe.x, game.pe.y, 26);
       if (st) for (const b of st.buildings) {
-        const info = ECHO.UI.SHOPS[b.type];
+        const info = ECHO.UI.shopInfo(b, st);
         if (!info || U.dist(b.x + b.w / 2, b.y + b.h / 2, game.pe.x, game.pe.y) > 18) continue;
         const p = R.toScreen(game, b.x + b.w / 2, b.y - 0.3);
         const t1 = info.icon + ' ' + info.title, w = Math.max(ctx.measureText(t1).width, ctx.measureText(info.sub).width) + 12 * R.dpr;
