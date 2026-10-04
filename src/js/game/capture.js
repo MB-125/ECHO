@@ -10,7 +10,17 @@
   const Cap = ECHO.Capture = {
     begin(game, from) {
       const world = game.world, pl = game.pl;
-      const npc = from && from.type === 'person' && from.npcId ? world.npcs[from.npcId] : null;
+      let npc = from && from.type === 'person' && from.npcId ? world.npcs[from.npcId] : null;
+      // Felled by someone who died in the same moment (their arrow still in
+      // flight, their fire still burning)? Their comrades take you instead —
+      // losing to people never costs fate.
+      if (from && from.type === 'person' && (!npc || npc.status !== 'alive')) {
+        const side = npc ? npc.faction : null;
+        const alt = game.ents
+          .filter(e => e.type === 'person' && !e.dead && !e.hidden && e.npcId && world.npcs[e.npcId] && world.npcs[e.npcId].status === 'alive' && (side ? world.npcs[e.npcId].faction === side : game.hostileTo(e, game.pe)))
+          .sort((a, b) => U.dist(a.x, a.y, game.pe.x, game.pe.y) - U.dist(b.x, b.y, game.pe.x, game.pe.y))[0];
+        if (alt) { npc = world.npcs[alt.npcId]; from = alt; }
+      }
       ECHO.UI.fadeOut(() => {
         if (npc && npc.status === 'alive') {
           if (npc.faction === 'ashfang') Cap.captured(game, npc, from);
@@ -139,20 +149,32 @@
         title: 'At dawn they will hang you',
         html: `<p>${P().name(captor)} defeated you.${swordLine}</p><p>The Ashfang remember how many of theirs you have killed. They are building a gallows from green wood. There is one night left.</p>`,
         choices: [
-          { label: 'Fight your way out tonight', sub: 'Bare hands against the guards, in the dark.', onPick: () => {
+          { label: 'Fight your way out tonight', sub: 'Bare hands against the guards, in the dark.' + (pl.fate <= 1 ? ' If you fail, you die.' : ' If you fail, it costs fate.'), onPick: () => {
             const p = 0.35 + pl.skills.blade / 220 + pl.skills.shadow / 200;
             if (Math.random() < p) { pl.hp = pl.maxHp * 0.3; Cap.escaped(game, camp, 1, 'You strangle the guard with your chains and run into the black woods.'); }
-            else Cap.die(game, `hanged by the Ashfang at ${camp ? camp.name : 'their camp'}`, { npcId: captor.id });
+            else Cap.gallows(game, captor, camp);
           } },
-          { label: 'Beg for your life', sub: 'Talk. Promise. Lie, if you must.', onPick: () => {
+          { label: 'Beg for your life', sub: 'Talk. Promise. Lie, if you must.' + (pl.fate <= 1 ? ' If they refuse, you die.' : ' If they refuse, it costs fate.'), onPick: () => {
             const p = 0.3 + pl.skills.tongue / 140;
             ECHO.Character.train(pl, 'tongue', 2);
             if (Math.random() < p) { ECHO.UI.toast(`${captor.first} laughs and spares you — for now. "You're worth more alive."`, 'warn', 6); Cap.prisonChoices(game, captor, camp, '', 60 + Math.round(pl.renown * 2)); }
-            else Cap.die(game, `hanged by the Ashfang at ${camp ? camp.name : 'their camp'}`, { npcId: captor.id });
+            else Cap.gallows(game, captor, camp);
           } }
         ]
       });
       void world;
+    },
+    // The rope. Only the last of your fate ends here; before that, the green
+    // wood breaks, or the crowd looks away long enough, and you live — marked.
+    gallows(game, captor, camp) {
+      const pl = game.pl;
+      if (pl.fate <= 1) return Cap.die(game, `hanged by the Ashfang at ${camp ? camp.name : 'their camp'}`, { npcId: captor.id });
+      pl.fate--;
+      pl.hp = pl.maxHp * 0.2;
+      const how = Math.random() < 0.5
+        ? 'At dawn they hang you from a branch of green wood. It bends, then cracks. In the shouting you crawl into the ditch and are gone before they find you.'
+        : 'They hang you at dawn and leave you for the crows. Somehow the knot was poor. Hours later you wake in the grass below the rope, throat raw, and stagger away.';
+      Cap.escaped(game, camp, 1, how + ' <span class="dim">Fate feels much thinner now.</span>');
     },
 
     escape(game, captor, camp) {
