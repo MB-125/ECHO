@@ -8,7 +8,7 @@
     FARM: 8, ROAD: 9, SWAMP: 10, SNOW: 11, RUIN: 12, BRIDGE: 13, PLAZA: 14, RUINWALL: 15
   };
   const SOLID_TILES = new Set([TILE.DEEP, TILE.WATER, TILE.TREE, TILE.ROCK, TILE.RUINWALL]);
-  const MOVE_COST = { [TILE.FOREST]: 0.78, [TILE.SWAMP]: 0.6, [TILE.HILL]: 0.82, [TILE.SNOW]: 0.75, [TILE.SAND]: 0.92, [TILE.ROAD]: 1.15, [TILE.BRIDGE]: 1.15, [TILE.PLAZA]: 1.1 };
+  const MOVE_COST = { [TILE.TREE]: 0.7, [TILE.FOREST]: 0.78, [TILE.SWAMP]: 0.6, [TILE.HILL]: 0.82, [TILE.SNOW]: 0.75, [TILE.SAND]: 0.92, [TILE.ROAD]: 1.15, [TILE.BRIDGE]: 1.15, [TILE.PLAZA]: 1.1 };
 
   const W = 200, H = 150;
   const REGION_COLS = 5, REGION_ROWS = 4;
@@ -26,10 +26,19 @@
     setTile(world, x, y, t) { if (x >= 0 && y >= 0 && x < W && y < H) world.tiles[y * W + x] = t; },
     isSolid(world, x, y) {
       if (x >= 9000 && ECHO.Interior) return ECHO.Interior.isSolid(x, y);
+      const fx = x, fy = y;
       x = Math.floor(x); y = Math.floor(y);
       if (x < 0 || y < 0 || x >= W || y >= H) return true;
       const i = y * W + x;
-      return SOLID_TILES.has(world.tiles[i]) || world.blocked[i] === 1;
+      if (world.blocked[i] === 1) return true;
+      const t = world.tiles[i];
+      // A tree only blocks at its trunk, so you can thread between them.
+      if (t === TILE.TREE) { const tr = World.trunk(world, x, y); return (fx - tr.x) ** 2 + (fy - tr.y) ** 2 < 0.2 * 0.2; }
+      return SOLID_TILES.has(t);
+    },
+    // Where the trunk stands in a tree tile (the 3D renderer plants it here too).
+    trunk(world, x, y) {
+      return { x: x + 0.5 + (ECHO.hash2(x, y, world.seed + 32) - 0.5) * 0.5, y: y + 0.5 + (ECHO.hash2(x, y, world.seed + 33) - 0.5) * 0.5 };
     },
     speedAt(world, x, y) { return MOVE_COST[World.tile(world, x, y)] || 1; },
     regionAt(world, x, y) {

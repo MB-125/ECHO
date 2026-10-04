@@ -119,7 +119,8 @@
         if (world.tiles[y * world.W + x] !== ECHO.TILE.TREE) continue;
         const h = ECHO.hash2(x, y, world.seed + 11);
         const kind = y < world.H * 0.3 || h < 0.18 ? 'pine' : ECHO.World.regionAt(world, x, y).swamp > 0.2 && h < 0.5 ? 'willow' : 'oak';
-        objs.push({ y: y + 1, draw: () => R.img(game, S.tree(kind, season, (h * 7) | 0), x + 0.5, y + 1, 12, 33) });
+        const tr = ECHO.World.trunk(world, x, y);
+        objs.push({ y: tr.y + 0.5, draw: () => R.img(game, S.tree(kind, season, (h * 7) | 0), tr.x, tr.y + 0.5, 12, 33) });
       }
       for (const s of world.settlements) {
         if (Math.abs(s.x - cam.x) > halfW + 20 || Math.abs(s.y - cam.y) > halfH + 20) continue;

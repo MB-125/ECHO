@@ -601,6 +601,14 @@
       else if (e.type === 'boss') inst = ECHO.Models.instance(e.boss.kind);
       if (!inst) return null;
       v = { inst, kind, cfgT: 0, dir: e.dir || 0, bob: Math.random() * 6 };
+      // The player shows through trees and roofs as a faint silhouette.
+      if (e.type === 'player') {
+        const ghost = new THREE.MeshBasicMaterial({ color: '#bfe8ff', transparent: true, opacity: 0.32, depthTest: false, depthWrite: false });
+        const meshes = [];
+        inst.root.traverse(o => { if (o.isMesh) meshes.push(o); });
+        for (const o of meshes) { const g = new THREE.Mesh(o.geometry, ghost); g.renderOrder = 20; g.userData.ghostOf = o; o.add(g); }
+        v.ghostMat = ghost;
+      }
       R.groups.ents.add(inst.root);
       R.views.set(e, v);
       R.configure(game, e, v);
@@ -798,6 +806,14 @@
           if (tell) { const t = tell === 2 ? 0.55 : 0.3; r = t; g2 = t * 0.8; b = t * 0.6; }
           if (flash === 2) { r = 1.4; g2 = 1.3; b = 1.2; } else if (flash === 1) { r = 0.9; g2 = 0.15; b = 0.1; }
           for (const m of v.inst.mats) if (m.emissive) m.emissive.setRGB(r, g2, b);
+        }
+        // silhouette only when trees stand between the camera and the player
+        if (v.ghostMat) {
+          let hid = false;
+          if (!ECHO.Interior.cur) for (let dy = 0; dy <= 2 && !hid; dy++) for (let dx = -1; dx <= 1; dx++) if (ECHO.World.tile(game.world, e.x + dx, e.y + dy + 0.3) === TILE.TREE) { hid = true; break; }
+          const want = hid ? 0.4 : 0;
+          v.ghostMat.opacity += (want - v.ghostMat.opacity) * Math.min(1, dt * 10);
+          v.ghostMat.visible = v.ghostMat.opacity > 0.02;
         }
         // stealthy player while sneaking
         if (e === game.pe) {

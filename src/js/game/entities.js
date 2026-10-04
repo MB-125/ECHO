@@ -34,6 +34,16 @@
           for (const off of [0.2, -0.2]) if (!blocked(e.x + off, ny) && !blocked(e.x + off, e.y)) { e.x += off * 0.5; break; }
         }
       }
+      // Still stuck (a tree trunk, a post): glance off it at an angle.
+      if (!moved && !e.noSlide && (dx || dy) && !e._sliding) {
+        e._sliding = true;
+        const L = Math.hypot(dx, dy), a0 = Math.atan2(dy, dx);
+        for (const da of [0.6, -0.6, 1.1, -1.1]) {
+          const nx = Math.cos(a0 + da) * L * 0.9, ny = Math.sin(a0 + da) * L * 0.9;
+          if (!blocked(e.x + nx, e.y + ny)) { e.x += nx; e.y += ny; moved = true; break; }
+        }
+        e._sliding = false;
+      }
       return moved;
     },
     // Steer toward a point at a speed. Returns true when arrived.
