@@ -562,6 +562,18 @@
       ctx.font = `${fs}px "Pixelify Sans", monospace`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       const mouse = game.screenToWorld(ECHO.Input.mx, ECHO.Input.my);
+      // shop signs
+      const st = ECHO.World.settlementAt(world, game.pe.x, game.pe.y, 26);
+      if (st) for (const b of st.buildings) {
+        const info = ECHO.UI.SHOPS[b.type];
+        if (!info || U.dist(b.x + b.w / 2, b.y + b.h / 2, game.pe.x, game.pe.y) > 18) continue;
+        const p = R.toScreen(game, b.x + b.w / 2, b.y - 0.3);
+        const t1 = info.icon + ' ' + info.title, w = Math.max(ctx.measureText(t1).width, ctx.measureText(info.sub).width) + 12 * R.dpr;
+        ctx.fillStyle = 'rgba(28,20,12,0.82)'; ctx.fillRect(p.x - w / 2, p.y - fs * 2 - 10 * R.dpr, w, fs * 2 + 8 * R.dpr);
+        ctx.strokeStyle = 'rgba(230,192,106,0.85)'; ctx.strokeRect(p.x - w / 2, p.y - fs * 2 - 10 * R.dpr, w, fs * 2 + 8 * R.dpr);
+        ctx.fillStyle = '#f2d47a'; ctx.fillText(t1, p.x, p.y - fs - 6 * R.dpr);
+        ctx.fillStyle = '#e8dcc0'; ctx.fillText(info.sub, p.x, p.y - 4 * R.dpr);
+      }
       const text = (t, x, y, col, bg) => {
         const w = ctx.measureText(t).width;
         if (bg) { ctx.fillStyle = bg; ctx.fillRect(x - w / 2 - 4 * R.dpr, y - fs - 3 * R.dpr, w + 8 * R.dpr, fs + 5 * R.dpr); }

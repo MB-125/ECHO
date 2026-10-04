@@ -296,32 +296,63 @@
       if (g === 'hide') return U.round1(6 + s.prosperity / 25);
       return s.prices[g];
     },
+    // What each shop is for — used by the signs over buildings and by prompts.
+    SHOPS: {
+      market: { title: 'Market', sub: 'arrows · food · herbs · trade goods', icon: '⚖' },
+      smithy: { title: 'Smithy', sub: 'swords · bows · arrows', icon: '⚒' },
+      inn: { title: 'Inn', sub: 'beds · hot meals · rest', icon: '☕' },
+      shrine: { title: 'Shrine', sub: 'healing · blessings', icon: '✚' },
+      temple: { title: 'Temple', sub: 'healing · blessings', icon: '✚' },
+      archive: { title: 'Archive', sub: 'the chronicle · old tongues', icon: '✎' },
+      keep: { title: 'Keep', sub: 'the ruler · titles · justice', icon: '♛' },
+      board: { title: 'Notice board', sub: 'pleas · bounties', icon: '✉' }
+    },
+    // What each market good does for you.
+    WARES: {
+      food: { icon: '🍞', name: 'Food', use: 'Press H to eat: heals 20.' },
+      herbs: { icon: '🌿', name: 'Herbs', use: 'Press G: heals 45 and puts out fire.' },
+      meat: { icon: '🍖', name: 'Meat', use: 'From hunting. Eat with H (heals 28), or sell.' },
+      hide: { icon: '🦊', name: 'Hide', use: 'From hunting. Sell it here or to the smith.' },
+      ore: { icon: '⛏', name: 'Ore', use: 'Trade good. Buy where cheap, sell where dear.' },
+      timber: { icon: '🪵', name: 'Timber', use: 'Trade good. Towns that build pay well.' },
+      arms: { icon: '🗡', name: 'Arms', use: 'Trade good. Worth most where there is war.' }
+    },
     openMarket(s) {
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const body = UI.openPanel(`Market of ${s.name}`, '', 'market');
       const render = () => {
         const hist = s.priceHistory.slice(-20);
         const max = Math.max(...hist, 1);
-        const spark = hist.map((v, i) => `<div title="${v}" style="display:inline-block;width:6px;margin-right:1px;height:${Math.max(2, v / max * 34)}px;background:${v > ECHO.GOODS.food.base * 2 ? '#c8463a' : '#c8a85a'}"></div>`).join('');
-        let rows = '';
-        for (const g of UI.goods) {
+        const spark = hist.map(v => `<div title="${v}" style="display:inline-block;width:6px;margin-right:1px;height:${Math.max(2, v / max * 30)}px;background:${v > ECHO.GOODS.food.base * 2 ? '#c8463a' : '#c8a85a'}"></div>`).join('');
+        const card = (g) => {
+          const W = UI.WARES[g];
           const price = UI.priceOf(s, g);
-          const stock = g === 'meat' || g === 'hide' ? '—' : Math.round(s.stock[g]);
+          const sellOnly = g === 'meat' || g === 'hide';
+          const stock = sellOnly ? null : Math.round(s.stock[g]);
           const sell = U.round1(price * 0.85);
-          rows += `<tr><td>${U.cap(g)}</td><td>${stock}</td><td class="gold">${price}</td><td>${sell}</td><td>${pl.inv[g] || 0}</td>
-            <td><button class="small" data-buy="${g}" ${g === 'meat' || g === 'hide' || s.stock[g] < 1 || pl.gold < price ? 'disabled' : ''}>Buy 1</button>
-            <button class="small" data-buy5="${g}" ${g === 'meat' || g === 'hide' || s.stock[g] < 5 || pl.gold < price * 5 ? 'disabled' : ''}>Buy 5</button>
-            <button class="small" data-sell="${g}" ${!(pl.inv[g] > 0) ? 'disabled' : ''}>Sell 1</button>
-            <button class="small" data-sellall="${g}" ${!(pl.inv[g] > 0) ? 'disabled' : ''}>Sell all</button></td></tr>`;
-        }
-        body.innerHTML = `<div class="two"><div><p class="dim">Prices move with what is in the stores. Bread here has cost:</p><div style="height:36px;display:flex;align-items:flex-end">${spark}</div>
-          <p class="dim">${s.hunger > 0.2 ? `<span class="ember">The town is hungry.</span> Selling food here eases it — and people remember.` : s.stock.food > ECHO.Economy.need(world, s) * 12 ? 'The granaries are full.' : 'Stores are ordinary.'}</p></div>
-          <div><p>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns.</p><p class="dim">Arrows: 10 for 6 crowns.</p><button data-arrows="1" ${pl.gold < 6 ? 'disabled' : ''}>Buy 10 arrows</button></div></div>
-          <table class="grid"><tr><th>Good</th><th>In stores</th><th>Buy</th><th>Sell</th><th>You</th><th></th></tr>${rows}</table>`;
+          return `<div class="ware"><div class="ware-ic">${W.icon}</div><div class="ware-main">
+            <div class="ware-top"><b>${W.name}</b>${sellOnly ? '<span class="dim">they buy it</span>' : `<span class="gold">${price} cr</span>`}</div>
+            <div class="ware-use">${W.use}</div>
+            <div class="ware-meta">You have <b>${pl.inv[g] || 0}</b>${stock != null ? ` · ${stock} in stores` : ''} · sells for ${sell}</div>
+            <div class="row">${sellOnly ? '' : `<button class="small" data-buy="${g}" ${s.stock[g] < 1 || pl.gold < price ? 'disabled' : ''}>Buy 1</button>
+              <button class="small" data-buy5="${g}" ${s.stock[g] < 5 || pl.gold < price * 5 ? 'disabled' : ''}>Buy 5</button>`}
+              <button class="small" data-sell="${g}" ${!(pl.inv[g] > 0) ? 'disabled' : ''}>Sell 1</button>
+              <button class="small" data-sellall="${g}" ${!(pl.inv[g] > 0) ? 'disabled' : ''}>Sell all</button></div></div></div>`;
+        };
+        body.innerHTML = `<div class="market-top"><span>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns</span>
+            <span class="dim">${s.hunger > 0.2 ? `<span class="ember">The town is hungry.</span> Selling food here eases it — and people remember.` : s.stock.food > ECHO.Economy.need(world, s) * 12 ? 'The granaries are full.' : 'Stores are ordinary.'}</span></div>
+          <div class="ware featured"><div class="ware-ic">🏹</div><div class="ware-main">
+            <div class="ware-top"><b>Arrows</b><span class="gold">10 for 6 cr</span></div>
+            <div class="ware-use">Ammunition for your bow (right mouse). You have <b>${pl.inv.arrows}</b>.</div>
+            <div class="row"><button data-arrows="1" ${pl.gold < 6 ? 'disabled' : ''}>Buy 10</button><button data-arrows="3" ${pl.gold < 18 ? 'disabled' : ''}>Buy 30</button></div></div></div>
+          <h4 class="ware-h">Supplies</h4><div class="wares">${['food', 'herbs'].map(card).join('')}</div>
+          <h4 class="ware-h">Sell your hunt</h4><div class="wares">${['meat', 'hide'].map(card).join('')}</div>
+          <h4 class="ware-h">Trade goods</h4><div class="wares">${['ore', 'timber', 'arms'].map(card).join('')}</div>
+          <p class="dim" style="margin-top:10px">Prices move with what is in the stores. Bread here has cost: <span style="display:inline-flex;align-items:flex-end;height:30px;vertical-align:middle">${spark}</span></p>`;
         body.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
           const d = btn.dataset;
-          if (d.arrows) { pl.gold -= 6; pl.inv.arrows += 10; }
-          const buy = (g, n) => { for (let i = 0; i < n; i++) { const p = UI.priceOf(s, g); if (pl.gold < p || s.stock[g] < 1) break; pl.gold -= p; s.stock[g] -= 1; pl.inv[g] = (pl.inv[g] || 0) + 1; s.wealth += p; ECHO.Economy.updatePrices(world, s); } };
+          if (d.arrows) { const n = +d.arrows; if (pl.gold >= 6 * n) { pl.gold -= 6 * n; pl.inv.arrows += 10 * n; s.wealth += 6 * n; ECHO.Sfx.play('coin'); } }
+          const buy = (g, n) => { for (let i = 0; i < n; i++) { const p = UI.priceOf(s, g); if (pl.gold < p || s.stock[g] < 1) break; pl.gold -= p; s.stock[g] -= 1; pl.inv[g] = (pl.inv[g] || 0) + 1; s.wealth += p; ECHO.Economy.updatePrices(world, s); } ECHO.Sfx.play('coin'); };
           const sell = (g, n) => {
             let sold = 0;
             for (let i = 0; i < n; i++) {
@@ -331,6 +362,7 @@
               if (g === 'meat') s.stock.food += 1.2; else if (g !== 'hide') s.stock[g] += 1;
               ECHO.Economy.updatePrices(world, s);
             }
+            if (sold) ECHO.Sfx.play('coin');
             if ((g === 'food' || g === 'meat') && s.hunger > 0.2 && sold >= 5) {
               s.hunger = Math.max(0, s.hunger - sold * 0.01);
               ECHO.Character.behave(pl, 'protect', 0.2);
@@ -366,6 +398,7 @@
         body.innerHTML = `<p class="prose">${smith ? `<b>${esc(P().name(smith))}</b> wipes soot from ${smith.sex === 'f' ? 'her' : 'his'} hands. "Everything here is my own work."` : 'The forge is cold; an apprentice minds the stock.'}</p>
           <p>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns. Wielding: <b>${esc(world.items[pl.weapon] ? world.items[pl.weapon].name : 'nothing')}</b>.</p>
           <table class="grid"><tr><th>Item</th><th>Power</th><th>Price</th><th></th></tr>${wares.map((w, i) => `<tr><td>${w.name}</td><td>${w.dmg}</td><td class="gold">${w.price}</td><td><button class="small" data-i="${i}" ${pl.gold < w.price ? 'disabled' : ''}>Buy</button></td></tr>`).join('')}</table>
+          <div class="ware featured" style="margin-top:10px"><div class="ware-ic">🏹</div><div class="ware-main"><div class="ware-top"><b>Arrows</b><span class="gold">20 for 13 cr</span></div><div class="ware-use">You have <b>${pl.inv.arrows}</b>.</div><div class="row"><button data-arrows="1" ${pl.gold < 13 ? 'disabled' : ''}>Buy 20 arrows</button></div></div></div>
           <p class="dim">The smith buys hides at ${UI.priceOf(s, 'hide')} each.</p><button data-hides="1" ${!(pl.inv.hide > 0) ? 'disabled' : ''}>Sell all hides (${pl.inv.hide || 0})</button>`;
         body.querySelectorAll('button[data-i]').forEach(b => b.addEventListener('click', () => {
           const w = wares[+b.dataset.i];
@@ -378,6 +411,8 @@
           UI.toast(`You buy ${w.name}, made by ${smith ? smith.first : 'the smith'}.`, 'info', 3);
           render();
         }));
+        const ab = body.querySelector('button[data-arrows]');
+        if (ab) ab.addEventListener('click', () => { if (pl.gold >= 13) { pl.gold -= 13; pl.inv.arrows += 20; s.wealth += 13; ECHO.Sfx.play('coin'); } render(); });
         const hb = body.querySelector('button[data-hides]');
         if (hb) hb.addEventListener('click', () => { const n = pl.inv.hide || 0; pl.gold += n * UI.priceOf(s, 'hide'); pl.inv.hide = 0; render(); });
       };

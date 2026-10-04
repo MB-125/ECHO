@@ -417,7 +417,7 @@
       const s = ECHO.World.settlementAt(world, pe.x, pe.y, 16);
       if (s) for (const b of s.buildings) {
         const door = { x: b.x + b.w / 2, y: b.y + b.h + 0.3 };
-        const labels = { inn: 'Enter the inn', market: 'Visit the market', smithy: 'Enter the smithy', archive: 'Enter the archive', shrine: 'Enter the shrine', temple: 'Enter the temple', keep: 'Enter the keep', board: 'Read the notice board', statue: 'Read the plaque', well: null, lamp: null };
+        const labels = { inn: 'Enter the inn — beds, meals', market: 'Visit the market — arrows, food, herbs', smithy: 'Enter the smithy — weapons, arrows', archive: 'Enter the archive', shrine: 'Enter the shrine', temple: 'Enter the temple', keep: 'Enter the keep', board: 'Read the notice board', statue: 'Read the plaque', well: null, lamp: null };
         if (b.type === 'house') {
           if (near(door.x, door.y)) out.push({ kind: 'enter', b, s, label: b.legend ? `Enter the house of ${(ECHO.Legacy.legendOf(world, b.legend) || {}).name || 'a legend'}` : b.owner === Game.pl.charId ? 'Enter your house' : 'Enter the house', d: U.dist(door.x, door.y, pe.x, pe.y) });
           continue;

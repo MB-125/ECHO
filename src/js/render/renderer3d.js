@@ -1148,6 +1148,42 @@
       return p.z < 1 && p.x > -m && p.y > -m && p.x < R.cw + m && p.y < R.ch + m;
     },
 
+    SIGN_H: { keep: 6.4, temple: 6.2, inn: 4.3, archive: 4.3, smithy: 3.4, shrine: 3.6, market: 2.9, board: 2.3 },
+    drawShopSigns(game, ctx, fs) {
+      const world = game.world, pe = game.pe;
+      const s = ECHO.World.settlementAt(world, pe.x, pe.y, 26);
+      if (!s) return;
+      for (const b of s.buildings) {
+        const info = ECHO.UI.SHOPS[b.type];
+        if (!info) continue;
+        const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+        const d = U.dist(cx, cy, pe.x, pe.y);
+        if (d > 20) continue;
+        const a = d < 11 ? 1 : 1 - (d - 11) / 9;
+        if (!R.onScreen(game, cx, cy)) continue;
+        const p = R.project(cx, cy, R.SIGN_H[b.type] || 3);
+        if (p.z > 1) continue;
+        const big = Math.round(fs * 1.08), small = Math.round(fs * 0.86);
+        ctx.font = `600 ${big}px "Pixelify Sans", monospace`;
+        const t1 = `${info.icon} ${info.title}`;
+        const w1 = ctx.measureText(t1).width;
+        ctx.font = `${small}px "Pixelify Sans", monospace`;
+        const w2 = ctx.measureText(info.sub).width;
+        const W = Math.max(w1, w2) + 16 * R.dpr, H = big + small + 14 * R.dpr;
+        const x0 = p.x - W / 2, y0 = p.y - H;
+        ctx.globalAlpha = a;
+        ctx.fillStyle = 'rgba(28,20,12,0.82)'; ctx.fillRect(x0, y0, W, H);
+        ctx.strokeStyle = 'rgba(230,192,106,0.85)'; ctx.lineWidth = 1.5 * R.dpr; ctx.strokeRect(x0 + 0.5, y0 + 0.5, W - 1, H - 1);
+        ctx.beginPath(); ctx.moveTo(p.x, y0 + H); ctx.lineTo(p.x - 5 * R.dpr, y0 + H); ctx.lineTo(p.x, y0 + H + 6 * R.dpr); ctx.lineTo(p.x + 5 * R.dpr, y0 + H); ctx.closePath(); ctx.fillStyle = 'rgba(230,192,106,0.85)'; ctx.fill();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.font = `600 ${big}px "Pixelify Sans", monospace`; ctx.fillStyle = '#f2d47a'; ctx.fillText(t1, p.x, y0 + 4 * R.dpr);
+        ctx.font = `${small}px "Pixelify Sans", monospace`; ctx.fillStyle = '#e8dcc0'; ctx.fillText(info.sub, p.x, y0 + 6 * R.dpr + big);
+        ctx.globalAlpha = 1;
+      }
+      ctx.textBaseline = 'bottom';
+      ctx.font = `${fs}px "Pixelify Sans", monospace`;
+    },
+
     // ---------------------------------------------------------------- overlay (names, speech, numbers, prompts)
     drawOverlay(game) {
       const ctx = R.octx, world = game.world;
@@ -1164,6 +1200,8 @@
         ctx.lineWidth = 3 * R.dpr; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(t, x, y);
         ctx.fillStyle = col; ctx.fillText(t, x, y);
       };
+      // Shop signs: what each building is and what it sells
+      if (!ECHO.Interior.cur && game.pe) R.drawShopSigns(game, ctx, fs);
       const heights = { player: 1.25, person: 1.25, boss: 3.6 };
       for (const e of game.ents) {
         if (e.dead || e.hidden || e === game.pe) continue;

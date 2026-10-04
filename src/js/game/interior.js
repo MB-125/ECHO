@@ -107,7 +107,7 @@
         case 'smithy': {
           f('forge', 2.5, 1.5, { w: 2, h: 2, light: { r: 6.5, a: 1.6, color: '#ff7a2a', h: 1.0 } });
           f('anvil', 4.7, 3.2, { action: 'smithy', label: 'Look at the smith\'s work' });
-          f('rack', 8.5, 1.2, { w: 2, h: 1, action: 'smithy', label: 'Browse the weapons' });
+          f('rack', 8.5, 1.2, { w: 2, h: 1, action: 'smithy', label: 'Browse weapons & arrows' });
           f('barrel', 9.6, 5.0); f('crate', 1.4, 5.6); f('crate', 2.3, 6.2, { rot: 0.4 }); f('chest', 9.4, 6.4);
           f('candles', 6.5, 6.2, { solid: false, light: { r: 3.5, a: 0.7, color: '#ffc070', h: 1.2 } });
           spot(5.5, 3.2, { tag: 'smith', dir: Math.PI }); spot(3.8, 4.4, { tag: 'any', dir: north });
