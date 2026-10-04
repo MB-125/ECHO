@@ -51,11 +51,13 @@
     async list() {
       if (typeof window !== 'undefined' && window.echoNative) return window.echoNative.listWorlds();
       const out = [];
-      if (typeof localStorage === 'undefined') return out;
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k.startsWith('echo.meta.')) { try { out.push(JSON.parse(localStorage.getItem(k))); } catch (e) { /* skip */ } }
-      }
+      try {
+        if (typeof localStorage === 'undefined') return out;
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('echo.meta.')) { try { out.push(JSON.parse(localStorage.getItem(k))); } catch (e) { /* skip */ } }
+        }
+      } catch (e) { S.storageBlocked = true; }
       return out;
     },
     async save(world) {
@@ -66,18 +68,40 @@
         localStorage.setItem('echo.world.' + world.id, json);
         localStorage.setItem('echo.meta.' + world.id, JSON.stringify(meta));
         return true;
-      } catch (e) { console.warn('save failed', e); return false; }
+      } catch (e) {
+        console.warn('save failed', e);
+        if (!S._warned && typeof ECHO.UI !== 'undefined' && ECHO.UI.toast) {
+          S._warned = true;
+          ECHO.UI.toast('This browser would not save the world (storage is full or blocked). Use Export world on the title screen to keep a copy.', 'warn', 10);
+        }
+        return false;
+      }
+    },
+    // A portable copy of a whole world, for backup or moving between browsers.
+    exportText(world) {
+      return JSON.stringify({ echoWorld: 1, meta: S.meta(world), data: S.serialize(world) });
+    },
+    async importText(text) {
+      const o = JSON.parse(text);
+      if (!o || !o.echoWorld || !o.data) throw new Error('That file is not an ECHO world.');
+      const world = S.deserialize(o.data);
+      if (!world.tiles || !world.npcs) throw new Error('That world file is damaged.');
+      const ok = await S.save(world);
+      if (!ok) throw new Error('This browser has no room to store the world.');
+      return world;
     },
     async load(id) {
       let json = null;
       if (typeof window !== 'undefined' && window.echoNative) json = await window.echoNative.loadWorld(id);
-      else json = localStorage.getItem('echo.world.' + id);
-      return json ? S.deserialize(json) : null;
+      else { try { json = localStorage.getItem('echo.world.' + id); } catch (e) { json = null; } }
+      try { return json ? S.deserialize(json) : null; } catch (e) { console.error(e); return null; }
     },
     async remove(id) {
       if (typeof window !== 'undefined' && window.echoNative) return window.echoNative.deleteWorld(id);
-      localStorage.removeItem('echo.world.' + id);
-      localStorage.removeItem('echo.meta.' + id);
+      try {
+        localStorage.removeItem('echo.world.' + id);
+        localStorage.removeItem('echo.meta.' + id);
+      } catch (e) { /* storage blocked */ }
     }
   };
 })();

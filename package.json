@@ -2,7 +2,7 @@
   "name": "echo-living-realm",
   "productName": "ECHO",
   "version": "0.1.0",
-  "description": "ECHO — The Living Realm. A world that existed before you, continues without you, and remembers what you do.",
+  "description": "ECHO \u2014 The Living Realm. A world that existed before you, continues without you, and remembers what you do.",
   "main": "main.js",
   "author": "Merveille <MB-125@users.noreply.github.com>",
   "license": "MIT",
@@ -17,12 +17,13 @@
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
     "dist:mac": "electron-builder --mac",
-    "dist:linux": "electron-builder --linux"
+    "dist:linux": "electron-builder --linux",
+    "build:web": "node tools/build-web.js"
   },
   "build": {
     "appId": "com.mb125.echo",
     "productName": "ECHO",
-    "copyright": "ECHO — The Living Realm",
+    "copyright": "ECHO \u2014 The Living Realm",
     "directories": {
       "output": "release",
       "buildResources": "build"

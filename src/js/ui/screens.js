@@ -37,7 +37,18 @@
           ${m.highlights && m.highlights.length ? `<div class="hl">“${esc(m.highlights[m.highlights.length - 1])}”</div>` : ''}
         </div>`).join('')}</div>
         <div class="actions">${metas.length ? '<button class="primary" data-a="enter">Enter world</button>' : ''}<button data-a="new" class="${metas.length ? '' : 'primary'}">Begin a new world</button>${metas.length ? '<button data-a="del">Forget world…</button>' : ''}<button data-a="help">How ECHO works</button>${window.echoNative ? '<button data-a="quit">Quit</button>' : ''}</div>
-        <p class="faint" style="text-align:center;margin-top:30px;font-size:12px">Worlds never reset. Each one lives and changes on its own. F11 toggles fullscreen.</p>`);
+        ${window.echoNative ? '' : `<div class="actions" style="margin-top:8px">${metas.length ? '<button class="small" data-a="export">Export world</button>' : ''}<button class="small" data-a="import">Import world</button><input type="file" id="importfile" accept=".json,.echo,application/json" hidden></div>`}
+        <p class="faint" style="text-align:center;margin-top:30px;font-size:12px">Worlds never reset. Each one lives and changes on its own. ${window.echoNative ? 'F11 toggles fullscreen.' : 'Worlds are kept in this browser; export one to keep a backup. Best with a keyboard and mouse.'}</p>
+        <div id="titlemsg" class="dim" style="text-align:center;margin-top:8px"></div>`);
+      const msg = t => { const m = el.querySelector('#titlemsg'); if (m) m.textContent = t; };
+      if (ECHO.Save.storageBlocked) msg('This browser is blocking storage, so worlds cannot be saved here. You can still play; export your world before leaving.');
+      const fileIn = el.querySelector('#importfile');
+      if (fileIn) fileIn.addEventListener('change', async () => {
+        const f = fileIn.files && fileIn.files[0];
+        if (!f) return;
+        try { const w = await ECHO.Save.importText(await f.text()); msg(`Imported ${w.name}.`); setTimeout(() => Scr.title(), 700); }
+        catch (e) { msg(e.message || 'That file could not be read.'); }
+      });
       el.querySelectorAll('.wcard').forEach(c => c.addEventListener('click', () => { sel = c.dataset.id; el.querySelectorAll('.wcard').forEach(x => x.classList.toggle('sel', x.dataset.id === sel)); }));
       el.querySelectorAll('.wcard').forEach(c => c.addEventListener('dblclick', () => Scr.enter(c.dataset.id)));
       el.querySelectorAll('button[data-a]').forEach(b => b.addEventListener('click', async () => {
@@ -46,9 +57,23 @@
         if (a === 'new') Scr.newWorld();
         if (a === 'help') Scr.help();
         if (a === 'quit') window.echoNative.closeNow();
+        if (a === 'import' && fileIn) fileIn.click();
+        if (a === 'export' && sel) {
+          const w = await ECHO.Save.load(sel);
+          if (!w) return msg('That world could not be read.');
+          const r = await Scr.saveFile(`${w.name.replace(/[^\w-]+/g, '_')}-day${w.day}.echo.json`, ECHO.Save.exportText(w));
+          msg(r);
+        }
         if (a === 'del' && sel) {
           const m = metas.find(x => x.id === sel);
-          if (confirm(`Forget "${m.name}" forever? Everyone in it, every legend, gone.`)) { await ECHO.Save.remove(sel); Scr.title(); }
+          ECHO.UI.modal({
+            title: `Forget ${m.name}?`,
+            html: '<p>Everyone in it, every legend and every scar on the land will be gone for good.</p>',
+            choices: [
+              { label: 'Forget this world forever', onPick: async () => { await ECHO.Save.remove(sel); Scr.title(); } },
+              { label: 'Keep it', onPick: () => {} }
+            ]
+          });
         }
       }));
     },
@@ -56,12 +81,30 @@
       Scr.show(`${Scr.logo('Waking the world…')}`);
       await new Promise(r => setTimeout(r, 30));
       const world = await ECHO.Save.load(id);
-      if (!world) { alert('That world could not be loaded.'); return Scr.title(); }
+      if (!world) { await Scr.title(); const m = document.querySelector('#titlemsg'); if (m) m.textContent = 'That world could not be loaded.'; return; }
       if (world.player && world.player.alive) {
         // The world kept its own time while you were away? It waits — but it lived through any saved fast-forward.
         ECHO.Game.start(world);
         ECHO.UI.toast(`${world.name}. ${T.fmtDate(world.day)}.`, 'world', 4);
       } else Scr.characterCreation(world, true);
+    },
+    // Offer a file to the viewer: the claude.ai downloads capability when the
+    // page is hosted there, a normal download link elsewhere.
+    async saveFile(filename, text) {
+      try {
+        const dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null;
+        if (dl) {
+          try { await dl.save({ filename, data: text }); return `Saved ${filename}.`; }
+          catch (e) { return e && e.code === 'declined' ? 'Export cancelled.' : 'The file could not be saved.'; }
+        }
+      } catch (e) { /* fall through */ }
+      try {
+        const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        return `Saved ${filename}.`;
+      } catch (e) { return 'This browser will not save files from here.'; }
     },
     help() {
       const el = Scr.show(`${Scr.logo()}<div class="panel-inner" style="margin:0 auto"><div class="panel-body prose" style="font-size:18px">
