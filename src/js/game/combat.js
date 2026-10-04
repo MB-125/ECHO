@@ -139,6 +139,7 @@
       if (target === game.pe && (game.defeating || game.pl.capture)) return 0;
       if (target.iframes > 0) { if (target === game.pe) C.floater(target.x, target.y - 0.8, 'dodged', '#9fd3ff'); return 0; }
       const from = src.from;
+      if (from && from.hidden && !from.dead) return 0; // nothing unseen can strike
       const type = src.type;
       let dmg = amount;
       const incoming = src.angle != null ? src.angle + Math.PI : null;

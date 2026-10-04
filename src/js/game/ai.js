@@ -239,6 +239,15 @@
       const sight = sightFor(game, e, e.role === 'villager' ? 6 : 8.5) * (e.aggro ? 1.5 : 1);
       let target = e.target && !e.target.dead && !e.target.hidden && U.dist(e.x, e.y, e.target.x, e.target.y) < 16 && game.hostileTo(e, e.target) ? e.target : null;
       if (!target && (e.scanT = (e.scanT || 0) - dt) <= 0) { e.scanT = 0.25; target = findTarget(game, e, sight); }
+      // People inside a building (out of sight) can't fight from in there:
+      // fighters step out of the door to face you; everyone else stays put.
+      if (e.hidden) {
+        if (target && fighter) {
+          const out = game.freeSpotNear(world, e.x, e.y);
+          e.x = out.x; e.y = out.y; e.hidden = false; e.goal = null;
+          e.say = e.role === 'guard' ? 'Halt!' : 'Who goes there?'; e.sayT = 1.5;
+        } else { e.target = null; Person.routine(game, e, npc, dt); return; }
+      }
       if (target && target !== e.target && fighter) Person.alertFriends(game, e, target);
       e.target = target;
 
