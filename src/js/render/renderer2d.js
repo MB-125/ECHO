@@ -169,14 +169,33 @@
         if (e.burn > 0) game.light(e.x, e.y - 0.4, 2.5, 0.6, '#ff8a2a');
         if (e.mutation === 'glasshorn' && night) game.light(e.x, e.y - 0.5, 2, 0.6, '#cfefff');
       }
+      // Festival dressing: the bonfire, lantern poles, the stall, contest targets
+      if (ECHO.Fest) for (const L of ECHO.Fest.near(game)) {
+        for (const p of L.poles) objs.push({ y: p.y, draw: () => { const g = R.art(game, p.x, p.y); g.fillStyle = '#5a3e26'; g.fillRect(-1, -38, 2, 38); R.ctx.setTransform(1, 0, 0, 1, 0, 0); } });
+        objs.push({ y: L.stall.y, draw: () => R.festStall(game, L) });
+        if (L.live) objs.push({ y: L.fire.y + 0.3, draw: () => R.bonfire(game, L.fire.x, L.fire.y) });
+      }
+      if (ECHO.Fest && ECHO.Fest.contest) for (const t of ECHO.Fest.contest.targets) objs.push({ y: t.y, draw: () => R.target(game, t) });
       objs.sort((a, b) => a.y - b.y);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       for (const o of objs) o.draw();
+      // lantern strings between the poles
+      if (ECHO.Fest) for (const L of ECHO.Fest.near(game)) {
+        ctx.strokeStyle = 'rgba(40,30,20,0.8)'; ctx.lineWidth = Math.max(1, R.Z * 0.5);
+        for (let i = 0; i < L.poles.length; i++) {
+          const a = L.poles[i], b = L.poles[(i + 1) % L.poles.length];
+          if (U.dist(a.x, a.y, b.x, b.y) > 7) continue;
+          ctx.beginPath();
+          for (let k = 0; k <= 6; k++) { const t = k / 6, p = R.toScreen(game, U.lerp(a.x, b.x, t), U.lerp(a.y, b.y, t)); const yy = p.y - (38 - Math.sin(t * Math.PI) * 8) * R.Z; if (k) ctx.lineTo(p.x, yy); else ctx.moveTo(p.x, yy); }
+          ctx.stroke();
+        }
+      }
       // Projectiles & effects
       R.drawLock(game);
       R.drawFx(game);
       // Lighting
       R.drawLighting(game, dt);
+      R.drawGlows(game);
       // Weather
       const wx = ECHO.Weather ? ECHO.Weather.here(world, game.pe.x, game.pe.y) : { today: 'clear' };
       if (season === 3 || wx.today === 'snow' || wx.today === 'blizzard') { if (wx.today !== 'clear' || season === 3) R.drawSnow(game, dt); }
@@ -373,6 +392,8 @@
       if (e.dead) { ctx.globalAlpha = Math.max(0, 1 - (e.deathT || 0) / 3); ctx.rotate(Math.PI / 2 * Math.min(1, (e.deathT || 0) * 4)); }
       if (e.hurtT > 0) ctx.filter = 'brightness(2.2)';
       if (e.iframes > 0 && e === game.pe) ctx.globalAlpha = 0.55;
+      if (e.type === 'ghost' || e.species === 'hind') { ctx.globalAlpha = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)); if (e.type === 'ghost') ctx.filter = 'grayscale(1) brightness(1.9) sepia(0.3) hue-rotate(170deg)'; }
+      if (e.type === 'person' && e.dancing) ctx.translate(0, -Math.abs(Math.sin(game.time * 7 + e.id)) * 2);
       if (e.type === 'creature') S.creature(ctx, e, game.time);
       else if (e.type === 'boss') S.boss(ctx, e, game.time);
       else {
@@ -548,6 +569,50 @@
       if (dusk > 0) { ctx.fillStyle = `rgba(255,120,50,${0.1 * dusk})`; ctx.fillRect(0, 0, R.cw, R.ch); }
       void dt;
     },
+    // Wisps, fireflies, lanterns, fallen stars: soft lights drawn over the dark.
+    drawGlows(game) {
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : []);
+      if (!list.length) return;
+      const ctx = R.ctx;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'lighter';
+      for (const g of list) {
+        if (!R.onScreen(game, g.x, g.y, 4)) continue;
+        const p = R.toScreen(game, g.x, g.y);
+        const y = p.y - g.h * TS * R.Z * 0.85, rr = Math.max(2, g.s * TS * R.Z * 0.75);
+        const gr = ctx.createRadialGradient(p.x, y, 0, p.x, y, rr);
+        gr.addColorStop(0, R.rgba(g.c, Math.min(1, g.a))); gr.addColorStop(0.35, R.rgba(g.c, g.a * 0.45)); gr.addColorStop(1, R.rgba(g.c, 0));
+        ctx.fillStyle = gr; ctx.fillRect(p.x - rr, y - rr, rr * 2, rr * 2);
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    },
+    bonfire(game, x, y) {
+      const g = R.art(game, x, y);
+      const t = game.time;
+      g.fillStyle = '#3a3a3a'; g.fillRect(-10, -2, 20, 4);
+      g.fillStyle = '#5a3a1a'; g.fillRect(-9, -4, 18, 3); g.fillRect(-6, -7, 3, 5); g.fillRect(3, -7, 3, 5);
+      const f = Math.sin(t * 13) * 2, f2 = Math.sin(t * 9 + 1) * 1.5;
+      g.fillStyle = '#ff5a1f'; g.fillRect(-6, -18 - f, 12, 15 + f);
+      g.fillStyle = '#ff9a3c'; g.fillRect(-4, -15 - f2, 8, 12 + f2);
+      g.fillStyle = '#ffe28a'; g.fillRect(-2, -10, 4, 7);
+      R.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    },
+    festStall(game, L) {
+      const g = R.art(game, L.stall.x, L.stall.y);
+      const c = L.f.colors;
+      g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(-14, -1, 28, 3);
+      g.fillStyle = '#6a4a2c'; g.fillRect(-12, -10, 24, 10); g.fillRect(-13, -24, 2, 24); g.fillRect(11, -24, 2, 24);
+      for (let i = 0; i < 6; i++) { g.fillStyle = c[i % c.length]; g.fillRect(-14 + i * 5, -28, 5, 6); }
+      g.fillStyle = '#e8d9a0'; g.fillRect(-8, -13, 4, 3); g.fillRect(2, -13, 5, 3);
+      R.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    },
+    target(game, t) {
+      const g = R.art(game, t.x, t.y);
+      g.fillStyle = '#5a3e26'; g.fillRect(-5, -6, 2, 6); g.fillRect(3, -6, 2, 6);
+      const rings = ['#e8e0d0', '#c8463a', '#e8e0d0', '#c8463a', '#f2d060'];
+      for (let i = 0; i < 5; i++) { const r = 8 - i * 1.6; g.fillStyle = t.flash > 0 && i === 4 ? '#ffffff' : rings[i]; g.beginPath(); g.arc(0, -14, r, 0, Math.PI * 2); g.fill(); }
+      R.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    },
     rgba(hex, a) {
       const n = parseInt(hex.slice(1), 16);
       return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
@@ -604,6 +669,7 @@
           continue;
         }
         if (e.type === 'boss') { text(e.label, p.x, top, '#ffcf8a'); continue; }
+        if (e.marvel) { if (e.label && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6) text(e.label, p.x, top, '#bfe8ff'); continue; }
         if (e.yielded) { text('yields — [E] to spare', p.x, top, '#9fe0c8'); continue; }
         if (e.sleeping && hover) { text('asleep', p.x, top, '#9fb7d8'); continue; }
         if (e.type === 'person' && (hover || (e.carrying && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6))) {
@@ -632,6 +698,9 @@
         if (f.big) ctx.font = `${fs}px "Pixelify Sans", monospace`;
         ctx.globalAlpha = 1;
       }
+      if (ECHO.Marvels && !ECHO.Interior.cur) { ECHO.Marvels.drawSky(ctx, game, R.cw, R.ch); ECHO.Marvels.drawHints(ctx, game, (x, y) => R.toScreen(game, x, y), R.cw, R.ch); }
+      if (ECHO.Fest) ECHO.Fest.drawHUD(ctx, game, R.cw);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       // interaction prompt
       if (game.pl && !ECHO.UI.blocksWorld()) {
         const its = game.interactables();

@@ -22,6 +22,7 @@
           S.noiseBuf = S.ctx.createBuffer(1, len, S.ctx.sampleRate);
           const d = S.noiseBuf.getChannelData(0);
           for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+          if (ECHO.Music) ECHO.Music.setup();
         } catch (e) { S.ctx = null; }
       };
       window.addEventListener('keydown', start);
@@ -31,6 +32,7 @@
     setEnabled(on) {
       S.enabled = on;
       if (S.master) S.master.gain.value = on ? S.volume : 0;
+      if (ECHO.Music && ECHO.Music.out) ECHO.Music.save();
       try { localStorage.setItem('echo.sound', JSON.stringify({ enabled: S.enabled, volume: S.volume })); } catch (e) { /* ignore */ }
     },
 

@@ -407,6 +407,7 @@
         const r = def.step(world, n, s, g, rng);
         if (r === 'done') {
           def.done(world, n, s, g, rng);
+          if (ECHO.Letters) ECHO.Letters.goalDone(world, n, g);
           mind.done++; mind.last = { kind: g.kind, ok: true, d: world.day };
           mind.goal = null; mind.cool = rng.int(2, 8);
         } else if (r === 'fail' || g.age > 400) {
@@ -439,7 +440,7 @@
           target: isPlayer ? { type: 'player', id: pl.charId, name: pl.first + ' ' + pl.last, victim: victim.first, rel: REL_WORD(k, victim) }
             : { type: 'npc', id: killer.id, name: P().name(killer), victim: victim.first, rel: REL_WORD(k, victim) }
         };
-        if (isPlayer) k.op[pl.charId] = Math.min(k.op[pl.charId] || 0, -80);
+        if (isPlayer) { k.op[pl.charId] = Math.min(k.op[pl.charId] || 0, -80); if (ECHO.Letters && ECHO.hash2(ECHO.hashStr(k.id), world.day, 5) < 0.5) ECHO.Letters.onVengeance(world, k, victim.first); }
       }
       // Killing someone another person wanted dead settles their score.
       for (const n of Object.values(world.npcs)) {

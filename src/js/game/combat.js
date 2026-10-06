@@ -112,8 +112,10 @@
             else { C.burst(p.x, p.y, '#c9b28a', 4, 2, 0.3, 1); if (p.from === game.pe && ECHO.Sfx) ECHO.Sfx.play('arrowHit', { vol: 0.4 }); }
             break;
           }
+          if (p.contest && ECHO.Fest.hitTarget(p)) { p.done = true; break; }
           for (const e of game.ents) {
             if (e === p.from || e.dead || e.hidden || e.ghost) continue;
+            if (p.contest && e.type !== 'creature') continue; // contest arrows fly over the crowd
             if (U.dist(p.x, p.y, e.x, e.y - 0.15) > e.r + 0.15) continue;
             const canHit = p.from === game.pe ? !e.isCompanion : game.hostileTo(p.from, e);
             if (!canHit) continue;
@@ -228,7 +230,7 @@
         if (target.species === 'wolf' && (target.state === 'windup' || target.state === 'lunge')) { target.state = 'retreat'; target.t = 0; }
         if (target.type === 'boss' && st > 0.3) C.floater(target.x, target.y - 2, 'staggered', '#ffe08a');
       }
-      if (target === game.pe) { game.pl.hp = target.hp; game.lastHurtTime = game.time; }
+      if (target === game.pe) { game.pl.hp = target.hp; game.lastHurtTime = game.time; if (from && from !== game.pe) game.combatT = game.time; }
       if (from === game.pe && target !== game.pe) {
         const sk = type === 'melee' ? 'blade' : type === 'ranged' ? 'archery' : 'flame';
         ECHO.Character.train(game.pl, sk, type === 'ranged' ? 0.18 : 0.06);
@@ -290,6 +292,7 @@
       }
       const night = game.isNight();
       const region = ECHO.World.regionAt(world, target.x, target.y);
+      if (target.marvel) { ECHO.Marvels.onKill(target, from); return; }
       if (target.type === 'creature') {
         const sp = target.species;
         C.burst(target.x, target.y, '#5a1f1f', 10, 3, 0.6, 2);

@@ -45,7 +45,7 @@
         legends: world.legends.map(l => ({ name: l.name, epithet: l.epithet, died: l.died, cause: l.cause })),
         population: Object.values(world.npcs).filter(n => n.status !== 'dead').length,
         eras: Object.values(world.factions).filter(f => f.type === 'kingdom').map(f => ({ name: f.name, era: ECHO.Civ.eraName(world, f.id), fallen: !!f.fallen })),
-        highlights
+        highlights, livesOn: world.livesOn !== false
       };
     },
     async list() {

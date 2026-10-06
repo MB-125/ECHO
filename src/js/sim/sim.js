@@ -188,6 +188,9 @@
       ECHO.Civ.dailyTick(world, rng);
       ECHO.Chronicle.dailyTick(world, rng);
       ECHO.Legacy.dailyTick(world, rng);
+      if (ECHO.Festivals) ECHO.Festivals.dailyTick(world, rng);
+      if (ECHO.Letters) ECHO.Letters.dailyTick(world, rng);
+      if (ECHO.Wonders && world.player) ECHO.Wonders.dailyTick(world, rng);
       if (background) Sim.hourlyTick(world, 24);
       world.rngState = rng.state;
       ECHO.emit('day', { world, background });

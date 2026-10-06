@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -220,6 +220,52 @@ function main() {
     check('each realm has its own law', new Set(codes.map(c => c.split(':')[1])).size >= 2, [...new Set(codes)].join(' '));
     const pop = Object.values(A.npcs).filter(n => n.status === 'alive').length;
     check('the realm survives its hardships', pop > 120, pop + ' alive');
+  }
+
+  console.log('\nWonders, festivals and letters');
+  {
+    const B = ECHO.generateWorld({ seed: 2468, name: 'Wonderworld' });
+    const pl = B.player = { charId: 'c-w', first: 'Wren', last: 'Hollow', alive: true, known: [], accepted: [], fate: 3, inv: {}, x: B.settlements[0].x, y: B.settlements[0].y };
+    const st = ECHO.Wonders.state(B);
+    const spread = st.echoes.every((e, i) => st.echoes.every((o, j) => i === j || Math.hypot(e.x - o.x, e.y - o.y) > 19));
+    check('echoes of the old world are scattered through the wilds', st.echoes.length >= 8 && spread && st.echoes.every(e => !ECHO.World.isSolid(B, e.x, e.y)), st.echoes.length + ' echoes');
+    const r = ECHO.Wonders.findEcho(B, pl, st.echoes[0]);
+    check('an echo teaches words of the dead tongue', r && r.learned.length > 0 && r.learned.every(w => B.lang.known[w]), r && r.learned.join(', '));
+    // festivals
+    const F = ECHO.Festivals;
+    const days = []; for (let d = 0; d < 60; d++) if (F.onDay(d)) days.push(d + ':' + F.onDay(d).key);
+    check('four festivals a year', days.length === 4, days.join(' '));
+    const s0 = B.settlements.find(x => x.faction !== 'ashfang');
+    s0.hunger = 0.8;
+    check('a starving town does not keep its festival', !F.keeps(B, s0).ok, F.keeps(B, s0).why);
+    s0.hunger = 0;
+    // shades and letters
+    const rng = ECHO.Sim.rngFor(B);
+    let shade = null;
+    for (const n of Object.values(B.npcs)) {
+      if (n.status !== 'alive' || !n.spouse || n.prof === 'child' || n.faction === 'ashfang') continue;
+      const sp = B.npcs[n.spouse]; if (!sp || sp.status !== 'alive') continue;
+      n.op[pl.charId] = 60;
+      ECHO.People.kill(B, n, 'killed by wolves');
+      shade = st.shades.find(x => x.npc === n.id);
+      if (shade) break;
+    }
+    check('the restless dead leave a shade with something to say', shade && shade.words && B.npcs[shade.to], shade && shade.words);
+    const grief = ECHO.Letters.list(B).find(l => l.kind === 'grief');
+    check('the families of friends write when someone dies', !!grief, grief && grief.title);
+    ECHO.Wonders.hearShade(B, pl, shade);
+    const kin = ECHO.Wonders.deliverWords(B, pl, shade);
+    check('carrying last words home wins the family\'s heart', kin && kin.op[pl.charId] >= 35 && shade.state === 'rest', kin && Math.round(kin.op[pl.charId]));
+    const fan = Object.values(B.npcs).find(n => n.status === 'alive' && n.sex === 'f' && n.spouse && B.npcs[n.spouse] && B.npcs[n.spouse].status === 'alive' && n.prof !== 'child');
+    fan.op[pl.charId] = 90; B.npcs[fan.spouse].op[pl.charId] = 90;
+    let named = null;
+    for (let i = 0; i < 30 && !named; i++) { const kid = ECHO.People.birth(B, rng, fan, B.npcs[fan.spouse]); if (kid.first === pl.first) named = kid; }
+    check('children are named after the hero who helped their family', !!named && ECHO.Letters.list(B).some(l => l.title.includes(pl.first)), named && named.first + ' ' + named.last);
+    for (let i = 0; i < 60; i++) ECHO.Sim.dailyTick(B, true);
+    check('a year of festivals is kept (or missed) and remembered', B.chronicle.some(e => /kept (the Kindling Fair|Lantern Night|the Harvest Feast|Longnight)|did not keep/.test(e.text)), (B.chronicle.find(e => /kept|did not keep/.test(e.text)) || {}).text);
+    const json = ECHO.Save.serialize(B);
+    const B2 = ECHO.Save.deserialize(json);
+    check('wonders and letters survive a save', B2.wonders && B2.wonders.echoes.length === st.echoes.length && (B2.letters || []).length === ECHO.Letters.list(B).length, (json.length / 1024).toFixed(0) + ' KB');
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

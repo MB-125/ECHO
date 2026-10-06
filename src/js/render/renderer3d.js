@@ -614,8 +614,8 @@
       let v = R.views.get(e);
       if (v) return v;
       let inst = null, kind = e.type;
-      if (e.type === 'player' || e.type === 'person') inst = ECHO.Models.instance('person');
-      else if (e.type === 'creature') inst = ECHO.Models.instance(e.species);
+      if (e.type === 'player' || e.type === 'person' || e.type === 'ghost') inst = ECHO.Models.instance('person');
+      else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' ? 'stag' : e.species);
       else if (e.type === 'boss') inst = ECHO.Models.instance(e.boss.kind);
       if (!inst) return null;
       v = { inst, kind, cfgT: 0, dir: e.dir || 0, bob: Math.random() * 6 };
@@ -635,6 +635,13 @@
     PROF: null,
     configure(game, e, v) {
       const M = ECHO.Models, inst = v.inst, world = game.world;
+      if (e.species === 'hind') {
+        M.recolor(inst, 'stag', '#f4f2ea'); M.recolor(inst, 'cloth2', '#e6e2d6'); M.recolor(inst, 'white', '#ffffff'); M.recolor(inst, 'eyeglow', '#bfe8ff'); M.recolor(inst, 'darkwood', '#b8b0a0');
+        for (const k of ['antlers', 'armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false);
+        for (const m of inst.mats) { if (m.emissive) m.emissive.set('#3a3e48'); }
+        inst.root.scale.setScalar(0.5);
+        return;
+      }
       if (e.type === 'creature') {
         const base = { wolf: 'fur', gnawer: 'rat', hare: 'hare' }[e.species];
         const tint = e.mutation === 'mirrorback' ? '#b8c4d4' : e.mutation === 'emberfur' ? '#a8502a' : e.strain === 'Ashen' ? '#8e8e8a' : e.strain === 'Ironhide' ? '#5a4632' : null;
@@ -695,7 +702,14 @@
         const it = world.items[e.carrying];
         if (it && (it.legend || it.history.some(h => h.t.includes('taken by')))) M.recolor(inst, 'metal', '#f2dc8a');
       }
-      const scale = prof === 'child' ? 0.68 : prof === 'elder' ? 0.94 : 1.0;
+      let scale = prof === 'child' ? 0.68 : prof === 'elder' ? 0.94 : 1.0;
+      if (e.type === 'ghost') {
+        // the dead and the long-gone: pale, robed, a little lit from within
+        M.recolor(inst, 'cloth', '#cfe6ff'); M.recolor(inst, 'cloth2', '#9fc4e8'); M.recolor(inst, 'cape', '#bfe0ff'); M.recolor(inst, 'metal', '#e8f4ff');
+        M.show(inst, 'robe', true); M.show(inst, 'cape', !!e.crown); M.show(inst, 'crown', !!e.crown); M.show(inst, 'torch', false); M.show(inst, 'sword', false); M.show(inst, 'shield', false); M.show(inst, 'bow', false);
+        M.show(inst, 'hood', !e.crown && !(e.look && e.look.female));
+        if (e.child) scale = 0.66;
+      }
       inst.root.scale.setScalar(scale);
     },
     animatePerson(game, e, v, dt) {
@@ -725,11 +739,14 @@
         if (PC.heavyHold) { const c = Math.min(1, PC.holdT / 0.75); aR = aL = -2.2 - c * 0.9 + Math.sin(R.time * 40) * 0.03 * c; lean = -0.25 * c; }
       }
       if (e.yielded) { aL = -2.6; aR = -2.6; }
+      if (e.dancing) { const ph2 = R.time * 7 + e.id; aL = -2.4 + Math.sin(ph2) * 0.4; aR = -2.4 - Math.sin(ph2) * 0.4; lean = Math.sin(ph2 * 0.5) * 0.12; }
+      if (e.type === 'ghost' && e.say && e.sayT > 0 && !e.kneel) { aR = -2.2; aL = -2.2; }
       if (e.role === 'captive') { aL = 0.4; aR = 0.4; }
       // Windups glint so you can read the attack coming.
       if (e.state === 'windup' && e !== game.pe) { lean = -0.18; v.tell = 1; } else v.tell = 0;
-      const seated = e.seated && !moving && e.indoor;
+      const seated = (e.seated && !moving && e.indoor) || e.seatedGhost;
       if (seated) { P.legL.rotation.z = P.legR.rotation.z = -1.45; aL = aR = -0.45; }
+      if (e.kneel) { P.legL.rotation.z = -1.5; P.legR.rotation.z = 0.2; aL = aR = -0.3; }
       P.armL.rotation.z = aL; P.armR.rotation.z = aR;
       P.armL.rotation.x = aLx; P.armR.rotation.x = aRx;
       P.body.position.y = 0.42 + Math.abs(Math.sin(ph)) * 0.04 * (v.mv || 0) + Math.sin(R.time * 2 + v.bob) * 0.006 * (1 - (v.mv || 0));
@@ -739,6 +756,9 @@
       v.inst.root.rotation.z = 0; v.yOff = 0;
       if (e.sleeping) { v.inst.root.rotation.z = Math.PI / 2; v.yOff = e.indoor && e.indoor.pose === 'bed' && !e.indoor.floor ? 0.62 : 0.18; }
       else if (e.yielded || e.role === 'captive') v.yOff = -0.18;
+      else if (e.kneel) v.yOff = -0.22;
+      else if (e.seatedGhost) v.yOff = 0.15;
+      else if (e.dancing) v.yOff = Math.abs(Math.sin(R.time * 7 + e.id)) * 0.08;
       else if (seated) v.yOff = e.indoor.spot && /bench/.test(e.indoor.spot.tag) ? 0 : 0.02;
       // dodge roll: tuck and tumble
       // Dodge roll: dip into a tuck, tumble over the shoulders around the body's
@@ -767,6 +787,7 @@
       if (P.tail) P.tail.rotation.y = Math.sin(R.time * 5 + v.bob) * 0.3;
       v.yOff = 0;
       if (e.species === 'hare') v.yOff = Math.abs(Math.sin(ph * 0.5)) * 0.18 * (v.mv || 0);
+      if (e.species === 'hind' && P.neck) { const graze = e.state === 'graze' && Math.sin(R.time * 0.7 + e.id) > 0.3; P.neck.rotation.y = U.lerp(P.neck.rotation.y || 0, graze ? -1.1 : 0, 0.08); }
       if (e.species === 'wolf') {
         const crouch = e.state === 'windup' ? 0.12 : 0;
         v.tell = e.state === 'windup' ? 1 : 0;
@@ -811,7 +832,7 @@
         v.spd = v.spd == null ? spd : v.spd + (spd - v.spd) * Math.min(1, dt * 10);
         const wantMv = e.moving || v.spd > 0.35 ? 1 : 0;
         if (dt > 0) v.mv = (v.mv == null ? wantMv : v.mv + (wantMv - v.mv) * Math.min(1, dt * 7));
-        if (e.type === 'player' || e.type === 'person') R.animatePerson(game, e, v, dt);
+        if (e.type === 'player' || e.type === 'person' || e.type === 'ghost') R.animatePerson(game, e, v, dt);
         else if (e.type === 'creature') R.animateCreature(game, e, v);
         else R.animateBoss(game, e, v);
         // facing: smooth turn toward e.dir
@@ -860,6 +881,15 @@
           if (tell) { const t = tell === 2 ? 0.55 : 0.3; r = t; g2 = t * 0.8; b = t * 0.6; }
           if (flash === 2) { r = 1.4; g2 = 1.3; b = 1.2; } else if (flash === 1) { r = 0.9; g2 = 0.15; b = 0.1; }
           for (const m of v.inst.mats) if (m.emissive) m.emissive.setRGB(r, g2, b);
+        }
+        // ghosts and the White Hind fade in and out, and glow faintly
+        if ((e.type === 'ghost' || e.species === 'hind') && !e.dead) {
+          const a = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)) * (e.type === 'ghost' ? 0.9 + Math.sin(R.time * 3 + e.id) * 0.1 : 1);
+          for (const m of v.inst.mats) {
+            m.transparent = a < 0.99; m.opacity = a; m.depthWrite = a > 0.95;
+            if (m.emissive) m.emissive.set(e.type === 'ghost' ? '#3d6a96' : '#4a4e58');
+          }
+          root.visible = a > 0.01;
         }
         // silhouette only when trees stand between the camera and the player
         if (v.ghostMat) {
@@ -910,6 +940,99 @@
       R.rain.frustumCulled = false; R.rain.visible = false;
       R.scene.add(R.rain);
       R.flashT = 0;
+      // Glows: wisps, fireflies, lanterns, fallen stars — soft additive points
+      const GN = 1800;
+      const gg = new THREE.BufferGeometry();
+      gg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(GN * 3), 3));
+      gg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(GN * 3), 3));
+      gg.setAttribute('size', new THREE.BufferAttribute(new Float32Array(GN), 1));
+      gg.setAttribute('alpha', new THREE.BufferAttribute(new Float32Array(GN), 1));
+      R.glowMat = new THREE.ShaderMaterial({
+        uniforms: { scale: { value: 800 } },
+        vertexShader: 'uniform float scale; attribute float size; attribute float alpha; varying vec3 vC; varying float vA; void main(){ vC = color; vA = alpha; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = min(256.0, size * scale / -mv.z); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'varying vec3 vC; varying float vA; void main(){ vec2 d = gl_PointCoord - 0.5; float r = length(d) * 2.0; if (r > 1.0) discard; float a = pow(1.0 - r, 1.8); float core = smoothstep(0.35, 0.0, r); gl_FragColor = vec4(vC * (0.8 + core * 0.9), a * vA); }',
+        vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+      });
+      R.glows = new THREE.Points(gg, R.glowMat);
+      R.glows.frustumCulled = false; R.glows.renderOrder = 6;
+      R.scene.add(R.glows);
+      R.festGroup = new THREE.Group(); R.scene.add(R.festGroup); R.festKey = ''; R.festFlames = [];
+    },
+    updateGlows(game) {
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : []);
+      const ga = R.glows.geometry.attributes;
+      const n = Math.min(list.length, ga.size.count);
+      const tmp = R._gc || (R._gc = new THREE.Color());
+      const room = ECHO.Interior && ECHO.Interior.cur;
+      let k = 0;
+      if (!room) for (let i = 0; i < n; i++) {
+        const g = list[i];
+        ga.position.setXYZ(k, g.x, R.groundH(g.x, g.y) + g.h, g.y);
+        tmp.set(g.c); ga.color.setXYZ(k, tmp.r, tmp.g, tmp.b);
+        ga.size.setX(k, g.s); ga.alpha.setX(k, Math.min(1, g.a));
+        k++;
+      }
+      R.glows.geometry.setDrawRange(0, k);
+      for (const key of ['position', 'color', 'size', 'alpha']) ga[key].needsUpdate = true;
+      R.glowMat.uniforms.scale.value = R.ch / (2 * Math.tan(THREE.MathUtils.degToRad(R.camera.fov / 2)));
+    },
+    // Festival dressing in the square, rebuilt when it changes.
+    updateFestival(game) {
+      const F = ECHO.Fest;
+      if (!F) return;
+      const near = F.near(game);
+      const c = F.contest;
+      const key = near.map(L => L.key + (L.live ? 'L' : '')).join(',') + '|' + (c ? c.targets.map(t => t.x.toFixed(1)).join(':') : '');
+      if (key !== R.festKey) {
+        R.festKey = key;
+        const g = R.festGroup;
+        while (g.children.length) { const m = g.children[0]; g.remove(m); m.traverse && m.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== R.mat.prop && o.material !== R.mat.glow) o.material.dispose(); }); }
+        R.festFlames = [];
+        const poleMat = new THREE.MeshStandardMaterial({ color: C('#6a4a2c'), roughness: 0.9 });
+        for (const L of near) {
+          for (const p of L.poles) {
+            const m = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 2.6, 6), poleMat);
+            m.position.set(p.x, R.groundH(p.x, p.y) + 1.3, p.y); m.castShadow = true; g.add(m);
+          }
+          for (let i = 0; i < L.poles.length; i++) {
+            const a = L.poles[i], b = L.poles[(i + 1) % L.poles.length];
+            if (U.dist(a.x, a.y, b.x, b.y) > 7) continue;
+            const pts = [];
+            for (let k = 0; k <= 10; k++) { const t = k / 10; const x = U.lerp(a.x, b.x, t), y = U.lerp(a.y, b.y, t); pts.push(new THREE.Vector3(x, R.groundH(x, y) + 2.5 - Math.sin(t * Math.PI) * 0.5, y)); }
+            g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: '#2a2018' })));
+          }
+          // the stall: a striped awning in the festival's colours
+          const st = new THREE.Group();
+          const cols = L.f.colors;
+          const counter = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 0.6), new THREE.MeshStandardMaterial({ color: C('#7a5634'), roughness: 0.9 }));
+          counter.position.y = 0.35; counter.castShadow = true; st.add(counter);
+          for (const sx of [-0.75, 0.75]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.7, 0.08), poleMat); post.position.set(sx, 0.85, -0.25); st.add(post); }
+          for (let i = 0; i < 6; i++) { const aw = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.9), new THREE.MeshStandardMaterial({ color: C(cols[i % cols.length]), roughness: 0.8 })); aw.position.set(-0.75 + i * 0.3, 1.75, 0); aw.rotation.x = 0.25; st.add(aw); }
+          st.position.set(L.stall.x, R.groundH(L.stall.x, L.stall.y), L.stall.y);
+          g.add(st);
+          if (L.live) {
+            R.addStatic(g, 'campfire', L.fire.x, L.fire.y, null, 0, 1.7);
+            for (const [s, col, h] of [[0.55, '#ff5a1f', 1.3], [0.36, '#ffb347', 1.0], [0.2, '#ffe28a', 0.7]]) {
+              const fl = new THREE.Mesh(new THREE.ConeGeometry(s, h, 7), new THREE.MeshBasicMaterial({ color: C(col), transparent: true, opacity: 0.9 }));
+              fl.position.set(L.fire.x, R.groundH(L.fire.x, L.fire.y) + 0.35 + h / 2, L.fire.y);
+              fl.userData.h = h; g.add(fl); R.festFlames.push(fl);
+            }
+          }
+        }
+        if (c) for (const t of c.targets) {
+          const tg = new THREE.Group();
+          const tex = R.targetTex || (R.targetTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x2 = cv.getContext('2d'); const rings = ['#e8e0d0', '#c8463a', '#e8e0d0', '#c8463a', '#f2d060']; rings.forEach((col, i) => { x2.fillStyle = col; x2.beginPath(); x2.arc(64, 64, 64 - i * 12.5, 0, Math.PI * 2); x2.fill(); }); const tx = new THREE.CanvasTexture(cv); tx.encoding = THREE.sRGBEncoding; return tx; })());
+          const face = new THREE.Mesh(new THREE.CircleGeometry(0.5, 24), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 }));
+          face.position.y = 1.0; face.rotation.x = -0.5; tg.add(face);
+          const back = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.12, 20), new THREE.MeshStandardMaterial({ color: C('#c8b070'), roughness: 1 }));
+          back.rotation.x = Math.PI / 2 - 0.5; back.position.set(0, 1.0, -0.07); tg.add(back);
+          for (const sx of [-0.3, 0.3]) { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 0.06), poleMat); leg.position.set(sx, 0.5, -0.12); tg.add(leg); }
+          tg.position.set(t.x, R.groundH(t.x, t.y), t.y);
+          g.add(tg);
+        }
+      }
+      for (const fl of R.festFlames) fl.scale.set(1 + Math.sin(R.time * 11 + fl.userData.h * 5) * 0.08, 1 + Math.sin(R.time * 13 + fl.userData.h * 7) * 0.18, 1);
+      R.festGroup.visible = !(ECHO.Interior && ECHO.Interior.cur);
     },
     parseColor(str) {
       const m = /rgba?\(([^)]+)\)/.exec(str || '');
@@ -1079,8 +1202,8 @@
       R.sun.color.copy(lerpC(C('#fff4e0'), C('#ff9a5a'), Math.max(dusk, 0)));
       R.sun.castShadow = dl > 0.05;
       R.moon.position.set(tgt.x + 20, 40, tgt.z + 10); R.moon.target.position.copy(tgt);
-      R.moon.intensity = 0.32 * (1 - dl);
-      R.hemi.intensity = (0.28 + 0.42 * dl) * (0.75 + 0.25 * cloud);
+      R.moon.intensity = 0.27 * (1 - dl);
+      R.hemi.intensity = (0.2 + 0.5 * dl) * (0.75 + 0.25 * cloud);
       // lightning
       if (wx.today === 'storm' || wx.today === 'blizzard') {
         if (R.flashT <= 0 && Math.random() < dt * 0.08) { R.flashT = 0.25; setTimeout(() => ECHO.Sfx.play('thunder'), 300 + Math.random() * 1500); }
@@ -1097,7 +1220,7 @@
       const fogK = wx.today === 'fog' ? 0.45 : wx.today === 'blizzard' ? 0.5 : wx.today === 'storm' || wx.today === 'rain' ? 0.75 : 1;
       R.scene.fog.near = R.camDistNow * 1.15 * fogK;
       R.scene.fog.far = R.camDistNow * (season === 3 ? 2.6 : 3.4) * fogK;
-      R.renderer.toneMappingExposure = 1.0 + (1 - dl) * 0.35;
+      R.renderer.toneMappingExposure = 1.0 + (1 - dl) * 0.22;
       R.mat.window.emissiveIntensity = R.mat.windowFade.emissiveIntensity = (1 - dl) * 1.6;
       // Point lights: game lights + scene lights, nearest first
       const cand = [];
@@ -1206,6 +1329,8 @@
       } else for (const f of R.roomFlames || []) f.scale.y = f.scale.x * (1 + Math.sin(R.time * 13 + f.position.x) * 0.12);
       R.updateEntities(game, dt);
       R.updateFx(game, dt);
+      R.updateGlows(game);
+      if (!room) R.updateFestival(game); else if (R.festGroup) R.festGroup.visible = false;
       if (room) R.updateInteriorLighting(game, room); else R.updateLighting(game, dt);
       R.renderer.render(R.scene, R.camera);
       R.drawOverlay(game);
@@ -1300,6 +1425,12 @@
       };
       // Shop signs: what each building is and what it sells
       if (!ECHO.Interior.cur && game.pe) R.drawShopSigns(game, ctx, fs);
+      if (!ECHO.Interior.cur && game.pe && ECHO.Marvels) {
+        ECHO.Marvels.drawSky(ctx, game, R.cw, R.ch);
+        ECHO.Marvels.drawHints(ctx, game, (x, y) => R.project(x, y, 1), R.cw, R.ch);
+        ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      }
+      if (ECHO.Fest) { ECHO.Fest.drawHUD(ctx, game, R.cw); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
       const heights = { player: 1.25, person: 1.25, boss: 3.6 };
       for (const e of game.ents) {
         if (e.dead || e.hidden || e === game.pe) continue;
@@ -1322,6 +1453,7 @@
           continue;
         }
         if (e.type === 'boss') { text(e.label, p.x, ty, '#ffcf8a'); continue; }
+        if (e.marvel) { if (e.label && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6) text(e.label, p.x, ty, '#bfe8ff'); continue; }
         if (e.yielded) { text('yields — [E] to spare', p.x, ty, '#9fe0c8'); continue; }
         if (e.sleeping && hover) { text('asleep', p.x, ty, '#9fb7d8'); continue; }
         if (e.type === 'person' && (hover || (e.carrying && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6))) {

@@ -184,6 +184,14 @@
       const night = hour < 6 || hour >= 22;
       const guardNight = npc.prof === 'guard' && (h % 3 === 0 || ECHO.Civ.has(world, s.faction, 'lamps'));
       const home = house ? { ...Sched.door(house), inside: true } : null;
+      // Festival night: the whole town in the square, a ring dancing round the fire.
+      const fest = ECHO.Festivals && ECHO.Fest && ECHO.Festivals.liveAt(world, s);
+      if (fest && !npc.sick && !(e && e.hp < e.maxHp * 0.45) && (npc.prof !== 'guard' || h % 2 === 0)) {
+        const L = ECHO.Fest.layout(world, s), fx = L.fire.x, fy = L.fire.y;
+        if (hour >= 19 && npc.prof !== 'elder' && npc.prof !== 'guard' && rnd(11) < 0.42) return { x: fx + 2.6, y: fy, dance: true, why: 'festival', cx: fx, cy: fy };
+        const a = rnd(12) * Math.PI * 2, r = 3.3 + rnd(13) * 2.4;
+        return { x: fx + Math.cos(a) * r, y: fy + Math.sin(a) * r * 0.85, why: 'festival', face: { x: fx, y: fy } };
+      }
       if (night && !guardNight) return home ? { ...home, why: 'sleep' } : around(s.x, s.y, 2);
       // ---- Aware of their own state and of the world around them.
       const wx = ECHO.Weather ? ECHO.Weather.here(world, s.x, s.y) : null;
@@ -525,6 +533,19 @@
         if (e._fails >= 2) e.goal = { x: e.x + (Math.random() - 0.5) * 3, y: e.y + (Math.random() - 0.5) * 3 };
         return;
       }
+      // The festival ring dance: round and round the fire.
+      if (e.goal.dance) {
+        const g = e.goal;
+        if (e.danceA == null) e.danceA = Math.atan2(e.y - g.cy, e.x - g.cx);
+        const dR = U.dist(e.x, e.y, g.cx, g.cy);
+        if (Math.abs(dR - 2.6) < 0.7) { e.danceA += dt * 0.42; e.dancing = true; } else e.dancing = false;
+        const tx = g.cx + Math.cos(e.danceA) * 2.6, ty = g.cy + Math.sin(e.danceA) * 2.6 * 0.85;
+        ECHO.Ent.seek(world, e, tx, ty, e.speed * 0.5, dt, 0.05);
+        if (e.dancing) e.dir = e.danceA + Math.PI / 2;
+        e.hidden = false;
+        return;
+      }
+      e.dancing = false; e.danceA = null;
       // Mind the folk in the way: step round someone standing in your path.
       Person.courtesy(game, e, dt);
       const arrived = ECHO.Ent.travel(world, e, e.goal.x + (e._sideX || 0), e.goal.y + (e._sideY || 0), e.speed * (e.goal.why === 'storm' || e.goal.why === 'rain' ? 0.75 : 0.55), dt);
@@ -533,7 +554,7 @@
         if (e.goal.inside) e.hidden = true;
         else Person.settle(game, e, npc, dt);
         // Fidget at the goal
-        if (Math.random() < dt * 0.08) e.goal = { x: e.goal.x + (Math.random() - 0.5) * 2.5, y: e.goal.y + (Math.random() - 0.5) * 1.6, inside: e.goal.inside, why: e.goal.why };
+        if (Math.random() < dt * 0.08) e.goal = { x: e.goal.x + (Math.random() - 0.5) * 2.5, y: e.goal.y + (Math.random() - 0.5) * 1.6, inside: e.goal.inside, why: e.goal.why, face: e.goal.face };
       } else e.hidden = false;
       // A word now and then about why they're hurrying.
       if (!arrived && e.goal.why && e.sayT <= 0 && game.pe && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 7 && Math.random() < dt * 0.04) {
@@ -567,6 +588,7 @@
     // Arrived somewhere: face something sensible — the person you came to talk
     // to, the stall you're minding, the street — instead of a blank wall.
     settle(game, e, npc, dt) {
+      if (e.goal && e.goal.face) { e.dir = Math.atan2(e.goal.face.y - e.y, e.goal.face.x - e.x); e.flip = Math.cos(e.dir) < 0; return; }
       if ((e._faceT = (e._faceT || 0) - dt) > 0) return;
       e._faceT = 2 + Math.random() * 3;
       let best = null, bd = 2.6;

@@ -19,10 +19,11 @@
       const weapon = game.world.items[pl.weapon];
       const bow = game.world.items[pl.bow];
       const wdmg = weapon ? weapon.dmg : 5;
+      const charm = k => ECHO.Wonders && ECHO.Wonders.has(game.world, pl, k);
       PC.derived = {
         aggr, caution, reck,
         meleeCd: 0.5 * (1 - 0.32 * aggr),
-        meleeDmg: wdmg * (0.75 + pl.skills.blade / 70) * (1 + 0.28 * aggr),
+        meleeDmg: wdmg * (0.75 + pl.skills.blade / 70) * (1 + 0.28 * aggr) * (charm('courage') ? 1.12 : 1),
         meleeRange: weapon ? 1.35 : 0.95,
         meleeStam: 11 * (1 - 0.2 * aggr),
         blockMul: 1 - 0.4 * caution,
@@ -32,11 +33,13 @@
         flameDmg: 19 * (0.8 + pl.skills.flame / 55) * (1 + 0.45 * reck) * (pl.spells.includes('starfire') ? 1.25 : 1),
         flameInstab: pl.spells.includes('starfire') ? 0 : reck * 0.2,
         speed: 4.3 * (1 + pl.skills.endurance / 260),
-        maxHp: 100 + pl.skills.endurance * 0.6 + pl.skills.ward * 0.4,
-        maxSta: 100 + pl.skills.endurance * 0.8,
-        maxMana: 60 + pl.skills.flame * 1.2
+        maxHp: 100 + pl.skills.endurance * 0.6 + pl.skills.ward * 0.4 + ((pl.boons && pl.boons.hp) || 0) + (charm('health') ? 20 : 0) - (charm('hindcurse') ? 20 : 0),
+        maxSta: 100 + pl.skills.endurance * 0.8 + ((pl.boons && pl.boons.sta) || 0),
+        maxMana: 60 + pl.skills.flame * 1.2,
+        wellfed: charm('wellfed')
       };
       pl.maxHp = PC.derived.maxHp; pl.maxSta = PC.derived.maxSta; pl.maxMana = PC.derived.maxMana;
+      pl.hp = Math.min(pl.hp, pl.maxHp);
     },
 
     update(game, dt) {
@@ -184,6 +187,7 @@
             const a2 = target ? Math.atan2(target.y - pe.y, target.x - pe.x) : aim;
             const p = ECHO.Combat.shoot(pe, a2 + (Math.random() - 0.5) * spread, { kind: 'arrow', speed: (11 + 9 * PC.draw) * (perfect ? 1.25 : 1), dmg: D.bowDmg * power * (perfect ? 1.35 : 1), life: 1.2, type: 'ranged' });
             p.crit = perfect;
+            if (ECHO.Fest && ECHO.Fest.contest) p.contest = true;
             ECHO.Sfx.play('bowRelease');
             if (perfect) { ECHO.Sfx.play('perfect'); ECHO.Combat.floater(pe.x, pe.y - 1.1, 'perfect', '#fff2b0'); Ch().train(pl, 'archery', 0.1); }
             game.kick(a2 + Math.PI, 0.08);
@@ -220,7 +224,7 @@
       if (In.hit('g')) PC.useHerbs(game);
 
       // ---- Regeneration
-      if (!pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (26 + pl.skills.endurance * 0.15) * dt);
+      if (!pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1));
       if (pe.blocking) pl.stamina = Math.max(0, pl.stamina - 3 * dt * D.blockMul);
       pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40) * dt);
       if (game.time - (game.lastHurtTime || -99) > 8 && !pl.sick) pl.hp = Math.min(pl.maxHp, pl.hp + 0.5 * dt);

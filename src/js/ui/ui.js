@@ -86,7 +86,7 @@
       const reg = game.currentRegion;
       set('#hud-place', s ? `${s.name} · ${reg ? U.cap(reg.name) : ''}` : (reg ? U.cap(reg.name) : ''));
       const w = world.items[pl.weapon];
-      const inv = `<span>${w ? esc(w.name) : 'Bare hands'}</span><span>Arrows <b>${pl.inv.arrows}</b></span><span>Food <b>${pl.inv.food + (pl.inv.meat || 0)}</b></span><span>Herbs <b>${pl.inv.herbs}</b></span><span>Crowns <b>${Math.floor(pl.gold)}</b></span>${pl.companion && world.npcs[pl.companion] ? `<span>With <b>${esc(world.npcs[pl.companion].first)}</b></span>` : ''}`;
+      const inv = `<span>${w ? esc(w.name) : 'Bare hands'}</span><span>Arrows <b>${pl.inv.arrows}</b></span><span>Food <b>${pl.inv.food + (pl.inv.meat || 0)}</b></span><span>Herbs <b>${pl.inv.herbs}</b></span><span>Crowns <b>${Math.floor(pl.gold)}</b></span>${pl.companion && world.npcs[pl.companion] ? `<span>With <b>${esc(world.npcs[pl.companion].first)}</b></span>` : ''}${pl.inv.starshard ? `<span style="color:#bfe8ff">✦ <b>${pl.inv.starshard}</b></span>` : ''}${ECHO.Letters && ECHO.Letters.unread(world).length ? `<span class="gold">✉ <b>${ECHO.Letters.unread(world).length}</b> (J)</span>` : ''}`;
       if (UI._inv !== inv) { $('#hud-inv').innerHTML = inv; UI._inv = inv; }
       if (UI.bossEnt) {
         const e = UI.bossEnt;
@@ -148,6 +148,12 @@
     onNewDay(world) {
       const d = T.dateOf(world.day);
       if (d.dayOfSeason === 1) UI.banner(d.season, `Year ${d.year}`, true);
+      const F = ECHO.Festivals;
+      if (F) {
+        const t = F.today(world), tm = F.onDay(world.day + 1);
+        if (t) { UI.banner(t.title, 'Every town that can afford it celebrates in the square from four o\'clock'); ECHO.Music.stinger('festival'); }
+        else if (tm) UI.toast(`Tomorrow is ${tm.name} — ${tm.desc}. The towns will celebrate from four in the afternoon.`, 'legend', 7);
+      }
     },
     // Toast the most important news the player witnesses, as it happens.
     onChronicle(e) {
@@ -271,6 +277,14 @@
             delete npc.debt; render();
           });
         });
+        const words = ECHO.Wonders.carriedFor(world, npc.id);
+        if (words) add(`I bring words from ${words.first}.`, () => {
+          const to = ECHO.Wonders.deliverWords(world, pl, words);
+          ECHO.Music.stinger('wish');
+          const hs = words.sex === 'f' ? 'she' : 'he', hm = words.sex === 'f' ? 'her' : 'him', ns = npc.sex === 'f' ? 'She' : 'He', np = npc.sex === 'f' ? 'her' : 'his';
+          say(`${npc.first} goes very still while you speak. "That's ${hm}. That's exactly what ${hs} would say."\n\n${ns} wipes ${np} eyes. "I don't know how you heard it. I don't want to know. Thank you."${words.gift ? `\n\n(Under the hearthstone, ${npc.first} will find ${words.gift} crowns.)` : ''}`);
+          void to; render();
+        });
         add('Any tales of heroes?', () => say(ECHO.Dialogue.aboutLegends(world, npc)));
         if (npc.carry) add('That blade you carry…', () => say(ECHO.Dialogue.aboutItem(world, npc, pl)));
         // Plights this person asked for
@@ -319,7 +333,8 @@
     priceOf(s, g, selling) {
       const base = g === 'meat' ? s.prices.food * 1.2 : g === 'hide' ? 6 + s.prosperity / 25 : s.prices[g];
       const m = ECHO.Minds.priceMult(ECHO.Game.world, s, ECHO.Game.pl);
-      return U.round1(selling ? base / m : base * m);
+      const luck = selling && ECHO.Wonders && ECHO.Wonders.has(ECHO.Game.world, ECHO.Game.pl, 'fortune') ? 1.15 : 1;
+      return U.round1(selling ? base / m * luck : base * m);
     },
     nameNote(s) {
       const m = ECHO.Minds.priceMult(ECHO.Game.world, s, ECHO.Game.pl);
@@ -380,6 +395,10 @@
               <button class="small" data-sellall="${g}" ${!(pl.inv[g] > 0) ? 'disabled' : ''}>Sell all</button></div></div></div>`;
         };
         const am = ECHO.Minds.priceMult(world, s, pl), arrowP = Math.round(6 * am);
+        const luck = ECHO.Wonders.has(world, pl, 'fortune') ? 1.15 : 1;
+        const rare = { star: Math.round((55 + s.prosperity / 4) / am * luck), hide: Math.round((130 + s.prosperity / 2) / am * luck) };
+        const om = world.omen;
+        const starMerchant = om && om.kind === 'merchant' && om.sid === s.id && om.date === ECHO.Marvels.today();
         body.innerHTML = `<div class="market-top"><span>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns ${UI.nameNote(s)}</span>
             <span class="dim">${s.hunger > 0.2 ? `<span class="ember">The town is hungry.</span> Selling food here eases it — and people remember.` : s.stock.food > ECHO.Economy.need(world, s) * 12 ? 'The granaries are full.' : 'Stores are ordinary.'}</span></div>
           <div class="ware featured"><div class="ware-ic">🏹</div><div class="ware-main">
@@ -389,10 +408,28 @@
           <h4 class="ware-h">Supplies</h4><div class="wares">${['food', 'herbs'].map(card).join('')}</div>
           <h4 class="ware-h">Sell your hunt</h4><div class="wares">${['meat', 'hide'].map(card).join('')}</div>
           <h4 class="ware-h">Trade goods</h4><div class="wares">${['ore', 'timber', 'arms'].map(card).join('')}</div>
+          ${(pl.inv.starshard || 0) + (pl.inv.whitehide || 0) > 0 ? `<h4 class="ware-h">Rare things</h4><div class="wares">
+            ${pl.inv.starshard ? `<div class="ware"><div class="ware-ic">✦</div><div class="ware-main"><div class="ware-top"><b>Star-iron shard</b><span class="gold">they pay ${rare.star}</span></div><div class="ware-use">A smith can forge it into your blade; a priest knows other uses.</div><div class="ware-meta">You have <b>${pl.inv.starshard}</b></div><div class="row"><button class="small" data-rare="starshard">Sell 1</button></div></div></div>` : ''}
+            ${pl.inv.whitehide ? `<div class="ware"><div class="ware-ic">🦌</div><div class="ware-main"><div class="ware-top"><b>White hind's hide</b><span class="gold">they pay ${rare.hide}</span></div><div class="ware-use">Nobody asks where it came from. Everybody knows.</div><div class="ware-meta">You have <b>${pl.inv.whitehide}</b></div><div class="row"><button class="small" data-rare="whitehide">Sell 1</button></div></div></div>` : ''}</div>` : ''}
+          ${starMerchant ? `<h4 class="ware-h" style="color:#bfe8ff">✧ The star-merchant's stall — today only</h4><p class="dim">A stranger in a coat stitched with silver thread. "From far away," is all they'll say about where.</p><div class="wares">${ECHO.Marvels.MERCHANT.map(m => `<div class="ware"><div class="ware-ic">✧</div><div class="ware-main"><div class="ware-top"><b>${esc(m.name)}</b><span class="gold">${m.price} cr</span></div><div class="ware-use">${esc(m.desc)}</div><div class="row"><button class="small" data-star="${m.id}" ${pl.gold < m.price ? 'disabled' : ''}>Buy</button></div></div></div>`).join('')}</div>` : ''}
           <p class="dim" style="margin-top:10px">Prices move with what is in the stores. Bread here has cost: <span style="display:inline-flex;align-items:flex-end;height:30px;vertical-align:middle">${spark}</span></p>`;
         body.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
           const d = btn.dataset;
           if (d.arrows) { const n = +d.arrows; if (pl.gold >= arrowP * n) { pl.gold -= arrowP * n; pl.inv.arrows += 10 * n; s.wealth += arrowP * n; ECHO.Sfx.play('coin'); } }
+          if (d.rare && pl.inv[d.rare] > 0) {
+            pl.inv[d.rare]--; const got = d.rare === 'starshard' ? rare.star : rare.hide; pl.gold += got; s.wealth = Math.max(0, s.wealth - got * 0.5); ECHO.Sfx.play('coin');
+            if (d.rare === 'whitehide') ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} sold the hide of the White Hind in ${s.name}.`, importance: 1, sid: s.id, rep: -2, tag: 'cruel' });
+          }
+          if (d.star) {
+            const m = ECHO.Marvels.MERCHANT.find(x => x.id === d.star);
+            if (m && pl.gold >= m.price) {
+              pl.gold -= m.price; ECHO.Sfx.play('coin');
+              if (m.id === 'moonherbs') pl.inv.herbs += 5;
+              else if (m.id === 'skylantern') { UI.closePanel(); ECHO.Fest.wish(game, null, true); return; }
+              else pl.inv[m.id] = (pl.inv[m.id] || 0) + 1;
+              if (m.id === 'wisplamp') UI.toast('The wisp lantern is yours. Light it from the Wonders page of your journal (Tab).', 'legend', 5);
+            }
+          }
           const buy = (g, n) => { for (let i = 0; i < n; i++) { const p = UI.priceOf(s, g); if (pl.gold < p || s.stock[g] < 1) break; pl.gold -= p; s.stock[g] -= 1; pl.inv[g] = (pl.inv[g] || 0) + 1; s.wealth += p; ECHO.Economy.updatePrices(world, s); } ECHO.Sfx.play('coin'); };
           const sell = (g, n) => {
             let sold = 0;
@@ -443,7 +480,8 @@
           <p>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns. Wielding: <b>${esc(world.items[pl.weapon] ? world.items[pl.weapon].name : 'nothing')}</b>.</p>
           <table class="grid"><tr><th>Item</th><th>Power</th><th>Price</th><th></th></tr>${wares.map((w, i) => `<tr><td>${w.name}</td><td>${w.dmg}</td><td class="gold">${w.price}</td><td><button class="small" data-i="${i}" ${pl.gold < w.price ? 'disabled' : ''}>Buy</button></td></tr>`).join('')}</table>
           <div class="ware featured" style="margin-top:10px"><div class="ware-ic">🏹</div><div class="ware-main"><div class="ware-top"><b>Arrows</b><span class="gold">20 for 13 cr</span></div><div class="ware-use">You have <b>${pl.inv.arrows}</b>.</div><div class="row"><button data-arrows="1" ${pl.gold < 13 ? 'disabled' : ''}>Buy 20 arrows</button></div></div></div>
-          <p class="dim">The smith buys hides at ${UI.priceOf(s, 'hide')} each.</p><button data-hides="1" ${!(pl.inv.hide > 0) ? 'disabled' : ''}>Sell all hides (${pl.inv.hide || 0})</button>`;
+          <p class="dim">The smith buys hides at ${UI.priceOf(s, 'hide')} each.</p><button data-hides="1" ${!(pl.inv.hide > 0) ? 'disabled' : ''}>Sell all hides (${pl.inv.hide || 0})</button>
+          ${pl.inv.starshard && smith ? (() => { const wpn = world.items[pl.weapon]; const n = wpn ? wpn.starforged || 0 : 0; return `<div class="ware featured" style="margin-top:10px;border-color:#9fd3ff"><div class="ware-ic">✦</div><div class="ware-main"><div class="ware-top"><b>Forge star-iron into your blade</b><span class="gold">1 shard + 40 cr</span></div><div class="ware-use">${wpn ? `${esc(smith.first)} turns the shard over in the firelight. "I've heard of this. Never thought I'd hold it." Your ${esc(wpn.name)} would strike harder (+4) — and shine a little in the dark.${n >= 3 ? ' <span class="ember">It can take no more.</span>' : ''}` : 'You need a sword to forge it into.'}</div><div class="row"><button data-forge="1" ${!wpn || n >= 3 || pl.gold < 40 ? 'disabled' : ''}>Forge it</button></div></div></div>`; })() : ''}`;
         body.querySelectorAll('button[data-i]').forEach(b => b.addEventListener('click', () => {
           const w = wares[+b.dataset.i];
           pl.gold -= w.price;
@@ -457,6 +495,19 @@
         }));
         const ab = body.querySelector('button[data-arrows]');
         if (ab) ab.addEventListener('click', () => { if (pl.gold >= 13) { pl.gold -= 13; pl.inv.arrows += 20; s.wealth += 13; ECHO.Sfx.play('coin'); } render(); });
+        const fb = body.querySelector('button[data-forge]');
+        if (fb) fb.addEventListener('click', () => {
+          const wpn = world.items[pl.weapon];
+          if (!wpn || pl.gold < 40 || !(pl.inv.starshard > 0)) return;
+          pl.gold -= 40; pl.inv.starshard--; s.wealth += 40; if (smith) smith.wealth += 20;
+          wpn.dmg += 4; wpn.starforged = (wpn.starforged || 0) + 1;
+          if (wpn.starforged === 1 && !/^Star-forged/.test(wpn.name)) wpn.name = 'Star-forged ' + wpn.name.replace(/^(a|an|the) /i, '');
+          wpn.history.push({ d: world.day, t: `forged with star-iron by ${smith ? P().name(smith) : 'a smith'} of ${s.name}` });
+          ECHO.PlayerCtl.derivedT = 0;
+          ECHO.Sfx.play('block'); ECHO.Music.stinger('star');
+          UI.toast(`The blade comes out of the quench with a pale light running down its edge: ${wpn.name}.`, 'legend', 6);
+          render();
+        });
         const hb = body.querySelector('button[data-hides]');
         if (hb) hb.addEventListener('click', () => { const n = pl.inv.hide || 0; pl.gold += n * UI.priceOf(s, 'hide'); pl.inv.hide = 0; render(); });
       };
@@ -512,9 +563,17 @@
       const render = () => {
         body.innerHTML = `<p class="prose">${priest ? `<b>${esc(P().fullTitle(world, priest))}</b> tends the flame. "May it keep you."` : 'A single candle burns before the flame-carved stone.'}</p>
           <div class="list"><div class="card"><h4>Ask for healing — 5 crowns</h4><div class="row"><button data-a="heal" ${pl.gold < 5 || pl.hp >= pl.maxHp ? 'disabled' : ''}>Be healed</button></div></div>
-          <div class="card"><h4>Give alms — 20 crowns</h4><div class="dim">Feeds the poor of ${esc(s.name)}. The Lantern remembers generosity.</div><div class="row"><button data-a="alms" ${pl.gold < 20 ? 'disabled' : ''}>Give</button></div></div></div>`;
+          <div class="card"><h4>Give alms — 20 crowns</h4><div class="dim">Feeds the poor of ${esc(s.name)}. The Lantern remembers generosity.</div><div class="row"><button data-a="alms" ${pl.gold < 20 ? 'disabled' : ''}>Give</button></div></div>
+          ${pl.inv.starshard ? `<div class="card" style="border-color:#9fd3ff"><h4>✦ Offer a star-shard to the flame</h4><div class="dim">${pl.fate < 3 ? 'They say a fallen star can mend a thread of fate that has worn thin.' : 'Star-iron in the flame: a blessing on the one who brings it.'}</div><div class="row"><button data-a="star">Offer it</button></div></div>` : ''}</div>`;
         body.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
           if (btn.dataset.a === 'heal') { pl.gold -= 5; pl.hp = pl.maxHp; game.pe.burn = 0; if (pl.sick) { (pl.immune = pl.immune || []).push(pl.sick.d); delete pl.sick; UI.toast('The priest\'s remedies break your fever.', 'mercy', 3); } }
+          if (btn.dataset.a === 'star' && pl.inv.starshard > 0) {
+            pl.inv.starshard--;
+            ECHO.Music.stinger('fate');
+            if (pl.fate < 3) { pl.fate++; UI.toast('The shard melts into the flame without a sound, and the flame burns white. You feel the thread of your fate grow stronger. (+1 Fate)', 'legend', 7); }
+            else { ECHO.Wonders.boon(pl, 'hp', 6); ECHO.Wonders.charm(world, pl, 'starlit', 6); ECHO.PlayerCtl.derivedT = 0; UI.toast('The flame burns white for a moment. You feel lighter, and the night seems to lean toward you. (+6 life for good; wisps will find you easily for a few days)', 'legend', 7); }
+            ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} gave a fallen star to the flame at the ${b.type} of ${s.name}.`, importance: 1, sid: s.id, rep: 2, factionRep: { lantern: 4 } });
+          }
           if (btn.dataset.a === 'alms') {
             pl.gold -= 20; s.stock.food += 6; s.unrest = Math.max(0, s.unrest - 3);
             ECHO.Character.behave(pl, 'mercy', 0.2);
@@ -888,7 +947,8 @@
       let tab = tab0 || 'tasks', kind = 'all';
       const body = UI.openPanel('Journal', '', 'journal');
       const render = () => {
-        const tabs = [['tasks', 'Promises'], ['people', 'People'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
+        const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
+        const tabs = [['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'tasks') {
           const mine = world.plights.filter(p => pl.accepted.includes(p.id));
@@ -909,6 +969,13 @@
               <div>${feel(n.op[pl.charId] || 0)}${hunting ? ' — <span class="ember">wants revenge for ' + esc(g.target.victim) + '</span>' : ''}</div>
               <div class="dim">${g ? esc(ECHO.Minds.describeGoal(world, n)) : 'No great plans right now.'}</div></div>`;
           }).join('') : '<p class="dim">You haven\'t really met anyone yet. Talk to people — everyone here has a life, and something they want.</p>';
+        } else if (tab === 'letters') {
+          const mine = ECHO.Letters.list(world).filter(l => l.delivered && l.to === pl.charId).slice().reverse();
+          const icon = { joy: '❀', grief: '✝', threat: '✖', plea: '!' };
+          html += mine.length ? mine.map(l => `<div class="card letter ${l.read ? '' : 'unread'}" data-letter="${l.id}" style="cursor:pointer${l.kind === 'threat' ? ';border-color:#8a3a2a' : ''}"><h4>${icon[l.kind] || '✉'} ${esc(l.title)} ${l.read ? '' : '<span class="gold">· new</span>'}</h4><div class="dim">From ${esc(l.fromName)}${l.place ? ' of ' + esc(l.place) : ''} · ${T.fmtDate(l.d)}</div>${openLetter === l.id ? `<div class="prose" style="white-space:pre-wrap;margin-top:8px;font-size:16px;background:rgba(240,228,200,0.06);padding:10px;border-left:2px solid #c8a85a">${esc(l.text)}</div>` : ''}</div>`).join('')
+            : '<p class="dim">No letters yet. The people whose lives you touch will write to you — letters wait for you in the next town you enter.</p>';
+        } else if (tab === 'wonders') {
+          html += UI.wondersHtml(world, pl);
         } else if (tab === 'heard') {
           const kinds = ['all', 'war', 'politics', 'economy', 'crime', 'nature', 'intel', 'era', 'mystery', 'legacy', 'plight'];
           const known = ECHO.Chronicle.knownEntries(world).filter(e => kind === 'all' || e.kind === kind).slice(-150).reverse();
@@ -936,18 +1003,56 @@
 
 <b>Defeat is not the end.</b> Beasts leave you to be found by someone; people take you captive, take your sword, and grow in status. When fate runs out, you die for good — and become history. Your house stands, your sword lies somewhere in the world, and you can live again as someone new in the same world.
 
+<b>The world has wonders.</b> On clear nights, wisps lead the patient to the Echoes of the old world. Stars fall, and leave star-iron behind. The restless dead linger by their homes with last words for someone. A white hind walks the forest edge at dawn and dusk — go quietly. Four festivals a year bring every town into the square. People who know you write letters. Each real day brings an omen; and if you let it, the world lives on while you're away. See the Wonders page of your journal.
+
 <b>The archives</b> in capitals keep the full chronicle, the state of the realm, and the old tongue. <b>The ruins</b> hold a language unique to this world. Study it.
 </div>`;
         }
         body.innerHTML = html;
         body.querySelectorAll('button[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
         body.querySelectorAll('button[data-k]').forEach(b => b.addEventListener('click', () => { kind = b.dataset.k; render(); }));
+        body.querySelectorAll('[data-letter]').forEach(c => c.addEventListener('click', () => { const l = ECHO.Letters.list(world).find(x => x.id === c.dataset.letter); if (l) { l.read = true; openLetter = openLetter === l.id ? null : l.id; render(); } }));
+        const lamp = body.querySelector('button[data-lamp]');
+        if (lamp) lamp.addEventListener('click', () => { pl.inv.wisplamp--; UI.closePanel(); ECHO.Marvels.useWispLamp(game); });
       };
+      let openLetter = null;
       render();
+    },
+    // The Wonders page: what you've found, what's still out there.
+    wondersHtml(world, pl) {
+      const W = ECHO.Wonders, st = W.state(world);
+      const om = world.omen && world.omen.date === ECHO.Marvels.today() && world.omen.text ? world.omen : null;
+      const echoes = st.echoes.slice().sort((a, b) => a.part - b.part);
+      const found = echoes.filter(e => e.found).length;
+      const nx = ECHO.Festivals.next(world);
+      const shades = st.shades.filter(s => s.state === 'rest').length;
+      const carrying = st.shades.filter(s => s.state === 'heard');
+      const hind = st.hind === 'blessed' ? `<span class="gold">She blessed you${st.hindBlessings > 1 ? ' ' + st.hindBlessings + ' times' : ''}.</span>` : st.hind === 'slain' ? '<span class="ember">You killed her. The forest has not forgotten.</span>' : 'You have not met her. She walks at the forest\'s edge at dawn and dusk, and flees from anyone who comes noisily.';
+      const charms = (pl.charms || []).filter(c => c.until > world.day).map(c => `<b>${esc(W.CHARMS[c.kind] ? W.CHARMS[c.kind].name : c.kind)}</b> <span class="dim">(${c.until - world.day} days) — ${esc(W.CHARMS[c.kind] ? W.CHARMS[c.kind].desc : '')}</span>`);
+      return `${om ? `<div class="card" style="border-color:#9fd3ff"><h4 style="color:#bfe8ff">✧ Today's omen</h4><div class="prose">${esc(om.text)}</div></div>` : ''}
+        ${charms.length ? `<div class="card"><h4>Charms upon you</h4><div>${charms.join('<br>')}</div></div>` : ''}
+        <div class="card"><h4>✧ Echoes of the old world — ${found} of ${echoes.length}</h4>
+          <div class="dim" style="margin-bottom:6px">On clear nights far from any town, wisps gather and lead the way. Each echo is a fragment of the story of the people who spoke ${esc(world.lang ? world.lang.name : 'the old tongue')}. Every fourth one restores a thread of fate.</div>
+          ${echoes.map((e, i) => { const f = W.MYTH[e.part]; return e.found ? `<div style="margin:6px 0"><b class="gold">${i + 1}. ${esc(f.title)}</b> <span class="dim">— ${esc(f.scene)}</span><br><span style="color:#bfe8ff">“${esc(W.speech(world, f.say))}”</span></div>` : `<div class="dim" style="margin:4px 0">${i + 1}. ???${e.revealed ? ' <span style="color:#bfe8ff">— its place is marked on your map</span>' : ''}</div>`; }).join('')}
+          ${pl.inv.wisplamp ? `<div class="row"><button class="small" data-lamp="1">Light the wisp lantern (${pl.inv.wisplamp})</button></div>` : ''}</div>
+        <div class="card"><h4>Shades of the dead</h4><div>${shades ? `You have laid ${shades} to rest.` : 'The restless dead linger by their homes at night, with something left unsaid.'}</div>${carrying.map(s => `<div class="gold">You carry ${esc(s.first)}'s last words for ${esc(s.toName)}.</div>`).join('')}</div>
+        <div class="card"><h4>✦ Fallen stars</h4><div>${st.stats.stars ? `You have found ${st.stats.stars}.` : 'On clear nights, watch the sky. Some stars don\'t burn out.'}${pl.inv.starshard ? ` You carry <b>${pl.inv.starshard}</b> shard${pl.inv.starshard > 1 ? 's' : ''} of star-iron — smiths, priests and merchants will want ${pl.inv.starshard > 1 ? 'them' : 'it'}.` : ''}</div></div>
+        <div class="card"><h4>The White Hind</h4><div>${hind}</div></div>
+        <div class="card"><h4>Festivals</h4><div>${nx ? esc(ECHO.Festivals.describe(world)) : ''}</div><div class="dim">${ECHO.Festivals.LIST.map(f => `${esc(f.title)} — ${esc(T.SEASONS[f.season])} ${ECHO.Festivals.DAY}`).join(' · ')}</div>${st.stats.festivals.length ? `<div class="dim">You have kept ${st.stats.festivals.length} festival${st.stats.festivals.length > 1 ? 's' : ''}${st.stats.wishes ? ` and sent up ${st.stats.wishes} wish${st.stats.wishes > 1 ? 'es' : ''}` : ''}.</div>` : ''}</div>`;
+    },
+    // Letters waiting at a town find you when you walk in.
+    deliverLetters(why) {
+      const world = ECHO.Game.world;
+      if (!ECHO.Letters || !world) return 0;
+      const got = ECHO.Letters.deliver(world);
+      if (!got.length) return 0;
+      ECHO.Music.stinger('letter');
+      UI.toast(`${why}: ${got.length === 1 ? `a letter from ${got[0].fromName}` : `${got.length} letters`}. (J — Journal, Letters)`, 'legend', 7);
+      return got.length;
     },
     openMap() {
       const game = ECHO.Game, world = game.world, pl = game.pl;
-      const body = UI.openPanel(`Map of ${world.name}`, `<div class="mapwrap"><canvas id="worldmap"></canvas></div><div class="legend-row"><span>■ towns (by allegiance)</span><span style="color:#d0563c">▲ outlaw camps you've seen</span><span style="color:#ffcf8a">✸ lairs</span><span style="color:#c8c0b0">◇ ruins</span><span style="color:#9fd3ff">◆ the vault</span><span style="color:#fff">● you</span></div>`, 'map');
+      const body = UI.openPanel(`Map of ${world.name}`, `<div class="mapwrap"><canvas id="worldmap"></canvas></div><div class="legend-row"><span>■ towns (by allegiance)</span><span style="color:#d0563c">▲ outlaw camps you've seen</span><span style="color:#ffcf8a">✸ lairs</span><span style="color:#c8c0b0">◇ ruins</span><span style="color:#9fd3ff">◆ the vault</span><span style="color:#bfe8ff">✧ echoes</span><span style="color:#fff">✦ fallen stars</span><span style="color:#fff">● you</span></div>`, 'map');
       const c = body.querySelector('#worldmap');
       const s = Math.max(3, Math.floor(Math.min(window.innerWidth * 0.86 / world.W, window.innerHeight * 0.66 / world.H)));
       c.width = world.W * s; c.height = world.H * s;
@@ -973,6 +1078,11 @@
       for (const r of world.ruins) if (r.visited || game.explored(r.x, r.y)) lbl('◇', r.x * s, r.y * s, '#c8c0b0');
       if (world.lang.vault && world.lang.vault.revealed && !world.lang.vault.opened) lbl('◆', world.lang.vault.x * s, world.lang.vault.y * s, '#9fd3ff');
       if (world.rift) lbl('✧', world.rift.x * s, world.rift.y * s, '#b48aff');
+      const wst = world.wonders;
+      if (wst) {
+        for (const e of wst.echoes || []) if (e.revealed && !e.found) { lbl('✧', e.x * s, e.y * s, '#bfe8ff'); }
+        for (const st2 of wst.stars || []) if (!st2.taken) lbl('✦', st2.x * s, st2.y * s, '#ffffff');
+      }
       // accepted plight targets
       for (const p of world.plights) {
         if (p.status !== 'open' || !pl.accepted.includes(p.id)) continue;

@@ -170,6 +170,7 @@
         ECHO.Chronicle.add(world, { text: `${P.name(a)} and ${P.name(b)} were wed in ${s ? s.name : 'the wilds'}.`, kind: 'life', importance: 1, sid: a.loc, npcs: [a.id, b.id] });
         P.remember(world, a, 'married ' + b.first, 'joy', b.id, 2);
         P.remember(world, b, 'married ' + a.first, 'joy', a.id, 2);
+        if (ECHO.Letters) ECHO.Letters.onMarry(world, a, b);
       }
     },
 
@@ -193,6 +194,8 @@
 
     kill(world, n, cause, killerName, killerRef) {
       if (n.status === 'dead') return;
+      if (ECHO.Wonders) ECHO.Wonders.onDeath(world, n, cause);
+      if (ECHO.Letters) ECHO.Letters.onDeath(world, n, cause);
       n.status = 'dead'; n.diedDay = world.day; n.cause = cause;
       delete n.mind;
       if (ECHO.Property && world._prop) ECHO.Property.onDeath(world, n);
@@ -238,6 +241,13 @@
         const l = rng.pick(admired);
         first = l.first; namedAfter = l.charId;
       }
+      // …or after the living hero who saved them.
+      const hero = world.player && world.player.alive ? world.player : null;
+      let namedForPlayer = null;
+      if (!first && hero) {
+        const fan = [mom, dad].sort((a, b) => (b.op[hero.charId] || 0) - (a.op[hero.charId] || 0))[0];
+        if ((fan.op[hero.charId] || 0) >= 70 && rng.chance(0.45)) { first = hero.first; namedForPlayer = fan; }
+      }
       const kid = P.create(world, rng, { home: mom.loc, faction: mom.faction, culture: mom.culture, last: dad.last, prof: 'child', born: world.day, parents: [mom.id, dad.id], first, namedAfter });
       mom.kids.push(kid.id); dad.kids.push(kid.id);
       // Children inherit a trait from a parent half the time.
@@ -246,6 +256,10 @@
       world.stats.births++;
       P.remember(world, mom, `gave birth to ${kid.first}`, 'joy', kid.id, 2);
       P.remember(world, dad, `became father to ${kid.first}`, 'joy', kid.id, 2);
+      if (namedForPlayer) {
+        ECHO.Chronicle.add(world, { text: `In ${s ? s.name : 'the wilds'}, ${P.name(namedForPlayer)} named ${namedForPlayer === mom ? 'her' : 'his'} newborn ${kid.first}, after ${hero.first} ${hero.last}.`, kind: 'legacy', importance: 1, sid: s ? s.id : null, npcs: [kid.id], char: hero.charId });
+        if (ECHO.Letters) ECHO.Letters.onBirthNamed(world, namedForPlayer, kid);
+      }
       if (namedAfter) {
         const l = world.legends.find(x => x.charId === namedAfter);
         ECHO.Chronicle.add(world, { text: `In ${s.name}, ${P.name(mom)} named her newborn ${kid.first}, after ${l ? l.name + ' ' + l.epithet : 'a hero of old'}.`, kind: 'legacy', importance: 2, sid: s.id, npcs: [kid.id] });

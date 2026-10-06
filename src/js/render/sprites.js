@@ -428,6 +428,21 @@
     creature(g, e, time) {
       const R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
       const sp = e.species;
+      if (sp === 'hind') {
+        // the White Hind: slender, pale, a faint shine about her
+        const walk = e.moving ? Math.sin(e.anim * 14) : 0;
+        g.save(); if (e.flip) g.scale(-1, 1);
+        R('rgba(0,0,0,0.2)', -8, -1, 16, 2);
+        const l = Math.round(walk * 1.5);
+        R('#d8d4c8', -6, -8 + Math.max(0, l), 2, 8 - Math.max(0, l)); R('#d8d4c8', -3, -8, 2, 8); R('#d8d4c8', 3, -8 + Math.max(0, -l), 2, 8 - Math.max(0, -l)); R('#d8d4c8', 5, -8, 2, 8);
+        R('#f4f2ea', -7, -14, 15, 7); R('#ffffff', -6, -14, 11, 2); R('#e2ddd0', -7, -8, 15, 1);
+        const graze = e.state === 'graze' && Math.sin(time * 0.7 + e.id) > 0.3;
+        if (graze) { R('#f4f2ea', 7, -12, 3, 3); R('#f4f2ea', 9, -9, 4, 3); R('#9fd3ff', 11, -9, 1, 1); }
+        else { R('#f4f2ea', 6, -19, 3, 7); R('#f4f2ea', 7, -21, 6, 4); R('#e8c8c8', 7, -24, 1, 3); R('#e8c8c8', 9, -24, 1, 3); R('#9fd3ff', 11, -20, 1, 1); }
+        R('#ffffff', -9, -14, 2, 2);
+        g.restore();
+        return;
+      }
       const walk = e.moving ? Math.sin(e.anim * 16) : 0;
       let base = ECHO.SPECIES[sp].color;
       if (e.strain && S.STRAIN_TINT[e.strain]) base = mix(base, S.STRAIN_TINT[e.strain], 0.65);

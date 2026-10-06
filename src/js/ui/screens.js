@@ -28,6 +28,7 @@
     async title() {
       ECHO.Game.world && ECHO.Game.save();
       ECHO.Game.world = null; ECHO.Game.pl = null;
+      if (ECHO.Music) { ECHO.Music.setMood('title'); ECHO.Music.quiet(); }
       const metas = (await ECHO.Save.list()).sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
       let sel = metas[0] ? metas[0].id : null;
       const el = Scr.show(`${Scr.logo('A world that existed before you, continues without you, and remembers what you do.')}
@@ -35,11 +36,13 @@
           <h3>${esc(m.name)}</h3>
           <div class="m">${esc(m.date)} · ${m.population} souls · ${Math.round((m.playSeconds || 0) / 60)} min lived<br>${m.hero ? `Now: <b>${esc(m.hero)}</b>, ${esc(m.heroTitle || '')}` : '<span class="ember">No one lives your life here now.</span>'}${m.legends && m.legends.length ? `<br>Legends: ${m.legends.map(l => esc(l.name)).join(', ')}` : ''}<br>${(m.eras || []).map(e => esc(e.name.replace('Kingdom of ', '').replace(' Dominion', '')) + ': ' + esc(e.era)).join(' · ')}</div>
           ${m.highlights && m.highlights.length ? `<div class="hl">“${esc(m.highlights[m.highlights.length - 1])}”</div>` : ''}
+          ${m.hero && m.livesOn !== false && m.savedAt && Date.now() - m.savedAt >= 7.2e6 ? `<div class="hl" style="color:#bfe8ff">The world has lived on without you — ${Math.min(5, Math.floor((Date.now() - m.savedAt) / 7.2e6))} day${Math.min(5, Math.floor((Date.now() - m.savedAt) / 7.2e6)) > 1 ? 's' : ''} will have passed.</div>` : ''}
         </div>`).join('')}</div>
         <div class="actions">${metas.length ? '<button class="primary" data-a="enter">Enter world</button>' : ''}<button data-a="new" class="${metas.length ? '' : 'primary'}">Begin a new world</button>${metas.length ? '<button data-a="del">Forget world…</button>' : ''}<button data-a="help">How ECHO works</button>${window.echoNative ? '<button data-a="quit">Quit</button>' : ''}</div>
         ${window.echoNative ? '' : `<div class="actions" style="margin-top:8px">${metas.length ? '<button class="small" data-a="export">Export world</button>' : ''}<button class="small" data-a="import">Import world</button><input type="file" id="importfile" accept=".json,.echo,application/json" hidden></div>`}
         <p class="faint" style="text-align:center;margin-top:30px;font-size:12px">Worlds never reset. Each one lives and changes on its own. ${window.echoNative ? 'F11 toggles fullscreen.' : 'Worlds are kept in this browser; export one to keep a backup. Best with a keyboard and mouse.'}</p>
         <div id="titlemsg" class="dim" style="text-align:center;margin-top:8px"></div>`);
+      Scr.titleFx(el);
       const msg = t => { const m = el.querySelector('#titlemsg'); if (m) m.textContent = t; };
       if (ECHO.Save.storageBlocked) msg('This browser is blocking storage, so worlds cannot be saved here. You can still play; export your world before leaving.');
       const fileIn = el.querySelector('#importfile');
@@ -77,16 +80,65 @@
         }
       }));
     },
+    // Embers and wisps drifting behind the title.
+    titleFx(el) {
+      const c = document.createElement('canvas');
+      c.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0';
+      el.prepend(c);
+      const scr = el.querySelector('.scr'); if (scr) { scr.style.position = 'relative'; scr.style.zIndex = '1'; }
+      const g = c.getContext('2d');
+      const P = [];
+      for (let i = 0; i < 70; i++) P.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.01, vy: -0.01 - Math.random() * 0.025, r: 1 + Math.random() * 2.5, ph: Math.random() * 6, wisp: i < 8 });
+      let last = performance.now();
+      const step = now => {
+        if (!c.isConnected) return;
+        const dt = Math.min(0.05, (now - last) / 1000); last = now;
+        const w = c.width = window.innerWidth, h = c.height = window.innerHeight;
+        for (const p of P) {
+          p.ph += dt; p.x += (p.vx + Math.sin(p.ph * 0.7) * 0.004) * dt; p.y += p.vy * dt * (p.wisp ? 0.4 : 1);
+          if (p.y < -0.05) { p.y = 1.05; p.x = Math.random(); }
+          const a = (0.35 + 0.35 * Math.sin(p.ph * 2)) * (p.wisp ? 1 : 0.8);
+          const rr = p.r * (p.wisp ? 3 : 1);
+          const gr = g.createRadialGradient(p.x * w, p.y * h, 0, p.x * w, p.y * h, rr * 4);
+          gr.addColorStop(0, p.wisp ? `rgba(200,232,255,${a})` : `rgba(255,190,110,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = gr; g.beginPath(); g.arc(p.x * w, p.y * h, rr * 4, 0, Math.PI * 2); g.fill();
+        }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    },
     async enter(id) {
       Scr.show(`${Scr.logo('Waking the world…')}`);
       await new Promise(r => setTimeout(r, 30));
       const world = await ECHO.Save.load(id);
       if (!world) { await Scr.title(); const m = document.querySelector('#titlemsg'); if (m) m.textContent = 'That world could not be loaded.'; return; }
       if (world.player && world.player.alive) {
-        // The world kept its own time while you were away? It waits — but it lived through any saved fast-forward.
+        // The world lives on while you are away: a day for every two hours, up to five.
+        const away = world.lastSeen ? Date.now() - world.lastSeen : 0;
+        const days = world.livesOn === false || world.player.capture ? 0 : Math.min(5, Math.floor(away / 7.2e6));
         ECHO.Game.start(world);
         ECHO.UI.toast(`${world.name}. ${T.fmtDate(world.day)}.`, 'world', 4);
+        const omen = ECHO.Marvels.dailyOmen(world);
+        if (days >= 1) ECHO.Game.fastForward(days, `While you were away…`, events => Scr.welcomeBack(world, days, events, omen));
+        else if (omen || (ECHO.Letters && ECHO.Letters.waiting(world).length)) setTimeout(() => Scr.welcomeBack(world, 0, [], omen), 600);
       } else Scr.characterCreation(world, true);
+    },
+    // Coming back: what happened, who wrote, what the day holds.
+    welcomeBack(world, days, events, omen) {
+      const UI = ECHO.UI, pl = world.player;
+      const letters = ECHO.Letters ? ECHO.Letters.deliver(world) : [];
+      const open = world.plights.filter(p => pl.accepted.includes(p.id) && p.status === 'open');
+      const fest = ECHO.Festivals.next(world);
+      if (letters.length) ECHO.Music.stinger('letter');
+      UI.modal({
+        title: days ? `${days === 1 ? 'A day has' : days + ' days have'} passed in ${world.name}` : `Welcome back to ${world.name}`,
+        html: `${days ? `<p class="prose">The world did not wait for you. It is now ${esc(T.fmtDate(world.day))}.</p>${UI.eventsDigest(events, 'While you were away')}` : ''}
+          ${letters.length ? `<div class="card"><h4 class="gold">✉ ${letters.length === 1 ? 'A letter found you' : letters.length + ' letters found you'}</h4><div>${letters.map(l => `${esc(l.title)} <span class="dim">— ${esc(l.fromName)}</span>`).join('<br>')}</div><div class="dim">Read them in your journal (J), under Letters.</div></div>` : ''}
+          ${omen && omen.text ? `<div class="card" style="border-color:#9fd3ff"><h4 style="color:#bfe8ff">✧ Today's omen</h4><div class="prose">${esc(omen.text)}</div></div>` : ''}
+          ${fest && fest.inDays <= 3 ? `<div class="card"><h4>❀ ${esc(ECHO.Festivals.describe(world))}</h4><div class="dim">${esc(U.cap(fest.f.desc))}.</div></div>` : ''}
+          ${open.length ? `<p class="dim">You have ${open.length} promise${open.length > 1 ? 's' : ''} still to keep.</p>` : ''}`,
+        choices: [{ label: 'Step back into the world', onPick: () => {} }]
+      });
     },
     // Offer a file to the viewer: the claude.ai downloads capability when the
     // page is hosted there, a normal download link elsewhere.
@@ -113,6 +165,8 @@
 <b>The world.</b> Everyone in ECHO is a real, persistent person who lives whether or not you're watching. Kingdoms grow hungry and go to war. Outlaws raid and take captives. Merchants chase profit and flee danger. Beasts multiply or starve. Your actions ripple — but no one will tell you which ripple was yours.
 
 <b>Learning enemies.</b> Factions adapt to how you fight. Bosses learn your habits during a fight and remember them afterwards.
+
+<b>Wonders.</b> On clear nights wisps lead to the Echoes of the old world; stars fall and leave star-iron; the restless dead have last words to pass on; a white hind walks the forest edge at dawn and dusk. Four festivals a year fill the town squares with music, lanterns, feasts and an archery contest. People who know you write letters, each real day brings an omen, and the world lives on while you're away.
 
 <b>Death.</b> Defeat by beasts costs fate; defeat by people means captivity. When fate is gone you die, and the world remembers you. Begin again as someone new — perhaps as kin of the one who fell.
 </div></div><div class="actions"><button class="primary">Back</button></div>`);
@@ -236,7 +290,9 @@
         <div class="card"><h4>View distance</h4><div class="row"><button class="small" data-z="-1">Closer</button><button class="small" data-z="1">Farther</button><span class="dim">${UI.settings.zoom}</span></div></div>
         <div class="card"><h4>Graphics</h4><div class="row"><button class="small" data-g="3d" ${ECHO.render3d ? 'disabled' : ''}>3D</button><button class="small" data-g="2d" ${ECHO.render3d ? '' : 'disabled'}>Classic 2D</button><span class="dim">${ECHO.render3d ? 'Using 3D' : 'Using classic 2D'}</span></div></div>
         <div class="card"><h4>Pace of life</h4><div class="row">${['brisk', 'steady', 'lifelike'].map(p => `<button class="small" data-p="${p}" ${(ECHO.Game.world && (ECHO.Game.world.pace || 'brisk')) === p ? 'disabled' : ''}>${{ brisk: 'Brisk', steady: 'Steady', lifelike: 'Lifelike' }[p]}</button>`).join('')}</div><div class="dim">A day lasts ${{ brisk: 6, steady: 12, lifelike: 24 }[(ECHO.Game.world && ECHO.Game.world.pace) || 'brisk']} real minutes. Slower pace: lives, seasons and wars unfold more gradually around you.</div></div>
-        <div class="card"><h4>Sound</h4><div class="row"><button class="small" data-s="on" ${ECHO.Sfx.enabled ? 'disabled' : ''}>On</button><button class="small" data-s="off" ${ECHO.Sfx.enabled ? '' : 'disabled'}>Off</button></div></div>
+        <div class="card"><h4>Sound</h4><div class="row"><button class="small" data-s="on" ${ECHO.Sfx.enabled ? 'disabled' : ''}>On</button><button class="small" data-s="off" ${ECHO.Sfx.enabled ? '' : 'disabled'}>Off</button></div>
+          <div class="row"><span>Music</span><input type="range" id="musvol" min="0" max="100" value="${Math.round(ECHO.Music.volume * 100)}" ${ECHO.Music.enabled ? '' : 'disabled'} style="flex:1"><button class="small" data-mu="${ECHO.Music.enabled ? 'off' : 'on'}">${ECHO.Music.enabled ? 'Mute music' : 'Play music'}</button></div></div>
+        <div class="card"><h4>While you are away</h4><div class="row"><button class="small" data-lo="on" ${ECHO.Game.world && ECHO.Game.world.livesOn !== false ? 'disabled' : ''}>The world lives on</button><button class="small" data-lo="off" ${ECHO.Game.world && ECHO.Game.world.livesOn === false ? 'disabled' : ''}>The world waits</button></div><div class="dim">When the world lives on, a day passes for every two hours you are gone (at most five), and you come back to news, letters and changes.</div></div>
         <button data-a="help">How the world works</button>
         <button data-a="title">Save and return to title</button>
         ${window.echoNative ? '<button data-a="quit">Save and quit</button>' : ''}</div>`, 'pause');
@@ -259,6 +315,9 @@
         location.reload();
       }));
       body.querySelectorAll('button[data-p]').forEach(b => b.addEventListener('click', () => { if (ECHO.Game.world) ECHO.Game.world.pace = b.dataset.p; Scr.openPause(); }));
+      body.querySelectorAll('button[data-mu]').forEach(b => b.addEventListener('click', () => { ECHO.Music.setEnabled(b.dataset.mu === 'on'); Scr.openPause(); }));
+      body.querySelectorAll('button[data-lo]').forEach(b => b.addEventListener('click', () => { if (ECHO.Game.world) ECHO.Game.world.livesOn = b.dataset.lo === 'on'; Scr.openPause(); }));
+      const mv = body.querySelector('#musvol'); if (mv) mv.addEventListener('input', () => ECHO.Music.setVolume(mv.value / 100));
       body.querySelectorAll('button[data-s]').forEach(b => b.addEventListener('click', () => { ECHO.Sfx.setEnabled(b.dataset.s === 'on'); Scr.openPause(); }));
       body.querySelectorAll('button[data-z]').forEach(b => b.addEventListener('click', () => {
         UI.settings.zoom = U.clamp(UI.settings.zoom + +b.dataset.z, -2, 3);

@@ -21,6 +21,9 @@
       ECHO.Interior.cur = null;
       if (Game.pl.x >= 9000 || !isFinite(Game.pl.x)) { const h = ECHO.Sim.settlement(world, Game.pl.homeId) || world.settlements[0]; Game.pl.x = h.x + 0.5; Game.pl.y = h.y + 2.5; }
       ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset();
+      if (ECHO.Wonders) ECHO.Wonders.state(world);
+      if (ECHO.Marvels) ECHO.Marvels.reset();
+      if (ECHO.Fest) ECHO.Fest.reset();
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
       Game.pl.explored = Game.pl.explored || new Array(Math.ceil(world.W / 4) * Math.ceil(world.H / 4)).fill(0);
@@ -65,6 +68,7 @@
         }
         if (Game.world) ECHO.Renderer.draw(Game, simDt);
         ECHO.UI.frame(Game, dt);
+        if (Game.world && ECHO.Music) ECHO.Music.update(Game, dt);
       } catch (err) { console.error(err); ECHO.UI.error && ECHO.UI.error(err); }
       In.endFrame();
       requestAnimationFrame(Game.loop);
@@ -87,7 +91,8 @@
       // Others
       for (const e of Game.ents) {
         if (e === Game.pe || e.dead) continue;
-        if (e.type === 'creature') ECHO.AI.Creature.update(Game, e, dt);
+        if (e.marvel) ECHO.Marvels.updateEnt(Game, e, dt);
+        else if (e.type === 'creature') ECHO.AI.Creature.update(Game, e, dt);
         else if (e.type === 'person') ECHO.AI.Person.update(Game, e, dt);
         else if (e.type === 'boss') ECHO.Boss.update(Game, e, dt);
         e.hurtT = Math.max(0, e.hurtT - dt);
@@ -104,6 +109,8 @@
       for (const e of Game.ents) if (e.dead && !e.vanish) { e.deathT = (e.deathT || 0) + dt; if (e.deathT > 3) e.vanish = true; }
       Game.ents = Game.ents.filter(e => !e.vanish);
       ECHO.Spawner.update(Game, dt);
+      ECHO.Marvels.update(Game, dt);
+      ECHO.Fest.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -129,7 +136,7 @@
       Game.save();
     },
 
-    save() { if (Game.world) return ECHO.Save.save(Game.world); },
+    save() { if (Game.world) { Game.world.lastSeen = Date.now(); return ECHO.Save.save(Game.world); } },
 
     // ------------------------------------------------------------ Fast forward
     // The world keeps living while the player rests, waits or is imprisoned.
@@ -232,7 +239,7 @@
     hostileTo(a, b) {
       if (!a || !b || a === b || a.dead || b.dead) return false;
       const pl = Game.pl;
-      const side = e => (e.type === 'player' || e.isCompanion) ? 'player' : e.type === 'boss' ? 'beast' : e.type === 'creature' ? (e.species === 'hare' ? 'prey' : 'beast') : 'person';
+      const side = e => (e.type === 'player' || e.isCompanion) ? 'player' : e.type === 'boss' ? 'beast' : e.type === 'creature' ? (e.species === 'hare' || e.species === 'hind' ? 'prey' : 'beast') : 'person';
       const sa = side(a), sb = side(b);
       if (sa === 'prey' || sb === 'prey') return sa === 'player' || sb === 'player' ? false : (sa === 'beast' || sb === 'beast') && false;
       if (sa === 'player' && sb === 'player') return false;
@@ -415,6 +422,13 @@
           const fresh = ECHO.Chronicle.learnAt(world, s);
           if (fresh.length) ECHO.UI.toast(`You catch up on the news in ${s.name} (${fresh.length} new). Press Tab to read the journal.`, 'rumor', 5);
           s.visited = true;
+          if (!force) ECHO.UI.deliverLetters(`A courier in ${s.name} has been waiting for you`);
+          const fe = ECHO.Festivals && ECHO.Festivals.today(world);
+          if (fe && !force) {
+            const k = ECHO.Festivals.keeps(world, s);
+            if (k.ok) ECHO.UI.toast(world.minute < 16 * 60 ? `${s.name} is getting ready for ${fe.name}. It begins at four, in the square.` : `${U.cap(fe.name)} is on in ${s.name}! Find the festival stall in the square.`, 'legend', 6);
+            else ECHO.UI.toast(`${s.name} is not keeping ${fe.name} this year — ${k.why}.`, 'info', 5);
+          }
         }
       }
       const region = ECHO.World.regionAt(world, pe.x, pe.y);
@@ -485,6 +499,7 @@
       if (v && !v.opened && near(v.x + 0.5, v.y + 1.2, 1.8)) out.push({ kind: 'vault', label: 'Examine the carved stone', d: 0.5 });
       if (world.rift && near(world.rift.x + 0.5, world.rift.y + 0.5, 2.4)) out.push({ kind: 'rift', label: 'Look into the Rift', d: 0.5 });
       for (const c of world.camps) if (c.captives.length && near(c.x + 2.5, c.y - 1.2, 1.6)) { /* captives handled as entities */ }
+      out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;
     },
@@ -509,6 +524,7 @@
         }
         case 'vault': return ECHO.UI.openVault();
         case 'rift': return ECHO.UI.openRift();
+        case 'act': return it.act();
       }
       void pl; void world;
     },
