@@ -184,6 +184,7 @@
       ECHO.Minds.dailyTick(world, rng);
       if (ECHO.Disease) ECHO.Disease.dailyTick(world, rng);
       if (ECHO.Law) ECHO.Law.dailyTick(world, rng);
+      if (ECHO.Watch) ECHO.Watch.dailyTick(world, rng);
       ECHO.Politics.dailyTick(world, rng);
       if (ECHO.Realm) ECHO.Realm.dailyTick(world, rng);
       if (ECHO.Explore) ECHO.Explore.dailyTick(world, rng);

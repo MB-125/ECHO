@@ -379,7 +379,13 @@
         ECHO.Court.record(game, 'theft', { s: L.s, victim: npc.id, witnesses: watchers.map(e => e.npcId), value: coin + food * 4 });
         ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} was caught stealing from a house in ${L.s.name}.`, importance: 1, x: L.outside.x, y: L.outside.y, rep: -5, factionRep: { [L.s.faction]: -6 }, tag: 'betray' });
         ECHO.UI.toast(`${npc.first} saw you. You took ${food} food and ${coin} crowns.`, 'warn', 4);
-      } else ECHO.UI.toast(`You take ${food} food and ${coin} crowns. No one saw.`, 'info', 3);
+      } else {
+        ECHO.UI.toast(`You take ${food} food and ${coin} crowns. No one saw.`, 'info', 3);
+        // the family finds the cupboard bare; the watch asks who was seen near the house
+        const owner = L.b.npcOwner && world.npcs[L.b.npcOwner];
+        const seenNear = ECHO.Patrol ? Object.entries(ECHO.Patrol.seen).filter(([, t]) => game.time - t < 120).map(([id]) => id) : [];
+        if (ECHO.Watch && (seenNear.length || Math.random() < 0.5)) ECHO.Watch.playerCase(world, { kind: 'burglary', sid: L.s.id, victim: owner ? owner.id : null, x: L.outside.x, y: L.outside.y, seenNear, value: coin + food * 4, night: game.isNight() });
+      }
     }
   };
 })();

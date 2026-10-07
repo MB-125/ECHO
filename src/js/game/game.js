@@ -25,6 +25,8 @@
       if (ECHO.Marvels) ECHO.Marvels.reset();
       if (ECHO.Fest) ECHO.Fest.reset();
       if (ECHO.Quests) ECHO.Quests.reset();
+      if (ECHO.Patrol) ECHO.Patrol.reset();
+      if (ECHO.Finds) ECHO.Finds.reset();
       if (ECHO.Explore) ECHO.Explore.sites(world);
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
@@ -115,6 +117,8 @@
       ECHO.Marvels.update(Game, dt);
       ECHO.Fest.update(Game, dt);
       ECHO.Quests.update(Game, dt);
+      ECHO.Patrol.update(Game, dt);
+      ECHO.Finds.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -269,6 +273,7 @@
     },
     canPlayerHit(e) {
       if (e.isCompanion) return false;
+      if (e.criminal) return true;
       if (e.type === 'creature' || e.type === 'boss') return true;
       if (Game.hostileTo(Game.pe, e)) return true;
       if (e.yielded) return true;
@@ -279,18 +284,35 @@
     witnessed(x, y, exclude) {
       return Game.ents.some(o => o.type === 'person' && !o.dead && !o.hidden && !o.sleeping && o !== exclude && o.role !== 'bandit' && o.role !== 'captive' && !o.isCompanion && !(o.npcId && Game.world.npcs[o.npcId] && ECHO.Minds.covers(Game.world, Game.world.npcs[o.npcId], Game.pl)) && U.dist(o.x, o.y, x, y) < (Game.isNight() ? 7 : 12) && ECHO.Ent.lineOfSight(Game.world, o.x, o.y, x, y));
     },
-    crime(target, kind) {
+    crime(target, kind, method) {
       const world = Game.world, pl = Game.pl;
       const npc = world.npcs[target.npcId];
       if (!npc || npc.faction === 'ashfang') return;
       target.aggro = true;
-      const seen = Game.witnessed(Game.pe.x, Game.pe.y, target) || kind !== 'murder';
-      if (!seen) return;
-      ECHO.Court.record(Game, kind, { victimEnt: target, known: kind !== 'murder' });
+      if (pl.deputy && pl.deputy.faction === npc.faction) ECHO.Watch.dismiss(world, pl, 'for laying hands on the people they swore to protect');
       const f = npc.faction;
-      const before = pl.wanted[f] || 0;
-      pl.wanted[f] = Math.min(200, before + (kind === 'murder' ? 90 : 35));
-      for (const o of Game.ents) if (o.type === 'person' && o.faction === f && (o.role === 'guard' || o.role === 'soldier') && U.dist(o.x, o.y, Game.pe.x, Game.pe.y) < 16) { o.target = Game.pe; o.say = 'Stop, criminal!'; o.sayT = 2; }
+      const heat = kind === 'murder' ? 90 : 35;
+      // one attack is one crime: later blows add to it, a death turns it to murder
+      const prev = target._crimeRec && ECHO.Law.crimes(world).find(c => c.id === target._crimeRec && c.status === 'open');
+      if (prev) {
+        if (kind === 'murder' && prev.kind !== 'murder') { prev.kind = 'murder'; prev.heat = 90; if (prev.reported !== false) pl.wanted[f] = Math.min(200, (pl.wanted[f] || 0) + 55); }
+        if (kind === 'assault') return;
+      }
+      const seen = !!prev || Game.witnessed(Game.pe.x, Game.pe.y, target) || kind !== 'murder';
+      if (!seen) { ECHO.Patrol.unseen(Game, kind, target, method || Game._lastKillType); return; }
+      if (!prev) {
+        const guardSaw = ECHO.Patrol.guardSees(Game, Game.pe.x, Game.pe.y);
+        const rec = ECHO.Court.record(Game, kind, { victimEnt: target, known: kind !== 'murder' });
+        if (rec) target._crimeRec = rec.id;
+        if (rec && !guardSaw) {
+          // nobody from the watch saw it: the witnesses have to tell them
+          rec.reported = false; rec.heat = heat;
+          ECHO.Patrol.raiseCry(Game, rec, target, kind === 'assault');
+        } else {
+          pl.wanted[f] = Math.min(200, (pl.wanted[f] || 0) + heat);
+          for (const o of Game.ents) if (o.type === 'person' && o.faction === f && (o.role === 'guard' || o.role === 'soldier') && U.dist(o.x, o.y, Game.pe.x, Game.pe.y) < 16) { o.target = Game.pe; o.say = 'Stop, criminal!'; o.sayT = 2; }
+        }
+      }
       ECHO.Character.behave(pl, 'betrayal', kind === 'murder' ? 1 : 0.4);
       if (kind === 'murder') ECHO.Character.behave(pl, 'cruelty', 0.8);
       npc.op[pl.charId] = (npc.op[pl.charId] || 0) - 50;
@@ -314,6 +336,7 @@
     },
     personKilledByPlayer(ent, npc, type, ctx) {
       const world = Game.world, pl = Game.pl;
+      Game._lastKillType = type === 'ranged' ? 'arrow' : /fire|flame|burn|spell/.test(type || '') ? 'fire' : 'blade';
       if (npc.faction === 'ashfang' || ent.role === 'bandit') {
         ECHO.Intel.recordKill(world, 'ashfang', { method: type, night: ctx.night, leader: ctx.wasLeader, stealth: ctx.stealth });
         pl.kills['Ashfang outlaws'] = (pl.kills['Ashfang outlaws'] || 0) + 1;
@@ -329,6 +352,13 @@
           for (const p of ECHO.Plights.open(world)) if (p.kind === 'bounty' && p.campId === (ctx.camp && ctx.camp.id)) { p.claimable = true; p.claimableDay = world.day; }
           ECHO.Character.behave(pl, 'protect', 0.4);
         }
+        return;
+      }
+      // A fleeing thief cut down: no murder, but people will talk.
+      if (ent.criminal && !ent.yielded) {
+        const s2 = ECHO.World.nearestSettlement(world, ent.x, ent.y);
+        ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} cut down ${ECHO.People.name(npc)}, a thief running from the watch${s2 ? ' in ' + s2.name : ''}. Some say it was more than a purse deserved.`, importance: 1, x: ent.x, y: ent.y, rep: -2, tag: 'cruel' });
+        ECHO.Character.behave(pl, 'cruelty', 0.5);
         return;
       }
       // They came at you first: a killing, but not a murder.
@@ -505,7 +535,7 @@
       if (v && !v.opened && near(v.x + 0.5, v.y + 1.2, 1.8)) out.push({ kind: 'vault', label: 'Examine the carved stone', d: 0.5 });
       if (world.rift && near(world.rift.x + 0.5, world.rift.y + 0.5, 2.4)) out.push({ kind: 'rift', label: 'Look into the Rift', d: 0.5 });
       for (const c of world.camps) if (c.captives.length && near(c.x + 2.5, c.y - 1.2, 1.6)) { /* captives handled as entities */ }
-      out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game));
+      out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game), ...ECHO.Patrol.interactables(Game), ...ECHO.Finds.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;
     },

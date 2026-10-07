@@ -44,7 +44,8 @@
     dole: { name: 'Grain dole', desc: 'Grain from the royal stores goes to the hungry towns.', days: 10 },
     curfew: { name: 'Royal curfew', desc: 'No one abroad between midnight and dawn, in every town of the realm.', days: 20 },
     fireban: { name: 'Ban on fire-casting', desc: 'Casting fire is forbidden in every town of the realm.', days: 30 },
-    amnesty: { name: 'Amnesty', desc: 'Old crimes are pardoned in the ruler\'s mercy.', days: 5 }
+    amnesty: { name: 'Amnesty', desc: 'Old crimes are pardoned in the ruler\'s mercy.', days: 5 },
+    nightwatch: { name: 'The night watch', desc: 'The watch is doubled after dark in every town of the realm, at the crown\'s expense.', days: 30 }
   };
 
   const R = ECHO.Realm = {
@@ -143,7 +144,7 @@
           if (R.placeBuilding(world, s, 'house', 3, 3, 5, 15, true)) opts.push({ s, k: 'houses', w: 2 });
           else s._noRoom = world.day; // hemmed in: the overflow will have to go and found a village
         }
-        if (!R.has(s, 'watch') && world.camps.some(c => c.alive && U.dist(c.x, c.y, s.x, s.y) < 40)) opts.push({ s, k: 'watch', w: st.agenda === 'secure' ? 2 : 0.7 });
+        if (!R.has(s, 'watch') && (world.camps.some(c => c.alive && U.dist(c.x, c.y, s.x, s.y) < 40) || (s.watch && s.watch.safety < 50))) opts.push({ s, k: 'watch', w: (st.agenda === 'secure' ? 2 : 0.7) + (s.watch && s.watch.safety < 50 ? 1.5 : 0) });
       }
       const cap = S().settlement(world, f.capital);
       const ruler = R.ruler(world, f);
@@ -239,7 +240,7 @@
       const Tl = ECHO.TILE;
       const own = R.towns(world, f);
       let best = null, bs = -Infinity;
-      for (let i = 0; i < 2500; i++) {
+      for (let i = 0; i < 6000; i++) {
         const x = rng.int(14, world.W - 15), y = rng.int(12, world.H - 13);
         const t = ECHO.World.tile(world, x, y);
         if (t !== Tl.GRASS && t !== Tl.FOREST) continue;

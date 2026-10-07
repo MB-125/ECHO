@@ -33,6 +33,7 @@
     LANDMARKS, DELVES,
     sites(world) {
       if (!world.sites) X.place(world);
+      if (!world._wild && ECHO.Discover) ECHO.Discover.ensure(world);
       return world.sites;
     },
     place(world) {
@@ -75,8 +76,9 @@
       world._tileEpoch = (world._tileEpoch || 0) + 1;
     },
     byId(world, id) { return X.sites(world).find(s => s.id === id); },
-    label(site) { return (site.cat === 'landmark' ? LANDMARKS : DELVES)[site.kind].label; },
-    desc(site) { return (site.cat === 'landmark' ? LANDMARKS : DELVES)[site.kind].desc; },
+    def(site) { return site.cat === 'wonder' ? ECHO.Discover.WONDERS[site.kind] : (site.cat === 'landmark' ? LANDMARKS : DELVES)[site.kind]; },
+    label(site) { return X.def(site).label; },
+    desc(site) { return X.def(site).desc; },
     title(site) { return U.cap(site.name); },
     // delves fill up again with time
     refill(world, site) {

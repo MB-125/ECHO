@@ -233,9 +233,19 @@
       pl.discovered = (pl.discovered || 0) + 1;
       ECHO.Music.stinger('discover');
       UI().banner(U.cap(site.name), X().label(site));
-      UI().toast(`${X().desc(site)}${site.cat === 'delve' ? ' (E to enter.)' : ''} The archives pay for accounts of places like this.`, 'legend', 7);
+      UI().toast(`${X().desc(site)}${site.cat === 'delve' ? ' (E to enter.)' : ''}${site.unnamed ? ' No one has ever charted this place.' : ' The archives pay for accounts of places like this.'}`, 'legend', 7);
+      if (site.unnamed) setTimeout(() => Q.nameModal(game, site), 1400);
       ECHO.Chronicle.add(world, { text: `${pl.first} ${pl.last} came upon ${site.name}.`, kind: 'player', importance: 0, x: site.x, y: site.y, char: pl.charId });
       if (site.kind === 'lookout') { site.used[pl.charId] = world.day; Q.lookout(game, site, true); }
+    },
+    // The first to chart a wonder names it.
+    nameModal(game, site) {
+      const world = game.world, pl = game.pl;
+      if (!site.unnamed || UI().paused()) return;
+      const sugg = ECHO.Discover.suggestions(world, site, pl);
+      UI().modal({ title: 'Name this place', html: `<p class="prose">${esc(X().desc(site))}</p><p>No map shows it. No one in any town knows it is here. Whatever you call it, the world will call it.</p><input id="wname" maxlength="28" value="${esc(sugg[0] || '')}" style="width:100%;font-size:18px;padding:6px"><p class="dim">Or: ${sugg.slice(1).map(esc).join(', ')}…</p>`,
+        choices: [{ label: 'So it shall be called', onPick: () => { const v = (document.querySelector('#wname') || {}).value || sugg[0]; ECHO.Discover.name(world, site, v, pl); ECHO.Music.stinger('discover'); UI().banner(site.name, X().label(site)); UI().toast(`${site.name} is on the map now — your name for it. The archives will want to hear of it.`, 'legend', 6); } }, { label: 'Leave it nameless for now', onPick: () => {} }] });
+      setTimeout(() => { const i = document.querySelector('#wname'); if (i) { i.focus(); i.select(); i.addEventListener('keydown', e => e.stopPropagation()); } }, 50);
     },
     lookout(game, site, first) {
       const world = game.world, pl = game.pl, cw = Math.ceil(world.W / 4);
@@ -307,6 +317,63 @@
           ECHO.Character.behave(pl, 'mercy', 0.05);
           return UI().toast('You trim the wick and say a few words. You feel steadier. (Healed half your wounds.)', 'mercy', 4);
         }
+        case 'falls': {
+          if (site.used[id] === world.day) return UI().toast('You have already stood under the falls today.', 'info', 3);
+          const firstTime = !site.used[id];
+          site.used[id] = world.day;
+          pl.stamina = pl.maxSta; pl.mana = pl.maxMana; pl.hp = Math.min(pl.maxHp, pl.hp + pl.maxHp * 0.3);
+          if (pl.charms && pl.charms.hindcurse) { delete pl.charms.hindcurse; ECHO.PlayerCtl.derivedT = 0; }
+          if (firstTime) { ECHO.Wonders.boon(pl, 'sta', 6); ECHO.PlayerCtl.derivedT = 0; }
+          ECHO.Music.stinger('wish');
+          return UI().toast(`The cold water hammers the tiredness out of you.${firstTime ? ' (+6 stamina, for good.)' : ''} Any curse on you washes downstream.`, 'mercy', 6);
+        }
+        case 'springs': {
+          if (site.used[id] === world.day) return UI().toast('You have soaked here today.', 'info', 3);
+          site.used[id] = world.day;
+          pl.hp = pl.maxHp; pl.stamina = pl.maxSta;
+          if (pl.sick) { (pl.immune = pl.immune || []).push(pl.sick.d); delete pl.sick; }
+          const winter = ECHO.TIME.dateOf(world.day).seasonIdx === 3;
+          ECHO.Wonders.charm(world, pl, 'health', winter ? 4 : 2); ECHO.PlayerCtl.derivedT = 0;
+          ECHO.Sim.advance(world, 60);
+          return UI().toast(`You soak for an hour in the steaming water${winter ? ' while snow falls around you' : ''}. Every ache dissolves. (Healed; hale for ${winter ? 'four' : 'two'} days.)`, 'mercy', 6);
+        }
+        case 'grotto': {
+          if (site.used[id] && world.day - site.used[id] < 20) return UI().toast('The crystals you could reach are gone. More will grow.', 'info', 3);
+          site.used[id] = world.day;
+          pl.inv.crystal = (pl.inv.crystal || 0) + 1; pl.mana = pl.maxMana;
+          ECHO.Character.train(pl, 'study', 0.4);
+          ECHO.Sfx.play('pickup');
+          return UI().toast('You work a crystal free. It is cold, and hums faintly against your palm. (The archives pay well for these.)', 'study', 6);
+        }
+        case 'bones': {
+          if (site.used[id]) return UI().toast('You have measured every bone already.', 'info', 3);
+          site.used[id] = world.day;
+          const lang = world.lang;
+          const words = lang ? ECHO.Mysteries.WORDS.filter(w => !lang.known[w]).slice(0, 1) : [];
+          for (const w of words) lang.known[w] = true;
+          if (words.length) ECHO.Mysteries.checkVault(world);
+          ECHO.Character.train(pl, 'study', 1.5); pl.renown += 2;
+          return UI().toast(`You pace out the ribs: forty feet, if it is an inch. On the great skull someone long ago cut a single rune${words.length ? ` — "${words[0]}"` : ''}. The archives will not believe you.`, 'study', 7);
+        }
+        case 'crater': {
+          if (site.used[id]) return UI().toast('The crater has given up its star.', 'info', 3);
+          site.used[id] = world.day;
+          pl.inv.starshard = (pl.inv.starshard || 0) + 2;
+          ECHO.Music.stinger('star');
+          return UI().toast('In the fused glass at the crater\'s heart, two shards of star-iron, still faintly warm after who knows how many years.', 'legend', 6);
+        }
+        case 'ring': {
+          if (!night) return UI().toast('By day it is only mushrooms. The old folk say to come back after dark.', 'info', 3);
+          if (site.used[id] && world.day - site.used[id] < 7) return UI().toast('The ring is quiet. One wish a week, the old folk say.', 'info', 3);
+          site.used[id] = world.day;
+          const r = Math.random();
+          ECHO.Music.stinger('wish');
+          if (r < 0.5) { ECHO.Wonders.charm(world, pl, 'fortune', 4); ECHO.PlayerCtl.derivedT = 0; return UI().toast('You make your wish. Somewhere very close, someone laughs, pleased. (Fortune smiles on you for four days.)', 'legend', 6); }
+          if (r < 0.75) { pl.fate = Math.min(3, pl.fate + (pl.fate < 3 && Math.random() < 0.3 ? 1 : 0)); pl.renown += 1; return UI().toast('You make your wish. The mushrooms glow, all at once, and go dark. You feel watched — kindly.', 'legend', 6); }
+          const lost = Math.min(pl.gold, 15 + Math.floor(Math.random() * 25)); pl.gold -= lost;
+          ECHO.Sim.advance(world, 180);
+          return UI().toast(`You make your wish — and wake three hours later at the edge of the ring, ${lost} crowns lighter. The fair folk take their price.`, 'warn', 6);
+        }
         case 'wreck': {
           if (site.used[id]) return UI().toast('There is nothing left in the wreck.', 'info', 3);
           site.used[id] = world.day;
@@ -332,6 +399,12 @@
         if (!s.found && d < 5) Q.discover(game, s);
         if (s.kind === 'moonwell' && T.daylight(world.minute) < 0.4) { Q.glows.push({ x: s.x, y: s.y, h: 0.6, s: 2.2, c: '#9fd3ff', a: 0.5 }); game.light(s.x, s.y, 4, 0.8, '#9fd3ff'); }
         if (s.kind === 'wayshrine' && T.daylight(world.minute) < 0.6) game.light(s.x, s.y, 3, 0.8, '#ffc070');
+        const dark = T.daylight(world.minute) < 0.4;
+        if (s.kind === 'grotto' && dark) { Q.glows.push({ x: s.x, y: s.y - 0.2, h: 0.7, s: 2, c: '#8ff0ff', a: 0.45 }); game.light(s.x, s.y, 4, 0.9, '#8ff0ff'); }
+        if (s.kind === 'ring' && dark) for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + game.time * 0.1; Q.glows.push({ x: s.x + Math.cos(a) * 1.9, y: s.y + Math.sin(a) * 1.9, h: 0.15, s: 0.6, c: '#e8f8d8', a: 0.35 + 0.15 * Math.sin(game.time * 2 + i) }); }
+        if (s.kind === 'springs') Q.glows.push({ x: s.x + Math.sin(game.time * 0.7) * 0.4, y: s.y, h: 0.6 + (game.time * 0.4 % 1), s: 1.6, c: '#ffffff', a: 0.12 });
+        if (s.kind === 'crater' && !Object.keys(s.used).length) Q.glows.push({ x: s.x, y: s.y, h: 0.2, s: 0.9, c: '#ffe8b0', a: 0.4 + 0.2 * Math.sin(game.time * 3) });
+        if (s.kind === 'falls') Q.glows.push({ x: s.x, y: s.y - 1.2, h: 0.4, s: 2.2, c: '#e8f4ff', a: 0.15 });
         if (s.cat === 'delve' && (s.kind === 'barrow' || s.kind === 'crypt') && !s.cleared && T.daylight(world.minute) < 0.4) Q.glows.push({ x: s.x, y: s.y + 0.6, h: 0.5, s: 1.2, c: '#9fe8c8', a: 0.35 });
       }
       Q.t -= dt;
@@ -421,8 +494,10 @@
         if (d > 2.6) continue;
         if (s.cat === 'delve') { X().refill(world, s); out.push({ kind: 'act', label: `Enter ${s.name}${s.cleared ? ' (quiet now)' : ''}`, d: d * 0.5, act: () => Q.enterDelve(game, s) }); }
         else {
-          const label = { stones: 'Read the standing stones', lookout: 'Look out over the land', moonwell: 'Drink from the moonwell', oak: 'Rest beneath the great oak', battlefield: 'Search the battlefield', wayshrine: 'Pray at the wayside shrine', wreck: 'Search the wreck' }[s.kind];
+          const label = { stones: 'Read the standing stones', lookout: 'Look out over the land', moonwell: 'Drink from the moonwell', oak: 'Rest beneath the great oak', battlefield: 'Search the battlefield', wayshrine: 'Pray at the wayside shrine', wreck: 'Search the wreck',
+            falls: 'Stand beneath the falls', springs: 'Soak in the springs', grotto: 'Work a crystal free', bones: 'Study the bones', crater: 'Search the crater', ring: 'Step into the ring and make a wish' }[s.kind];
           out.push({ kind: 'act', label, d: d * 0.5, act: () => Q.useLandmark(game, s) });
+          if (s.unnamed && s.found) out.push({ kind: 'act', label: 'Name this place', d: d * 0.5 + 0.1, act: () => Q.nameModal(game, s) });
         }
       }
       for (const e of game.ents) if (e.lostQuest && !e.following && !e.dead && U.dist(e.x, e.y, pe.x, pe.y) < 1.8) {

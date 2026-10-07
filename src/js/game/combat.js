@@ -267,7 +267,7 @@
       }
       // Being hit makes non-hostile people angry at the player.
       if (from === game.pe && (target.role === 'guard' || target.role === 'soldier')) game.lastHitGuard = game.time;
-      if (from === game.pe && target.type === 'person' && target.hp > 0 && !game.hostileTo(target, game.pe)) game.crime(target, 'assault');
+      if (from === game.pe && target.type === 'person' && target.hp > 0 && !game.hostileTo(target, game.pe) && !(target.criminal && !target.yielded)) game.crime(target, 'assault', type === 'ranged' ? 'arrow' : /fire|flame|burn|spell/.test(type || '') ? 'fire' : 'blade');
       if (from === game.pe && target.type !== 'player') {
         target.aggro = true;
         if (target.type === 'creature' && target.species === 'hare') target.state = 'flee';

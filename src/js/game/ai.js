@@ -182,7 +182,7 @@
       const rnd = (k) => ECHO.hash2(h, Math.floor(hour) + k + salt * 17, world.day);
       const around = (x, y, r) => ({ x: x + (rnd(1) - 0.5) * r * 2, y: y + (rnd(2) - 0.5) * r * 2 });
       const night = hour < 6 || hour >= 22;
-      const guardNight = npc.prof === 'guard' && (h % 3 === 0 || ECHO.Civ.has(world, s.faction, 'lamps'));
+      const guardNight = npc.prof === 'guard' && (h % 3 === 0 || ECHO.Civ.has(world, s.faction, 'lamps') || (ECHO.Patrol && ECHO.Patrol.nightShift(world, s, npc)));
       const home = house ? { ...Sched.door(house), inside: true } : null;
       // Festival night: the whole town in the square, a ring dancing round the fire.
       const fest = ECHO.Festivals && ECHO.Fest && ECHO.Festivals.liveAt(world, s);
@@ -259,6 +259,8 @@
         case 'scholar': case 'inventor': return at('archive', 1);
         case 'ruler': return s.kind === 'capital' ? at('keep', 1.5) : at('market', 1.5);
         case 'guard': {
+          const post = ECHO.Patrol && ECHO.Patrol.guardTarget(game, s, npc, hour);
+          if (post) return post;
           const a = (h % 628) / 100 + game.time * 0.02 + Math.floor(hour) * 1.3;
           const r = 6 + (h % 4);
           return { x: s.x + Math.cos(a) * r, y: s.y + Math.sin(a) * r };
@@ -284,6 +286,7 @@
       if (e.state === 'stagger') e.state = 'idle';
       if (e.role === 'captive') { e.moving = false; return; }
       if (e.lostQuest) return ECHO.Quests.updateLost(game, e, dt);
+      if ((e.incident || e.reporting || e.chase || e.question) && ECHO.Patrol && ECHO.Patrol.ent(game, e, dt)) return;
       if (e.pilloried) { e.moving = false; e.dir = Math.PI / 2; if (e.sayT <= 0 && Math.random() < dt * 0.05) { e.say = ['Water… please.', 'It was only bread!', 'Don\'t look at me.', 'Let me out of here!'][Math.floor(Math.random() * 4)]; e.sayT = 3; } return; }
       if (e.yielded) { e.moving = false; e.state = 'yield'; return; }
       if (e.indoor && e.sleeping) { e.moving = false; if (!e.aggro) return; e.sleeping = false; e.seated = false; }

@@ -175,7 +175,7 @@
       const h = ECHO.hashStr(npc.id + npc.first);
       const skins = ['#f1c9a5', '#e0ac85', '#c68a62', '#a8694a', '#7d4b33', '#5c3524'];
       const hairs = ['#2b1d14', '#4a3020', '#7a4b26', '#b07a3c', '#d9b26a', '#e7e1d6', '#8c2f1c', '#1b1b1b'];
-      return { skin: skins[h % skins.length], hair: hairs[(h >> 3) % hairs.length], hairStyle: (h >> 6) % 4, beard: npc.sex === 'm' && ((h >> 8) % 3 === 0), female: npc.sex === 'f' };
+      return { skin: skins[h % skins.length], hair: hairs[(h >>> 3) % hairs.length], hairStyle: (h >>> 6) % 4, beard: npc.sex === 'm' && ((h >>> 8) % 3 === 0), female: npc.sex === 'f' };
     },
 
     // ------------------------------------------------------------ Camps

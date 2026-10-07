@@ -11,11 +11,11 @@
 
   // p: punishment ('fine' | 'stocks' | 'jail' | 'banish' | 'hang' | 'bloodprice')
   const CODES = {
-    valdren: { name: 'the King\'s Peace', judge: 'magistrate', theft: { p: 'fine', mult: 3, min: 15 }, assault: { p: 'jail', days: 4 }, murder: { p: 'hang' }, arson: { p: 'hang' }, debt: { p: 'jail', days: 6 }, trespass: { p: 'fine', min: 10 }, resisting: { p: 'jail', days: 3 }, flame: null, curfew: { p: 'fine', min: 5 }, tax: { p: 'fine', mult: 2, min: 10 } },
-    ashmere: { name: 'the Merchant Charter', judge: 'assessor', theft: { p: 'fine', mult: 4, min: 20 }, assault: { p: 'fine', min: 30 }, murder: { p: 'bloodprice', min: 150 }, arson: { p: 'fine', mult: 2, min: 120 }, debt: { p: 'fine', mult: 1.5, min: 20 }, trespass: { p: 'fine', min: 6 }, resisting: { p: 'fine', min: 25 }, flame: null, curfew: { p: 'fine', min: 4 }, tax: { p: 'fine', mult: 1.5, min: 8 }, bribable: true },
-    lantern: { name: 'the Lantern Rule', judge: 'high priest', theft: { p: 'stocks' }, assault: { p: 'jail', days: 3 }, murder: { p: 'banish', days: 120 }, arson: { p: 'banish', days: 90 }, debt: { p: 'stocks' }, trespass: { p: 'stocks' }, resisting: { p: 'jail', days: 2 }, flame: { p: 'fine', min: 20 }, curfew: { p: 'fine', min: 5 }, tax: { p: 'fine', mult: 1.5, min: 8 } }
+    valdren: { name: 'the King\'s Peace', judge: 'magistrate', theft: { p: 'fine', mult: 3, min: 15 }, burglary: { p: 'jail', days: 6 }, smuggling: { p: 'jail', days: 8 }, assault: { p: 'jail', days: 4 }, murder: { p: 'hang' }, arson: { p: 'hang' }, debt: { p: 'jail', days: 6 }, trespass: { p: 'fine', min: 10 }, resisting: { p: 'jail', days: 3 }, flame: null, curfew: { p: 'fine', min: 5 }, tax: { p: 'fine', mult: 2, min: 10 } },
+    ashmere: { name: 'the Merchant Charter', judge: 'assessor', theft: { p: 'fine', mult: 4, min: 20 }, burglary: { p: 'fine', mult: 5, min: 50 }, smuggling: { p: 'fine', mult: 3, min: 60 }, assault: { p: 'fine', min: 30 }, murder: { p: 'bloodprice', min: 150 }, arson: { p: 'fine', mult: 2, min: 120 }, debt: { p: 'fine', mult: 1.5, min: 20 }, trespass: { p: 'fine', min: 6 }, resisting: { p: 'fine', min: 25 }, flame: null, curfew: { p: 'fine', min: 4 }, tax: { p: 'fine', mult: 1.5, min: 8 }, bribable: true },
+    lantern: { name: 'the Lantern Rule', judge: 'high priest', theft: { p: 'stocks' }, burglary: { p: 'jail', days: 4 }, smuggling: { p: 'banish', days: 60 }, assault: { p: 'jail', days: 3 }, murder: { p: 'banish', days: 120 }, arson: { p: 'banish', days: 90 }, debt: { p: 'stocks' }, trespass: { p: 'stocks' }, resisting: { p: 'jail', days: 2 }, flame: { p: 'fine', min: 20 }, curfew: { p: 'fine', min: 5 }, tax: { p: 'fine', mult: 1.5, min: 8 } }
   };
-  const CRIME_WORD = { theft: 'theft', assault: 'assault', murder: 'murder', arson: 'arson', debt: 'unpaid debt', trespass: 'trespass', resisting: 'resisting arrest', flame: 'casting fire within the walls', curfew: 'breaking the curfew', tax: 'unpaid taxes' };
+  const CRIME_WORD = { theft: 'theft', burglary: 'burglary', smuggling: 'smuggling', assault: 'assault', murder: 'murder', arson: 'arson', debt: 'unpaid debt', trespass: 'trespass', resisting: 'resisting arrest', flame: 'casting fire within the walls', curfew: 'breaking the curfew', tax: 'unpaid taxes' };
   const SEVERITY = { fine: 1, stocks: 2, jail: 3, bloodprice: 3, banish: 4, hang: 5 };
 
   const L = ECHO.Law = {
@@ -58,7 +58,7 @@
       const c = L.code(world, s);
       const line = k => `${U.cap(CRIME_WORD[k])}: ${L.describeSentence(L.sentenceFor(world, s, k, 10))}`;
       const out = [`${s.name} keeps ${c.name}, judged by ${c.judgeName}.`];
-      for (const k of ['theft', 'assault', 'murder', 'arson', 'trespass', 'debt']) out.push(line(k));
+      for (const k of ['theft', 'burglary', 'assault', 'murder', 'arson', 'smuggling', 'trespass', 'debt']) out.push(line(k));
       if (c.noFlame) out.push(line('flame'));
       if (c.curfew) out.push('Curfew: no one abroad in the streets between midnight and dawn. ' + line('curfew').split(': ')[1] + '.');
       if (c.harsh) out.push('The reeve is known to be harsh.');
@@ -76,7 +76,7 @@
       return c;
     },
     openAgainstPlayer(world, pl, faction) {
-      return L.crimes(world).filter(c => c.by === 'player' && c.status === 'open' && (!faction || c.faction === faction));
+      return L.crimes(world).filter(c => c.by === 'player' && c.status === 'open' && c.reported !== false && (!faction || c.faction === faction));
     },
     // How strong the case is: living witnesses, the victim's own word, what everyone has heard.
     evidence(world, c) {
@@ -90,7 +90,7 @@
       const n = world.npcs[o.by];
       const s = S().settlement(world, o.sid);
       if (!n || !s) return;
-      const caught = o.kind === 'debt' || rng.chance(o.kind === 'murder' ? 0.75 : 0.5);
+      const caught = o.caught || o.kind === 'debt' || rng.chance(o.kind === 'murder' ? 0.75 : 0.5);
       if (!caught) return;
       const x = L.sentenceFor(world, s, o.kind, o.amt || 10);
       if (!x) return;
@@ -139,8 +139,8 @@
       for (const n of Object.values(world.npcs)) if (n.jailUntil && n.jailUntil <= world.day) delete n.jailUntil;
       // old, minor charges are quietly dropped; murder is never forgotten
       for (const c of L.crimes(world)) if (c.status === 'open' && c.kind !== 'murder' && c.kind !== 'arson' && world.day - c.d > 45) c.status = 'dropped';
-      // the desperate steal — and sometimes get caught
-      for (const s of world.settlements) {
+      // the desperate steal — and sometimes get caught (the Watch runs this when present)
+      if (!ECHO.Watch) for (const s of world.settlements) {
         if (s.faction === 'ashfang') continue;
         for (const n of P().residents(world, s)) {
           if (n.prof === 'child' || n.prof === 'bandit' || !(n.starve > 2 || n.wealth < 1)) continue;

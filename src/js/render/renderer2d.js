@@ -161,6 +161,14 @@
         if (Math.abs(s.x - cam.x) > halfW + 4 || Math.abs(s.y - cam.y) > halfH + 4) continue;
         objs.push({ y: s.y + 0.5, draw: () => R.site(game, s) });
       }
+      for (const c of world.caches || []) {
+        if (Math.abs(c.x - game.cam.x) > 22 || Math.abs(c.y - game.cam.y) > 16) continue;
+        objs.push({ y: c.y, draw: () => R.site(game, { kind: 'cache_' + c.kind, x: c.x, y: c.y - 0.5, used: {} }) });
+      }
+      const EX = world.expedition;
+      if (EX && EX.camp && Math.abs(EX.camp.x - game.cam.x) < 22 && Math.abs(EX.camp.y - game.cam.y) < 16) {
+        objs.push({ y: EX.camp.y + 0.5, draw: () => R.site(game, { kind: 'expcamp', x: EX.camp.x, y: EX.camp.y, used: {} }) });
+      }
       for (const s of world.settlements) {
         if (!s.works || !s.works.walls || Math.abs(s.x - cam.x) > halfW + 20 || Math.abs(s.y - cam.y) > halfH + 20) continue;
         const rad = s.kind === 'capital' ? 17 : 14.5, n = Math.round(rad * 2 * Math.PI / 0.7);
@@ -279,6 +287,16 @@
         case 'barrow': g.fillStyle = '#5a6a4a'; g.beginPath(); g.ellipse(0, -6, 26, 14, 0, Math.PI, 0); g.fill(); R2('#8a867c', -7, -14, 3, 14); R2('#8a867c', 4, -14, 3, 14); R2('#0a0a10', -4, -11, 8, 11); break;
         case 'cave': g.fillStyle = '#6a655c'; g.beginPath(); g.ellipse(0, -8, 22, 16, 0, Math.PI, 0); g.fill(); R2('#0a0a10', -7, -12, 14, 12); R2('#e2dccb', 12, -2, 4, 2); break;
         case 'hideout': R2('#7a5a3a', -16, -10, 10, 10); R2('#6a4a2a', 6, -8, 8, 8); R2('#0a0a10', -4, -6, 8, 6); break;
+        case 'falls': R2('#6a655c', -22, -34, 14, 34); R2('#6a655c', 8, -34, 14, 34); R2('#dff2ff', -8, -34, 16, 30); R2('#3f8fb0', -18, -4, 36, 6); R2('#ffffff', -10, -6, 20, 2); break;
+        case 'springs': g.fillStyle = '#5fb8b0'; g.beginPath(); g.ellipse(0, -3, 18, 7, 0, 0, Math.PI * 2); g.fill(); for (let i = 0; i < 6; i++) R2('#8a857b', Math.cos(i) * 18 - 2, Math.sin(i) * 7 - 4, 5, 4); g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(-6, -20, 4, 14); g.fillRect(3, -24, 4, 16); break;
+        case 'grotto': g.fillStyle = '#6a655c'; g.beginPath(); g.ellipse(0, -8, 22, 16, 0, Math.PI, 0); g.fill(); R2('#0a0a10', -6, -10, 12, 10); for (let i = 0; i < 5; i++) R2(i % 2 ? '#8ff0ff' : '#c8f8ff', -10 + i * 5, -6 - (i % 3) * 4, 3, 6 + (i % 3) * 4); break;
+        case 'bones': for (let i = 0; i < 6; i++) { g.strokeStyle = '#ece4d0'; g.lineWidth = 3; g.beginPath(); g.arc(-18 + i * 7, 0, 14 - Math.abs(i - 2.5) * 2, Math.PI, 0); g.stroke(); } g.fillStyle = '#ece4d0'; g.beginPath(); g.ellipse(26, -6, 9, 7, 0, 0, Math.PI * 2); g.fill(); break;
+        case 'crater': g.fillStyle = '#3a332c'; g.beginPath(); g.ellipse(0, -2, 26, 11, 0, 0, Math.PI * 2); g.fill(); g.fillStyle = '#2a2420'; g.beginPath(); g.ellipse(0, -2, 17, 7, 0, 0, Math.PI * 2); g.fill(); if (!Object.keys(s.used).length) R2('#fff0c0', -2, -6, 4, 4); break;
+        case 'ring': for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, x = Math.cos(a) * 22, y = Math.sin(a) * 10; R2('#e8e0d0', x - 1, y - 4, 2, 4); R2('#d8d0e8', x - 3, y - 6, 6, 3); } break;
+        case 'cache_cairn': R2('#8a857b', -6, -4, 12, 4); R2('#9a958b', -4, -8, 8, 4); R2('#aaa59b', -2, -11, 4, 3); break;
+        case 'cache_hollow': R2('#5a4028', -6, -14, 12, 14); R2('#120c08', -2, -9, 4, 4); break;
+        case 'cache_loose': for (let i = 0; i < 5; i++) R2('#8a857b', Math.cos(i * 2.4) * 7 - 2, Math.sin(i * 2.4) * 3 - 3, 4, 3); break;
+        case 'expcamp': R2('#2a2a2a', -4, -3, 8, 3); R2('#6a6050', -24, -14, 14, 12); R2('#7a5a3a', 12, -8, 8, 8); break;
         case 'crypt': R2('#6a655d', -16, -16, 6, 16); R2('#6a655d', 10, -16, 6, 16); R2('#5a554e', -16, -18, 32, 3); R2('#0a0a10', -6, -8, 12, 8); break;
       }
       R.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -619,7 +637,7 @@
     },
     // Wisps, fireflies, lanterns, fallen stars: soft lights drawn over the dark.
     drawGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : []);
       if (!list.length) return;
       const ctx = R.ctx;
       ctx.setTransform(1, 0, 0, 1, 0, 0);

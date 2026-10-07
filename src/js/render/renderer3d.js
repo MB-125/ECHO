@@ -144,7 +144,7 @@
       R.sitesT = 0;
     },
     clear(group) {
-      while (group.children.length) group.remove(group.children[0]);
+      while (group.children.length) { const o = group.children[0]; group.remove(o); if (o.userData && o.userData.own && o.geometry) o.geometry.dispose(); }
     },
 
     // ---------------------------------------------------------------- heights
@@ -493,10 +493,14 @@
         }
       }
       // landmarks and delves
+      R._siteMats = R._siteMats || {};
+      const mesh = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.userData.own = true; return m; };
+      const basic = (c, o = 1) => R._siteMats[c + o] || (R._siteMats[c + o] = new THREE.MeshBasicMaterial({ color: c, transparent: o < 1, opacity: o, side: THREE.DoubleSide }));
       for (const s of (ECHO.Explore ? ECHO.Explore.sites(world) : [])) {
         if (!near(s.x, s.y)) continue;
         const add = (name, dx, dy, colors, rot = 0, sc = 1) => R.addStatic(g, name, s.x + dx, s.y + dy, colors, rot, sc);
-        const hole = (dx, dy, r = 0.6) => { const m = new THREE.Mesh(new THREE.CircleGeometry(r, 12), new THREE.MeshBasicMaterial({ color: '#05050a' })); m.rotation.x = -Math.PI / 2; m.position.set(s.x + dx, R.groundH(s.x + dx, s.y + dy) + 0.04, s.y + dy); g.add(m); };
+        const disc = (dx, dy, r, c, o) => { const m = mesh(new THREE.CircleGeometry(r, 18), basic(c, o)); m.rotation.x = -Math.PI / 2; m.position.set(s.x + dx, R.groundH(s.x + dx, s.y + dy) + 0.05, s.y + dy); g.add(m); };
+        const hole = (dx, dy, r = 0.6) => { const m = mesh(new THREE.CircleGeometry(r, 12), basic('#05050a')); m.rotation.x = -Math.PI / 2; m.position.set(s.x + dx, R.groundH(s.x + dx, s.y + dy) + 0.04, s.y + dy); g.add(m); };
         switch (s.kind) {
           case 'stones': for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; add('pillar', Math.cos(a) * 2.3, Math.sin(a) * 2.3, { stone: '#8a867c' }, a, 0.85 + (i % 3) * 0.08); } add('tablet', 0, 0, { rune: '#4a4740' }); break;
           case 'lookout': add('boulder', -0.8, 0.2, null, 1, 1.2); add('boulder', 0.9, -0.2, null, 2, 0.9); add('standard', 0, -0.6, { banner: '#c8a85a' }, 0, 1); break;
@@ -509,7 +513,55 @@
           case 'cave': add('boulder', -1.3, -0.4, null, 0, 1.6); add('boulder', 1.3, -0.4, null, 2, 1.5); add('boulder', 0, -1.2, null, 1, 1.7); hole(0, 0.2, 0.7); add('rock', 1.6, 0.9, { rock: '#e2dccb', darkstone: '#cfc7b4' }, 0, 0.3); break;
           case 'hideout': add('crate', -1, 0, null, 0.3, 1); add('crate', -1.1, 0.9, null, 1.2, 0.8); add('barrel', 1, 0.2, null, 0, 1); add('tent', 0.2, -1.4, { tent: '#4a4038' }, 0, 0.8); hole(0.1, 0.6, 0.45); break;
           case 'crypt': add('ruinwall', -1.2, -0.5, null, 0, 0.9); add('ruinwall', 1.2, -0.5, null, Math.PI, 0.9); add('pillar', -0.7, 0.3, null, 0, 0.7); add('pillar', 0.7, 0.3, null, 0, 0.7); hole(0, 0.3, 0.55); break;
+          // natural wonders
+          case 'falls': {
+            add('boulder', -1.6, -1.4, null, 0, 2.2); add('boulder', 1.6, -1.4, null, 2, 2.1); add('boulder', 0, -2.2, null, 1, 2.4);
+            const sheet = mesh(new THREE.PlaneGeometry(1.6, 2.6), basic('#dff2ff', 0.75)); sheet.position.set(s.x, R.groundH(s.x, s.y) + 1.3, s.y - 1.15); g.add(sheet);
+            disc(0, 0.2, 1.5, '#3f8fb0', 0.9); break;
+          }
+          case 'springs': {
+            for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; add('rock', Math.cos(a) * 1.6, Math.sin(a) * 1.2, null, a, 0.55); }
+            disc(0, 0, 1.3, '#5fb8b0', 0.95); disc(0.2, 0.1, 0.6, '#9fe0d8', 0.6); break;
+          }
+          case 'grotto': {
+            add('boulder', -1.4, -0.6, null, 0, 1.7); add('boulder', 1.3, -0.7, null, 2, 1.6); add('boulder', 0, -1.4, null, 1, 1.8); hole(0, 0.1, 0.55);
+            for (let i = 0; i < 6; i++) { const c = mesh(new THREE.ConeGeometry(0.12 + (i % 3) * 0.04, 0.6 + (i % 3) * 0.25, 5), basic(i % 2 ? '#8ff0ff' : '#c8f8ff', 0.9)); const a = i * 1.1; c.position.set(s.x + Math.cos(a) * 0.9, R.groundH(s.x, s.y) + 0.3, s.y + 0.5 + Math.sin(a) * 0.35); c.rotation.z = (i - 2.5) * 0.15; g.add(c); }
+            R.siteLights.push({ x: s.x, y: s.y + 0.4, r: 3.5, a: 0.7, color: '#8ff0ff', h: 0.6 }); break;
+          }
+          case 'bones': {
+            const bone = basic('#ece4d0');
+            for (let i = 0; i < 6; i++) { const r = mesh(new THREE.TorusGeometry(1.5 - Math.abs(i - 2.5) * 0.18, 0.09, 6, 14, Math.PI), bone); r.position.set(s.x - 2 + i * 0.75, R.groundH(s.x, s.y), s.y); r.rotation.y = Math.PI / 2; g.add(r); }
+            const sk = mesh(new THREE.SphereGeometry(0.75, 10, 8), bone); sk.position.set(s.x + 2.8, R.groundH(s.x, s.y) + 0.45, s.y + 0.2); sk.scale.set(1.3, 0.9, 1); g.add(sk); break;
+          }
+          case 'crater': {
+            disc(0, 0, 2.6, '#3a332c', 0.95); disc(0, 0, 1.8, '#2a2420', 0.95);
+            for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; add('rock', Math.cos(a) * 2.8, Math.sin(a) * 2.2, null, a, 0.45); }
+            if (!Object.keys(s.used).length) { const c = mesh(new THREE.OctahedronGeometry(0.28), basic('#fff0c0')); c.position.set(s.x, R.groundH(s.x, s.y) + 0.3, s.y); g.add(c); R.siteLights.push({ x: s.x, y: s.y, r: 3, a: 0.7, color: '#ffe0a0', h: 0.5 }); }
+            break;
+          }
+          case 'ring': {
+            const stem = basic('#e8e0d0'), cap = basic('#d8d0e8');
+            for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; const x = s.x + Math.cos(a) * 1.9, y = s.y + Math.sin(a) * 1.9, h = R.groundH(x, y);
+              const st = mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.25, 5), stem); st.position.set(x, h + 0.12, y); g.add(st);
+              const c = mesh(new THREE.SphereGeometry(0.14, 7, 5, 0, Math.PI * 2, 0, Math.PI / 2), cap); c.position.set(x, h + 0.24, y); g.add(c); }
+            break;
+          }
         }
+      }
+      // hidden caches: cairns, hollow trees, loose stones
+      for (const c of world.caches || []) {
+        if (!near(c.x, c.y, 30)) continue;
+        const add = (name, dx, dy, colors, rot = 0, sc = 1) => R.addStatic(g, name, c.x + dx, c.y + dy, colors, rot, sc);
+        if (c.kind === 'cairn') { add('rock', 0, 0, null, 0, 0.5); add('rock', 0.05, 0, null, 1, 0.38); add('rock', 0, 0.02, null, 2, 0.26); }
+        else if (c.kind === 'hollow') { const t = mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.9, 8), basic('#5a4028')); t.position.set(c.x, R.groundH(c.x, c.y) + 0.45, c.y); g.add(t); const h2 = mesh(new THREE.CircleGeometry(0.2, 8), basic('#120c08')); h2.position.set(c.x, R.groundH(c.x, c.y) + 0.45, c.y + 0.51); g.add(h2); }
+        else for (let i = 0; i < 5; i++) add('rock', Math.cos(i * 2.4) * 0.45, Math.sin(i * 2.4) * 0.3, null, i, 0.22);
+        if (c.found && c.kind !== 'hollow') add('rock', 0.6, 0.3, null, 3, 0.2);
+      }
+      const EX = world.expedition;
+      if (EX && EX.camp && near(EX.camp.x, EX.camp.y, 30)) {
+        R.addStatic(g, 'campfire', EX.camp.x, EX.camp.y, { flame: '#2a2a2a', glow: '#3a3a3a' });
+        R.addStatic(g, 'tent', EX.camp.x - 1.6, EX.camp.y - 1.2, { tent: '#6a6050' }, 0.6, 0.85);
+        R.addStatic(g, 'crate', EX.camp.x + 1.4, EX.camp.y - 0.6, null, 0.3, 0.8);
       }
       if (world.rift && near(world.rift.x, world.rift.y)) {
         R.rift = R.addStatic(g, 'rift', world.rift.x + 0.5, world.rift.y + 0.5, { rune: '#c8a8ff' }, 0, 1.2);
@@ -1024,7 +1076,7 @@
       R.festGroup = new THREE.Group(); R.scene.add(R.festGroup); R.festKey = ''; R.festFlames = [];
     },
     updateGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : []);
       const ga = R.glows.geometry.attributes;
       const n = Math.min(list.length, ga.size.count);
       const tmp = R._gc || (R._gc = new THREE.Color());

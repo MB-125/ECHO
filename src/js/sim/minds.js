@@ -64,6 +64,8 @@
       let violent = 0;
       for (const e of ECHO.Chronicle.rumorsAt(world, s, 20, 20)) if (((e.kind === 'death' && /killed|slain|torn|cut down|murder/.test(e.text)) || e.kind === 'crime') && (e.x == null || U.dist(e.x, e.y, s.x, s.y) < 35)) violent++;
       if (violent) out.push({ w: Math.min(0.2, violent * 0.04), name: 'the killings', kind: 'violence' });
+      const crime = ECHO.Watch && ECHO.Watch.threat(world, s);
+      if (crime) out.push(crime);
       return out.filter(t => t.w > 0.02).sort((a, b) => b.w - a.w);
     },
     perceive(world, n, s) {

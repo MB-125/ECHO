@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/realm.js', 'sim/explore.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -288,7 +288,7 @@ function main() {
       if (W !== B) { ECHO.Explore.sites(W); ECHO.Sim.dailyTick(W, true); }
       const kk = Object.values(W.factions).find(f => f.type === 'kingdom');
       const rng = ECHO.Sim.rngFor(W), n0 = W.settlements.length;
-      const site = R.findSite(W, kk, rng); tried++;
+      let site = null; for (let k = 0; k < 4 && !site; k++) site = R.findSite(W, kk, rng); tried++;
       if (!site) continue;
       founded = R.found(W, kk, { x: site.x, y: site.y, region: ECHO.World.regionAt(W, site.x, site.y).id, from: kk.capital, day: W.day, stage: 'planned', cleared: true, name: 'Newhope' }, rng);
       grew = founded && W.settlements.length === n0 + 1 && ECHO.People.residents(W, founded).length >= 5 && W.roads.some(r => r.a === founded.id || r.b === founded.id) && !ECHO.World.isSolid(W, founded.x, founded.y + 1);
@@ -304,6 +304,97 @@ function main() {
     check('the realm keeps a chronicle of its rulers\' works', B.chronicle.some(e => /turns .* toward|decreed|commissioned|founded|surveyors/.test(e.text)), (B.chronicle.find(e => /decreed|commissioned|surveyors/.test(e.text)) || {}).text);
     const B2 = ECHO.Save.deserialize(ECHO.Save.serialize(B));
     check('the realm and the wild survive a save', B2.sites && B2.sites.length === sites.length && B2.factions[k.id].realm.agenda === k.realm.agenda);
+  }
+
+  console.log('\nThe watch');
+  {
+    const B = ECHO.generateWorld({ seed: 4242, name: 'Watchworld' });
+    const pl = B.player = { charId: 'c-w', first: 'Rook', last: 'Vane', alive: true, known: [], accepted: [], fate: 3, inv: {}, wanted: {}, renown: 10, skills: { shadow: 5, tongue: 10 }, x: B.settlements[0].x, y: B.settlements[0].y };
+    const W = ECHO.Watch;
+    for (let i = 0; i < 90; i++) ECHO.Sim.dailyTick(B, true);
+    const towns = B.settlements.filter(s => s.faction !== 'ashfang');
+    check('every town keeps a watch with a captain', towns.every(s => s.watch && (W.captain(B, s) || W.guardsOf(B, s).length === 0)), towns.map(s => `${s.name}:${W.guardsOf(B, s).length}/${W.need(B, s)}`).join(' '));
+    const cases = W.cases(B);
+    check('townsfolk commit crimes and the watch works the cases', cases.length >= 8 && cases.some(c => c.status === 'solved'), `${cases.length} cases, ${cases.filter(c => c.status === 'solved').length} solved, ${cases.filter(c => c.status === 'cold').length} cold`);
+    check('safety and trust are measured in every town', towns.every(s => s.watch.safety >= 0 && s.watch.safety <= 100 && s.watch.trust >= 0), towns.map(s => Math.round(s.watch.safety)).join(' '));
+    // a crime the player did with no one watching — but people saw them nearby
+    const s0 = towns.find(s => ECHO.People.residents(B, s).length > 15);
+    const res = ECHO.People.residents(B, s0);
+    const victim = res.find(n => n.prof === 'farmer');
+    const seen = res.filter(n => n !== victim && n.prof !== 'child').slice(0, 3).map(n => n.id);
+    ECHO.People.kill(B, victim, 'murdered');
+    const pc = W.playerCase(B, { kind: 'murder', sid: s0.id, victim: victim.id, seenNear: seen, method: 'blade' });
+    let days = 0; while (pc.status === 'open' && days < 40) { ECHO.Sim.dailyTick(B, true); days++; }
+    check('the watch can name the player for an unwitnessed murder from who saw them nearby', pc.status === 'solved' && (pl.wanted[s0.faction] || 0) > 0 && ECHO.Law.openAgainstPlayer(B, pl, s0.faction).length > 0, `${pc.status} after ${days} days`);
+    // a crime seen but not yet carried to the watch
+    const cr = ECHO.Law.report(B, { by: 'player', kind: 'assault', sid: s0.id, faction: s0.faction, witnesses: [seen[1]] }); cr.reported = false; cr.heat = 35;
+    check('unreported crimes are not charged', !ECHO.Law.openAgainstPlayer(B, pl, s0.faction).includes(cr));
+    for (let i = 0; i < 6 && cr.reported === false; i++) ECHO.Sim.dailyTick(B, true);
+    check('witnesses go to the watch in time', cr.reported === true || cr.status !== 'open', String(cr.reported));
+    // the player as investigator
+    const rng = ECHO.Sim.rngFor(B);
+    let nc = null;
+    for (let i = 0; i < 20 && !nc; i++) { const c = W.commitOne(B, rng, s0, 'burglary'); if (c && c.status === 'open') nc = c; }
+    if (nc) {
+      W.examineScene(B, nc);
+      const sus = W.suspects(B, nc);
+      const right = W.accuse(B, nc, nc.by, rng);
+      check('the player can work a case and name the culprit', sus.length === 3 && sus.some(n => n.id === nc.by) && right === true && nc.status === 'solved', sus.map(n => n.first).join(', '));
+    } else check('the player can work a case and name the culprit', false, 'no open case');
+    let wc = null;
+    for (let i = 0; i < 20 && !wc; i++) { const c = W.commitOne(B, rng, s0, 'theft'); if (c && c.status === 'open') wc = c; }
+    const innocent = wc && W.suspects(B, wc).find(n => n.id !== wc.by);
+    const r2 = innocent && W.accuse(B, wc, innocent.id, rng);
+    check('accusing the wrong person punishes an innocent — and they remember', r2 === false && wc.status === 'wrong' && innocent.op[pl.charId] <= -50);
+    // a ring
+    const w0 = W.st(B, s0); w0.safety = 30;
+    const boss = res.find(n => n.status === 'alive' && n.prof !== 'guard' && n.prof !== 'child' && n.prof !== 'ruler');
+    w0.ring = { name: 'the Test Hand', boss: boss.id, members: [boss.id], strength: 0.5, d: B.day, purse: 0 }; boss.ring = s0.id;
+    const n2 = W.raidRing(B, s0, rng, 'Rook Vane');
+    check('naming a ring\'s master breaks it', n2 >= 1 && !w0.ring);
+    // deputies
+    pl.wanted = {};
+    W.deputize(B, pl, s0);
+    check('the player can join the watch', pl.deputy && pl.deputy.sid === s0.id);
+    pl.wanted[s0.faction] = 60; ECHO.Sim.dailyTick(B, true);
+    check('a deputy who breaks the law is thrown out', !pl.deputy);
+    const json = ECHO.Save.serialize(B);
+    const B2 = ECHO.Save.deserialize(json);
+    check('the watch survives a save', (B2.cases || []).length === W.cases(B).length && B2.settlements[0].watch);
+  }
+
+  console.log('\nDiscoveries');
+  {
+    const B = ECHO.generateWorld({ seed: 777, name: 'Findworld' });
+    const pl = B.player = { charId: 'c-d', first: 'Wren', last: 'Fallow', alive: true, known: [], accepted: [], fate: 3, inv: { arrows: 0, herbs: 0, food: 0 }, gold: 0, renown: 0, skills: {}, x: B.settlements[0].x, y: B.settlements[0].y };
+    const D = ECHO.Discover;
+    const sites = ECHO.Explore.sites(B);
+    const wonders = sites.filter(s => s.cat === 'wonder');
+    check('natural wonders wait, unnamed, in the wild', wonders.length >= 5 && wonders.every(s => s.unnamed && !ECHO.World.isSolid(B, s.x, s.y)), wonders.map(s => s.kind).join(' '));
+    check('caches and rare herbs are hidden across the land', B.caches.length >= 12 && B.herbs.length >= 20 && new Set(B.herbs.map(h => h.k)).size >= 3, `${B.caches.length} caches, ${B.herbs.length} herbs`);
+    D.name(B, wonders[0], 'Wren\'s Veil', pl);
+    check('the first to chart a wonder names it, and the world remembers', wonders[0].name === 'Wren\'s Veil' && !wonders[0].unnamed && B.chronicle.some(e => /first to chart Wren's Veil/.test(e.text)));
+    const rng = ECHO.Sim.rngFor(B);
+    let c = B.caches[0], pages = 0;
+    for (let i = 0; i < 6; i++) {
+      const r = D.search(B, c, pl, rng);
+      if (r && r.page) pages++;
+      const E = B.expedition;
+      if (!E.next || E.next.camp) break;
+      c = B.caches.find(x => x.id === E.next.cache);
+      if (!c) break;
+    }
+    check('a lost expedition\'s journal leads page by page to its last camp', pages === 5 && B.expedition.camp && B.expedition.next && B.expedition.next.camp, `${pages} pages; next: ${B.expedition.next && B.expedition.next.hint}`);
+    D.camp(B, pl);
+    check('finding the last camp marks every place on the map', pl.compass && sites.every(s => s.found || s.seen));
+    const h = B.herbs[0];
+    const first = D.pick(B, h, pl);
+    check('rare herbs fill the herbarium and grow back', first && pl.herbarium[h.k] === 1 && !D.herbReady(B, h, false) && D.herbReady(B, { ...h, picked: B.day - 20 }, D.HERBS[h.k].when === 'night'));
+    pl.explored = new Uint8Array(Math.ceil(B.W / 4) * Math.ceil(B.H / 4)).fill(1);
+    const m = D.milestone(B, pl);
+    check('walking the land is noticed', m && m.step === 1 && D.explored(B, pl) > 0.9);
+    const B2 = ECHO.Save.deserialize(ECHO.Save.serialize(B));
+    check('discoveries survive a save', B2.caches.length === B.caches.length && B2.sites.find(s => s.id === wonders[0].id).name === 'Wren\'s Veil' && B2.expedition.done);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);
