@@ -46,6 +46,7 @@
       }
     },
     layout(game, b, s) {
+      if (b.type === 'delve') return ECHO.Quests.layout(game, b, s, BASE);
       const world = game.world, pl = game.pl;
       const sizes = { house: [9, 7], inn: [15, 10], smithy: [11, 8], archive: [13, 9], shrine: [9, 9], temple: [15, 11], keep: [17, 12] };
       const [W, H] = sizes[b.type];
@@ -195,6 +196,7 @@
         I.update(game, 0, true);
         ECHO.UI.fadeIn(350);
         ECHO.UI.banner(L.name, '', true);
+        if (b.type === 'delve') ECHO.Quests.populate(game, L);
         if (b.type === 'house' && !I.isMine(b, game.pl) && !b.legend) {
           const home = I.householdHere(game);
           if (home.length && home.every(n => !I.isAsleep(game, n))) {
@@ -353,6 +355,7 @@
           if (I.isMine(b, pl) || (b.legend && pl.legacyOf === b.legend)) return UI.sleepUntilMorning(s);
           return UI.toast('This is not your bed.', 'info', 2);
         case 'cupboard': return I.steal(game);
+        default: return ECHO.Quests.use(game, it);
       }
     },
     steal(game) {

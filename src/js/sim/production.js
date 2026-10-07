@@ -49,7 +49,13 @@
       if (world._prod >= 1) return;
       world._prod = 1;
       const rng = new ECHO.RNG(ECHO.hashStr('prod' + world.seed));
-      for (const s of world.settlements) {
+      for (const s of world.settlements) Pr.ensureTown(world, s, rng);
+      ECHO.World.rebuildBlocked(world);
+      world._tileEpoch = (world._tileEpoch || 0) + 1;
+    },
+    // Workplaces and stocks for one town (new towns get theirs when founded).
+    ensureTown(world, s, rng) {
+      {
         const region = ECHO.World.regionAt(world, s.x, s.y);
         const want = { mill: null, mine: new Set([TILE.ROCK, TILE.HILL]), lumber: new Set([TILE.TREE]) };
         for (const k of ['mill', 'mine', 'lumber']) {
@@ -83,8 +89,6 @@
         }
         void region;
       }
-      ECHO.World.rebuildBlocked(world);
-      world._tileEpoch = (world._tileEpoch || 0) + 1;
     },
 
     // How well each workplace is running today: 0 = stopped, 1 = full.

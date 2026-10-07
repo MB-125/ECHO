@@ -50,6 +50,12 @@ Every system below is real and connected to the others. Nothing is scripted.
 
 **Combat with weight.** Strikes chain into a three-hit combo that ends in a spinning finisher; hold the button for a heavy, guard-breaking blow that staggers whatever it hits. Every hit lands with a beat of hit-stop, sparks, a camera kick and synthesized sound; kills throw bodies back; a perfect guard rings like a bell and slows time for a moment. Foes flash before they strike so you can read them. A dodge-roll and buffered inputs keep it responsive, and loosing an arrow just as the bow reaches full draw makes a perfect shot.
 
+**Techniques found in battle.** Fight a lot and your body discovers how it likes to fight. Fifteen techniques each wait behind a habit: enough perfect guards and you find the *riposte*; enough rolls under a blade and you *lunge* out of them; enough finishers and the spin becomes a *whirlwind*; enough fire and your blade catches it (*ember edge*); enough kills and you learn the *war cry*. Others come from blocking, staggering foes, unbroken combos, close calls, taking punishment, slipping hits, arrows, perfect shots, flame and stealth. Each grows through three ranks with use. You can carry two at first and up to five as you learn more, so the build is yours to choose on the character page.
+
+**Places in the wild.** Every world scatters landmarks across its land — standing stones that teach the old tongue, lookouts that fill in the map and reveal what lies around them, moonwells that heal at night, a great oak to rest under, old battlefields to search, wayside shrines and wrecks — and *delves* to clear: barrows and crypts of the restless dead, wolf dens, and outlaw hideouts, each a room below ground with a master by its chest. Cleared delves fill again in time. Towns post quests to match: something stirring in a barrow, a child lost in the woods (find them and lead them home), a great named wolf to hunt, a treasure map, a parcel for someone in another town. The archives buy accounts of what you find.
+
+**Rulers with aims.** Each ruler pursues an agenda shaped by their character and their realm's state — expansion, building, conquest, trade, faith or security — and re-chooses it as things change. Kingdoms commission walls, granaries, houses, roads, watchtowers and statues (and pay for supplies); issue decrees such as bounties, conscription, tax changes, alms, curfews and fire bans; sign trade pacts, arrange royal marriages and fight joint campaigns; and send surveyors to the frontier to found new villages. Clear the land before the settlers set out and you name the village and become its warden, with a share of its dues each season. Courts breed plots — expose them, join them, or blackmail the plotter — and a plot left alone may end in a coup. The Lantern brokers peace in long wars and defends its faithful.
+
 **Walk inside.** Houses, inns, smithies, archives, shrines, temples and keeps can be entered. Each room is laid out and furnished (Blender-built beds, tables, hearths, shelves, thrones), and holds the people who would really be there at that hour: the innkeeper behind the bar and patrons at the tables in the evening, a family asleep at night, the ruler on the throne with guards at the pillars. Rent a bed, kneel at the shrine, read the archive, petition the throne — or slip into a stranger's house at night and search the cupboard, if no one wakes.
 
 ![Inside the inn of an evening](docs/interior-inn.png)
@@ -112,7 +118,7 @@ A see-through controls card sits on the left of the screen while you play (it di
 | **F** (hold) | study a creature or boss |
 | **E** | talk / interact / enter and leave buildings |
 | **H / G** | eat / use herbs |
-| **Tab** · **M** · **K** | journal · map · character |
+| **Tab** · **M** · **K** | journal (promises, places, the realm…) · map (delves, landmarks and your quests marked) · character (choose which techniques to carry) |
 | **Esc** | menu · **F11** fullscreen |
 
 Worlds are saved automatically (each in-game day and every few minutes) to your user data folder, one file per world. They never reset.

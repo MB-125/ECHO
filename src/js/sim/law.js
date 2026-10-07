@@ -28,8 +28,8 @@
       const reeve = s.ruler && world.npcs[s.ruler];
       return {
         ...base,
-        curfew: s.kind === 'capital' || h % 4 === 0,
-        noFlame: base === CODES.lantern || s.kind === 'temple',
+        curfew: s.kind === 'capital' || h % 4 === 0 || !!(ECHO.Realm && ECHO.Realm.edict(world, s.faction, 'curfew')),
+        noFlame: base === CODES.lantern || s.kind === 'temple' || !!(ECHO.Realm && ECHO.Realm.edict(world, s.faction, 'fireban')),
         harsh: reeve && P().has(reeve, 'cruel'),
         lenient: reeve && (P().has(reeve, 'kind') || P().has(reeve, 'generous')),
         bribable: base.bribable || (reeve && P().has(reeve, 'greedy')),

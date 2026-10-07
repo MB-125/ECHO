@@ -157,6 +157,20 @@
         if (Math.abs(st.x - cam.x) > halfW + 4 || Math.abs(st.y - cam.y) > halfH + 4) continue;
         objs.push({ y: st.y + 1, draw: () => R.structure(game, st) });
       }
+      if (ECHO.Explore) for (const s of ECHO.Explore.sites(world)) {
+        if (Math.abs(s.x - cam.x) > halfW + 4 || Math.abs(s.y - cam.y) > halfH + 4) continue;
+        objs.push({ y: s.y + 0.5, draw: () => R.site(game, s) });
+      }
+      for (const s of world.settlements) {
+        if (!s.works || !s.works.walls || Math.abs(s.x - cam.x) > halfW + 20 || Math.abs(s.y - cam.y) > halfH + 20) continue;
+        const rad = s.kind === 'capital' ? 17 : 14.5, n = Math.round(rad * 2 * Math.PI / 0.7);
+        for (let i = 0; i < n; i++) {
+          const a = i / n * Math.PI * 2, x = s.x + Math.cos(a) * rad, y = s.y + Math.sin(a) * rad;
+          const t = ECHO.World.tile(world, x, y);
+          if (t === ECHO.TILE.ROAD || t === ECHO.TILE.BRIDGE || t === ECHO.TILE.WATER || t === ECHO.TILE.DEEP || ECHO.World.isSolid(world, x, y)) continue;
+          objs.push({ y, draw: () => { const g = R.art(game, x, y); g.fillStyle = '#6a4a2c'; g.fillRect(-1, -14, 3, 14); g.fillStyle = '#8a6a44'; g.fillRect(-1, -15, 3, 2); R.ctx.setTransform(1, 0, 0, 1, 0, 0); } });
+        }
+      }
       if (world.rift && Math.abs(world.rift.x - cam.x) < halfW + 6 && Math.abs(world.rift.y - cam.y) < halfH + 6) {
         objs.push({ y: world.rift.y + 1, draw: () => R.rift(game, world.rift) });
         game.light(world.rift.x + 0.5, world.rift.y, 6, 0.9, '#b48aff');
@@ -216,8 +230,8 @@
     FURN_COL: { bed: '#8a3a3a', table: '#7a5634', chair: '#6a4a2c', stool: '#6a4a2c', counter: '#5a3e26', barrel: '#6e4a28', crate: '#8a6a3a', hearth: '#5a554e', shelf: '#4a3420', desk: '#6a4a2c', lectern: '#5a3e26', altar: '#d8d0c0', throne: '#c8a040', bench: '#6a4a2c', rug: '#7a2e2e', anvil: '#3a3a40', forge: '#4a4440', rack: '#5a4a3a', chest: '#7a5a2a', candles: '#f0e0b0', standard: '#6f8fc4', pillar: '#a8a094' },
     drawRoom(game, L) {
       const ctx = R.ctx, B = ECHO.Interior.BASE, Z = R.Z;
-      const floorCol = { wood: '#6e4c2e', stone: '#6a655d', marble: '#cfc8ba' }[L.floor];
-      const wallCol = { plaster: '#b8a47e', stone: '#5e5850', marble: '#bdb5a6' }[L.wall];
+      const floorCol = { wood: '#6e4c2e', stone: '#6a655d', marble: '#cfc8ba', cave: '#4a443c', crypt: '#55524c' }[L.floor];
+      const wallCol = { plaster: '#b8a47e', stone: '#5e5850', marble: '#bdb5a6', rock: '#3e3a33' }[L.wall];
       for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) {
         const p = R.toScreen(game, B + x, y);
         const edge = x === 0 || y === 0 || x === L.W - 1 || y === L.H - 1;
@@ -239,7 +253,35 @@
       for (const o of objs) o.draw();
       R.drawLock(game);
       R.drawFx(game);
+      if (L.cave) {
+        // below ground: dark, but for the torches and whatever you carry
+        const l = R.lctx; l.setTransform(1, 0, 0, 1, 0, 0); l.globalCompositeOperation = 'source-over'; l.clearRect(0, 0, R.cw, R.ch);
+        l.fillStyle = 'rgba(4,4,10,0.72)'; l.fillRect(0, 0, R.cw, R.ch); l.globalCompositeOperation = 'destination-out';
+        const lights = L.lights.concat([{ x: game.pe.x, y: game.pe.y, r: 5, a: 0.9 }], game._updLights || []);
+        for (const Lg of lights) { const p = R.toScreen(game, Lg.x, Lg.y), rr = Lg.r * TS * R.Z; const g = l.createRadialGradient(p.x, p.y, 0, p.x, p.y, rr); g.addColorStop(0, `rgba(0,0,0,${Math.min(1, Lg.a)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); l.fillStyle = g; l.fillRect(p.x - rr, p.y - rr, rr * 2, rr * 2); }
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(R.light, 0, 0);
+      }
       R.drawLabels(game);
+    },
+    // Landmarks and the mouths of delves, drawn simply.
+    site(game, s) {
+      const g = R.art(game, s.x, s.y + 0.5);
+      const R2 = (c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+      R2('rgba(0,0,0,0.25)', -12, -1, 24, 3);
+      switch (s.kind) {
+        case 'stones': for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2, x = Math.cos(a) * 26, y = Math.sin(a) * 14; R2('#8a867c', x - 3, y - 18, 6, 18); R2('#a29e94', x - 3, y - 18, 6, 2); } break;
+        case 'lookout': R2('#7a756c', -14, -12, 14, 12); R2('#8a857b', 0, -9, 12, 9); R2('#5a3e26', -1, -26, 2, 16); R2('#c8a85a', 1, -26, 8, 5); break;
+        case 'moonwell': R2('#a8b8c8', -8, -8, 16, 8); R2('#4a6a8a', -6, -9, 12, 3); break;
+        case 'oak': R2('#4a3420', -5, -26, 10, 26); g.fillStyle = '#3a6a2a'; g.beginPath(); g.arc(0, -36, 24, 0, Math.PI * 2); g.fill(); g.fillStyle = '#4a7a32'; g.beginPath(); g.arc(-6, -42, 14, 0, Math.PI * 2); g.fill(); break;
+        case 'battlefield': for (let i = 0; i < 7; i++) R2('#e2dccb', Math.cos(i * 2.2) * 24, Math.sin(i * 1.7) * 12, 4, 2); R2('#5a3e26', 6, -22, 2, 22); R2('#5a2a22', 8, -22, 8, 6); break;
+        case 'wayshrine': R2('#8a8070', -5, -14, 10, 14); R2('#5a4a3a', -6, -16, 12, 3); R2('#ffd08a', -1, -9, 2, 3); break;
+        case 'wreck': R2('#4a3a2a', -16, -8, 32, 8); R2('#3a2a1a', -14, -12, 4, 4); R2('#6a4a28', 10, -10, 6, 6); break;
+        case 'barrow': g.fillStyle = '#5a6a4a'; g.beginPath(); g.ellipse(0, -6, 26, 14, 0, Math.PI, 0); g.fill(); R2('#8a867c', -7, -14, 3, 14); R2('#8a867c', 4, -14, 3, 14); R2('#0a0a10', -4, -11, 8, 11); break;
+        case 'cave': g.fillStyle = '#6a655c'; g.beginPath(); g.ellipse(0, -8, 22, 16, 0, Math.PI, 0); g.fill(); R2('#0a0a10', -7, -12, 14, 12); R2('#e2dccb', 12, -2, 4, 2); break;
+        case 'hideout': R2('#7a5a3a', -16, -10, 10, 10); R2('#6a4a2a', 6, -8, 8, 8); R2('#0a0a10', -4, -6, 8, 6); break;
+        case 'crypt': R2('#6a655d', -16, -16, 6, 16); R2('#6a655d', 10, -16, 6, 16); R2('#5a554e', -16, -18, 32, 3); R2('#0a0a10', -6, -8, 12, 8); break;
+      }
+      R.ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
     drawLock(game) {
       const e = ECHO.PlayerCtl.lock;
@@ -394,7 +436,13 @@
       if (e.iframes > 0 && e === game.pe) ctx.globalAlpha = 0.55;
       if (e.type === 'ghost' || e.species === 'hind') { ctx.globalAlpha = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)); if (e.type === 'ghost') ctx.filter = 'grayscale(1) brightness(1.9) sepia(0.3) hue-rotate(170deg)'; }
       if (e.type === 'person' && e.dancing) ctx.translate(0, -Math.abs(Math.sin(game.time * 7 + e.id)) * 2);
-      if (e.type === 'creature') S.creature(ctx, e, game.time);
+      if (e.humanoid) {
+        const lk = e.foe ? e.foe.look : 'brigand', dead = lk === 'wight' || lk === 'king';
+        if (dead) ctx.filter = 'grayscale(0.6) hue-rotate(90deg) brightness(1.2)';
+        const fake = { prof: dead ? 'priest' : 'bandit', id: 'f' + e.id, faction: 'wild' };
+        if (!e.flip) S.person(ctx, e, fake, world, game.time, e.foe && e.foe.elite ? 1.15 : 1);
+        else { ctx.scale(-1, 1); S.person(ctx, { ...e, flip: false }, fake, world, game.time, e.foe && e.foe.elite ? 1.15 : 1); }
+      } else if (e.type === 'creature') { if (e.scale) ctx.scale(e.scale, e.scale); S.creature(ctx, e, game.time); }
       else if (e.type === 'boss') S.boss(ctx, e, game.time);
       else {
         const npc = e.npcId ? world.npcs[e.npcId] : null;
@@ -571,7 +619,7 @@
     },
     // Wisps, fireflies, lanterns, fallen stars: soft lights drawn over the dark.
     drawGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : []);
       if (!list.length) return;
       const ctx = R.ctx;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -683,9 +731,11 @@
             const yours = game.pl && it.history.some(h => h.t.includes(game.pl.first + ' ' + game.pl.last));
             text(yours ? '(carrying your sword)' : it.legend ? `(carrying ${it.name})` : '', p.x, top + fs + 2 * R.dpr, '#f2d47a');
           }
+        } else if (e.type === 'creature' && e.label && !e.marvel) {
+          if (hover || (e.foe && e.foe.elite) || e.beast || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 7) text(e.label, p.x, top, '#ffb0a0');
         } else if (e.type === 'creature' && hover) {
           const reg = world.regions[e.regionId];
-          text(ECHO.Ecology.speciesName(world, reg, e.species), p.x, top, game.hostileTo(game.pe, e) ? '#ffb0a0' : '#e0e0d0');
+          text(e.humanoid ? e.foe.name : ECHO.Ecology.speciesName(world, reg, e.species), p.x, top, game.hostileTo(game.pe, e) ? '#ffb0a0' : '#e0e0d0');
         }
       }
       // floaters

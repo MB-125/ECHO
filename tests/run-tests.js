@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/realm.js', 'sim/explore.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -266,6 +266,44 @@ function main() {
     const json = ECHO.Save.serialize(B);
     const B2 = ECHO.Save.deserialize(json);
     check('wonders and letters survive a save', B2.wonders && B2.wonders.echoes.length === st.echoes.length && (B2.letters || []).length === ECHO.Letters.list(B).length, (json.length / 1024).toFixed(0) + ' KB');
+  }
+
+  console.log('\nThe realm and the wild');
+  {
+    const B = ECHO.generateWorld({ seed: 1357, name: 'Realmworld' });
+    B.player = { charId: 'c-r', first: 'Ash', last: 'Vale', alive: true, known: [], accepted: [], fate: 3, inv: {}, x: B.settlements[0].x, y: B.settlements[0].y };
+    const X = ECHO.Explore, R = ECHO.Realm;
+    const sites = X.sites(B);
+    const delves = sites.filter(x => x.cat === 'delve'), marks = sites.filter(x => x.cat !== 'delve');
+    check('the wild holds delves and landmarks, none inside walls or water', delves.length >= 4 && marks.length >= 5 && sites.every(x => !ECHO.World.isSolid(B, x.x, x.y) && B.settlements.every(t => Math.hypot(t.x - x.x, t.y - x.y) > 10)), `${delves.length} delves, ${marks.length} landmarks`);
+    const again = ECHO.generateWorld({ seed: 1357, name: 'Realmworld' });
+    check('places of the wild are seeded by the world', X.sites(again).map(x => x.name).join() === sites.map(x => x.name).join());
+    const k = Object.values(B.factions).find(f => f.type === 'kingdom');
+    for (let i = 0; i < 2; i++) ECHO.Sim.dailyTick(B, true);
+    check('every realm has an agenda set by its ruler', Object.values(B.factions).filter(f => f.type === 'kingdom').every(f => f.realm && R.AGENDAS[f.realm.agenda]), Object.values(B.factions).filter(f => f.type === 'kingdom').map(f => f.short + ':' + f.realm.agenda).join(' '));
+    // some islands have no room to grow; find a world that does
+    let founded = null, grew = false, tried = 0;
+    for (const seed of [1357, 11, 22, 33, 44, 55]) {
+      const W = seed === 1357 ? B : ECHO.generateWorld({ seed, name: 'Frontier' });
+      if (W !== B) { ECHO.Explore.sites(W); ECHO.Sim.dailyTick(W, true); }
+      const kk = Object.values(W.factions).find(f => f.type === 'kingdom');
+      const rng = ECHO.Sim.rngFor(W), n0 = W.settlements.length;
+      const site = R.findSite(W, kk, rng); tried++;
+      if (!site) continue;
+      founded = R.found(W, kk, { x: site.x, y: site.y, region: ECHO.World.regionAt(W, site.x, site.y).id, from: kk.capital, day: W.day, stage: 'planned', cleared: true, name: 'Newhope' }, rng);
+      grew = founded && W.settlements.length === n0 + 1 && ECHO.People.residents(W, founded).length >= 5 && W.roads.some(r => r.a === founded.id || r.b === founded.id) && !ECHO.World.isSolid(W, founded.x, founded.y + 1);
+      if (founded) founded._pop = ECHO.People.residents(W, founded).length;
+      break;
+    }
+    check('a ruler can found a new village on the frontier', grew, founded && `${founded.name}, ${founded._pop} settlers (world ${tried})`);
+    k.realm.edicts.push({ kind: 'curfew', until: B.day + 10 });
+    check('royal decrees take effect', !!R.edict(B, k.id, 'curfew'));
+    for (let i = 0; i < 120; i++) ECHO.Sim.dailyTick(B, true);
+    const kinds = new Set(B.plights.map(p => p.kind));
+    check('the wild posts quests: delves, hunts, lost souls, treasure and errands', ['delve', 'hunt', 'lost', 'treasure', 'courier'].filter(x => kinds.has(x)).length >= 3, [...kinds].join(' '));
+    check('the realm keeps a chronicle of its rulers\' works', B.chronicle.some(e => /turns .* toward|decreed|commissioned|founded|surveyors/.test(e.text)), (B.chronicle.find(e => /decreed|commissioned|surveyors/.test(e.text)) || {}).text);
+    const B2 = ECHO.Save.deserialize(ECHO.Save.serialize(B));
+    check('the realm and the wild survive a save', B2.sites && B2.sites.length === sites.length && B2.factions[k.id].realm.agenda === k.realm.agenda);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

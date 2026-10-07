@@ -54,6 +54,10 @@ input:focus { border-color: var(--gold); }
 .bar.mana .fill { background: linear-gradient(#7aa8f0, var(--mana)); }
 .bar span { position: absolute; right: 6px; top: -1px; font-size: 12px; text-shadow: 0 1px 0 #000; }
 #hud-fate { margin-top: 4px; font-size: 14px; letter-spacing: 3px; color: #e8d9a0; text-shadow: 0 1px 0 #000; }
+#hud-tech { margin-top: 4px; display: flex; gap: 4px; }
+#hud-tech .tech { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 4px; border: 1px solid rgba(200,168,90,0.5); background: rgba(20,14,8,0.6); color: #e8d9a0; font-size: 13px; border-radius: 3px; }
+#hud-tech .tech.ready { border-color: #ffe08a; color: #fff6c8; box-shadow: 0 0 8px rgba(255,224,138,0.7); }
+#hud-tech .tech.cool { opacity: 0.4; }
 #hud-wanted { margin-top: 4px; font-size: 13px; color: #ff8a7a; text-shadow: 0 1px 0 #000; }
 #hud-right { position: absolute; right: 16px; top: 14px; text-align: right; }
 #hud-clock { text-shadow: 0 2px 0 #000; }

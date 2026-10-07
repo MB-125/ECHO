@@ -362,7 +362,7 @@
       for (const s of world.settlements) {
         const d = U.dist(s.x, s.y, R.camTarget.x, R.camTarget.z);
         const fac = world.factions[s.faction];
-        const key = [s.faction, fac ? fac.tech.era : 0, s.buildings.length, s.buildings.filter(b => b.legend).length, s.buildings.filter(b => b.fac).map(b => b.fac.state[0]).join('')].join('|');
+        const key = [s.faction, fac ? fac.tech.era : 0, s.buildings.length, s.buildings.filter(b => b.legend).length, s.buildings.filter(b => b.fac).map(b => b.fac.state[0]).join(''), s.works && s.works.walls ? 'W' : ''].join('|');
         const cur = R.towns[s.id];
         if (d > 48) { if (cur) { R.groups.towns.remove(cur.group); delete R.towns[s.id]; } continue; }
         if (cur && cur.key === key) continue;
@@ -405,6 +405,26 @@
             group.add(mesh);
           }
           if (b.type === 'lamp') lamps.push({ x: cx, y: cy, era: fac ? fac.tech.era : 0, arcane: fac && fac.tech.path === 'arcane' });
+        }
+        // a palisade, once the crown has paid for one: a ring of sharpened stakes with gaps for the roads
+        if (s.works && s.works.walls) {
+          const rad = s.kind === 'capital' ? 17 : 14.5, n = Math.round(rad * 2 * Math.PI / 0.55);
+          const geo = new THREE.CylinderGeometry(0.09, 0.13, 1.9, 5); geo.translate(0, 0.95, 0);
+          const mat = new THREE.MeshStandardMaterial({ color: C('#6a4a2c'), roughness: 0.95, flatShading: true });
+          const im = new THREE.InstancedMesh(geo, mat, n);
+          const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3();
+          let k = 0;
+          for (let i = 0; i < n; i++) {
+            const a = i / n * Math.PI * 2, x = s.x + Math.cos(a) * rad, y = s.y + Math.sin(a) * rad;
+            const t = ECHO.World.tile(world, x, y);
+            if (t === TILE.ROAD || t === TILE.BRIDGE || t === TILE.WATER || t === TILE.DEEP || ECHO.World.isSolid(world, x, y)) continue;
+            q.setFromAxisAngle(R.v3.set(Math.sin(a), 0, -Math.cos(a)), 0.12 * ((i % 2) - 0.5));
+            sc.set(1, 0.85 + ((i * 7) % 5) * 0.06, 1);
+            m4.compose(pos.set(x, R.groundH(x, y), y), q, sc);
+            im.setMatrixAt(k++, m4);
+          }
+          im.count = k; im.castShadow = true; im.receiveShadow = true;
+          group.add(im);
         }
         R.groups.towns.add(group);
         R.towns[s.id] = { key, group, lamps, sails, smokes };
@@ -472,6 +492,25 @@
           R.siteLights.push({ x: st.x + 0.5, y: st.y + 0.5, r: 3, a: 0.7, color: '#9fd3ff', h: 0.3 });
         }
       }
+      // landmarks and delves
+      for (const s of (ECHO.Explore ? ECHO.Explore.sites(world) : [])) {
+        if (!near(s.x, s.y)) continue;
+        const add = (name, dx, dy, colors, rot = 0, sc = 1) => R.addStatic(g, name, s.x + dx, s.y + dy, colors, rot, sc);
+        const hole = (dx, dy, r = 0.6) => { const m = new THREE.Mesh(new THREE.CircleGeometry(r, 12), new THREE.MeshBasicMaterial({ color: '#05050a' })); m.rotation.x = -Math.PI / 2; m.position.set(s.x + dx, R.groundH(s.x + dx, s.y + dy) + 0.04, s.y + dy); g.add(m); };
+        switch (s.kind) {
+          case 'stones': for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; add('pillar', Math.cos(a) * 2.3, Math.sin(a) * 2.3, { stone: '#8a867c' }, a, 0.85 + (i % 3) * 0.08); } add('tablet', 0, 0, { rune: '#4a4740' }); break;
+          case 'lookout': add('boulder', -0.8, 0.2, null, 1, 1.2); add('boulder', 0.9, -0.2, null, 2, 0.9); add('standard', 0, -0.6, { banner: '#c8a85a' }, 0, 1); break;
+          case 'moonwell': add('well', 0, 0, { stone: '#a8b8c8', glow: '#9fd3ff' }, 0, 1.2); break;
+          case 'oak': add('oak', 0, 0, null, 1.3, 2.6); break;
+          case 'battlefield': for (let i = 0; i < 7; i++) add('rock', Math.cos(i * 2.2) * 2.2, Math.sin(i * 1.7) * 1.8, { rock: '#e2dccb', darkstone: '#cfc7b4' }, i, 0.3); add('standard', 0.5, 0.3, { banner: '#5a2a22' }, 0.4, 0.9); add('rack', -1, -0.8, null, 0.7, 0.8); break;
+          case 'wayshrine': add('shrine', 0, 0, null, 0, 0.42); R.siteLights.push({ x: s.x, y: s.y + 0.4, r: 3, a: 0.8, color: '#ffc070', h: 0.8 }); break;
+          case 'wreck': add('cart', 0, 0, { wood: '#4a3a2a' }, 2.4, 1.1); add('barrel', 1.2, 0.6, null, 0, 0.9); add('crate', -1, 0.8, null, 0.4, 0.9); break;
+          case 'barrow': add('boulder', -1.4, -0.6, { rock: '#6a7a5a', darkstone: '#5a6a4a' }, 0, 1.8); add('boulder', 1.4, -0.6, { rock: '#6a7a5a', darkstone: '#5a6a4a' }, 2, 1.8); add('pillar', -0.6, 0.2, null, 0, 0.8); add('pillar', 0.6, 0.2, null, 0, 0.8); hole(0, 0.4, 0.5); break;
+          case 'cave': add('boulder', -1.3, -0.4, null, 0, 1.6); add('boulder', 1.3, -0.4, null, 2, 1.5); add('boulder', 0, -1.2, null, 1, 1.7); hole(0, 0.2, 0.7); add('rock', 1.6, 0.9, { rock: '#e2dccb', darkstone: '#cfc7b4' }, 0, 0.3); break;
+          case 'hideout': add('crate', -1, 0, null, 0.3, 1); add('crate', -1.1, 0.9, null, 1.2, 0.8); add('barrel', 1, 0.2, null, 0, 1); add('tent', 0.2, -1.4, { tent: '#4a4038' }, 0, 0.8); hole(0.1, 0.6, 0.45); break;
+          case 'crypt': add('ruinwall', -1.2, -0.5, null, 0, 0.9); add('ruinwall', 1.2, -0.5, null, Math.PI, 0.9); add('pillar', -0.7, 0.3, null, 0, 0.7); add('pillar', 0.7, 0.3, null, 0, 0.7); hole(0, 0.3, 0.55); break;
+        }
+      }
       if (world.rift && near(world.rift.x, world.rift.y)) {
         R.rift = R.addStatic(g, 'rift', world.rift.x + 0.5, world.rift.y + 0.5, { rune: '#c8a8ff' }, 0, 1.2);
         R.siteLights.push({ x: world.rift.x + 0.5, y: world.rift.y + 0.5, r: 8, a: 1.4, color: '#b48aff', h: 1.6 });
@@ -485,9 +524,11 @@
     FLOORS: {
       wood: (x, y) => { const plank = (y * 3 + ((x + (y % 2) * 0.5) / 2.5 | 0)) * 7919 % 100 / 100; return ['#7a5634', '#6e4c2e', '#835c38', '#73512f'][(plank * 4) | 0]; },
       stone: (x, y) => ['#6f6a62', '#77726a', '#68635c', '#7d776d'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4],
-      marble: (x, y) => ((x + y) % 2 ? '#d8d2c6' : '#bfb7a8')
+      marble: (x, y) => ((x + y) % 2 ? '#d8d2c6' : '#bfb7a8'),
+      cave: (x, y) => ['#4a443c', '#524b42', '#453f37', '#5a5246'][((x * 37 + y * 11) * 2654435761 >>> 0) % 4],
+      crypt: (x, y) => ['#55524c', '#5d5a53', '#4e4b45', '#625e56'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4]
     },
-    WALLS: { plaster: ['#cbb894', '#5a3e26'], stone: ['#7c766c', '#5a554e'], marble: ['#e0d9cc', '#a89e8c'] },
+    WALLS: { plaster: ['#cbb894', '#5a3e26'], stone: ['#7c766c', '#5a554e'], marble: ['#e0d9cc', '#a89e8c'], rock: ['#5a544a', '#3e3a33'] },
     buildRoom(game, L) {
       const g = R.groups.room;
       for (const o of g.children.slice()) { g.remove(o); if (o.geometry && o.userData.own) o.geometry.dispose(); }
@@ -526,6 +567,12 @@
       const mat = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.6), new THREE.MeshBasicMaterial({ color: '#fff0c0', transparent: true, opacity: 0.25, depthWrite: false }));
       mat.rotation.x = -Math.PI / 2; mat.position.set(B + dx + 0.5, 0.02, L.H - 1.2); mat.userData.own = true; g.add(mat);
       R.roomDoorGlow = mat;
+      if (L.cave) {
+        // rough rock instead of posts and windows
+        for (let x = 1; x < L.W - 1; x += 2) box(B + x + 0.5, 1.1 + (x % 3) * 0.08, 0.9, WH * (0.7 + (x % 4) * 0.1), 0.4, trimMat);
+        R.roomWinMat = null;
+      }
+      if (L.cave) { /* no windows below ground */ } else {
       // timber posts / pilasters and a trim along the top
       for (let x = 0; x < L.W; x += 3) box(B + x + 0.5, 1.02, 0.22, WH, 0.12, trimMat);
       for (let y = 1; y < L.H - 1; y += 3) { box(B + 1.04, y + 0.5, 0.1, WH, 0.22, trimMat); box(B + L.W - 1.04, y + 0.5, 0.1, WH, 0.22, trimMat); }
@@ -539,6 +586,7 @@
         R.roomWindows.push({ x: B + x, y: 1.4 });
       }
       R.roomWinMat = wmat;
+      }
       // furniture
       for (const f of L.furn) {
         const baked = ECHO.Models.bake(f.model, f.colors);
@@ -568,15 +616,15 @@
     },
     updateInteriorLighting(game, L) {
       const world = game.world;
-      const dl = T.daylight(world.minute);
+      const dl = L.cave ? 0 : T.daylight(world.minute);
       const B = ECHO.Interior.BASE;
-      R.hemi.intensity = 0.22 + 0.18 * dl;
+      R.hemi.intensity = L.cave ? 0.14 : 0.22 + 0.18 * dl;
       R.hemi.color.set('#ffd9b0').convertSRGBToLinear();
       R.hemi.groundColor.set('#2a1c12').convertSRGBToLinear();
       // a soft key light from the windows for shadows
       R.sun.position.set(B + L.W / 2 - 4, 14, -6);
       R.sun.target.position.set(B + L.W / 2, 0, L.H / 2);
-      R.sun.intensity = 0.25 + 0.55 * dl;
+      R.sun.intensity = L.cave ? 0.06 : 0.25 + 0.55 * dl;
       R.sun.color.set(dl > 0.3 ? '#fff0dc' : '#9ab0ff').convertSRGBToLinear();
       R.sun.castShadow = true;
       R.moon.intensity = 0;
@@ -614,7 +662,7 @@
       let v = R.views.get(e);
       if (v) return v;
       let inst = null, kind = e.type;
-      if (e.type === 'player' || e.type === 'person' || e.type === 'ghost') inst = ECHO.Models.instance('person');
+      if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) inst = ECHO.Models.instance('person');
       else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' ? 'stag' : e.species);
       else if (e.type === 'boss') inst = ECHO.Models.instance(e.boss.kind);
       if (!inst) return null;
@@ -635,6 +683,22 @@
     PROF: null,
     configure(game, e, v) {
       const M = ECHO.Models, inst = v.inst, world = game.world;
+      if (e.humanoid) {
+        // the barrow dead and the smugglers: people-shaped, but not people of this world
+        const lk = e.foe ? e.foe.look : 'brigand';
+        const dead = lk === 'wight' || lk === 'king';
+        M.recolor(inst, 'cloth', dead ? '#7f9a8a' : lk === 'chief' ? '#5a2a22' : '#4a4038');
+        M.recolor(inst, 'cloth2', dead ? '#3e4a44' : '#2a2420');
+        M.recolor(inst, 'skin', e.look.skin); M.recolor(inst, 'hair', e.look.hair);
+        if (dead) { M.recolor(inst, 'metal', '#9ab0a0'); M.recolor(inst, 'cape', '#4a5a50'); }
+        for (const k of ['robe', 'apron', 'cape', 'helm', 'bandana', 'hood', 'hairLong', 'beard', 'crown', 'shield', 'bow', 'spear', 'torch', 'staff', 'sword']) M.show(inst, k, false);
+        M.show(inst, 'sword', !e.gear.bow); M.show(inst, 'bow', !!e.gear.bow);
+        if (dead) { M.show(inst, 'robe', true); M.show(inst, 'hood', lk === 'wight'); M.show(inst, 'crown', lk === 'king'); M.show(inst, 'cape', lk === 'king'); }
+        else { M.show(inst, 'bandana', lk !== 'chief'); M.show(inst, 'helm', lk === 'chief'); M.show(inst, 'cape', lk === 'chief'); M.show(inst, 'hair', lk === 'chief'); M.show(inst, 'beard', !!e.look.beard); }
+        if (dead) for (const m of inst.mats) if (m.emissive) m.emissive.set('#16302a');
+        inst.root.scale.setScalar(e.foe && e.foe.elite ? 1.18 : 1);
+        return;
+      }
       if (e.species === 'hind') {
         M.recolor(inst, 'stag', '#f4f2ea'); M.recolor(inst, 'cloth2', '#e6e2d6'); M.recolor(inst, 'white', '#ffffff'); M.recolor(inst, 'eyeglow', '#bfe8ff'); M.recolor(inst, 'darkwood', '#b8b0a0');
         for (const k of ['antlers', 'armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false);
@@ -648,7 +712,8 @@
         if (tint) M.recolor(inst, base, tint);
         if (e.mutation === 'paleshade') for (const m of inst.mats) { m.transparent = true; m.opacity = 0.5; }
         M.show(inst, 'horn', e.mutation === 'glasshorn');
-        inst.root.scale.setScalar(e.species === 'wolf' ? 1.05 : 1.15);
+        inst.root.scale.setScalar((e.species === 'wolf' ? 1.05 : 1.15) * (e.scale || 1));
+        if (e.beast || e.scale > 1.2) M.recolor(inst, base, '#2e2a30');
         return;
       }
       if (e.type === 'boss') {
@@ -832,7 +897,7 @@
         v.spd = v.spd == null ? spd : v.spd + (spd - v.spd) * Math.min(1, dt * 10);
         const wantMv = e.moving || v.spd > 0.35 ? 1 : 0;
         if (dt > 0) v.mv = (v.mv == null ? wantMv : v.mv + (wantMv - v.mv) * Math.min(1, dt * 7));
-        if (e.type === 'player' || e.type === 'person' || e.type === 'ghost') R.animatePerson(game, e, v, dt);
+        if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) R.animatePerson(game, e, v, dt);
         else if (e.type === 'creature') R.animateCreature(game, e, v);
         else R.animateBoss(game, e, v);
         // facing: smooth turn toward e.dir
@@ -959,7 +1024,7 @@
       R.festGroup = new THREE.Group(); R.scene.add(R.festGroup); R.festKey = ''; R.festFlames = [];
     },
     updateGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : []);
       const ga = R.glows.geometry.attributes;
       const n = Math.min(list.length, ga.size.count);
       const tmp = R._gc || (R._gc = new THREE.Color());
@@ -1466,8 +1531,10 @@
             const yours = game.pl && it.history.some(hh => hh.t.includes(game.pl.first + ' ' + game.pl.last));
             text(yours ? '(carrying your sword)' : it.legend ? `(carrying ${it.name})` : '', p.x, ty + fs + 2 * R.dpr, '#f2d47a');
           }
+        } else if (e.type === 'creature' && e.label && !e.marvel) {
+          if (hover || (e.foe && e.foe.elite) || e.beast || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 7) text(e.label, p.x, ty, '#ffb0a0');
         } else if (e.type === 'creature' && hover) {
-          text(ECHO.Ecology.speciesName(world, world.regions[e.regionId], e.species), p.x, ty, game.hostileTo(game.pe, e) ? '#ffb0a0' : '#e0e0d0');
+          text(e.humanoid ? e.foe.name : ECHO.Ecology.speciesName(world, world.regions[e.regionId], e.species), p.x, ty, game.hostileTo(game.pe, e) ? '#ffb0a0' : '#e0e0d0');
         }
       }
       for (const f of ECHO.Combat.floaters) {

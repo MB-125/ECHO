@@ -5,6 +5,7 @@
   const In = ECHO.Input;
   const Ch = () => ECHO.Character;
 
+  const star = pl => pl.spells.includes('starfire');
   const PC = ECHO.PlayerCtl = {
     derived: null, derivedT: 0, draw: 0, drawing: false, charge: 0, charging: false,
     dodgeT: 0, dodgeDir: 0, studyT: 0, studyTarget: null, eatT: 0, sneaking: false,
@@ -47,6 +48,7 @@
       if (!pe || pe.dead) return;
       PC.derivedT -= dt;
       if (!PC.derived || PC.derivedT <= 0) { PC.computeDerived(game); PC.derivedT = 1; }
+      ECHO.Tech.tick(game, dt);
       const D = PC.derived;
       const mouse = game.screenToWorld(In.mx, In.my);
       let aim = Math.atan2(mouse.y - (pe.y - 0.3), mouse.x - pe.x);
@@ -83,12 +85,13 @@
 
       if (PC.dodgeT > 0) {
         PC.dodgeT -= dt;
+        if (PC.dodgeT <= 0) PC.rollEndT = game.time;
         // burst out of the dive, slow as you come up out of the roll
         const sp = 10 * (0.45 + 0.75 * Math.max(0, PC.dodgeT) / PC.ROLL) * dt;
         ECHO.Ent.move(world, pe, Math.cos(PC.dodgeDir) * sp, Math.sin(PC.dodgeDir) * sp);
         if (Math.random() < 0.6) ECHO.Combat.fx.push({ kind: 'p', x: pe.x, y: pe.y + 0.2, vx: 0, vy: 0, t: 0, life: 0.3, color: 'rgba(200,190,170,0.6)', size: 2 });
       } else if (pe.stagger <= 0) {
-        let sp = D.speed * ECHO.World.speedAt(world, pe.x, pe.y);
+        let sp = D.speed * ECHO.World.speedAt(world, pe.x, pe.y) * ECHO.Tech.speedMul();
         if (pe.blocking) sp *= 0.45;
         if (PC.drawing) sp *= 0.55;
         if (PC.charging) sp *= 0.6;
@@ -116,6 +119,7 @@
       if (PC.dodgeBuf > 0 && PC.dodgeT <= 0 && pl.stamina >= 16 && pe.stagger <= 0 && !(pe.attackT > 0.08)) {
         PC.dodgeBuf = 0;
         pl.stamina -= 18;
+        if (game.combatT != null && game.time - game.combatT < 6) ECHO.Tech.record('dodges');
         const dir = len ? Math.atan2(my, mx) : aim + Math.PI;
         Ch().behave(pl, 'caution', 0.02);
         Ch().train(pl, 'endurance', 0.08);
@@ -131,7 +135,7 @@
             if (ECHO.World.isSolid(world, nx, ny)) break;
             bx = nx; by = ny;
           }
-          pe.x = bx; pe.y = by; pe.iframes = 0.35;
+          pe.x = bx; pe.y = by; pe.iframes = 0.35; PC.rollEndT = game.time;
           ECHO.Combat.burst(pe.x, pe.y, '#9fd3ff', 14, 3, 0.4, 2);
         } else {
           PC.dodgeT = PC.ROLL; PC.dodgeDir = dir; pe.iframes = 0.3; pe.rollT = PC.ROLL; pe.rollDur = PC.ROLL; pe.rollDir = dir; pe.dir = dir;
@@ -188,6 +192,12 @@
             const p = ECHO.Combat.shoot(pe, a2 + (Math.random() - 0.5) * spread, { kind: 'arrow', speed: (11 + 9 * PC.draw) * (perfect ? 1.25 : 1), dmg: D.bowDmg * power * (perfect ? 1.35 : 1), life: 1.2, type: 'ranged' });
             p.crit = perfect;
             if (ECHO.Fest && ECHO.Fest.contest) p.contest = true;
+            const twins = perfect && !p.contest ? ECHO.Tech.v('twinshot') : 0;
+            for (let k = 1; k <= twins; k++) {
+              const side = k % 2 ? 1 : -1, off = side * 0.11 * Math.ceil(k / 2);
+              const q = ECHO.Combat.shoot(pe, a2 + off, { kind: 'arrow', speed: (11 + 9 * PC.draw) * 1.2, dmg: D.bowDmg * power * (ECHO.Tech.level('twinshot') >= 3 ? 1.3 : 0.75), life: 1.1, type: 'ranged' });
+              q.crit = ECHO.Tech.level('twinshot') >= 3;
+            }
             ECHO.Sfx.play('bowRelease');
             if (perfect) { ECHO.Sfx.play('perfect'); ECHO.Combat.floater(pe.x, pe.y - 1.1, 'perfect', '#fff2b0'); Ch().train(pl, 'archery', 0.1); }
             game.kick(a2 + Math.PI, 0.08);
@@ -282,21 +292,35 @@
     },
     swing(game, aim, D, kind) {
       const pe = game.pe, pl = game.pl, world = game.world;
-      const SPEC = {
+      const Tc = ECHO.Tech;
+      // Techniques found in battle reshape the blow.
+      if (pe.blocking && Tc.level('bash') && kind !== 'heavy') kind = 'bash';
+      const foesNear = game.ents.filter(e => !e.dead && e !== pe && game.hostileTo(pe, e) && U.dist(e.x, e.y, pe.x, pe.y) < 2.6).length;
+      if (kind === 'heavy' && Tc.level('whirlwind') && foesNear >= 2) kind = 'whirlwind';
+      const lunge = kind !== 'bash' && Tc.level('lunge') && PC.rollEndT != null && game.time - PC.rollEndT < 0.4;
+      const riposte = Tc.level('riposte') && Tc.riposteT > 0;
+      if (riposte) Tc.riposteT = 0;
+      const SPEC = Object.assign({}, {
         combo: { dmg: 1, arc: 1.9, range: 0, knock: 0.24, cd: 0.8, sta: 1, stagger: 0, stop: 0.055, sfx: 'swing' },
         finisher: { dmg: 1.6, arc: Math.PI * 1.9, range: 0.3, knock: 0.5, cd: 1.55, sta: 1.35, stagger: 0.45, stop: 0.09, sfx: 'swingHeavy' },
-        heavy: { dmg: 2.4, arc: 2.5, range: 0.4, knock: 0.7, cd: 1.6, sta: 2.4, stagger: 0.85, stop: 0.13, sfx: 'swingHeavy', guardbreak: true }
-      }[kind];
+        heavy: { dmg: 2.4, arc: 2.5, range: 0.4, knock: 0.7, cd: 1.6, sta: 2.4, stagger: 0.85, stop: 0.13, sfx: 'swingHeavy', guardbreak: true },
+        whirlwind: { dmg: 2.1 * Tc.v('whirlwind'), arc: Math.PI * 2, range: 0.9, knock: 0.8, cd: 1.7, sta: 2.4, stagger: 0.7, stop: 0.13, sfx: 'swingHeavy', guardbreak: true },
+        bash: { dmg: 0.45, arc: 1.7, range: -0.15, knock: 0.6, cd: 1.1, sta: 1.3, stagger: Tc.v('bash'), stop: 0.09, sfx: 'shieldBlock', guardbreak: true }
+      }[kind]);
+      if (lunge) { SPEC.dmg *= Tc.v('lunge'); SPEC.range += 1.1; }
+      if (riposte) { SPEC.stagger = Math.max(SPEC.stagger, 0.7); SPEC.guardbreak = true; }
       // lock on to the foe you are facing, and step into the blow
       const tgt = PC.assist(game, aim, D.meleeRange + 1.6, 0.33);
       if (tgt) aim = Math.atan2(tgt.y - pe.y, tgt.x - pe.x);
       const gap = tgt ? U.dist(tgt.x, tgt.y, pe.x, pe.y) - tgt.r - pe.r : 1;
-      PC.lungeDir = aim; PC.lungeT = 0.1; PC.lungeSpd = kind === 'heavy' ? 7 : U.clamp(gap * 9, 1.5, 6);
+      PC.lungeDir = aim; PC.lungeT = lunge ? 0.18 : 0.1; PC.lungeSpd = lunge ? 15 : kind === 'heavy' ? 7 : U.clamp(gap * 9, 1.5, 6);
+      if (lunge) { PC.rollEndT = null; ECHO.Combat.floater(pe.x, pe.y - 1.2, 'lunge', '#ffe8c0'); }
+      if (riposte) ECHO.Combat.sparks(pe.x + Math.cos(aim) * 0.6, pe.y - 0.3 + Math.sin(aim) * 0.6, aim, '#fff6c8', 14, 7);
       pe.dir = aim; pe.flip = Math.cos(aim) < 0;
       pe.cd = D.meleeCd * SPEC.cd;
       pl.stamina -= D.meleeStam * SPEC.sta;
       pe.attackT = kind === 'combo' ? 0.2 : 0.3; pe.attackDur = pe.attackT; pe.attackAngle = aim;
-      pe.attackKind = kind === 'combo' ? (PC.combo === 1 ? 'back' : 'fore') : kind;
+      pe.attackKind = kind === 'combo' ? (PC.combo === 1 ? 'back' : 'fore') : kind === 'whirlwind' ? 'finisher' : kind === 'bash' ? 'fore' : kind;
       const weapon = world.items[pl.weapon];
       let stealth = false;
       for (const e of game.ents) {
@@ -305,9 +329,11 @@
         if (e.sleeping || (PC.sneaking && e.state !== 'chase' && e.state !== 'attack' && e.state !== 'alert')) stealth = true;
       }
       ECHO.Sfx.play(SPEC.sfx, { pitch: kind === 'combo' ? (PC.combo === 1 ? 1.15 : 1) : 1 });
-      const hits = ECHO.Combat.melee(pe, { angle: aim, arc: SPEC.arc, range: D.meleeRange + SPEC.range, dmg: D.meleeDmg * SPEC.dmg * (0.9 + Math.random() * 0.2), knock: SPEC.knock, stealth, stagger: SPEC.stagger, guardbreak: SPEC.guardbreak, heavy: kind !== 'combo', rocks: kind === 'heavy' });
+      const hits = ECHO.Combat.melee(pe, { angle: aim, arc: SPEC.arc, range: D.meleeRange + SPEC.range, dmg: D.meleeDmg * SPEC.dmg * (0.9 + Math.random() * 0.2), knock: SPEC.knock, stealth, stagger: SPEC.stagger, guardbreak: SPEC.guardbreak, heavy: kind !== 'combo', rocks: kind === 'heavy' || kind === 'whirlwind', riposte, finisher: kind === 'finisher' || kind === 'whirlwind' });
+      if (hits.length && (kind === 'finisher' || kind === 'whirlwind')) Tc.record('finishers');
       const col = weapon && weapon.legend ? 'rgba(255,230,160,0.95)' : kind === 'heavy' ? 'rgba(255,240,200,0.95)' : 'rgba(255,255,255,0.85)';
-      ECHO.Combat.slash(pe.x, pe.y, aim, D.meleeRange + SPEC.range + 0.2, Math.min(SPEC.arc, Math.PI * 1.95), col, kind);
+      ECHO.Combat.slash(pe.x, pe.y, aim, D.meleeRange + SPEC.range + 0.2, Math.min(SPEC.arc, Math.PI * 1.95), riposte ? 'rgba(255,240,170,0.98)' : col, kind === 'whirlwind' ? 'finisher' : kind === 'bash' ? 'combo' : kind);
+      if (kind === 'whirlwind') { ECHO.Combat.ring(pe.x, pe.y, D.meleeRange + SPEC.range, 'rgba(255,230,180,0.85)', 0.4); game.shake(0.3); }
       if (kind === 'heavy') { ECHO.Combat.ring(pe.x + Math.cos(aim) * 1.1, pe.y + Math.sin(aim) * 1.1, 1.6, 'rgba(255,230,180,0.8)', 0.35); game.shake(0.35); }
       Ch().behave(pl, 'aggression', kind === 'combo' ? 0.012 : 0.03);
       if (hits.length) {
@@ -318,7 +344,7 @@
         if (stealth) { Ch().train(pl, 'shadow', 0.5); Ch().behave(pl, 'night', 0.03); }
         if (weapon) weapon.hits = (weapon.hits || 0) + hits.length;
       }
-      game.noise(pe.x, pe.y, 5);
+      if (!(stealth && Tc.level('shadowstrike') >= 2)) game.noise(pe.x, pe.y, 5);
     },
 
     castFlame(game, aim, D) {
@@ -345,6 +371,18 @@
         const bleed = Math.min(overdraw * 0.6, Math.max(0, pl.hp - pl.maxHp * 0.3));
         pl.hp -= bleed;
         ECHO.Combat.floater(pe.x, pe.y - 1, `blood for fire −${Math.round(bleed)}`, '#ff7b5a');
+      }
+      if (game.combatT != null && game.time - game.combatT < 8) ECHO.Tech.record('casts');
+      if (pe.blocking && ECHO.Tech.level('flamering')) {
+        // a ring of fire all around you — it never turns on its caster
+        const R = ECHO.Tech.v('flamering');
+        const p = ECHO.Combat.shoot(pe, 0, { kind: 'fire', speed: 0, dmg: D.flameDmg * (1.1 + charge * 0.6), radius: R, life: 0.01, type: 'fire', power: 1.2 });
+        p.x = pe.x; p.y = pe.y; p.star = star(pl);
+        ECHO.Combat.ring(pe.x, pe.y, R, 'rgba(255,150,60,0.9)', 0.45);
+        Ch().train(pl, 'flame', 0.15);
+        ECHO.Sfx.play('fireCast'); game.kick(aim + Math.PI, 0.05);
+        PC.charge = 0;
+        return;
       }
       if (charge > 0.6 || overdraw > 0) Ch().behave(pl, 'reckless', 0.1 + charge * 0.15 + (overdraw ? 0.25 : 0));
       Ch().train(pl, 'flame', 0.12 + charge * 0.1);
@@ -383,7 +421,7 @@
     studyCandidate(game, mouse) {
       let best = null, bd = 7;
       for (const e of game.ents) {
-        if (e.dead || e.hidden || (e.type !== 'creature' && e.type !== 'boss')) continue;
+        if (e.dead || e.hidden || (e.type !== 'creature' && e.type !== 'boss') || e.humanoid || e.marvel) continue;
         const d = U.dist(e.x, e.y, game.pe.x, game.pe.y);
         const dm = U.dist(e.x, e.y, mouse.x, mouse.y);
         const score = d + dm * 0.5;

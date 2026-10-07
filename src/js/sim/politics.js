@@ -123,6 +123,7 @@
       str *= 1 + Math.min(0.5, s.stock.arms / 60);
       str *= 1 + (f ? f.tech.era * 0.08 : 0);
       if (s.kind === 'capital') str *= 1.3;
+      if (s.works && s.works.walls) str *= 1.35;
       return str + 8;
     },
 

@@ -44,7 +44,7 @@
         if (Math.abs(U.angleDiff(o.angle, a)) > o.arc / 2 && d > e.r + 0.3) continue;
         hits.push(e);
       }
-      for (const e of hits) C.damage(e, o.dmg, { type: 'melee', from: att, angle: Math.atan2(e.y - att.y, e.x - att.x), knock: o.knock || 0.12, crit: o.crit, unblockable: o.unblockable || o.guardbreak, guardbreak: o.guardbreak, stealth: o.stealth, stagger: o.stagger, heavy: o.heavy });
+      for (const e of hits) C.damage(e, o.dmg, { type: 'melee', from: att, angle: Math.atan2(e.y - att.y, e.x - att.x), knock: o.knock || 0.12, crit: o.crit, unblockable: o.unblockable || o.guardbreak, guardbreak: o.guardbreak, stealth: o.stealth, stagger: o.stagger, heavy: o.heavy, riposte: o.riposte, finisher: o.finisher });
       // Strike cover stones (bosses)
       if (o.rocks) for (const l of game.world.lairs) for (const r of l.rocks) {
         if (r.hp <= 0) continue;
@@ -144,7 +144,7 @@
       const world = game.world;
       if (target.dead || amount <= 0) return 0;
       if (target === game.pe && (game.defeating || game.pl.capture)) return 0;
-      if (target.iframes > 0) { if (target === game.pe) C.floater(target.x, target.y - 0.8, 'dodged', '#9fd3ff'); return 0; }
+      if (target.iframes > 0) { if (target === game.pe) { C.floater(target.x, target.y - 0.8, 'dodged', '#9fd3ff'); if (src.from && src.from !== game.pe) ECHO.Tech.onDodgedHit(game); } return 0; }
       const from = src.from;
       if (from && from.hidden && !from.dead) return 0; // nothing unseen can strike
       const type = src.type;
@@ -171,6 +171,7 @@
           ECHO.Character.train(game.pl, 'ward', perfect ? 0.6 : 0.25);
           ECHO.Character.behave(game.pl, 'caution', 0.04);
           if (perfect && from) { from.stagger = 0.9; C.floater(target.x, target.y - 0.9, 'perfect guard', '#ffe08a'); }
+          if (from && from !== game.pe) { if (perfect) ECHO.Tech.onPerfectGuard(game); else ECHO.Tech.record('blocks'); }
           if (game.pl.spells.includes('wardsong') && perfect) game.wardsong();
           if (from && from.type === 'boss') ECHO.Boss.noteBlock(from);
         }
@@ -214,12 +215,16 @@
         const known = target.species ? (game.pl.studied[target.species] || 0) : target.type === 'boss' ? (game.pl.studied['boss:' + target.boss.id] || 0) : 0;
         if (Math.random() < Math.min(0.35, known * 0.035)) crit = true;
       }
+      if (from === game.pe && target !== game.pe && (src.shadowroll || ECHO.Tech.shadowT > 0) && type === 'melee') { crit = true; src.shadowroll = true; ECHO.Tech.shadowT = 0; }
       if (crit) dmg *= 1.8;
-      if (src.stealth) dmg *= 3;
+      if (src.stealth) dmg *= from === game.pe ? ECHO.Tech.stealthMul() : 3;
+      if (from === game.pe && target !== game.pe) dmg *= ECHO.Tech.dealt(target, src);
+      if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken();
       dmg = Math.max(1, Math.round(dmg));
       // Your own fire can hurt you badly, but never below 15% of your life.
       if (target === game.pe && (from === game.pe || !from)) { const floor = Math.max(1, target.maxHp * 0.15); if (target.hp - dmg < floor) dmg = Math.max(0, Math.floor(target.hp - floor)); }
       if (dmg <= 0) { if (target === game.pe) target.burn = 0; return 0; }
+      const wasStaggered = target.stagger > 0;
       target.hp -= dmg;
       target.hurtT = 0.18;
       target.hurtDir = src.angle != null ? src.angle : target.hurtDir;
@@ -230,11 +235,12 @@
         if (target.species === 'wolf' && (target.state === 'windup' || target.state === 'lunge')) { target.state = 'retreat'; target.t = 0; }
         if (target.type === 'boss' && st > 0.3) C.floater(target.x, target.y - 2, 'staggered', '#ffe08a');
       }
-      if (target === game.pe) { game.pl.hp = target.hp; game.lastHurtTime = game.time; if (from && from !== game.pe) game.combatT = game.time; }
+      if (target === game.pe) { game.pl.hp = target.hp; game.lastHurtTime = game.time; if (from && from !== game.pe) { game.combatT = game.time; ECHO.Tech.onHurt(game, dmg); } }
+      if (from === game.pe && target !== game.pe && target.type !== 'ghost' && !(target.type === 'creature' && target.species === 'hare')) ECHO.Tech.onHit(game, target, { ...src, crit, wasStaggered, perfect: !!src.crit }, dmg);
       if (from === game.pe && target !== game.pe) {
         const sk = type === 'melee' ? 'blade' : type === 'ranged' ? 'archery' : 'flame';
         ECHO.Character.train(game.pl, sk, type === 'ranged' ? 0.18 : 0.06);
-        if (target.type === 'person' || target.type === 'boss' || target.species === 'wolf') game.combatT = game.time;
+        if (target.type === 'person' || target.type === 'boss' || target.species === 'wolf' || target.humanoid) game.combatT = game.time;
       }
       if (src.knock && src.angle != null && target.type !== 'boss') { target.kbx += Math.cos(src.angle) * src.knock; target.kby += Math.sin(src.angle) * src.knock; }
       const col = target === game.pe ? '#ff6b6b' : type === 'fire' ? '#ffb347' : crit ? '#ffe066' : '#ffffff';
@@ -284,6 +290,7 @@
       const ka = src.angle != null ? src.angle : Math.atan2(target.y - game.pe.y, target.x - game.pe.x);
       target.deathAngle = ka;
       if (target.type !== 'boss') { const kb = (src.knock || 0.12) * 1.8 + 0.15; target.kbx += Math.cos(ka) * kb; target.kby += Math.sin(ka) * kb; }
+      if (byPlayer && target.species !== 'hare' && target.species !== 'gnawer') ECHO.Tech.onKill(game, target, type, src);
       if (byPlayer) {
         if (ECHO.Sfx) ECHO.Sfx.play('kill', { pitch: target.species === 'gnawer' || target.species === 'hare' ? 1.5 : 1 });
         game.hitStop(target.type === 'boss' ? 0.2 : target.species === 'hare' || target.species === 'gnawer' ? 0.06 : 0.1);
@@ -293,6 +300,8 @@
       const night = game.isNight();
       const region = ECHO.World.regionAt(world, target.x, target.y);
       if (target.marvel) { ECHO.Marvels.onKill(target, from); return; }
+      if (target.humanoid) { C.burst(target.x, target.y, target.foe && (target.foe.look === 'wight' || target.foe.look === 'king') ? '#9fe8c8' : '#7a1d24', 12, 3, 0.6, 2); ECHO.Quests.onKill(target, from); return; }
+      if (target.questId || target.delve) ECHO.Quests.onKill(target, from);
       if (target.type === 'creature') {
         const sp = target.species;
         C.burst(target.x, target.y, '#5a1f1f', 10, 3, 0.6, 2);

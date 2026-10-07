@@ -368,9 +368,8 @@
     s.farmTiles = farm;
   }
 
-  function buildRoads(world) {
-    const S = world.settlements;
-    const cost = (x, y, i) => {
+  function roadCost(world) {
+    return (x, y, i) => {
       const t = world.tiles[i];
       if (world.blocked && world.blocked[i]) return Infinity;
       switch (t) {
@@ -388,6 +387,22 @@
         default: return 2;
       }
     };
+  }
+  // Lay a road between two settlements (used at creation, and when a new village is founded).
+  function connectRoad(world, a, b) {
+    const path = World.findPath(world, a.x, a.y + 1, b.x, b.y + 1, roadCost(world), 120000);
+    if (!path) return null;
+    for (const p of path) {
+      const t = world.tiles[p];
+      if (t === TILE.WATER || t === TILE.DEEP) world.tiles[p] = TILE.BRIDGE;
+      else if (t !== TILE.PLAZA) world.tiles[p] = TILE.ROAD;
+    }
+    const r = { id: 'r' + world.roads.length, a: a.id, b: b.id, path, len: path.length, danger: 0 };
+    world.roads.push(r);
+    return r;
+  }
+  function buildRoads(world) {
+    const S = world.settlements;
     // MST edges + a few extra for loops
     const edges = [];
     for (let i = 0; i < S.length; i++) for (let j = i + 1; j < S.length; j++) edges.push([U.dist(S[i].x, S[i].y, S[j].x, S[j].y), i, j]);
@@ -399,18 +414,11 @@
     let extra = 0;
     for (const e of edges) { if (extra >= 2) break; if (!chosen.includes(e) && e[0] < 75) { chosen.push(e); extra++; } }
     world.roads = [];
-    for (const [, i, j] of chosen) {
-      const a = S[i], b = S[j];
-      const path = World.findPath(world, a.x, a.y + 1, b.x, b.y + 1, cost, 120000);
-      if (!path) continue;
-      for (const p of path) {
-        const t = world.tiles[p];
-        if (t === TILE.WATER || t === TILE.DEEP) world.tiles[p] = TILE.BRIDGE;
-        else if (t !== TILE.PLAZA) world.tiles[p] = TILE.ROAD;
-      }
-      world.roads.push({ id: 'r' + world.roads.length, a: a.id, b: b.id, path, len: path.length, danger: 0 });
-    }
+    for (const [, i, j] of chosen) connectRoad(world, S[i], S[j]);
   }
+  World.connectRoad = connectRoad;
+  World.siteScore = (world, x, y) => siteScore(world, x, y);
+  World.layoutSettlement = (world, s, rng, n) => layoutSettlement(world, s, rng, n);
 
   // ------------------------------------------------------------------ Regions
   function buildRegions(world, rng) {

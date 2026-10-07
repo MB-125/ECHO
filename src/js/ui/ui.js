@@ -76,6 +76,8 @@
       $('#hud-left .sta .fill').style.transform = `scaleX(${U.clamp(pl.stamina / pl.maxSta, 0, 1)})`;
       $('#hud-left .mana .fill').style.transform = `scaleX(${U.clamp(pl.mana / pl.maxMana, 0, 1)})`;
       set('#hud-fate', 'Fate ' + '◆'.repeat(Math.max(0, pl.fate)) + '◇'.repeat(Math.max(0, 3 - pl.fate)));
+      const th = ECHO.Tech.hud();
+      if (UI._th !== th) { UI._th = th; $('#hud-tech').innerHTML = th; }
       const wanted = Object.entries(pl.wanted || {}).filter(([, v]) => v > 20).map(([f]) => world.factions[f].short);
       const ban = Object.entries(pl.banished || {}).filter(([, d]) => d > world.day).map(([f]) => world.factions[f] ? world.factions[f].short : f);
       set('#hud-wanted', [wanted.length ? 'Wanted by ' + wanted.join(', ') : '', ban.length ? 'Banished from ' + ban.join(', ') : '', pl.sick ? 'Sick: ' + pl.sick.name : ''].filter(Boolean).join(' · '));
@@ -276,6 +278,20 @@
             ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} took ${ECHO.People.name(npc)} of ${st.name} before the reeve over a debt of ${npc.debt.amt} crowns.`, importance: 1, sid: st.id, rep: -3, tag: 'cruel' });
             delete npc.debt; render();
           });
+        });
+        for (const cp of world.plights.filter(x => x.kind === 'courier' && x.status === 'open' && x.to === npc.id && pl.accepted.includes(x.id))) {
+          add(`I have something for you, from ${world.npcs[cp.requester] ? world.npcs[cp.requester].first : 'a friend'}.`, () => { cp.claimable = true; UI.claimPlight(cp); npc.op[pl.charId] = (npc.op[pl.charId] || 0) + 10; say(`For me? From ${world.npcs[cp.requester] ? world.npcs[cp.requester].first : 'them'}? …Thank you for bringing it all this way.`); render(); });
+        }
+        const plotF = ECHO.Realm && ECHO.Realm.plotBy(world, npc.id);
+        if (plotF && (world.plights.some(x => x.kind === 'plot' && x.status === 'open' && x.plotter === npc.id && pl.accepted.includes(x.id)) || (npc.op[pl.charId] || 0) > 50)) add('I hear you have plans for the throne.', () => {
+          const cap = plotF.realm.plot;
+          say(`${npc.first} goes pale, then very calm. "${(npc.op[pl.charId] || 0) > 30 ? 'You of all people should understand. ' : ''}${P().fullTitle(world, world.npcs[plotF.ruler] || npc)} is ruining ${plotF.short}. When the time comes, I mean to be ready. Which side will you be on?"`);
+          opts.innerHTML = '';
+          add('Turn them in to the captain of the guard.', () => { ECHO.Realm.confrontPlot(world, plotF, 'expose'); say(`You call the guard. ${npc.first} doesn't fight. "You'll regret this," is all ${npc.sex === 'f' ? 'she' : 'he'} says. (+150 crowns, and the crown's gratitude)`); UI.closePanel(); UI.toast('You exposed the plot. The crown will remember.', 'legend', 5); });
+          add('Count me in.', () => { ECHO.Realm.confrontPlot(world, plotF, 'join'); say('"Then we are already halfway there. Keep your blade sharp. When the bells ring at night — be at the keep."'); render(); UI.toast('You have joined the plot. If it succeeds, you will be rewarded. If it fails…', 'warn', 6); });
+          add('Pay me, and I never heard a thing.', () => { const r = ECHO.Realm.confrontPlot(world, plotF, 'blackmail'); say(`${npc.first} counts out ${r} crowns with shaking hands. "Now get out."`); render(); });
+          add('Never mind.', () => render());
+          void cap;
         });
         const words = ECHO.Wonders.carriedFor(world, npc.id);
         if (words) add(`I bring words from ${words.first}.`, () => {
@@ -592,18 +608,42 @@
       const rep = (s.rep && s.rep[pl.charId]) || 0;
       const body = UI.openPanel(`The keep of ${s.name}`, '', 'keep');
       const war = Object.keys(f.atWar);
+      const envoys = s.id === f.capital ? world.plights.filter(p => p.kind === 'envoy' && p.status === 'open' && p.toFaction === f.id && pl.accepted.includes(p.id)) : [];
       body.innerHTML = `<p class="prose">${ruler ? `<b>${esc(P().fullTitle(world, ruler))}</b> rules ${esc(f.name)} from here.` : 'The throne is empty.'} ${f.tech.era ? `The court speaks of the ${ECHO.Civ.eraName(world, f.id)}.` : ''}</p>
         <p class="dim">Treasury: ${Math.round(f.treasury)} crowns · Taxes: ${Math.round(f.taxRate * 100)}% · ${war.length ? 'At war with ' + war.map(x => world.factions[x].name).join(', ') : 'At peace'}</p>
         <p>${rep > 40 ? 'The guards bow as you pass. Your name is known here, and loved.' : rep < -30 ? 'The guards watch you with open hostility.' : rep > 10 ? 'The steward nods; you are known here.' : 'The steward does not know your name.'}</p>
         ${ruler && op > 40 && pl.renown > 40 && !pl.knighted ? `<button data-k="1">Kneel before ${esc(ruler.first)}</button>` : ''}
-        <h3 class="gold" style="margin-top:16px">Bounties posted here</h3><div class="list" id="kb"></div>`;
-      UI.fillPlights(body.querySelector('#kb'), s, p => p.kind === 'bounty');
+        ${UI.realmCard(world, f)}
+        ${envoys.map(p => `<div class="card" style="border-color:#c8a85a"><h4>A sealed letter from ${esc(world.factions[p.faction].name)}</h4><div class="row"><button data-envoy="${p.id}">Present it to the court</button></div></div>`).join('')}
+        <h3 class="gold" style="margin-top:16px">Royal commissions and bounties</h3><div class="list" id="kb"></div>`;
+      UI.fillPlights(body.querySelector('#kb'), s, p => ['bounty', 'clearsite', 'envoy', 'plot'].includes(p.kind) && (p.faction ? p.faction === f.id : true));
+      body.querySelectorAll('button[data-envoy]').forEach(b => b.addEventListener('click', () => {
+        const p = ECHO.Plights.byId(world, b.dataset.envoy); if (!p) return;
+        const from = world.factions[p.faction];
+        from.relations[f.id] = f.relations[from.id] = U.clamp((from.relations[f.id] || 0) + 14, -100, 100);
+        p.claimable = true; UI.claimPlight(p);
+        UI.toast(`${ruler ? ruler.first : 'The court'} breaks the seal and reads in silence. "Tell ${from.short} we will consider it." Relations between ${from.short} and ${f.short} warm.`, 'legend', 6);
+        UI.openKeep(s);
+      }));
       const kb = body.querySelector('button[data-k]');
       if (kb) kb.addEventListener('click', () => {
         pl.knighted = f.id; pl.renown += 10;
         ECHO.Chronicle.deed(world, { text: `${P().fullTitle(world, ruler)} named ${pl.first} ${pl.last} a Knight of ${f.short}.`, importance: 2, sid: s.id, rep: 5, factionRep: { [f.id]: 10 } });
         UI.toast(`You are now a Knight of ${f.short}.`, 'legend', 6); UI.closePanel();
       });
+    },
+    // How a realm is being run: agenda, works, decrees, pacts.
+    realmCard(world, f) {
+      if (!ECHO.Realm || f.type !== 'kingdom') return '';
+      const d = ECHO.Realm.describe(world, f);
+      return `<div class="card"><h4>The state of ${esc(f.name)}</h4>
+        ${d.agenda ? `<div>${d.ruler ? esc(d.ruler.first) + '\'s' : 'The crown\'s'} great aim: <b>${esc(d.agenda.name)}</b> — ${esc(d.agenda.desc)}.</div>` : ''}
+        <div class="dim">${d.towns.length} towns, ${d.pop} people · coffers ${d.coffers} · taxes ${Math.round(f.taxRate * 100)}%</div>
+        ${d.wars.length || d.pacts.length ? `<div>${esc(U.cap([...d.wars, ...d.pacts].join('; ')))}.</div>` : ''}
+        ${d.building.length ? `<div>Being built: ${esc(d.building.join(', '))}.</div>` : ''}
+        ${d.edicts.length ? `<div>Decrees in force: <b>${esc(d.edicts.join(', '))}</b>.</div>` : ''}
+        ${d.plan ? `<div>Surveyors are marking out a new village in ${esc(world.regions[d.plan.region].name)}.</div>` : ''}
+        ${d.tribute ? `<div class="ember">Paying tribute to ${esc(world.factions[d.tribute.to].short)}.</div>` : ''}</div>`;
     },
     openStatue(b, s) {
       const world = ECHO.Game.world;
@@ -648,15 +688,28 @@
         let action = '';
         if (p.claimable) action = `<button data-claim="${p.id}">Claim reward</button>`;
         else if (p.kind === 'famine') action = `<button data-deliver="${p.id}" ${pl.inv.food + (pl.inv.meat || 0) < 1 ? 'disabled' : ''}>Deliver food (${p.progress}/${p.need})</button>`;
+        else if (p.kind === 'supply' && where && where.id === s.id) action = `<button data-supply="${p.id}" ${!(pl.inv[p.good] > 0) ? 'disabled' : ''}>Deliver ${p.good} (${p.progress}/${p.need}) — you have ${pl.inv[p.good] || 0}</button>`;
+        else if (p.kind === 'treasure' && !acc) action = `<button data-accept="${p.id}" ${pl.gold < 15 ? 'disabled' : ''}>Buy the map (15 crowns)</button>`;
         else if (!acc) action = `<button data-accept="${p.id}">Take it on</button>`;
         else action = `<span class="dim">In your journal${p.kind === 'beasts' ? ` · ${p.progress}/${p.need} wolves` : ''}</span>`;
         return `<div class="card"><h4>${esc(UI.plightTitle(p))}</h4><div>${esc(p.text)}</div><div class="dim" style="font-size:13px;margin-top:4px">${where ? esc(where.name) + (where.id !== s.id ? ' (' + Math.round(distOf(p)) + ' leagues off)' : '') : ''} · ${left > 0 ? left + ' days left' : 'overdue'}${p.reward ? ' · reward ' + p.reward + ' crowns' : ''}</div><div class="row">${action}</div></div>`;
       }).join('');
       el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-        const id = b.dataset.claim || b.dataset.deliver || b.dataset.accept;
+        const id = b.dataset.claim || b.dataset.deliver || b.dataset.accept || b.dataset.supply;
         const p = ECHO.Plights.byId(world, id);
         if (!p) return;
-        if (b.dataset.accept) { pl.accepted.push(p.id); UI.toast('Added to your journal.', 'info', 2); }
+        if (b.dataset.accept) {
+          if (p.kind === 'treasure') { pl.gold -= 15; UI.toast('The map is yours. The spot will glimmer when you are close; then dig (E).', 'info', 4); }
+          else if (p.kind === 'lost') UI.toast(`Find ${world.npcs[p.victim] ? world.npcs[p.victim].first : 'them'} ${ECHO.Explore.dirFrom(ECHO.Sim.settlement(world, p.sid), p)} of town, and bring them home. Marked on your map.`, 'info', 4);
+          else UI.toast('Added to your journal.', 'info', 2);
+          pl.accepted.push(p.id);
+        }
+        if (b.dataset.supply) {
+          const st = ECHO.Sim.settlement(world, p.sid);
+          const n = Math.min(p.need - p.progress, pl.inv[p.good] || 0);
+          pl.inv[p.good] -= n; p.progress += n; st.stock[p.good] = (st.stock[p.good] || 0) + n;
+          if (p.progress >= p.need) { p.claimable = true; UI.claimPlight(p); }
+        }
         if (b.dataset.claim) UI.claimPlight(p);
         if (b.dataset.deliver) {
           const st = ECHO.Sim.settlement(world, p.sid);
@@ -669,22 +722,42 @@
       }));
     },
     plightTitle(p) {
-      return { kidnap: 'Taken by outlaws', beasts: 'Wolves at the door', famine: 'Hunger', apex: 'The beast', bounty: 'Bounty' }[p.kind] || 'A request';
+      return { kidnap: 'Taken by outlaws', beasts: 'Wolves at the door', famine: 'Hunger', apex: 'The beast', bounty: 'Bounty', clearsite: 'Royal commission: the frontier', envoy: 'Royal commission: a sealed letter', plot: 'Whispers of treason', supply: 'The masons\' need', delve: 'Something below', lost: 'Lost in the wilds', hunt: p.beast ? `The hunt for ${p.beast}` : 'A great beast', treasure: 'A treasure map', courier: 'A delivery' }[p.kind] || 'A request';
     },
     claimText(p, npc) {
       return p.kind === 'kidnap' ? `You brought ${ECHO.Game.world.npcs[p.victim].first} home. I… thank you. Take this — it's everything I saved.` : 'You did it. Thank you. Here — as promised.';
     },
-    claimPlight(p) {
+    claimPlight(p, named) {
       const game = ECHO.Game, world = game.world, pl = game.pl;
       if (p.status !== 'open') return;
+      // the frontier: the honour of naming the new village
+      if (p.kind === 'clearsite' && !named) {
+        const f = world.factions[p.faction], plan = f && ECHO.Realm.st(f).plan;
+        const used = new Set(world.settlements.map(s => s.name));
+        const sugg = []; const rng = new ECHO.RNG(ECHO.hashStr(p.id)); for (let i = 0; i < 3; i++) sugg.push(ECHO.makePlaceName(rng, used));
+        UI.modal({ title: 'Name the new village', html: `<p class="prose">The settlers will set out at once. ${f ? esc(f.short) + '\'s' : 'The'} steward asks what the village should be called — and you will be its warden, with a share of its dues each season.</p><input id="vname" maxlength="20" value="${esc(sugg[0])}" style="width:100%;font-size:18px;padding:6px"><p class="dim">Or: ${sugg.slice(1).map(esc).join(', ')}, or ${esc(pl.last)}'s Rest…</p>`,
+          choices: [{ label: 'So be it', onPick: () => { const v = (document.querySelector('#vname') || {}).value; if (plan) { plan.cleared = true; plan.warden = pl.charId; plan.name = (v || sugg[0]).trim().slice(0, 20) || sugg[0]; plan.setOut = world.day; } UI.claimPlight(p, true); } }] });
+        setTimeout(() => { const i = document.querySelector('#vname'); if (i) { i.focus(); i.select(); i.addEventListener('keydown', e => e.stopPropagation()); } }, 50);
+        return;
+      }
       pl.gold += p.reward || 0;
-      pl.renown += p.kind === 'apex' ? 15 : p.kind === 'bounty' ? 10 : 5;
+      pl.renown += p.kind === 'apex' ? 15 : p.kind === 'bounty' || p.kind === 'clearsite' ? 10 : p.kind === 'hunt' || p.kind === 'delve' ? 7 : 5;
       ECHO.Character.behave(pl, 'protect', 0.8);
       const req = p.requester && world.npcs[p.requester];
       if (req) { req.op[pl.charId] = (req.op[pl.charId] || 0) + 40; P().remember(world, req, `was helped by ${pl.first} ${pl.last}`, 'gratitude', null, 4); }
       const s = ECHO.Sim.settlement(world, p.sid);
-      const what = p.kind === 'kidnap' ? `rescued ${P().name(world.npcs[p.victim])} from the Ashfang` : p.kind === 'beasts' ? 'hunted down the duskwolves troubling ' + (s ? s.name : 'the land') : p.kind === 'famine' ? `brought food to starving ${s ? s.name : ''}` : p.kind === 'apex' ? 'answered the plea against the beast' : 'collected the bounty on the Ashfang chief';
-      p.status = 'done'; p.closed = world.day; p.outcome = `${pl.first} ${pl.last} ${what}.`;
+      const site = p.siteId && ECHO.Explore.byId(world, p.siteId);
+      const toN = p.to && world.npcs[p.to];
+      const what = {
+        kidnap: () => `rescued ${P().name(world.npcs[p.victim])} from the Ashfang`, beasts: () => 'hunted down the duskwolves troubling ' + (s ? s.name : 'the land'), famine: () => `brought food to starving ${s ? s.name : ''}`,
+        apex: () => 'answered the plea against the beast', bounty: () => 'collected the bounty on the Ashfang chief', clearsite: () => `cleared the frontier for the settlers of ${world.factions[p.faction] ? world.factions[p.faction].short : 'the realm'}`,
+        envoy: () => `carried the crown's letter to ${world.factions[p.toFaction] ? world.factions[p.toFaction].name : 'a foreign court'}`, supply: () => `supplied the masons at ${s ? s.name : 'the works'}`,
+        delve: () => `cleared ${site ? site.name : 'the place below'}`, lost: () => `brought ${world.npcs[p.victim] ? P().name(world.npcs[p.victim]) : 'a lost soul'} home from the wilds`,
+        hunt: () => `killed ${p.beast}, the great wolf`, courier: () => `carried a delivery to ${toN ? P().name(toN) : 'another town'}`
+      }[p.kind];
+      const whatText = what ? what() : 'did as they were asked';
+      p.status = 'done'; p.closed = world.day; p.outcome = `${pl.first} ${pl.last} ${whatText}.`;
+      if (p.kind === 'hunt' && pl.inv.pelt) { pl.inv.pelt--; }
       ECHO.Chronicle.deed(world, { text: p.outcome, importance: 2, sid: p.sid, rep: 6, tag: 'protect', factionRep: s ? { [s.faction]: 4 } : {} });
       UI.toast(`${p.reward ? '+' + p.reward + ' crowns. ' : ''}${s ? 'The people of ' + s.name + ' will remember this.' : ''}`, 'mercy', 4);
     },
@@ -700,6 +773,9 @@
           const lines = ECHO.Law.summary(world, s);
           const mine = ECHO.Law.openAgainstPlayer(world, pl).filter(c => c.faction === s.faction);
           html += `<div class="card"><h4>${esc(lines[0])}</h4>${lines.slice(1).map(l => `<div>${esc(l)}</div>`).join('')}</div>`;
+          const fct = world.factions[s.faction];
+          const eds = fct && fct.realm ? fct.realm.edicts.filter(e => e.until > world.day) : [];
+          if (eds.length) html += `<div class="card"><h4 class="gold">Royal decrees</h4>${eds.map(e => `<div><b>${esc(ECHO.Realm.EDICTS[e.kind].name)}</b> — ${esc(ECHO.Realm.EDICTS[e.kind].desc)} <span class="dim">(${e.until - world.day} more days)</span></div>`).join('')}</div>`;
           if (mine.length) html += `<div class="card"><h4 class="ember">Charges against you</h4>${mine.map(c => `<div>${esc(U.cap(ECHO.Law.CRIME_WORD[c.kind]))}${c.victimName ? ' against ' + esc(c.victimName) : ''} — ${c.witnesses.length} witness${c.witnesses.length === 1 ? '' : 'es'}</div>`).join('')}<div class="dim">Guards will try to arrest you. You may give yourself up at the keep, or pay at the arrest if the law allows fines.</div></div>`;
           const trials = world.chronicle.filter(e => e.kind === 'crime' && e.sid === s.id && /tried|hanged|banished|stocks/.test(e.text)).slice(-6).reverse();
           if (trials.length) html += `<h4 class="ware-h">Recent judgements</h4>${trials.map(e => `<div class="card"><span class="dim">${T.fmtDate(e.d)}</span> — ${esc(e.text)}</div>`).join('')}`;
@@ -853,6 +929,9 @@
             <p class="dim">Patrons who fund the archive speed the coming of new ages — and new ages change the world for everyone.</p>
             <div class="row" style="display:flex;gap:8px"><button data-don="50" ${pl.gold < 50 ? 'disabled' : ''}>Donate 50</button><button data-don="200" ${pl.gold < 200 ? 'disabled' : ''}>Donate 200</button></div>
             <p class="dim">You have given ${Math.round(pl.donated || 0)} crowns in all.</p>`;
+          const unsold = ECHO.Explore.sites(world).filter(x => x.found && !(x.sold || {})[pl.charId]);
+          html += `<h3 class="gold">Accounts of the wild</h3><p class="dim">The archivists pay for true accounts of places you have found with your own eyes.</p>
+            ${unsold.length ? `<div>${unsold.map(x => esc(x.name)).join(', ')}</div><button data-acct="1">Dictate ${unsold.length} account${unsold.length > 1 ? 's' : ''} (${unsold.length * 12} crowns)</button>` : '<div class="dim">You have nothing new to tell them.</div>'}`;
         }
         body.innerHTML = html;
         body.querySelectorAll('button[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; page = 0; render(); }));
@@ -864,6 +943,13 @@
           const w = ECHO.Mysteries.scholarTranslate(world, ECHO.Sim.rngFor(world));
           UI.toast(w ? `The scholar works it out: "${ECHO.Mysteries.alien(world, w)}" means "${w}".` : 'There is nothing left to translate.', 'study', 5);
           UI.vaultCheck(); render();
+        });
+        const ac = body.querySelector('button[data-acct]');
+        if (ac) ac.addEventListener('click', () => {
+          const list = ECHO.Explore.sites(world).filter(x => x.found && !(x.sold || {})[pl.charId]);
+          for (const x of list) { x.sold = x.sold || {}; x.sold[pl.charId] = true; }
+          pl.gold += list.length * 12; ECHO.Civ.donate(world, s.faction, list.length * 4);
+          UI.toast(`The archivists scratch down every word. +${list.length * 12} crowns.`, 'study', 4); render();
         });
         body.querySelectorAll('button[data-don]').forEach(b => b.addEventListener('click', () => {
           const n = +b.dataset.don; pl.gold -= n; pl.donated = (pl.donated || 0) + n;
@@ -948,7 +1034,7 @@
       const body = UI.openPanel('Journal', '', 'journal');
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
-        const tabs = [['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
+        const tabs = [['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'tasks') {
           const mine = world.plights.filter(p => pl.accepted.includes(p.id));
@@ -976,6 +1062,22 @@
             : '<p class="dim">No letters yet. The people whose lives you touch will write to you — letters wait for you in the next town you enter.</p>';
         } else if (tab === 'wonders') {
           html += UI.wondersHtml(world, pl);
+        } else if (tab === 'places') {
+          const sites = ECHO.Explore.sites(world);
+          const found = sites.filter(x => x.found);
+          html += `<p class="dim">${found.length} of ${sites.length} places found. Explore the wilds — lookouts show you the land around them, and the archives pay for accounts of what you find.</p>`;
+          html += found.length ? found.map(x => { const near = ECHO.World.nearestSettlement(world, x.x, x.y, t => t.faction !== 'ashfang'); return `<div class="card"><h4>${esc(U.cap(x.name))} <span class="dim">· ${esc(ECHO.Explore.label(x))}</span></h4><div class="dim">${esc(ECHO.Explore.desc(x))}</div><div class="dim" style="font-size:13px">${near ? Math.round(U.dist(near.x, near.y, x.x, x.y)) + ' leagues ' + ECHO.Explore.dirFrom(near, x) + ' of ' + esc(near.name) : ''}${x.cat === 'delve' ? (x.cleared ? ' · cleared' : ' · <span class="ember">not yet cleared</span>') : ''}</div></div>`; }).join('') : '<p class="dim">Nothing yet.</p>';
+          html += ECHO.Tech ? '' : '';
+        } else if (tab === 'realm') {
+          for (const f of Object.values(world.factions).filter(x => x.type === 'kingdom' || x.type === 'order')) {
+            if (f.fallen) { html += `<div class="card"><h4>${esc(f.name)}</h4><div class="dim">Fallen.</div></div>`; continue; }
+            const r = f.ruler && world.npcs[f.ruler];
+            html += f.type === 'kingdom' ? UI.realmCard(world, f).replace('<h4>The state of', `<h4>${r ? esc(P().fullTitle(world, r)) + ' — ' : ''}`) : `<div class="card"><h4>${esc(f.name)}</h4><div>${r ? esc(P().fullTitle(world, r)) + ' tends the flame.' : ''}</div></div>`;
+          }
+          const ward = (pl.wardenOf || []).map(id => ECHO.Sim.settlement(world, id)).filter(Boolean);
+          html += `<div class="card"><h4>Your standing</h4><div>${pl.knighted ? 'Knight of ' + esc(world.factions[pl.knighted].short) + '. ' : ''}${ward.length ? 'Warden of ' + ward.map(x => esc(x.name)).join(', ') + ' — you receive a share of the dues each season.' : 'You hold no lands.'}</div><div class="dim">Clear a frontier site for the crown and you may name — and keep — the village that rises there.</div></div>`;
+          const pol = ECHO.Chronicle.knownEntries(world).filter(e => e.kind === 'politics' || e.kind === 'war').slice(-14).reverse();
+          if (pol.length) html += `<h3 class="gold">Recent affairs of state</h3><div class="chron">${pol.map(e => `<div class="e i${e.imp}"><span class="d">${T.fmtDate(e.d)}</span>${esc(e.text)}</div>`).join('')}</div>`;
         } else if (tab === 'heard') {
           const kinds = ['all', 'war', 'politics', 'economy', 'crime', 'nature', 'intel', 'era', 'mystery', 'legacy', 'plight'];
           const known = ECHO.Chronicle.knownEntries(world).filter(e => kind === 'all' || e.kind === kind).slice(-150).reverse();
@@ -1004,6 +1106,12 @@
 <b>Defeat is not the end.</b> Beasts leave you to be found by someone; people take you captive, take your sword, and grow in status. When fate runs out, you die for good — and become history. Your house stands, your sword lies somewhere in the world, and you can live again as someone new in the same world.
 
 <b>The world has wonders.</b> On clear nights, wisps lead the patient to the Echoes of the old world. Stars fall, and leave star-iron behind. The restless dead linger by their homes with last words for someone. A white hind walks the forest edge at dawn and dusk — go quietly. Four festivals a year bring every town into the square. People who know you write letters. Each real day brings an omen; and if you let it, the world lives on while you're away. See the Wonders page of your journal.
+
+<b>Fighting teaches you.</b> Fight the way you like and your body learns from it: enough perfect guards and you discover the riposte; enough rolls and you learn to lunge out of them; enough fire and your blade catches it. Fifteen techniques, each growing through three ranks. You can carry only a few at once — choose them on your character page (K).
+
+<b>The wild is full of places.</b> Standing stones, lookouts, moonwells, old battlefields, shrines and wrecks each give something the first time — and some every night. Barrows, caves, crypts and outlaw hideouts can be entered and cleared for what they guard, and fill again in time. People ask for help: a child lost in the woods, a great wolf with a name, a buried cache on a treasure map, a parcel for another town.
+
+<b>Rulers have aims.</b> Each ruler pursues an agenda — expansion, building, conquest, trade, faith or security — and it shows: new villages on the frontier, walls, granaries and roads, decrees nailed to the board, pacts and royal marriages, plots in the court. Clear the land for settlers and you name the village, and become its warden. Carry letters between courts. Expose a plot — or join it.
 
 <b>The archives</b> in capitals keep the full chronicle, the state of the realm, and the old tongue. <b>The ruins</b> hold a language unique to this world. Study it.
 </div>`;
@@ -1052,7 +1160,7 @@
     },
     openMap() {
       const game = ECHO.Game, world = game.world, pl = game.pl;
-      const body = UI.openPanel(`Map of ${world.name}`, `<div class="mapwrap"><canvas id="worldmap"></canvas></div><div class="legend-row"><span>■ towns (by allegiance)</span><span style="color:#d0563c">▲ outlaw camps you've seen</span><span style="color:#ffcf8a">✸ lairs</span><span style="color:#c8c0b0">◇ ruins</span><span style="color:#9fd3ff">◆ the vault</span><span style="color:#bfe8ff">✧ echoes</span><span style="color:#fff">✦ fallen stars</span><span style="color:#fff">● you</span></div>`, 'map');
+      const body = UI.openPanel(`Map of ${world.name}`, `<div class="mapwrap"><canvas id="worldmap"></canvas></div><div class="legend-row"><span>■ towns (by allegiance)</span><span style="color:#d0563c">▲ outlaw camps you've seen</span><span style="color:#ffcf8a">✸ lairs</span><span style="color:#c8c0b0">◇ ruins</span><span style="color:#9fd3ff">◆ the vault</span><span style="color:#bfe8ff">✧ echoes</span><span style="color:#fff">✦ fallen stars</span><span style="color:#e0a070">▼ delves</span><span style="color:#a8e0c0">△ landmarks</span><span style="color:#ffe08a">○ your quests</span><span style="color:#fff">● you</span></div>`, 'map');
       const c = body.querySelector('#worldmap');
       const s = Math.max(3, Math.floor(Math.min(window.innerWidth * 0.86 / world.W, window.innerHeight * 0.66 / world.H)));
       c.width = world.W * s; c.height = world.H * s;
@@ -1083,13 +1191,29 @@
         for (const e of wst.echoes || []) if (e.revealed && !e.found) { lbl('✧', e.x * s, e.y * s, '#bfe8ff'); }
         for (const st2 of wst.stars || []) if (!st2.taken) lbl('✦', st2.x * s, st2.y * s, '#ffffff');
       }
+      // places of the wild
+      for (const site of ECHO.Explore.sites(world)) {
+        if (!site.found && !site.seen) continue;
+        lbl(site.cat === 'delve' ? '▼' : '△', site.x * s, site.y * s, site.found ? (site.cat === 'delve' ? (site.cleared ? '#9a8f7a' : '#e0a070') : '#a8e0c0') : '#8a8478');
+        if (site.found) { g.save(); g.font = `${Math.max(10, s * 3)}px "Pixelify Sans"`; lbl(site.name, site.x * s, site.y * s + 4 * s, 'rgba(240,230,208,0.75)'); g.restore(); }
+      }
       // accepted plight targets
+      const ring = (x, y, r, dash) => { g.strokeStyle = '#ffe08a'; g.lineWidth = 2; g.setLineDash(dash ? [4, 4] : []); g.beginPath(); g.arc(x * s, y * s, r * s, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); };
       for (const p of world.plights) {
         if (p.status !== 'open' || !pl.accepted.includes(p.id)) continue;
         const camp = p.campId && world.camps.find(c2 => c2.id === p.campId);
         const lair = p.lairId && world.lairs.find(l => l.id === p.lairId);
-        const t = camp || lair;
-        if (t) { g.strokeStyle = '#ffe08a'; g.lineWidth = 2; g.beginPath(); g.arc(t.x * s, t.y * s, 5 * s, 0, Math.PI * 2); g.stroke(); }
+        const site = p.siteId && ECHO.Explore.byId(world, p.siteId);
+        const t = camp || lair || (site && site.found ? site : null);
+        if (t) ring(t.x, t.y, 5);
+        else if (site) ring(site.x + (ECHO.hash2(site.x | 0, 3, 7) - 0.5) * 16, site.y + (ECHO.hash2(site.y | 0, 4, 7) - 0.5) * 16, 14, true);
+        else if (p.kind === 'treasure') ring(p.x + (ECHO.hash2(p.x | 0, 5, 7) - 0.5) * 8, p.y + (ECHO.hash2(p.y | 0, 6, 7) - 0.5) * 8, 7, true);
+        else if (p.kind === 'lost' || p.kind === 'hunt') ring(p.x, p.y, p.kind === 'lost' ? 9 : 11, true);
+        else if (p.kind === 'clearsite' && p.x != null) ring(p.x, p.y, 5);
+        else if (p.kind === 'courier' || p.kind === 'envoy') {
+          const to = p.kind === 'courier' ? ECHO.Sim.settlement(world, p.toSid) : world.factions[p.toFaction] && ECHO.Sim.settlement(world, world.factions[p.toFaction].capital);
+          if (to) ring(to.x, to.y, 6);
+        }
       }
       g.fillStyle = '#fff'; g.beginPath(); g.arc(game.pl.x * s, game.pl.y * s, Math.max(4, s * 1.4), 0, Math.PI * 2); g.fill();
       g.strokeStyle = '#000'; g.lineWidth = 2; g.stroke();
@@ -1107,9 +1231,11 @@
         <p class="dim">Renown ${Math.round(pl.renown)} · Fate ${pl.fate}/3${pl.knighted ? ' · Knight of ' + world.factions[pl.knighted].short : ''}${pl.legacyOf ? ' · kin of ' + esc((ECHO.Legacy.legendOf(world, pl.legacyOf) || {}).name || '') : ''}</p>
         ${pl.spells.length ? `<p class="gold">Secrets: ${pl.spells.map(k => ECHO.Mysteries.REWARDS[k].name).join(', ')}</p>` : ''}
         <h3 class="gold">Belongings</h3><div class="list">${items.map(it => `<div class="card"><h4>${esc(it.name)}${it.id === pl.weapon ? ' (wielded)' : it.id === pl.bow ? ' (bow)' : ''}</h4><div class="dim" style="font-size:13px">${it.history.map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : ''}</div>`).join('')}</div>
+        ${ECHO.Tech.pageHtml(pl)}
         ${reps.length ? `<h3 class="gold">Standing</h3><div class="dim">${reps.join(' · ')}</div>` : ''}</div>
         <div><h3 class="gold">Skills — grown by use</h3>${skills}<h3 class="gold" style="margin-top:16px">Tendencies — what you keep doing</h3>${tends}
         <p class="dim" style="font-size:13px">Tendencies change how you fight: aggression quickens strikes and weakens your guard; patience cheapens guarding; recklessness strengthens fire and makes it unstable.</p></div></div>`, 'char');
+      document.querySelectorAll('#panel button[data-tech]').forEach(b => b.addEventListener('click', () => { if (ECHO.Tech.toggle(b.dataset.tech) === false) UI.toast(`You can only carry ${ECHO.Tech.slots(pl)} techniques. Set one down first.`, 'warn', 3); UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-w]').forEach(b => b.addEventListener('click', () => { pl.weapon = b.dataset.w; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
     }
   };

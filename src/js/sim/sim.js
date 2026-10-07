@@ -161,6 +161,8 @@
         if (dist < 28) d += (c.members.length / 6) * (1 - dist / 28);
       }
       if (region && region.eco) d += Math.max(0, region.eco.wolfDanger - 0.7) * 0.6;
+      // watchtowers keep the nearby roads safer
+      for (const s of world.settlements) if (s.works && s.works.watch && Math.abs(s.x - x) < 22 && Math.abs(s.y - y) < 22) { d *= 0.6; break; }
       return d;
     },
 
@@ -183,6 +185,8 @@
       if (ECHO.Disease) ECHO.Disease.dailyTick(world, rng);
       if (ECHO.Law) ECHO.Law.dailyTick(world, rng);
       ECHO.Politics.dailyTick(world, rng);
+      if (ECHO.Realm) ECHO.Realm.dailyTick(world, rng);
+      if (ECHO.Explore) ECHO.Explore.dailyTick(world, rng);
       ECHO.Intel.dailyTick(world, rng);
       ECHO.Plights.dailyTick(world, rng);
       ECHO.Civ.dailyTick(world, rng);

@@ -59,6 +59,9 @@
           case 'famine': Pl.tickFamine(world, p, rng); break;
           case 'apex': Pl.tickApex(world, p, rng); break;
           case 'bounty': Pl.tickBounty(world, p, rng); break;
+          case 'clearsite': case 'plot': break; // the realm settles these
+          case 'lost': Pl.tickLost(world, p, rng); break;
+          default: if (world.day > p.deadline && !p.claimable) Pl.close(world, p, 'failed', null);
         }
       }
     },
@@ -199,6 +202,16 @@
       if (world.day >= p.deadline) Pl.close(world, p, 'failed', null);
     },
 
+    tickLost(world, p, rng) {
+      const v = world.npcs[p.victim];
+      if (!v || v.status !== 'alive') { Pl.close(world, p, 'failed', null); return; }
+      if (!v.lost) { if (p.status === 'open') Pl.close(world, p, 'resolved', null); return; }
+      if (world.day >= p.deadline) {
+        v.lost = false;
+        if (rng.chance(0.55)) { v.loc = v.home; Pl.close(world, p, 'resolved', `${P().name(v)} found the way home alone, scratched and starving, after ${world.day - p.posted} days in the wilds.`, 1); }
+        else { P().kill(world, v, 'lost in the wilds'); Pl.close(world, p, 'failed', `${P().name(v)} was never found.`, 2); }
+      }
+    },
     heroArrive() { /* reserved for visible hero journeys */ },
 
     // ---- Player-facing helpers

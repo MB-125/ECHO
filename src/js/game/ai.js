@@ -126,7 +126,7 @@
           ECHO.Ent.move(world, e, Math.cos(e.lungeAngle) * sp, Math.sin(e.lungeAngle) * sp);
           if (!e.lungeHit && U.dist(e.x, e.y, target.x, target.y) < e.r + target.r + 0.25) {
             e.lungeHit = true;
-            const dmg = SP.wolf.dmg * (e.mutation === 'twinjaw' ? 1.8 : 1) * (game.isNight() ? 1.15 : 1) * (e.traits ? 1 + e.traits.hide * 0.2 : 1);
+            const dmg = SP.wolf.dmg * (e.dmgMul || 1) * (e.mutation === 'twinjaw' ? 1.8 : 1) * (game.isNight() ? 1.15 : 1) * (e.traits ? 1 + e.traits.hide * 0.2 : 1);
             ECHO.Combat.damage(target, dmg, { type: 'melee', from: e, angle: e.lungeAngle, knock: 0.2 });
             if (e.mutation === 'emberfur' && !target.dead) target.burn = Math.max(target.burn, 2);
           }
@@ -283,6 +283,7 @@
       if (e.stagger > 0) { e.stagger -= dt; e.state = 'stagger'; return; }
       if (e.state === 'stagger') e.state = 'idle';
       if (e.role === 'captive') { e.moving = false; return; }
+      if (e.lostQuest) return ECHO.Quests.updateLost(game, e, dt);
       if (e.pilloried) { e.moving = false; e.dir = Math.PI / 2; if (e.sayT <= 0 && Math.random() < dt * 0.05) { e.say = ['Water… please.', 'It was only bread!', 'Don\'t look at me.', 'Let me out of here!'][Math.floor(Math.random() * 4)]; e.sayT = 3; } return; }
       if (e.yielded) { e.moving = false; e.state = 'yield'; return; }
       if (e.indoor && e.sleeping) { e.moving = false; if (!e.aggro) return; e.sleeping = false; e.seated = false; }

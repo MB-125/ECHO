@@ -24,6 +24,8 @@
       if (ECHO.Wonders) ECHO.Wonders.state(world);
       if (ECHO.Marvels) ECHO.Marvels.reset();
       if (ECHO.Fest) ECHO.Fest.reset();
+      if (ECHO.Quests) ECHO.Quests.reset();
+      if (ECHO.Explore) ECHO.Explore.sites(world);
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
       Game.pl.explored = Game.pl.explored || new Array(Math.ceil(world.W / 4) * Math.ceil(world.H / 4)).fill(0);
@@ -92,6 +94,7 @@
       for (const e of Game.ents) {
         if (e === Game.pe || e.dead) continue;
         if (e.marvel) ECHO.Marvels.updateEnt(Game, e, dt);
+        else if (e.humanoid) ECHO.Quests.updateFoe(Game, e, dt);
         else if (e.type === 'creature') ECHO.AI.Creature.update(Game, e, dt);
         else if (e.type === 'person') ECHO.AI.Person.update(Game, e, dt);
         else if (e.type === 'boss') ECHO.Boss.update(Game, e, dt);
@@ -111,6 +114,7 @@
       ECHO.Spawner.update(Game, dt);
       ECHO.Marvels.update(Game, dt);
       ECHO.Fest.update(Game, dt);
+      ECHO.Quests.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -313,6 +317,8 @@
       if (npc.faction === 'ashfang' || ent.role === 'bandit') {
         ECHO.Intel.recordKill(world, 'ashfang', { method: type, night: ctx.night, leader: ctx.wasLeader, stealth: ctx.stealth });
         pl.kills['Ashfang outlaws'] = (pl.kills['Ashfang outlaws'] || 0) + 1;
+        const bf = ECHO.Realm && ECHO.Realm.bountyFor(world, ent.x, ent.y);
+        if (bf) { pl.gold += 10; bf.treasury -= 10; ECHO.Combat.floater(ent.x, ent.y - 1.2, '+10 bounty', '#f2d47a'); }
         pl.renown += ctx.wasLeader ? 12 : 2;
         if (ctx.night) ECHO.Character.behave(pl, 'night', 0.06);
         if (ent.yielded) {
@@ -499,7 +505,7 @@
       if (v && !v.opened && near(v.x + 0.5, v.y + 1.2, 1.8)) out.push({ kind: 'vault', label: 'Examine the carved stone', d: 0.5 });
       if (world.rift && near(world.rift.x + 0.5, world.rift.y + 0.5, 2.4)) out.push({ kind: 'rift', label: 'Look into the Rift', d: 0.5 });
       for (const c of world.camps) if (c.captives.length && near(c.x + 2.5, c.y - 1.2, 1.6)) { /* captives handled as entities */ }
-      out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game));
+      out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;
     },
