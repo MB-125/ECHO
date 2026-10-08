@@ -981,7 +981,10 @@
       if (!inst._split) {
         inst._split = true;
         const split = (part, from, to) => { if (!P[part]) return; P[part].traverse(o => { if (o.isMesh && o.material && o.material.name === from) { const m = o.material.clone(); m.name = to; o.material = m; inst.mats.push(m); } }); };
-        split('sword', 'metal', 'blade'); split('sword', 'gold', 'guard'); split('bow', 'wood', 'bowwood'); split('helm', 'metal', 'helmmetal');
+        split('sword', 'metal', 'blade'); split('sword', 'gold', 'guard'); split('bow', 'wood', 'bowwood'); split('helm', 'metal', 'helmmetal'); split('spear', 'metal', 'blade'); split('staff', 'wood', 'staffwood');
+        const bladeMat = inst.mats.find(m => m.name === 'blade');
+        if (P.sword && bladeMat) { const hd = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.26), bladeMat); hd.position.set(0, 0.5, 0.1); P.sword.add(hd); inst.axeHead = hd; }
+        if (P.staff) { const om = new THREE.MeshBasicMaterial({ color: '#ff9a3c' }); om.name = 'orb'; inst.mats.push(om); const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.09, 0), om); orb.position.set(0, 0.62, 0); P.staff.add(orb); inst.staffOrb = orb; }
         // shoulder plates and a crest, shown as the armour grows
         const plate = new THREE.MeshStandardMaterial({ color: '#8a8a90', roughness: 0.6, metalness: 0.35, flatShading: true }); plate.name = 'plate'; inst.mats.push(plate);
         inst.pauldrons = [];
@@ -993,7 +996,12 @@
       if (B) {
         M.recolor(inst, 'blade', B.metal); glowSet('blade', B.glowCol, B.glow * 1.4);
         M.recolor(inst, 'guard', B.gold ? '#f2c84a' : B.rarity === 'rare' ? '#c8d0e0' : '#8a6a3a'); glowSet('guard', B.glowCol, B.gold ? 0.25 : 0);
-        if (P.sword) P.sword.scale.set(1, 1 + B.plus * 0.05 + (B.rarity === 'legendary' ? 0.1 : 0), 1);
+        const wc = B.wclass || 'sword';
+        M.show(inst, 'sword', wc === 'sword' || wc === 'axe'); M.show(inst, 'spear', wc === 'spear'); M.show(inst, 'staff', wc === 'staff');
+        if (inst.axeHead) inst.axeHead.visible = wc === 'axe';
+        if (inst.staffOrb) { inst.staffOrb.material.color.set(B.glowCol || '#ff9a3c'); inst.staffOrb.scale.setScalar(1 + B.plus * 0.12); }
+        if (wc === 'staff') M.recolor(inst, 'staffwood', B.gold ? '#8a6a2a' : '#5a3e26');
+        if (P.sword) P.sword.scale.set(1, (wc === 'axe' ? 0.8 : 1) + B.plus * 0.05 + (B.rarity === 'legendary' ? 0.1 : 0), 1);
       }
       if (G.bow) { M.recolor(inst, 'bowwood', G.bow.wood || '#6a4a2a'); glowSet('bowwood', G.bow.glowCol, G.bow.glow); }
       const A = G.armor;

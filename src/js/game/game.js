@@ -437,7 +437,9 @@
       if (!pl.items.includes(it.id)) pl.items.push(it.id);
       const legend = it.legend ? ECHO.Legacy.legendOf(world, it.legend) : null;
       it.history.push({ d: world.day, t: `taken up by ${pl.first} ${pl.last}` });
-      if (it.kind === 'sword' && (!world.items[pl.weapon] || it.dmg >= (world.items[pl.weapon].dmg || 0) || it.legend)) pl.weapon = it.id;
+      const eff = x => { const W = ECHO.Gear.wclass(x) || { dmg: 1, cd: 1 }; return (x.dmg || 0) * W.dmg / W.cd; };
+      const cur = world.items[pl.weapon];
+      if (it.kind === 'sword' && (!cur || (eff(it) >= eff(cur) && (it.wclass || 'sword') === (cur.wclass || 'sword')) || eff(it) > eff(cur) * 1.25 || it.legend)) pl.weapon = it.id;
       if (it.kind === 'bow' && (!world.items[pl.bow] || it.dmg > (world.items[pl.bow].dmg || 0))) pl.bow = it.id;
       if (it.kind === 'armor' && (!world.items[pl.armor] || (it.def || 0) > (world.items[pl.armor].def || 0))) pl.armor = it.id;
       if (it.rarity && ECHO.Gear) ECHO.UI.toast(`${it.name} — ${ECHO.Gear.line(it)}${[pl.weapon, pl.bow, pl.armor].includes(it.id) ? ' (equipped)' : ' (in your pack; sell it, or equip it from your character page)'}`, it.rarity === 'common' ? 'info' : 'legend', 5);

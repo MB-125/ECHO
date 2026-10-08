@@ -173,8 +173,8 @@
       ECHO.Combat.burst(p.x, p.y, p.color || '#b48aff', 10, 3, 0.4, 2);
       if (target === game.pe) {
         if (p.effect === 'web') { game.pl.slowT = 2.5; ECHO.Combat.floater(target.x, target.y - 1, 'webbed', '#f4f4ff'); M.tip(game, 'web'); }
-        if (p.effect === 'burn') target.burn = Math.max(target.burn || 0, 1.2);
       }
+      if (p.effect === 'burn') target.burn = Math.max(target.burn || 0, 1.2);
     },
     // When a monster's blow lands on you.
     hitPlayer(game, from, dmg) {

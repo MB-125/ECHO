@@ -514,6 +514,22 @@ function main() {
     check('armour grows plates and a helm as it is reinforced', ar.helm && ar.pauldrons && ar.body);
   }
 
+  console.log('\nWeapons and potions');
+  {
+    const B = ECHO.generateWorld({ seed: 4242, name: 'Armoury' });
+    const Gr = ECHO.Gear, rng = ECHO.Sim.rngFor(B);
+    const pl = B.player = { charId: 'c-w', first: 'Ina', last: 'Holt', alive: true, items: [], inv: { herbs: 10, venom: 2, bonedust: 9, gel: 4, claw: 3 }, gold: 1000, skills: {} };
+    const kinds = new Set(); for (let i = 0; i < 60; i++) kinds.add(Gr.make(B, rng, 'sword', 3, 'fine').wclass);
+    check('dropped weapons come as swords, axes, spears and staffs', ['sword', 'axe', 'spear', 'staff'].every(k => kinds.has(k)), [...kinds].join(' '));
+    check('each kind of weapon fights differently', Gr.WCLASS.axe.dmg > 1 && Gr.WCLASS.axe.cd > 1 && Gr.WCLASS.spear.range > 0.5 && Gr.WCLASS.staff.flame > 1);
+    const f = Gr.forge(B, pl, 'bonecleaver');
+    check('a smith forges weapons from monster parts', f.item && f.item.wclass === 'axe' && pl.items.includes(f.item.id) && pl.inv.bonedust === 3, f.error || f.item.name);
+    const why = Gr.brew(pl, 'heal'), why2 = Gr.brew(pl, 'might');
+    check('potions are brewed from herbs and parts', !why && !why2 && pl.potions.heal === 1 && pl.potions.might === 1 && pl.inv.herbs === 5, why || why2);
+    pl.buffs = { stone: 30 };
+    check('a stoneskin tonic turns blows', Gr.taken(B, pl, 'melee') < 0.7);
+  }
+
   console.log(`\n${passes} passed, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 }

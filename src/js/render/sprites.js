@@ -419,7 +419,10 @@
           const legendary = e.carrying && world.items[e.carrying] && (world.items[e.carrying].legend || world.items[e.carrying].history.some(h => h.t.includes('taken by')));
           const blade = legendary ? '#f2dc8a' : '#d8dce4';
           const B = GL && GL.blade;
-          if (B) {
+          if (B && B.wclass === 'spear') { const bx = e.flip ? -7 : 6; R('#6a4a2a', bx, -24, 1, 20); R(B.metal, bx, -27 - Math.min(3, B.plus), 1, 3 + Math.min(3, B.plus)); if (B.glow > 0.15) R(B.glowCol, bx - 1, -26, 3, 2); }
+          else if (B && B.wclass === 'staff') { const bx = e.flip ? -7 : 6; R(B.gold ? '#8a6a2a' : '#5a3e26', bx, -20, 1, 18); R(B.glowCol || '#ff9a3c', bx - 1, -23, 3, 3); if (B.glow > 0.15) { g.globalAlpha = 0.4; R(B.glowCol, bx - 2, -24, 5, 5); g.globalAlpha = 1; } }
+          else if (B && B.wclass === 'axe') { const bx = e.flip ? -7 : 6; R('#6a4a2a', bx, -16, 1, 8); R(B.metal, e.flip ? bx - 3 : bx, -18, 4, 4); for (let i = 0; i < B.gems; i++) R(B.glowCol, bx, -14 + i, 1, 1); }
+          else if (B) {
             const len = 8 + Math.min(4, B.plus) + (B.rarity === 'legendary' ? 1 : 0), bx = e.flip ? -7 : 6;
             if (B.glow > 0.15) { g.globalAlpha = 0.25 + B.glow * 0.35; R(B.glowCol, bx - 1, -10 - len, 3, len); g.globalAlpha = 1; }
             R(B.metal, bx, -10 - len, 1, len); R(B.gold ? '#f2c84a' : '#6a4a2a', e.flip ? -8 : 5, -10, 3, 1);

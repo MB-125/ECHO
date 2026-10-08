@@ -66,8 +66,54 @@
     { id: 'golem', name: 'Golemplate', def: 26, gold: 360, mats: { core: 3, tusk: 2 }, desc: 'Plates of living stone.', affix: 'thorns' }
   ];
 
+  // Kinds of melee weapon: each with its own feel.
+  const WCLASS = {
+    sword: { name: 'Sword', cd: 1, dmg: 1, range: 0, arc: 1, sta: 1, flame: 1, desc: 'Balanced. Quick combos, a spinning finisher.' },
+    axe: { name: 'Axe', cd: 1.3, dmg: 1.38, range: -0.05, arc: 1.15, sta: 1.25, flame: 1, stagger: 0.18, desc: 'Slow and brutal. Wide, heavy blows that stagger.' },
+    spear: { name: 'Spear', cd: 1.05, dmg: 0.95, range: 0.85, arc: 0.55, sta: 0.95, flame: 1, desc: 'Long reach. Narrow thrusts that keep foes at a distance.' },
+    staff: { name: 'Staff', cd: 0.95, dmg: 0.6, range: 0.2, arc: 1.1, sta: 0.85, flame: 1.4, desc: 'Weak in a melee, but fire burns hotter — and a held blow looses an arcane bolt.' }
+  };
+  const WBASES = { sword: ['blade', 'sword', 'longsword', 'falchion', 'sabre', 'edge'], axe: ['axe', 'hatchet', 'cleaver', 'war-axe'], spear: ['spear', 'pike', 'glaive', 'lance'], staff: ['staff', 'rod', 'stave'] };
+  // Weapons a smith can forge from what you bring up from below.
+  const FORGE = [
+    { id: 'bonecleaver', name: 'Bonecleaver', kind: 'sword', wclass: 'axe', dmg: 22, rarity: 'fine', gold: 70, mats: { bonedust: 6, claw: 2 }, desc: 'An axe with a haft of fused bone.' },
+    { id: 'silkspear', name: 'Silkwrapped spear', kind: 'sword', wclass: 'spear', dmg: 22, rarity: 'rare', affix: 'venom', gold: 90, mats: { silk: 4, venom: 2 }, desc: 'Its point is never quite dry.' },
+    { id: 'emberstaff', name: 'Emberstaff', kind: 'sword', wclass: 'staff', dmg: 16, rarity: 'rare', affix: 'ember', gold: 110, mats: { fetish: 3, gel: 3 }, desc: 'Warm to the touch. Fire leaps from it gladly.' },
+    { id: 'trollaxe', name: 'Troll-bone axe', kind: 'sword', wclass: 'axe', dmg: 31, rarity: 'epic', gold: 170, mats: { trollhide: 3, tusk: 2 }, desc: 'Heavy enough to fell a tree in one blow.' },
+    { id: 'gravesword', name: 'Grave-iron sword', kind: 'sword', wclass: 'sword', dmg: 32, rarity: 'epic', affix: 'keen', gold: 220, mats: { grave: 3, sigil: 3 }, desc: 'Black iron that finds the gaps in any armour.' },
+    { id: 'corestaff', name: 'Golemheart staff', kind: 'sword', wclass: 'staff', dmg: 22, rarity: 'epic', affix: 'ember', gold: 240, mats: { core: 2, ecto: 3 }, desc: 'A golem\'s heart, still beating, set in the head of a staff.' },
+    { id: 'fangbow', name: 'Beastfang bow', kind: 'bow', dmg: 30, rarity: 'epic', gold: 180, mats: { greatfang: 1, silk: 4 }, desc: 'Strung with spider silk, tipped with a great beast\'s fang.' },
+    { id: 'heartblade', name: 'Heartblade', kind: 'sword', wclass: 'sword', dmg: 40, rarity: 'legendary', affix: 'thirst', gold: 380, mats: { heartstone: 1, queensilk: 1, grave: 2 }, desc: 'It drinks. It is never full.' }
+  ];
+  // Potions brewed from herbs and monster parts; drunk with 1–4.
+  const POTIONS = {
+    heal: { key: '1', name: 'Healing draught', short: 'heal', color: '#e05a6a', gold: 10, mats: { herbs: 3 }, desc: 'Heals most of your wounds at once.' },
+    might: { key: '2', name: 'Draught of might', short: 'might', color: '#ffb84a', gold: 25, mats: { herbs: 2, venom: 1 }, desc: 'A third more damage with every weapon, for a minute.' },
+    stone: { key: '3', name: 'Stoneskin tonic', short: 'stone', color: '#a8a8b0', gold: 20, mats: { herbs: 2, bonedust: 2 }, desc: 'Take a third less damage, for a minute.' },
+    ward: { key: '4', name: 'Fireward philtre', short: 'ward', color: '#7ab8ff', gold: 20, mats: { herbs: 2, gel: 2 }, desc: 'Fire and spells hurt far less, for a minute and a half.' }
+  };
+
   const G = ECHO.Gear = {
-    MATS, RARITY, AFFIX, HONE, CRAFT,
+    MATS, RARITY, AFFIX, HONE, CRAFT, WCLASS, FORGE, POTIONS,
+    wclass(it) { return it && it.kind === 'sword' ? WCLASS[it.wclass || 'sword'] : null; },
+    forge(world, pl, id) {
+      const r = FORGE.find(c => c.id === id);
+      if (!r) return { error: 'No such work.' };
+      if (!G.canPay(pl, r)) return { error: 'You lack what the smith needs.' };
+      G.pay(pl, r);
+      const it = ECHO.Character.makeItem(world, { kind: r.kind, name: r.name, dmg: r.dmg, holder: 'player', history: [{ d: world.day, t: 'forged to your order by a smith' }] });
+      it.rarity = r.rarity; it.affix = r.affix || null; it.plus = 0; it.level = 3; it.forged = r.id; if (r.wclass) it.wclass = r.wclass;
+      pl.items.push(it.id);
+      return { item: it };
+    },
+    brew(pl, id) {
+      const P0 = POTIONS[id];
+      if (!P0) return 'No such potion.';
+      if (!G.canPay(pl, P0)) return 'You lack the makings.';
+      G.pay(pl, P0);
+      pl.potions = pl.potions || {}; pl.potions[id] = (pl.potions[id] || 0) + 1;
+      return null;
+    },
     rarity(k) { return RARITY.find(r => r.k === k) || RARITY[0]; },
     // Roll a rarity: deeper and stronger foes roll better.
     rollRarity(rng, level, boost = 0) {
@@ -77,7 +123,10 @@
     // A piece of gear dropped in the world.
     make(world, rng, kind, level, rarity, where) {
       const R = G.rarity(rarity);
-      const base = BASES[kind][rng.int(0, BASES[kind].length - 1)];
+      let wclass = null;
+      if (kind === 'sword') { const r = rng.next(); wclass = r < 0.5 ? 'sword' : r < 0.7 ? 'axe' : r < 0.9 ? 'spear' : 'staff'; }
+      const bl = wclass ? WBASES[wclass] : BASES[kind];
+      const base = bl[rng.int(0, bl.length - 1)];
       const pre = PREFIX[R.k][rng.int(0, PREFIX[R.k].length - 1)];
       let affix = null;
       if (rng.next() < R.affix) { const opts = Object.keys(AFFIX).filter(a => AFFIX[a].slot === (kind === 'armor' ? 'armor' : 'weapon') && (kind !== 'bow' || a !== 'venom')); affix = opts[rng.int(0, opts.length - 1)]; }
@@ -85,6 +134,7 @@
       const name = `${pre} ${base}${affix ? ' of ' + AFFIX[affix].name : ''}`;
       const it = ECHO.Character.makeItem(world, { kind, name: U.cap(name), dmg: kind === 'armor' ? 0 : stat, holder: null, history: [{ d: world.day, t: where ? `found ${where}` : 'found' }] });
       it.rarity = R.k; it.affix = affix; it.level = level; it.plus = 0;
+      if (wclass) it.wclass = wclass;
       if (kind === 'armor') it.def = stat;
       return it;
     },
@@ -99,9 +149,12 @@
     def(world, pl) { const a = pl.armor && world.items[pl.armor]; return a ? (a.def || 0) : 0; },
     taken(world, pl, type) {
       const a = pl.armor && world.items[pl.armor];
-      if (!a) return 1;
-      let m = 1 - a.def / (a.def + 55);
-      if (a.affix === 'warding' && (type === 'fire' || type === 'magic')) m *= 0.6;
+      const bf = pl.buffs || {}, now = world.minute + world.day * 1440;
+      let m = a ? 1 - (a.def || 0) / ((a.def || 0) + 55) : 1;
+      if (a && a.affix === 'warding' && (type === 'fire' || type === 'magic')) m *= 0.6;
+      if (bf.stone > 0) m *= 0.67;
+      if (bf.ward > 0 && (type === 'fire' || type === 'magic')) m *= 0.4;
+      void now;
       return m;
     },
     // ------------------------------------------------------------ the smith
@@ -152,7 +205,7 @@
       const glowCol = it.affix ? AFX[it.affix] : it.starforged ? '#bfe8ff' : R.color;
       const glow = Math.min(1, plus * 0.14 + (it.starforged || 0) * 0.15 + ({ common: 0, fine: 0.05, rare: 0.15, epic: 0.3, legendary: 0.45 }[R.k] || 0) + (it.affix ? 0.1 : 0));
       const lift = (hex, f) => { const n = parseInt(hex.slice(1), 16), c = v => Math.min(255, Math.round(v + (255 - v) * f)); return '#' + ((c(n >> 16) << 16) | (c((n >> 8) & 255) << 8) | c(n & 255)).toString(16).padStart(6, '0'); };
-      const L = { rarity: R.k, color: R.color, plus, gems: Math.min(5, plus), glow, glowCol, metal: lift(METAL[R.k] || METAL.common, plus * 0.07), gold: R.k === 'epic' || R.k === 'legendary' || plus >= 4, affix: it.affix || null };
+      const L = { wclass: it.kind === 'sword' ? it.wclass || 'sword' : null, rarity: R.k, color: R.color, plus, gems: Math.min(5, plus), glow, glowCol, metal: lift(METAL[R.k] || METAL.common, plus * 0.07), gold: R.k === 'epic' || R.k === 'legendary' || plus >= 4, affix: it.affix || null };
       if (it.kind === 'armor') {
         const CR = { beast: ['#8a5a2a', '#4a2e18'], leather: ['#7a5634', '#4a3420'], silk: ['#e8e4dc', '#a8a49a'], troll: ['#5a6a3a', '#3a4426'], grave: ['#3e4650', '#262a30'], golem: ['#8a8276', '#5a544c'] };
         const RC = { common: ['#6a5a48', '#4a3e32'], fine: ['#6a7a5a', '#45503a'], rare: ['#4a6a9a', '#2e4466'], epic: ['#6a4a9a', '#422e66'], legendary: ['#b08a3a', '#6a5020'] };
@@ -168,7 +221,7 @@
     line(it) {
       if (!it) return '';
       const R = G.rarity(it.rarity);
-      const stat = it.kind === 'armor' ? `armour ${it.def}` : `power ${it.dmg}`;
+      const stat = it.kind === 'armor' ? `armour ${it.def}` : `${it.kind === 'sword' && it.wclass && it.wclass !== 'sword' ? WCLASS[it.wclass].name.toLowerCase() + ' · ' : ''}power ${it.dmg}`;
       return `${R.name !== 'Common' || it.rarity ? R.name + ' · ' : ''}${stat}${it.plus ? ` · +${it.plus}` : ''}${it.affix ? ` · ${AFFIX[it.affix].desc}` : ''}`;
     }
   };

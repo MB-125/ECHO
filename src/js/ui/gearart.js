@@ -42,6 +42,36 @@
         R(L.gold ? '#f2c84a' : '#8a7a6a', 14, 29, 4, 2); if (L.plus) R(L.glowCol, 15, 29, 2, 1); // pommel
       }, L.glow, L.glowCol);
     },
+    axe(L) {
+      return pixels(32, 32, (R) => {
+        R('#4a3020', 15, 4, 2, 25); R('#6a4a2a', 15, 6, 1, 21);                          // haft
+        const hw = 8 + Math.min(4, L.plus);
+        R(shade(L.metal, -0.3), 17, 5, hw, 9); R(L.metal, 17, 5, hw - 1, 8); R(shade(L.metal, 0.5), 16 + hw, 6, 1, 7); // head
+        R(L.gold ? '#f2c84a' : '#8a7a6a', 14, 13, 4, 2);
+        for (let i = 0; i < L.gems; i++) R(L.glowCol, 19 + i, 9, 1, 1);
+        if (L.affix) { R(L.glowCol, 20, 7); R(L.glowCol, 22, 11); }
+        R(L.gold ? '#f2c84a' : '#8a7a6a', 15, 28, 2, 2);
+      }, L.glow, L.glowCol);
+    },
+    spear(L) {
+      return pixels(32, 32, (R) => {
+        R('#6a4a2a', 15, 9, 2, 22); R('#8a6a3a', 15, 9, 1, 22);
+        const tl = 6 + Math.min(4, L.plus);
+        R(shade(L.metal, -0.3), 14, 9 - tl, 4, tl); R(L.metal, 15, 8 - tl, 2, tl); R(shade(L.metal, 0.5), 15, 9 - tl, 1, tl - 1);
+        R(L.gold ? '#f2c84a' : '#8a7a6a', 13, 9, 6, 2);
+        for (let i = 0; i < L.gems; i++) R(L.glowCol, 15, 12 + i * 2, 1, 1);
+        if (L.affix) R(L.glowCol, 16, 4);
+      }, L.glow, L.glowCol);
+    },
+    staff(L) {
+      return pixels(32, 32, (R) => {
+        R(L.gold ? '#8a6a2a' : '#5a3e26', 15, 9, 2, 22); R(shade(L.gold ? '#8a6a2a' : '#5a3e26', 0.25), 15, 9, 1, 22);
+        R(L.gold ? '#f2c84a' : '#6a5a48', 12, 7, 8, 2); R(L.gold ? '#f2c84a' : '#6a5a48', 12, 2, 2, 6); R(L.gold ? '#f2c84a' : '#6a5a48', 18, 2, 2, 6);
+        const o = 3 + Math.min(2, Math.floor(L.plus / 2));
+        R(L.glowCol, 16 - Math.ceil(o / 2), 6 - o, o, o); R(shade(L.glowCol, 0.5), 16 - Math.ceil(o / 2), 6 - o, 1, 1);
+        for (let i = 0; i < L.gems; i++) R(L.glowCol, 15, 12 + i * 2, 1, 1);
+      }, Math.max(L.glow, 0.25), L.glowCol);
+    },
     bow(L) {
       return pixels(32, 32, (R) => {
         const wood = L.wood || '#6a4a2a';
@@ -71,9 +101,9 @@
     icon(it) {
       if (!it) return '';
       const L = ECHO.Gear.look(it);
-      const key = [it.kind, L.rarity, L.plus, L.affix, L.glow.toFixed(2), L.body, L.wood, L.helm, L.pauldrons].join('|');
+      const key = [it.kind, L.wclass, L.rarity, L.plus, L.affix, L.glow.toFixed(2), L.body, L.wood, L.helm, L.pauldrons].join('|');
       if (cache.has(key)) return cache.get(key);
-      const c = it.kind === 'armor' ? A.armor(L) : it.kind === 'bow' ? A.bow(L) : A.sword(L);
+      const c = it.kind === 'armor' ? A.armor(L) : it.kind === 'bow' ? A.bow(L) : L.wclass === 'axe' ? A.axe(L) : L.wclass === 'spear' ? A.spear(L) : L.wclass === 'staff' ? A.staff(L) : A.sword(L);
       const url = c.toDataURL();
       cache.set(key, url);
       return url;

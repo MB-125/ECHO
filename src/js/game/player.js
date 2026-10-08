@@ -21,18 +21,20 @@
       const bow = game.world.items[pl.bow];
       const wdmg = weapon ? weapon.dmg : 5;
       const charm = k => ECHO.Wonders && ECHO.Wonders.has(game.world, pl, k);
-      const lvM = ECHO.Prowess ? ECHO.Prowess.dmgMult(pl) : 1;
+      const might = pl.buffs && pl.buffs.might > 0 ? 1.33 : 1;
+      const lvM = (ECHO.Prowess ? ECHO.Prowess.dmgMult(pl) : 1) * might;
+      const WC = (ECHO.Gear && ECHO.Gear.wclass(weapon)) || { cd: 1, dmg: 1, range: 0, sta: 1, flame: 1 };
       PC.derived = {
         aggr, caution, reck,
-        meleeCd: 0.5 * (1 - 0.32 * aggr),
-        meleeDmg: wdmg * (0.75 + pl.skills.blade / 70) * (1 + 0.28 * aggr) * (charm('courage') ? 1.12 : 1) * lvM,
-        meleeRange: weapon ? 1.35 : 0.95,
-        meleeStam: 11 * (1 - 0.2 * aggr),
+        meleeCd: 0.5 * (1 - 0.32 * aggr) * WC.cd,
+        meleeDmg: wdmg * (0.75 + pl.skills.blade / 70) * (1 + 0.28 * aggr) * (charm('courage') ? 1.12 : 1) * lvM * WC.dmg,
+        meleeRange: (weapon ? 1.35 : 0.95) + WC.range,
+        meleeStam: 11 * (1 - 0.2 * aggr) * WC.sta,
         blockMul: 1 - 0.4 * caution,
         guardPenalty: aggr * 0.25,
         bowDmg: bow ? bow.dmg * (0.7 + pl.skills.archery / 65) * lvM : 0,
         drawTime: 0.75 * (1 - pl.skills.archery / 250),
-        flameDmg: 19 * (0.8 + pl.skills.flame / 55) * (1 + 0.45 * reck) * (pl.spells.includes('starfire') ? 1.25 : 1) * lvM,
+        flameDmg: 19 * (0.8 + pl.skills.flame / 55) * (1 + 0.45 * reck) * (pl.spells.includes('starfire') ? 1.25 : 1) * lvM * WC.flame,
         flameInstab: pl.spells.includes('starfire') ? 0 : reck * 0.2,
         speed: 4.3 * (1 + pl.skills.endurance / 260),
         maxHp: 100 + pl.skills.endurance * 0.6 + pl.skills.ward * 0.4 + ((pl.boons && pl.boons.hp) || 0) + (charm('health') ? 20 : 0) - (charm('hindcurse') ? 20 : 0) + (pl.armor && game.world.items[pl.armor] && game.world.items[pl.armor].affix === 'vigor' ? 25 : 0) + (ECHO.Prowess ? ECHO.Prowess.hpBonus(pl) : 0),
@@ -164,7 +166,12 @@
         if (PC.heavyHold && Math.random() < dt * 25) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + Math.cos(aim) * 0.4, y: pe.y + Math.sin(aim) * 0.4, vx: (Math.random() - 0.5), vy: (Math.random() - 0.5), t: 0, life: 0.25, color: PC.holdT > 0.75 ? '#fff2b0' : '#c8c0a8', size: 2 });
       }
       if (!In.mdown[0]) {
-        if (PC.heavyHold && PC.holdT >= 0.75 && pe.stagger <= 0 && PC.dodgeT <= 0) { pe.cd = 0; PC.swing(game, aim, D, 'heavy'); PC.combo = 0; }
+        if (PC.heavyHold && PC.holdT >= 0.75 && pe.stagger <= 0 && PC.dodgeT <= 0) {
+          const W0 = ECHO.Gear && ECHO.Gear.wclass(world.items[pl.weapon]);
+          if (W0 === ECHO.Gear.WCLASS.staff && pl.mana >= 14) PC.staffBolt(game, aim, D);
+          else { pe.cd = 0; PC.swing(game, aim, D, 'heavy'); }
+          PC.combo = 0;
+        }
         PC.heavyHold = false; PC.holdT = 0;
       }
       if (PC.lungeT > 0) {
@@ -233,6 +240,8 @@
       // ---- Eat / herbs
       if (In.hit('h')) PC.eat(game);
       if (In.hit('g')) PC.useHerbs(game);
+      for (const [id, P0] of Object.entries(ECHO.Gear.POTIONS)) if (In.hit(P0.key)) PC.drink(game, id);
+      if (pl.buffs) for (const k in pl.buffs) if (pl.buffs[k] > 0) { pl.buffs[k] -= dt; if (pl.buffs[k] <= 0) { pl.buffs[k] = 0; PC.derivedT = 0; ECHO.Combat.floater(pe.x, pe.y - 1.3, `${ECHO.Gear.POTIONS[k].name} wears off`, '#c8c0b0'); } }
 
       // ---- Regeneration
       if (!pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1));
@@ -291,6 +300,29 @@
       }
       return best;
     },
+    // A staff's held blow: a bolt of raw power instead of a swing.
+    staffBolt(game, aim, D) {
+      const pe = game.pe, pl = game.pl;
+      pl.mana -= 14; pe.cd = 0.9;
+      const tgt = PC.assist(game, aim, 10, 0.25);
+      const a = tgt ? Math.atan2(tgt.y - pe.y, tgt.x - pe.x) : aim;
+      ECHO.Combat.shoot(pe, a, { kind: 'orb', speed: 12, dmg: D.flameDmg * 1.05, life: 1.1, type: 'magic', color: '#c8a8ff' });
+      pe.attackT = 0.25; pe.attackDur = 0.25; pe.attackAngle = a; pe.attackKind = 'fore';
+      ECHO.Combat.burst(pe.x + Math.cos(a) * 0.6, pe.y - 0.3 + Math.sin(a) * 0.6, '#c8a8ff', 10, 3, 0.4, 2);
+      ECHO.Sfx.play('fireRelease', { pitch: 1.4 });
+      ECHO.Character.train(pl, 'flame', 0.1);
+    },
+    drink(game, id) {
+      const pl = game.pl, pe = game.pe, P0 = ECHO.Gear.POTIONS[id];
+      pl.potions = pl.potions || {};
+      if (!(pl.potions[id] > 0)) return ECHO.Combat.floater(pe.x, pe.y - 1.2, `no ${P0.name.toLowerCase()}`, '#c8c0b0');
+      pl.potions[id]--;
+      pl.buffs = pl.buffs || {};
+      if (id === 'heal') { const amt = Math.round(pl.maxHp * 0.6); pl.hp = Math.min(pl.maxHp, pl.hp + amt); pe.hp = pl.hp; ECHO.Combat.floater(pe.x, pe.y - 1.3, `+${amt}`, '#7aff8a', true); }
+      else { pl.buffs[id] = id === 'ward' ? 90 : 60; PC.derivedT = 0; ECHO.Combat.floater(pe.x, pe.y - 1.3, P0.name, P0.color, true); }
+      ECHO.Combat.burst(pe.x, pe.y, P0.color, 14, 2, 0.6, 2);
+      ECHO.Sfx.play('coin', { pitch: 1.6 });
+    },
     swing(game, aim, D, kind) {
       const pe = game.pe, pl = game.pl, world = game.world;
       const Tc = ECHO.Tech;
@@ -309,6 +341,12 @@
         bash: { dmg: 0.45, arc: 1.7, range: -0.15, knock: 0.6, cd: 1.1, sta: 1.3, stagger: Tc.v('bash'), stop: 0.09, sfx: 'shieldBlock', guardbreak: true }
       }[kind]);
       if (lunge) { SPEC.dmg *= Tc.v('lunge'); SPEC.range += 1.1; }
+      const WCn = ECHO.Gear && ECHO.Gear.wclass(world.items[pl.weapon]);
+      if (WCn) {
+        SPEC.arc = Math.min(Math.PI * 1.95, SPEC.arc * WCn.arc); SPEC.stagger += WCn.stagger || 0;
+        if (WCn === ECHO.Gear.WCLASS.spear && (kind === 'finisher' || kind === 'heavy')) { SPEC.arc = 0.8; SPEC.range += 1.2; }
+        if (WCn === ECHO.Gear.WCLASS.axe && kind === 'finisher') SPEC.dmg *= 1.15;
+      }
       if (riposte) { SPEC.stagger = Math.max(SPEC.stagger, 0.7); SPEC.guardbreak = true; }
       // lock on to the foe you are facing, and step into the blow
       const tgt = PC.assist(game, aim, D.meleeRange + 1.6, 0.33);
