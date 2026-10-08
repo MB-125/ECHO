@@ -351,7 +351,8 @@
       if (v) { v.op[pl.charId] = (v.op[pl.charId] || 0) + 22; P().remember(world, v, `got their purse back thanks to ${pl.first} ${pl.last}`, 'gratitude', null, 2); }
       if (s.rep) s.rep[pl.charId] = (s.rep[pl.charId] || 0) + 2; else s.rep = { [pl.charId]: 2 };
       pl.renown += 1;
-      if (pl.deputy && pl.deputy.sid === s.id) { pl.deputy.done++; pl.gold += 6; }
+      ECHO.Ambition.note(pl, 'thieves');
+      if (pl.deputy && pl.deputy.sid === s.id) { pl.deputy.done++; ECHO.Ambition.note(pl, 'watchJobs'); pl.gold += Math.round(6 * (pl.watchPay || 1)); }
       ECHO.Character.behave(pl, 'protect', 0.3);
       ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} caught a thief in the streets of ${s.name}.`, importance: 0, sid: s.id, rep: 2, tag: 'protect' });
       UI().toast(`${v ? v.first + ' gets the purse back and presses ' + reward + ' crowns on you.' : 'The watch thanks you. +' + reward + ' crowns.'}`, 'mercy', 4);
@@ -482,7 +483,7 @@
       if (d.points.every(p => p.done)) {
         const night = game.isNight();
         const pay = night ? 14 : 8;
-        pl.gold += pay; pl.deputy.done++; pl.deputy.duty = null;
+        pl.gold += Math.round(pay * (pl.watchPay || 1)); pl.deputy.done++; pl.deputy.duty = null; ECHO.Ambition.note(pl, 'watchJobs');
         const s = ECHO.Sim.settlement(world, pl.deputy.sid);
         if (s) { const w = W().st(world, s); w.trust = Math.min(100, w.trust + 0.5); w.safety = Math.min(100, w.safety + 0.5); }
         UI().toast(`Rounds walked. The captain pays you ${pay} crowns${night ? ' — night rate' : ''}.`, 'mercy', 4);
@@ -518,7 +519,7 @@
           out.push({ kind: 'act', label: `Hand ${n ? n.first : 'them'} over to the watch`, d: 0.2, act: () => { e._crime = e.criminal; Pt.arrest(game, game.ents.find(g => g.role === 'guard' && !g.dead && U.dist(g.x, g.y, e.x, e.y) < 30) || null, e, true); if (!e.incident.escort) { e.vanish = true; e.dead = true; } } });
           out.push({ kind: 'act', label: `Let ${n ? n.first : 'them'} go`, d: 0.3, act: () => { const cr = e.criminal; if (cr && cr.victim && world.npcs[cr.victim]) world.npcs[cr.victim].wealth += cr.value; if (n) { n.op[pl.charId] = (n.op[pl.charId] || 0) + 25; P().remember(world, n, `was let go by ${pl.first} ${pl.last}`, 'gratitude', null, 3); } ECHO.Character.behave(pl, 'mercy', 0.4); e.incident = null; e.criminal = null; e.yielded = false; e.say = 'Thank you… I won\'t forget it.'; e.sayT = 3; } });
         } else if (e.incident && e.incident.kind === 'brawl') {
-          out.push({ kind: 'act', label: 'Break it up', d: 0.2, act: () => { const o = e.incident.other; Pt.endBrawl(game, e, true); for (const x of [e, o]) if (x) { x.say = ['All right, all right.', 'He started it!', 'Fine.'][Math.floor(Math.random() * 3)]; x.sayT = 2; } pl.renown += 0.5; ECHO.Character.behave(pl, 'protect', 0.15); if (pl.deputy) pl.deputy.done++; } });
+          out.push({ kind: 'act', label: 'Break it up', d: 0.2, act: () => { const o = e.incident.other; Pt.endBrawl(game, e, true); for (const x of [e, o]) if (x) { x.say = ['All right, all right.', 'He started it!', 'Fine.'][Math.floor(Math.random() * 3)]; x.sayT = 2; } pl.renown += 0.5; ECHO.Character.behave(pl, 'protect', 0.15); ECHO.Ambition.note(pl, 'brawls'); if (pl.deputy) { pl.deputy.done++; ECHO.Ambition.note(pl, 'watchJobs'); } } });
         }
       }
       const c = pl.investigating && W().byId(world, pl.investigating);
@@ -583,7 +584,7 @@
       if (pl.ringKnown && pl.ringKnown[s.id] && w.ring) add(`${P().name(world.npcs[pl.ringKnown[s.id]])} leads ${w.ring.name}.`, () => {
         const n = W().raidRing(world, s, rng, `${pl.first} ${pl.last}`);
         delete pl.ringKnown[s.id];
-        pl.renown += 6;
+        pl.renown += 6; ECHO.Ambition.note(pl, 'rings');
         ECHO.Chronicle.deed(world, { text: `On the word of ${pl.first} ${pl.last}, the watch of ${s.name} broke ${w.ring ? w.ring.name : 'the ring'} and took ${n} of them.`, importance: 2, sid: s.id, rep: 6, tag: 'protect' });
         say(`${npc.first} is already reaching for the bell rope. "If you're right, the town owes you. If you're wrong, so help you." By dawn ${n} of them are in the cells. (Claim the reward from the captain who asked.)`);
         render();
@@ -598,7 +599,7 @@
         for (const n of sus) add(`${P().name(n)} — ${P().role(world, n)}, ${n.sex === 'f' ? 'a woman' : 'a man'} with ${W().hairOf(n)} hair`, () => {
           const right = W().accuse(world, myCase, n.id, rng);
           pl.investigating = null;
-          if (right) { pl.gold += 25; if (pl.deputy) { pl.deputy.done++; pl.gold += 10; } say(`The watch takes ${n.first}. Under questioning, ${n.sex === 'f' ? 'she' : 'he'} breaks. You were right. (+${pl.deputy ? 35 : 25} crowns)`); UI().toast(`You solved the ${W().KIND_WORD[myCase.kind]}.`, 'legend', 5); }
+          if (right) { pl.gold += 25; ECHO.Ambition.note(pl, 'cases'); if (pl.deputy) { pl.deputy.done++; ECHO.Ambition.note(pl, 'watchJobs'); pl.gold += 10; } say(`The watch takes ${n.first}. Under questioning, ${n.sex === 'f' ? 'she' : 'he'} breaks. You were right. (+${pl.deputy ? 35 : 25} crowns)`); UI().toast(`You solved the ${W().KIND_WORD[myCase.kind]}.`, 'legend', 5); }
           else { say(`The watch takes ${n.first}, who swears ${n.sex === 'f' ? 'she' : 'he'} never did it. ${n.sex === 'f' ? 'She' : 'He'} is punished all the same — on your word.`); UI().toast('The guilty one is still out there. You may never know who it was.', 'warn', 6); }
           render();
         });

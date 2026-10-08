@@ -212,3 +212,17 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 .ware-use { font-size: 13px; color: var(--ink); margin: 2px 0; }
 .ware-meta { font-size: 12px; color: var(--ink-dim); }
 .ware .row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+
+/* Purpose: the goal line and the callings */
+#hud-goal { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); max-width: 56vw; text-align: center; padding: 6px 16px; background: rgba(14,10,6,0.62); border: 1px solid rgba(200,168,90,0.45); border-radius: 4px; text-shadow: 0 1px 0 #000; pointer-events: none; font-size: 14px; }
+#hud-goal .gl { display: block; color: #f0e2b8; font-family: var(--serif); font-size: 17px; }
+#hud-goal .gw { display: block; color: #c8b890; font-size: 13px; margin-top: 2px; }
+#hud-goal .gt { position: absolute; right: 6px; top: 3px; font-size: 10px; color: #9fd3ff; text-transform: uppercase; letter-spacing: 1px; }
+#hud-goal .arrow { display: inline-block; color: #ffe08a; margin-right: 6px; font-style: normal; transition: transform 0.25s; }
+#hud.fighting #hud-goal { opacity: 0.35; }
+.callings { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
+.calling { display: flex; flex-direction: column; justify-content: flex-start; border: 1px solid rgba(200,168,90,0.35); padding: 8px 10px; border-radius: 3px; background: rgba(0,0,0,0.2); text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.calling:hover { border-color: #ffe08a; background: rgba(200,168,90,0.12); }
+.calling b { display: block; color: var(--gold); margin-bottom: 3px; }
+.calling span { display: block; font-size: 13px; line-height: 1.35; }
+@media (max-width: 760px) { .callings { grid-template-columns: 1fr; } #hud-goal { max-width: 90vw; } }

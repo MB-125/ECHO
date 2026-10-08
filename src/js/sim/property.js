@@ -274,6 +274,7 @@
       if (pl.gold < amt) return 'You don\'t have that much.';
       pl.gold -= amt; n.wealth += amt;
       n.debt = { to: 'player:' + pl.charId, amt: Math.round(amt * 1.15), due: world.day + 30 };
+      if (ECHO.Ambition) ECHO.Ambition.note(pl, 'loans');
       n.op[pl.charId] = (n.op[pl.charId] || 0) + 12;
       P().remember(world, n, `borrowed ${amt} crowns from ${pl.first} ${pl.last}`, 'gratitude', null, 2);
       return `"${amt} crowns. I'll pay you back ${n.debt.amt} within the month, I swear it."`;

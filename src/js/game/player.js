@@ -36,7 +36,7 @@
         speed: 4.3 * (1 + pl.skills.endurance / 260),
         maxHp: 100 + pl.skills.endurance * 0.6 + pl.skills.ward * 0.4 + ((pl.boons && pl.boons.hp) || 0) + (charm('health') ? 20 : 0) - (charm('hindcurse') ? 20 : 0),
         maxSta: 100 + pl.skills.endurance * 0.8 + ((pl.boons && pl.boons.sta) || 0),
-        maxMana: 60 + pl.skills.flame * 1.2,
+        maxMana: 60 + pl.skills.flame * 1.2 + ((pl.boons && pl.boons.mana) || 0),
         wellfed: charm('wellfed')
       };
       pl.maxHp = PC.derived.maxHp; pl.maxSta = PC.derived.maxSta; pl.maxMana = PC.derived.maxMana;

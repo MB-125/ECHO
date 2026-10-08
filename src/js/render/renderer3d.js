@@ -1076,7 +1076,7 @@
       R.festGroup = new THREE.Group(); R.scene.add(R.festGroup); R.festKey = ''; R.festFlames = [];
     },
     updateGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : []);
       const ga = R.glows.geometry.attributes;
       const n = Math.min(list.length, ga.size.count);
       const tmp = R._gc || (R._gc = new THREE.Color());

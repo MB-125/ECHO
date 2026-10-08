@@ -333,6 +333,7 @@
           pl.wardenOf = (pl.wardenOf || []).concat([s.id]);
           for (const n of settlers) n.op[pl.charId] = Math.max(n.op[pl.charId] || 0, 45);
           ECHO.Chronicle.add(world, { text: `${pl.first} ${pl.last}, who cleared the land, was named warden of ${s.name}.`, kind: 'politics', importance: 2, sid: s.id, char: pl.charId });
+          if (ECHO.Watch) ECHO.Watch.notify(world, `The settlers have arrived. ${s.name} stands — and it is yours. Talk to the reeve, or send word from your journal, to build it up.`);
         }
       }
       return s;
@@ -346,7 +347,7 @@
       for (const sid of pl.wardenOf) {
         const s = S().settlement(world, sid);
         if (!s || s.warden !== pl.charId) continue;
-        const pay = Math.round(P().residents(world, s).length * 1.2 + (s.prosperity || 40) * 0.3);
+        const pay = Math.round((P().residents(world, s).length * 1.2 + (s.prosperity || 40) * 0.3) * (pl.duesMul || 1) * ({ low: 0.6, fair: 1, high: 1.5 }[s.dues || 'fair']));
         total += pay; names.push(s.name);
       }
       if (!total) return;

@@ -542,6 +542,7 @@
     // ------------------------------------------------------------ deputies
     deputize(world, pl, s) {
       pl.deputy = { sid: s.id, faction: s.faction, since: world.day, duty: null, done: 0, pay: 6 };
+      pl.stats = pl.stats || {}; pl.stats.sworn = (pl.stats.sworn || 0) + 1;
       ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} was sworn in as a deputy of the watch of ${s.name}.`, importance: 1, sid: s.id, rep: 2 });
     },
     dismiss(world, pl, why) {

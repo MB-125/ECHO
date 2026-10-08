@@ -10,26 +10,42 @@
   const SOLID_TILES = new Set([TILE.DEEP, TILE.WATER, TILE.TREE, TILE.ROCK, TILE.RUINWALL]);
   const MOVE_COST = { [TILE.TREE]: 0.7, [TILE.FOREST]: 0.78, [TILE.SWAMP]: 0.6, [TILE.HILL]: 0.82, [TILE.SNOW]: 0.75, [TILE.SAND]: 0.92, [TILE.ROAD]: 1.15, [TILE.BRIDGE]: 1.15, [TILE.PLAZA]: 1.1 };
 
-  const W = 200, H = 150;
-  const REGION_COLS = 5, REGION_ROWS = 4;
+  // Dimensions belong to each world (old worlds are 200×150; vast ones are larger).
+  // The generator works on the active world's size, set by World.use().
+  let W = 200, H = 150;
+  let REGION_COLS = 5, REGION_ROWS = 4;
+  // How a world of each size is laid out.
+  const SIZES = {
+    standard: { W: 200, H: 150, RC: 5, RR: 4, villages: 5, lairs: 3, ruins: 6, camps: 2, rivers: 4, land: 0, cands: 4000, spread: 46, freq: 46, rock: 0.70, hill: 0.615, extraRoads: 2 },
+    vast: { W: 320, H: 240, RC: 8, RR: 6, villages: 12, lairs: 6, ruins: 11, camps: 4, rivers: 8, land: 0.075, cands: 9000, spread: 52, freq: 52, rock: 0.79, hill: 0.66, extraRoads: 8 }
+  };
+  let GEN = SIZES.standard;
 
   const World = ECHO.World = {
-    W, H, REGION_COLS, REGION_ROWS,
+    W, H, REGION_COLS, REGION_ROWS, SIZES,
+    // Make this world the one the generator and the overlay work on.
+    use(world) {
+      W = world.W || 200; H = world.H || 150; REGION_COLS = world.RC || 5; REGION_ROWS = world.RR || 4;
+      World.W = W; World.H = H; World.REGION_COLS = REGION_COLS; World.REGION_ROWS = REGION_ROWS;
+    },
+    scale(world) { return world.size === 'vast' ? 2 : 1; },
     idx: (x, y) => y * W + x,
     inBounds: (x, y) => x >= 0 && y >= 0 && x < W && y < H,
     tile(world, x, y) {
       if (x >= 9000 && ECHO.Interior) return ECHO.Interior.tile(x, y);
       x |= 0; y |= 0;
-      if (x < 0 || y < 0 || x >= W || y >= H) return TILE.DEEP;
-      return world.tiles[y * W + x];
+      const ww = world.W || 200;
+      if (x < 0 || y < 0 || x >= ww || y >= (world.H || 150)) return TILE.DEEP;
+      return world.tiles[y * ww + x];
     },
-    setTile(world, x, y, t) { if (x >= 0 && y >= 0 && x < W && y < H) world.tiles[y * W + x] = t; },
+    setTile(world, x, y, t) { const ww = world.W || 200; if (x >= 0 && y >= 0 && x < ww && y < (world.H || 150)) world.tiles[y * ww + x] = t; },
     isSolid(world, x, y) {
       if (x >= 9000 && ECHO.Interior) return ECHO.Interior.isSolid(x, y);
       const fx = x, fy = y;
       x = Math.floor(x); y = Math.floor(y);
-      if (x < 0 || y < 0 || x >= W || y >= H) return true;
-      const i = y * W + x;
+      const ww = world.W || 200;
+      if (x < 0 || y < 0 || x >= ww || y >= (world.H || 150)) return true;
+      const i = y * ww + x;
       if (world.blocked[i] === 1) return true;
       const t = world.tiles[i];
       // A tree only blocks at its trunk, so you can thread between them.
@@ -42,16 +58,18 @@
     },
     speedAt(world, x, y) { return MOVE_COST[World.tile(world, x, y)] || 1; },
     regionAt(world, x, y) {
-      const rx = U.clamp(Math.floor(x / (W / REGION_COLS)), 0, REGION_COLS - 1);
-      const ry = U.clamp(Math.floor(y / (H / REGION_ROWS)), 0, REGION_ROWS - 1);
-      return world.regions[ry * REGION_COLS + rx];
+      const RC = world.RC || 5, RR = world.RR || 4;
+      const rx = U.clamp(Math.floor(x / ((world.W || 200) / RC)), 0, RC - 1);
+      const ry = U.clamp(Math.floor(y / ((world.H || 150) / RR)), 0, RR - 1);
+      return world.regions[ry * RC + rx];
     },
     regionNeighbors(world, region) {
       const out = [];
-      const rx = region.id % REGION_COLS, ry = Math.floor(region.id / REGION_COLS);
+      const RC = world.RC || 5, RR = world.RR || 4;
+      const rx = region.id % RC, ry = Math.floor(region.id / RC);
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const nx = rx + dx, ny = ry + dy;
-        if (nx >= 0 && ny >= 0 && nx < REGION_COLS && ny < REGION_ROWS) out.push(world.regions[ny * REGION_COLS + nx]);
+        if (nx >= 0 && ny >= 0 && nx < RC && ny < RR) out.push(world.regions[ny * RC + nx]);
       }
       return out;
     },
@@ -74,6 +92,7 @@
     },
     // Rebuild the collision overlay from buildings and structures.
     rebuildBlocked(world) {
+      World.use(world);
       world.blocked = new Uint8Array(W * H);
       const mark = (x, y, w, h) => {
         for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) if (World.inBounds(xx, yy)) world.blocked[yy * W + xx] = 1;
@@ -87,6 +106,7 @@
     },
     // A* over tiles. Used for roads at generation and for travel at runtime.
     findPath(world, sx, sy, tx, ty, costFn, maxIter = 60000) {
+      const W = world.W || 200, H = world.H || 150;
       sx |= 0; sy |= 0; tx |= 0; ty |= 0;
       if (sx < 0 || sy < 0 || tx < 0 || ty < 0 || sx >= W || sy >= H || tx >= W || ty >= H) return null;
       const N = W * H;
@@ -160,15 +180,15 @@
       for (let x = 0; x < W; x++) {
         const nx = x / W - 0.5, ny = y / H - 0.5;
         const d = Math.sqrt(nx * nx * 1.1 + ny * ny * 1.4) * 2;
-        let e = elev(x / 46, y / 46) * 1.25 - Math.pow(d, 2.4) * 0.62 + 0.02;
+        let e = elev(x / GEN.freq, y / GEN.freq) * 1.25 - Math.pow(d, 2.4) * (0.62 - GEN.land * 3) + 0.02 - GEN.land * 0.25;
         const m = moist(x / 38 + 50, y / 38 + 50);
         E[y * W + x] = e;
         let t;
         if (e < 0.25) t = TILE.DEEP;
         else if (e < 0.31) t = TILE.WATER;
         else if (e < 0.335) t = TILE.SAND;
-        else if (e > 0.70) t = TILE.ROCK;
-        else if (e > 0.615) t = (y < H * 0.24) ? TILE.SNOW : TILE.HILL;
+        else if (e > GEN.rock) t = TILE.ROCK;
+        else if (e > GEN.hill) t = (y < H * 0.24) ? TILE.SNOW : TILE.HILL;
         else if (m > 0.6 && e < 0.42) t = TILE.SWAMP;
         else if (m > 0.52) t = (hash2(x, y, world.seed) < 0.42 ? TILE.TREE : TILE.FOREST);
         else t = TILE.GRASS;
@@ -179,7 +199,7 @@
     world.tiles = tiles;
     // Rivers: walk downhill from high points to the sea.
     const sources = [];
-    for (let i = 0; i < 400 && sources.length < 4; i++) {
+    for (let i = 0; i < 400 * GEN.rivers && sources.length < GEN.rivers; i++) {
       const x = rng.int(10, W - 10), y = rng.int(10, H - 10);
       if (E[y * W + x] > 0.6 && sources.every(s => U.dist(s[0], s[1], x, y) > 40)) sources.push([x, y]);
     }
@@ -245,7 +265,7 @@
 
   function placeSettlements(world, rng, comp, main) {
     const cands = [];
-    for (let i = 0; i < 4000; i++) {
+    for (let i = 0; i < GEN.cands; i++) {
       const x = rng.int(14, W - 15), y = rng.int(12, H - 13);
       const t = World.tile(world, x, y);
       if (comp[y * W + x] !== main || (t !== TILE.GRASS && t !== TILE.FOREST)) continue;
@@ -276,12 +296,12 @@
     }
     chosen.push({ ...(temple || good[5]), kind: 'temple', faction: 'lantern' });
     // Villages: farthest point sampling.
-    for (let k = 0; k < 5; k++) {
+    for (let k = 0; k < GEN.villages; k++) {
       let best = null, bscore = -Infinity;
       for (const c of good) {
         const md = Math.min(...chosen.map(o => U.dist(o.x, o.y, c.x, c.y)));
         if (md < 26) continue;
-        const sc = Math.min(md, 46) + c.score * 0.25 + rng.next() * 6;
+        const sc = Math.min(md, GEN.spread) + c.score * 0.25 + rng.next() * 6;
         if (sc > bscore) { bscore = sc; best = c; }
       }
       if (!best) break;
@@ -412,7 +432,7 @@
     const chosen = [];
     for (const e of edges) { const a = find(e[1]), b = find(e[2]); if (a !== b) { parent[a] = b; chosen.push(e); } }
     let extra = 0;
-    for (const e of edges) { if (extra >= 2) break; if (!chosen.includes(e) && e[0] < 75) { chosen.push(e); extra++; } }
+    for (const e of edges) { if (extra >= GEN.extraRoads) break; if (!chosen.includes(e) && e[0] < 75) { chosen.push(e); extra++; } }
     world.roads = [];
     for (const [, i, j] of chosen) connectRoad(world, S[i], S[j]);
   }
@@ -456,7 +476,7 @@
   function placeLairs(world, rng, comp, main) {
     world.lairs = [];
     const villages = rng.shuffle(world.settlements.filter(s => s.kind === 'village').slice());
-    const want = Math.min(3, Math.max(2, villages.length));
+    const want = Math.min(GEN.lairs, Math.max(2, villages.length));
     const clearOf = (x, y, r, bad) => {
       for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (bad.has(World.tile(world, x + dx, y + dy))) return false;
       return true;
@@ -519,7 +539,7 @@
     world.ruins = [];
     const used = new Set();
     const names = ['Vault', 'Barrow', 'Spire', 'Undercroft', 'Sanctum', 'Cairn', 'Observatory'];
-    for (let tries = 0; tries < 3000 && world.ruins.length < 6; tries++) {
+    for (let tries = 0; tries < 3000 * (GEN.ruins / 6) && world.ruins.length < GEN.ruins; tries++) {
       const x = rng.int(12, W - 13), y = rng.int(12, H - 13);
       if (comp[y * W + x] !== main) continue;
       const t = World.tile(world, x, y);
@@ -543,22 +563,25 @@
 
   function placeCamps(world, rng, comp, main) {
     world.camps = [];
-    for (let k = 0; k < 2; k++) ECHO.Politics.foundCamp(world, rng, null, true);
+    for (let k = 0; k < GEN.camps; k++) ECHO.Politics.foundCamp(world, rng, null, true);
   }
 
   // ------------------------------------------------------------------ Generate
   ECHO.generateWorld = function (opts) {
     const seed = (opts.seed >>> 0) || ECHO.hashStr(String(Math.random()));
     const rng = new RNG(seed);
+    const size = SIZES[opts.size] ? opts.size : 'standard';
+    GEN = SIZES[size];
     const world = {
       version: 1, id: opts.id || ('w' + seed.toString(36)), name: opts.name || 'Unnamed World', seed,
       createdAt: Date.now(), playSeconds: 0,
-      W, H, day: 0, minute: 8 * 60,
+      W: GEN.W, H: GEN.H, RC: GEN.RC, RR: GEN.RR, size, day: 0, minute: 8 * 60,
       factions: makeFactions(), settlements: [], roads: [], regions: [], lairs: [], ruins: [], camps: [],
       structures: [], npcs: {}, items: {}, caravans: [], armies: [], plights: [], chronicle: [], legends: [],
       intel: null, lang: null, player: null, characters: [], nextNpc: 1, nextItem: 1, stats: { births: 0, deaths: 0, wars: 0, famines: 0 },
       rift: null, worldVisitors: []
     };
+    World.use(world);
     genTerrain(world, rng);
     const { comp, main } = largestLandComponent(world);
     placeSettlements(world, rng, comp, main);

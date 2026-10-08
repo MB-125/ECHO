@@ -118,6 +118,8 @@
         const days = world.livesOn === false || world.player.capture ? 0 : Math.min(5, Math.floor(away / 7.2e6));
         ECHO.Game.start(world);
         ECHO.UI.toast(`${world.name}. ${T.fmtDate(world.day)}.`, 'world', 4);
+        // worlds from before ambitions: ask once what this life is for
+        if (world.player.focus === undefined) { const ask = () => { if (ECHO.UI.paused()) return setTimeout(ask, 1500); ECHO.Purpose.calling(ECHO.Game); }; setTimeout(ask, days >= 1 ? 4000 : 2500); }
         const omen = ECHO.Marvels.dailyOmen(world);
         if (days >= 1) ECHO.Game.fastForward(days, `While you were away…`, events => Scr.welcomeBack(world, days, events, omen));
         else if (omen || (ECHO.Letters && ECHO.Letters.waiting(world).length)) setTimeout(() => Scr.welcomeBack(world, 0, [], omen), 600);
@@ -180,6 +182,7 @@
       const el = Scr.show(`${Scr.logo('A new world, with its own history, its own tongue, its own fate.')}
         <div class="form"><label>Name of the world<input id="wn" value="${rng.pick(names)}" maxlength="24"></label>
         <label>Seed (leave blank for chance)<input id="ws" placeholder="any words or numbers"></label>
+        <label>Size of the world<select id="wz"><option value="vast">Vast — fifteen towns, wide wild country, much to find</option><option value="standard">Standard — eight towns on a smaller isle</option></select></label>
         <label>Pace of life<select id="wp"><option value="brisk">Brisk — a day passes in 6 minutes</option><option value="steady">Steady — a day passes in 12 minutes</option><option value="lifelike">Lifelike — a day passes in 24 minutes</option></select></label>
         <div class="actions"><button data-a="back">Back</button><button class="primary" data-a="go">Create</button></div></div>`);
       el.querySelector('[data-a=back]').addEventListener('click', () => Scr.title());
@@ -190,7 +193,8 @@
         const seed = seedText ? (/^\d+$/.test(seedText) ? (+seedText >>> 0) : ECHO.hashStr(seedText)) : (Math.random() * 4294967295) >>> 0;
         Scr.show(`${Scr.logo('Raising mountains, digging rivers, founding towns, raising generations…')}<p style="text-align:center" class="dim">${esc(name)} — seed ${seed}</p>`);
         await new Promise(r => setTimeout(r, 60));
-        const world = ECHO.generateWorld({ seed, name, id: 'w' + seed.toString(36) + Date.now().toString(36).slice(-4) });
+        const size = (el.querySelector('#wz') || {}).value || 'vast';
+        const world = ECHO.generateWorld({ seed, name, size, id: 'w' + seed.toString(36) + Date.now().toString(36).slice(-4) });
         world.pace = pace;
         await ECHO.Save.save(world);
         Scr.characterCreation(world, false);
@@ -260,7 +264,9 @@
       ECHO.Save.save(world);
       ECHO.Game.start(world);
       const home = ECHO.Sim.settlement(world, pl.homeId);
-      setTimeout(() => ECHO.UI.toast(`You are ${pl.first} ${pl.last} of ${home.name}. Talk to people. Read the notice board. Or walk out into the world and see what it does.`, 'world', 9), 2200);
+      setTimeout(() => ECHO.Purpose.calling(ECHO.Game, k => {
+        ECHO.UI.toast(k ? `You are ${pl.first} ${pl.last} of ${home.name}. The line at the top of the screen shows the next step on your road, and points the way. Tab opens your journal.` : `You are ${pl.first} ${pl.last} of ${home.name}. Talk to people. Read the notice board. Or walk out into the world and see what it does.`, 'world', 10);
+      }), 1800);
     },
 
     // ------------------------------------------------------------ Death

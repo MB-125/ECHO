@@ -48,7 +48,8 @@
         ['landmark', 'stones', 2], ['landmark', 'lookout', 2], ['landmark', 'moonwell', 1], ['landmark', 'oak', 1], ['landmark', 'battlefield', 1], ['landmark', 'wayshrine', 2], ['landmark', 'wreck', 1],
         ['delve', 'barrow', 2], ['delve', 'cave', 2], ['delve', 'hideout', 1], ['delve', 'crypt', 1]
       ];
-      for (const [cat, kind, n] of want) for (let k = 0; k < n; k++) {
+      const scale = ECHO.World.scale ? ECHO.World.scale(world) : 1;
+      for (const [cat, kind, n0] of want) for (let k = 0, n = n0 * scale; k < n; k++) {
         let best = null, bs = -Infinity;
         for (let i = 0; i < 700; i++) {
           const x = rng.int(8, world.W - 9), y = rng.int(8, world.H - 9);
@@ -66,7 +67,8 @@
         }
         if (!best) continue;
         const def = cat === 'landmark' ? LANDMARKS[kind] : DELVES[kind];
-        const name = def.names.find(n0 => !used.has(n0)) || def.names[0];
+        let name = def.names.find(n0 => !used.has(n0));
+        if (!name) { const reg = ECHO.World.regionAt(world, best.x, best.y); name = `the ${def.label.toLowerCase()} of ${reg ? reg.name.replace(/^the /, 'the ') : 'the wilds'}`; }
         used.add(name);
         // a little room around it
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = ECHO.World.tile(world, best.x + dx, best.y + dy); if (t === T.TREE) ECHO.World.setTile(world, best.x + dx, best.y + dy, T.FOREST); }

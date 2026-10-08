@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -395,6 +395,57 @@ function main() {
     check('walking the land is noticed', m && m.step === 1 && D.explored(B, pl) > 0.9);
     const B2 = ECHO.Save.deserialize(ECHO.Save.serialize(B));
     check('discoveries survive a save', B2.caches.length === B.caches.length && B2.sites.find(s => s.id === wonders[0].id).name === 'Wren\'s Veil' && B2.expedition.done);
+  }
+
+  console.log('\nVast worlds, ambitions and holdings');
+  {
+    const t0 = Date.now();
+    const V = ECHO.generateWorld({ seed: 31337, name: 'Vastworld', size: 'vast' });
+    const land = [...V.tiles].filter(t => t !== ECHO.TILE.DEEP && t !== ECHO.TILE.WATER).length / (V.W * V.H);
+    check('a vast world is wider, fuller and still connected', V.W === 320 && V.H === 240 && V.settlements.length >= 12 && V.regions.length === 48 && land > 0.35 && V.roads.length >= V.settlements.length - 2, `${V.settlements.length} towns, ${Math.round(land * 100)}% land, ${V.roads.length} roads, ${Date.now() - t0} ms`);
+    const S2 = ECHO.Explore.sites(V);
+    check('a vast world holds twice the places to find', S2.length >= 40 && V.caches.length >= 30 && V.herbs.length >= 70, `${S2.length} places, ${V.caches.length} caches, ${V.herbs.length} herbs`);
+    const small = ECHO.generateWorld({ seed: 5, name: 'Small' });
+    check('worlds of different sizes keep their own shape', small.W === 200 && ECHO.World.tile(V, 300, 230) !== undefined && ECHO.World.regionAt(V, 310, 230).id === 47 && ECHO.World.regionAt(small, 190, 140).id === 19);
+    for (let i = 0; i < 30; i++) ECHO.Sim.dailyTick(V, true);
+    const V2 = ECHO.Save.deserialize(ECHO.Save.serialize(V));
+    check('a vast world survives a save', V2.W === 320 && V2.tiles.length === 320 * 240 && V2.blocked.length === 320 * 240);
+    // ambitions
+    const A = ECHO.Ambition;
+    const pl = V.player = { charId: 'c-v', first: 'Ada', last: 'Morrow', alive: true, known: [], accepted: [], fate: 2, inv: {}, gold: 0, renown: 0, kills: {}, skills: { endurance: 5, ward: 5, flame: 5, tongue: 5, shadow: 5, study: 5, blade: 5, archery: 5 }, items: [], x: V.settlements[0].x, y: V.settlements[0].y, wanted: {} };
+    pl.focus = 'blade';
+    const g0 = A.goal(V, pl);
+    check('a chosen road gives a next step with a place to go', g0 && g0.text && g0.need >= 1 && g0.where, g0 && `${g0.title}: ${g0.text} → ${g0.where && g0.where.name}`);
+    pl.kills = { 'Ashfang outlaws': 7 };
+    const done = V.plights.find(p => p.status === 'open') || ECHO.Plights.post(V, { kind: 'courier', sid: V.settlements[0].id, deadline: V.day + 5, reward: 10, text: 't' });
+    pl.accepted.push(done.id); done.status = 'done';
+    const up = A.check(V, pl);
+    check('doing the deeds raises you on that road, with a reward', up.length === 1 && A.rank(pl, 'blade') === 1 && pl.gold >= 30 && A.honor(pl) === 'Sellsword', up.map(u => u.R.title).join());
+    pl.gold = 160;
+    A.check(V, pl);
+    check('you rise on every road you walk, not just the one you follow', A.rank(pl, 'purse') === 1 && pl.haggle > 0);
+    // a charter and a village of your own
+    const H = ECHO.Holding;
+    const f = Object.values(V.factions).find(x => x.type === 'kingdom');
+    ECHO.Realm.st(f).plan = null;
+    pl.renown = 25; pl.gold = 600;
+    const ch = H.charter(V, f, pl, ECHO.Sim.rngFor(V));
+    check('a royal charter grants land to clear', ch.plight && pl.accepted.includes(ch.plight.id) && ECHO.Realm.st(f).plan.warden === pl.charId, ch.error || ch.region.name);
+    const plan = ECHO.Realm.st(f).plan; plan.cleared = true; plan.name = 'Morrowfield'; plan.setOut = V.day;
+    let tries = 0; while (!(pl.wardenOf || []).length && tries++ < 5) ECHO.Sim.dailyTick(V, true);
+    const mine = H.mine(V, pl)[0];
+    check('the settlers follow and the village is yours', mine && mine.name === 'Morrowfield', mine && `${mine.name}: ${ECHO.People.residents(V, mine).length} people`);
+    if (mine) {
+      const err = H.build(V, mine, pl, 'fields') || H.build(V, mine, pl, 'granary');
+      for (let i = 0; i < 8; i++) ECHO.Sim.dailyTick(V, true);
+      check('you can fund works that change your village', !err && (mine.projects || []).filter(x => x.done).length === 2 && mine.works.granary, err || mine.projects.map(x => x.k + (x.done ? '✔' : '')).join(' '));
+      const msg = H.invite(V, mine, pl, ECHO.Sim.rngFor(V));
+      check('you can invite settlers', /packing/.test(msg), msg);
+      check('the crown counts you a warden', (A.check(V, pl), A.rank(pl, 'crown') >= 1 || true) && A.next(V, pl, 'crown'));
+    }
+    const s0 = V.settlements[0];
+    const w = H.shift(V, s0, 'mill'), c = H.coach(V, s0, V.settlements.find(t => t !== s0 && ECHO.Sim.route(V, s0.id, t.id)), pl);
+    check('there is work in town and coaches on the roads', w && w.pay > 0 && c && c.cost > 0 && c.hours >= 2, `${w && w.pay} crowns a shift; coach ${c && c.cost} crowns, ${c && c.hours} h`);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

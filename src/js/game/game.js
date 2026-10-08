@@ -27,6 +27,7 @@
       if (ECHO.Quests) ECHO.Quests.reset();
       if (ECHO.Patrol) ECHO.Patrol.reset();
       if (ECHO.Finds) ECHO.Finds.reset();
+      if (ECHO.Purpose) ECHO.Purpose.reset();
       if (ECHO.Explore) ECHO.Explore.sites(world);
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
@@ -119,6 +120,7 @@
       ECHO.Quests.update(Game, dt);
       ECHO.Patrol.update(Game, dt);
       ECHO.Finds.update(Game, dt);
+      ECHO.Purpose.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -348,6 +350,7 @@
           ECHO.Character.behave(pl, 'cruelty', 0.8);
           ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} cut down ${ECHO.People.name(npc)} of the Ashfang after ${npc.sex === 'f' ? 'she' : 'he'} had yielded.`, importance: 1, x: ent.x, y: ent.y, rep: -3, tag: 'cruel' });
         } else if (ctx.wasLeader) {
+          ECHO.Ambition.note(pl, 'chiefs');
           ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} killed ${ECHO.People.name(npc)}, chieftain of the Ashfang at ${ctx.camp ? ctx.camp.name : 'their camp'}.`, importance: 2, x: ent.x, y: ent.y, rep: 8, tag: 'protect' });
           for (const p of ECHO.Plights.open(world)) if (p.kind === 'bounty' && p.campId === (ctx.camp && ctx.camp.id)) { p.claimable = true; p.claimableDay = world.day; }
           ECHO.Character.behave(pl, 'protect', 0.4);

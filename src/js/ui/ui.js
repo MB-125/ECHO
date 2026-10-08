@@ -70,7 +70,8 @@
       const fighting = game.combatT != null && game.time - game.combatT < 4;
       if (fighting !== UI.wasFighting) { UI.wasFighting = fighting; $('#hud').classList.toggle('fighting', fighting); }
       set('#hud-hero', pl.first + ' ' + pl.last);
-      set('#hud-title', ECHO.Character.title(pl));
+      const hon = ECHO.Ambition && ECHO.Ambition.honor(pl);
+      set('#hud-title', hon ? `${hon} · ${ECHO.Character.title(pl)}` : ECHO.Character.title(pl));
       $('#hud-left .hp .fill').style.transform = `scaleX(${U.clamp(pl.hp / pl.maxHp, 0, 1)})`;
       set('#hud-left .hp span', Math.ceil(pl.hp) + ' / ' + Math.round(pl.maxHp));
       $('#hud-left .sta .fill').style.transform = `scaleX(${U.clamp(pl.stamina / pl.maxSta, 0, 1)})`;
@@ -312,6 +313,7 @@
         const s = ECHO.Sim.settlement(world, npc.loc);
         if (s && (npc.prof === 'merchant' || npc.prof === 'reeve')) add('Let\'s trade.', () => UI.openMarket(s));
         if (s && npc.prof === 'smith') add('Show me your work.', () => UI.openSmithy(s));
+        if (s && s.warden === pl.charId && (npc.id === s.ruler || npc.prof === 'reeve')) add('How does the village fare?', () => UI.openHolding(s));
         if (npc.prof === 'herbalist' && pl.rareHerbs && Object.values(pl.rareHerbs).some(Boolean)) add('I have rare plants to sell.', () => { const r = ECHO.Discover.sellHerbs(world, pl, npc); say(r ? `${npc.first}'s eyes light up. "${U.listJoin(r.names)}! Do you know how long I've looked for these?" (+${r.total} crowns)` : 'Nothing I need.'); render(); });
         if (s && npc.prof === 'innkeeper') add('I need a room.', () => UI.openInn(s));
         if (s && npc.prof === 'scholar' && s.buildings.some(b => b.type === 'archive')) add('About the old records…', () => UI.openArchive(s));
@@ -352,7 +354,8 @@
       const base = g === 'meat' ? s.prices.food * 1.2 : g === 'hide' ? 6 + s.prosperity / 25 : s.prices[g];
       const m = ECHO.Minds.priceMult(ECHO.Game.world, s, ECHO.Game.pl);
       const luck = selling && ECHO.Wonders && ECHO.Wonders.has(ECHO.Game.world, ECHO.Game.pl, 'fortune') ? 1.15 : 1;
-      return U.round1(selling ? base / m * luck : base * m);
+      const hg = (ECHO.Game.pl && ECHO.Game.pl.haggle) || 0;
+      return U.round1(selling ? base / m * luck * (1 + hg) : base * m * (1 - hg));
     },
     nameNote(s) {
       const m = ECHO.Minds.priceMult(ECHO.Game.world, s, ECHO.Game.pl);
@@ -528,6 +531,7 @@
         });
         const hb = body.querySelector('button[data-hides]');
         if (hb) hb.addEventListener('click', () => { const n = pl.inv.hide || 0; pl.gold += n * UI.priceOf(s, 'hide'); pl.inv.hide = 0; render(); });
+        UI.extras(body, s, { work: 'smithy' });
       };
       render();
     },
@@ -559,6 +563,91 @@
           });
         }
       }));
+      UI.extras(body, s, { work: 'inn', coach: true });
+    },
+    // Your village: how it fares, what to build, what to ask of it.
+    openHolding(s) {
+      const game = ECHO.Game, world = game.world, pl = game.pl, Hd = ECHO.Holding;
+      const body = UI.openPanel(`${s.name} — your village`, '', 'holding');
+      const render = () => {
+        const res = P().residents(world, s);
+        const houses = s.buildings.filter(b => b.type === 'house').length;
+        const need = ECHO.Economy.need(world, s);
+        const reeve = s.ruler && world.npcs[s.ruler];
+        const mood = s.unrest > 60 ? '<span class="ember">angry</span>' : s.unrest > 35 ? 'restless' : s.prosperity > 65 ? '<span class="gold">thriving</span>' : 'content';
+        const proj = (s.projects || []);
+        const hist = world.chronicle.filter(e => e.sid === s.id).slice(-5).reverse();
+        body.innerHTML = `<p class="prose">${reeve ? `<b>${esc(P().fullTitle(world, reeve))}</b>, your reeve, keeps the accounts.` : 'There is no reeve; you keep the accounts yourself.'} The people are ${mood}.</p>
+          <div class="card"><div>${res.length} people · ${houses} houses (room for about ${Math.round(houses * 3.6)}) · bread for ${Math.round(s.stock.food / Math.max(1, need))} days · prosperity ${Math.round(s.prosperity || 0)} · unrest ${Math.round(s.unrest)}${s.watch ? ` · safety ${Math.round(s.watch.safety)}` : ''}</div>
+          <div class="dim">${[s.works && s.works.walls && 'palisade', s.works && s.works.granary && 'granary', s.works && s.works.watch && 'watchtower', s.fair && 'market fair'].filter(Boolean).join(', ') || 'No great works yet.'}</div></div>
+          <h3 class="gold">Dues</h3><div class="row" style="display:flex;gap:8px">${['low', 'fair', 'high'].map(k => `<button class="small ${(s.dues || 'fair') === k ? 'on' : ''}" data-dues="${k}">${{ low: 'Low — they grow', fair: 'Fair', high: 'High — you grow rich, they grow angry' }[k]}</button>`).join('')}</div>
+          <p class="dim">Your share is paid each season. ${pl.duesMul > 1 ? 'As steward you take half again as much.' : ''}</p>
+          <h3 class="gold">Works</h3><div class="list">${Object.entries(Hd.PROJECTS).map(([k, Pj]) => {
+            const going = proj.find(x => x.k === k && !x.done);
+            const why = going ? null : Hd.canBuild(world, s, k);
+            return `<div class="card"><h4>${esc(Pj.name)} — ${Pj.cost} crowns</h4><div class="dim">${esc(Pj.desc)}</div><div class="row">${going ? `<span class="gold">Being built — ready in ${Math.max(0, going.ready - world.day)} days.</span>` : why ? `<span class="dim">${esc(why)}</span>` : `<button class="small" data-proj="${k}" ${pl.gold < Pj.cost ? 'disabled' : ''}>Fund it</button>`}</div></div>`;
+          }).join('')}</div>
+          <h3 class="gold">People</h3><div class="card"><div>Send criers to the crowded towns to tell of land and work here.</div><div class="row"><button class="small" data-invite="1" ${pl.gold < 50 ? 'disabled' : ''}>Invite settlers (50 crowns)</button></div></div>
+          ${hist.length ? `<h3 class="gold">Lately</h3>${hist.map(e => `<div class="dim">${T.fmtShort(e.d)} — ${esc(e.text)}</div>`).join('')}` : ''}`;
+        body.querySelectorAll('button[data-dues]').forEach(b => b.addEventListener('click', () => { s.dues = b.dataset.dues; render(); }));
+        body.querySelectorAll('button[data-proj]').forEach(b => b.addEventListener('click', () => { const e = Hd.build(world, s, pl, b.dataset.proj); if (e) UI.toast(e, 'warn', 3); else { UI.toast('The work begins.', 'info', 3); ECHO.Chronicle.add(world, { text: `By order of their warden, ${pl.first} ${pl.last}, work began on ${Hd.PROJECTS[b.dataset.proj].name.toLowerCase()} in ${s.name}.`, kind: 'politics', importance: 1, sid: s.id }); } render(); }));
+        const inv = body.querySelector('button[data-invite]');
+        if (inv) inv.addEventListener('click', () => { UI.toast(Hd.invite(world, s, pl, ECHO.Sim.rngFor(world)), 'info', 5); render(); });
+      };
+      render();
+    },
+    // Work and travel, offered wherever there is work or a coach.
+    extras(body, s, o) {
+      const game = ECHO.Game, world = game.world, pl = game.pl;
+      let html = '';
+      if (o.work) { const w = ECHO.Holding.shift(world, s, o.work); if (w) html += `<div class="card"><h4>Work a shift — ${esc(w.what)}</h4><div class="dim">Three hours of honest work for about ${w.pay} crowns. It trains you, and people notice who works.</div><div class="row"><button data-work="${o.work}" ${pl.stamina < 25 ? 'disabled' : ''}>${pl.stamina < 25 ? 'Too tired' : 'Work'}</button></div></div>`; }
+      if (o.coach) {
+        const dests = world.settlements.filter(t => t.id !== s.id && t.faction !== 'ashfang' && ECHO.Sim.route(world, s.id, t.id)).map(t => ({ t, c: ECHO.Holding.coach(world, s, t, pl) })).filter(x => x.c).sort((a, b) => a.c.dist - b.c.dist).slice(0, 10);
+        if (dests.length) html += `<h3 class="gold" style="margin-top:14px">The coach</h3><p class="dim">Coaches run along the roads. The world goes on while you ride.</p><div class="list">${dests.map(x => `<div class="card"><div><b>${esc(x.t.name)}</b>${x.t.visited ? '' : ' <span class="dim">(you have never been)</span>'} — ${x.c.hours} hours · ${x.c.cost} crowns</div><div class="row"><button class="small" data-coach="${x.t.id}" ${pl.gold < x.c.cost ? 'disabled' : ''}>Ride</button></div></div>`).join('')}</div>`;
+      }
+      if (!html) return;
+      body.insertAdjacentHTML('beforeend', html);
+      body.querySelectorAll('button[data-work]').forEach(b => b.addEventListener('click', () => UI.work(s, b.dataset.work)));
+      body.querySelectorAll('button[data-coach]').forEach(b => b.addEventListener('click', () => UI.ride(s, ECHO.Sim.settlement(world, b.dataset.coach))));
+    },
+    work(s, kind) {
+      const game = ECHO.Game, world = game.world, pl = game.pl;
+      const w = ECHO.Holding.shift(world, s, kind);
+      if (!w) return;
+      if (pl.stamina < 25) return UI.toast('You are too tired to work.', 'warn', 3);
+      UI.closePanel();
+      UI.fadeOut(() => {
+        for (let i = 0; i < 3; i++) ECHO.Sim.advance(world, 60);
+        pl.gold += w.pay; pl.stamina = Math.max(0, pl.stamina - 45);
+        ECHO.Character.train(pl, w.skill, 0.8);
+        ECHO.Ambition.note(pl, 'shifts');
+        for (const n of P().residents(world, s).filter(n => n.prof === ({ mill: 'miller', mine: 'miner', lumber: 'woodcutter', smithy: 'smith', inn: 'innkeeper' }[kind] || 'farmer')).slice(0, 4)) n.op[pl.charId] = (n.op[pl.charId] || 0) + 3;
+        if (s.rep) s.rep[pl.charId] = (s.rep[pl.charId] || 0) + 0.5; else s.rep = { [pl.charId]: 0.5 };
+        s.prosperity = Math.min(100, (s.prosperity || 40) + 0.2);
+        game.ents = game.ents.filter(e => e === game.pe || e.isCompanion);
+        UI.fadeIn();
+        const lines = ['Your back aches, but the work is honest.', 'The others share their bread with you at the end.', 'Someone hums an old song while you work, and by the end you know the words.', 'The foreman says you can come back any time.'];
+        UI.toast(`Three hours ${w.what}. +${w.pay} crowns. ${lines[Math.floor(Math.random() * lines.length)]}`, 'info', 5);
+      }, 400);
+    },
+    ride(s, to) {
+      const game = ECHO.Game, world = game.world, pl = game.pl;
+      const c = to && ECHO.Holding.coach(world, s, to, pl);
+      if (!c || pl.gold < c.cost) return;
+      pl.gold -= c.cost;
+      UI.closePanel();
+      UI.fadeOut(() => {
+        let mins = c.hours * 60;
+        while (mins > 0) { const step = Math.min(60, mins); ECHO.Sim.advance(world, step); mins -= step; }
+        let note = '';
+        const danger = ECHO.Sim.roadDanger(world, (s.x + to.x) / 2, (s.y + to.y) / 2, ECHO.World.regionAt(world, (s.x + to.x) / 2, (s.y + to.y) / 2));
+        if (danger > 0.6 && Math.random() < 0.35) { const lost = Math.min(Math.floor(pl.gold), 8 + Math.floor(Math.random() * 15)); pl.gold -= lost; note = ` Outlaws stopped the coach on the way; the driver paid them off with your purse — ${lost} crowns lighter.`; }
+        ECHO.Capture.place(game, to.x, to.y + 3);
+        game.ents = game.ents.filter(e => e === game.pe || e.isCompanion);
+        game.checkPlace(true);
+        UI.fadeIn();
+        UI.toast(`${c.hours} hours on the coach. You climb down in ${to.name}.${note}`, note ? 'warn' : 'world', 6);
+      }, 500);
     },
     sleepUntilMorning(s) {
       const game = ECHO.Game, world = game.world, pl = game.pl;
@@ -616,9 +705,17 @@
         <p>${rep > 40 ? 'The guards bow as you pass. Your name is known here, and loved.' : rep < -30 ? 'The guards watch you with open hostility.' : rep > 10 ? 'The steward nods; you are known here.' : 'The steward does not know your name.'}</p>
         ${ruler && op > 40 && pl.renown > 40 && !pl.knighted ? `<button data-k="1">Kneel before ${esc(ruler.first)}</button>` : ''}
         ${UI.realmCard(world, f)}
+        ${f.type === 'kingdom' && s.id === f.capital ? `<div class="card"><h4>A royal charter</h4><div>Found a village of your own on the frontier. You must clear the land; then you name it, and rule it as its warden.</div><div class="dim">${esc(ECHO.Holding.canCharter(world, pl, f) || `The steward will draw it up for ${ECHO.Holding.charterCost(pl)} crowns.`)}</div><div class="row"><button data-charter="1" ${ECHO.Holding.canCharter(world, pl, f) ? 'disabled' : ''}>Petition for a charter</button></div></div>` : ''}
         ${envoys.map(p => `<div class="card" style="border-color:#c8a85a"><h4>A sealed letter from ${esc(world.factions[p.faction].name)}</h4><div class="row"><button data-envoy="${p.id}">Present it to the court</button></div></div>`).join('')}
         <h3 class="gold" style="margin-top:16px">Royal commissions and bounties</h3><div class="list" id="kb"></div>`;
       UI.fillPlights(body.querySelector('#kb'), s, p => ['bounty', 'clearsite', 'envoy', 'plot'].includes(p.kind) && (p.faction ? p.faction === f.id : true));
+      const chb = body.querySelector('button[data-charter]');
+      if (chb) chb.addEventListener('click', () => {
+        const r = ECHO.Holding.charter(world, f, pl, ECHO.Sim.rngFor(world));
+        if (r.error) return UI.toast(r.error, 'warn', 5);
+        UI.closePanel();
+        UI.modal({ title: 'A royal charter', html: `<p class="prose">${ruler ? esc(ruler.first) : 'The crown'} sets a seal to the parchment. Land in <b>${esc(r.region.name)}</b> is yours to settle — once it is safe.</p><p>Clear the land (it is marked on your map and tracked at the top of your screen), then come back here to name your village. The settlers will follow.</p>`, choices: [{ label: 'To the frontier', onPick: () => { pl.tracked = r.plight.id; } }] });
+      });
       body.querySelectorAll('button[data-envoy]').forEach(b => b.addEventListener('click', () => {
         const p = ECHO.Plights.byId(world, b.dataset.envoy); if (!p) return;
         const from = world.factions[p.faction];
@@ -821,7 +918,7 @@
       if (E && E.pages.length) {
         const texts = D.pageTexts(world);
         html += `<h3 class="gold">The lost expedition of ${esc(E.first)} ${esc(E.last)}</h3><div class="card">${E.pages.map((p, i) => `<p class="prose" style="font-style:italic">${esc(texts[i])}</p>`).join('')}
-          <div class="${E.done ? 'gold' : 'dim'}">${E.done ? 'You found the last camp, and brought the survey home.' : E.next ? `Next: ${E.next.camp ? 'the last camp' : 'another page'}, ${esc(E.next.hint)} (marked on your map).` : 'The trail goes cold here.'}</div></div>`;
+          <div class="${E.done ? 'gold' : 'dim'}">${E.done ? 'You found the last camp, and brought the survey home.' : E.next ? `Next: ${E.next.camp ? 'the last camp' : 'another page'}, ${esc(E.next.hint)} (marked on your map).` : 'The trail goes cold here.'}</div>${E.next ? `<div class="row"><button class="small" data-track="expedition">${pl.tracked === 'expedition' ? 'Stop tracking' : 'Track the trail'}</button></div>` : ''}</div>`;
       }
       const herb = pl.herbarium || {};
       const known = Object.keys(D.HERBS).filter(k => herb[k]);
@@ -838,7 +935,7 @@
         const notes = [c.found.scene, ...Object.keys(c.found).filter(k => k[0] === 'w' && k.length > 2).map(k => `"${c.found[k]}"`)].filter(Boolean);
         html += `<div class="card" style="border-color:#9fd3ff"><h4>Investigating: the ${esc(W.KIND_WORD[c.kind])}${c.victimName ? ' of ' + esc(c.victimName) : ''}</h4><div>${esc(ECHO.Patrol.caseBrief(world, c))}</div>
           ${notes.length ? `<div style="margin-top:6px"><b>What you know:</b><ul>${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul></div>` : ''}
-          <div class="dim">${(c.playerProgress || 0) >= 0.6 ? 'You know enough to name someone. Tell a watchman.' : 'You need more before you can name anyone.'}</div></div>`;
+          <div class="dim">${(c.playerProgress || 0) >= 0.6 ? 'You know enough to name someone. Tell a watchman.' : 'You need more before you can name anyone.'}</div><div class="row"><button class="small" data-track="${c.id}">${pl.tracked === c.id ? 'Stop tracking' : 'Track — point me there'}</button></div></div>`;
       } else if (c && c.status !== 'open') { pl.investigating = null; }
       if (pl.deputy) {
         const ds = ECHO.Sim.settlement(world, pl.deputy.sid);
@@ -884,6 +981,7 @@
         state === 'damaged' ? 'Flood-damaged: it limps along at half strength until it is repaired.' : '',
         owner ? `It belongs to ${P().name(owner)}.` : 'It belongs to the town.'];
       const choices = [{ label: 'Leave it be' }];
+      if (state === 'working' || state === 'damaged') { const w = ECHO.Holding.shift(world, s, b.type); if (w) choices.unshift({ label: `Work a shift (about ${w.pay} crowns)`, sub: `Three hours ${w.what}.`, onPick: () => UI.work(s, b.type) }); }
       if (state === 'working' || state === 'damaged') choices.push({ label: `Set the ${K.label} alight`, sub: `Arson. ${s.name} will feel it — and if anyone sees you, so will you.`, onPick: () => UI.arson(b, s) });
       UI.modal({ title: `The ${K.label} of ${s.name}`, html: lines.filter(Boolean).map(l => `<p>${esc(l)}</p>`).join(''), choices });
       void st;
@@ -1112,18 +1210,19 @@
     // ------------------------------------------------------------ Journal, map, character
     openJournal(tab0) {
       const game = ECHO.Game, world = game.world, pl = game.pl;
-      let tab = tab0 || 'tasks', kind = 'all';
+      let tab = tab0 || (pl.focus !== undefined ? 'ambition' : 'tasks'), kind = 'all';
       const body = UI.openPanel('Journal', '', 'journal');
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
-        const tabs = [['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
+        const tabs = [['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-        if (tab === 'tasks') {
+        if (tab === 'ambition') html += ECHO.Purpose.journalHtml(world, pl);
+        else if (tab === 'tasks') {
           const mine = world.plights.filter(p => pl.accepted.includes(p.id));
           const open = mine.filter(p => p.status === 'open');
           const closed = mine.filter(p => p.status !== 'open').slice(-10).reverse();
           html += UI.watchTasksHtml(world, pl);
-          html += open.length ? open.map(p => { const s = ECHO.Sim.settlement(world, p.sid); const left = p.deadline - world.day; return `<div class="card"><h4>${UI.plightTitle(p)}${p.claimable ? ' — <span class="gold">return to claim</span>' : ''}</h4><div>${esc(p.text)}</div><div class="dim">${s ? esc(s.name) : ''} · ${left > 0 ? left + ' days left' : 'overdue — the world may have moved on'}${p.kind === 'beasts' ? ` · ${p.progress}/${p.need}` : ''}${p.kind === 'famine' ? ` · ${p.progress}/${p.need} food delivered` : ''}</div></div>`; }).join('') : '<p class="dim">You have made no promises. Notice boards and troubled people will ask.</p>';
+          html += open.length ? open.map(p => { const s = ECHO.Sim.settlement(world, p.sid); const left = p.deadline - world.day; return `<div class="card"><h4>${UI.plightTitle(p)}${p.claimable ? ' — <span class="gold">return to claim</span>' : ''}</h4><div>${esc(p.text)}</div><div class="dim">${s ? esc(s.name) : ''} · ${left > 0 ? left + ' days left' : 'overdue — the world may have moved on'}${p.kind === 'beasts' ? ` · ${p.progress}/${p.need}` : ''}${p.kind === 'famine' ? ` · ${p.progress}/${p.need} food delivered` : ''}</div><div class="row"><button class="small" data-track="${p.id}">${pl.tracked === p.id ? 'Stop tracking' : 'Track — point me there'}</button></div></div>`; }).join('') : '<p class="dim">You have made no promises. Notice boards and troubled people will ask.</p>';
           if (closed.length) html += `<h3 class="gold">How things ended</h3>${closed.map(p => `<div class="card"><h4>${UI.plightTitle(p)} — ${p.status === 'done' ? 'you saw it through' : p.status === 'resolved' ? 'resolved without you' : 'too late'}</h4><div class="dim">${esc(p.outcome || p.text)}</div></div>`).join('')}`;
         } else if (tab === 'people') {
           // Everyone you've met or who has strong feelings about you — and what they're living for.
@@ -1158,6 +1257,7 @@
             html += f.type === 'kingdom' ? UI.realmCard(world, f).replace('<h4>The state of', `<h4>${r ? esc(P().fullTitle(world, r)) + ' — ' : ''}`) : `<div class="card"><h4>${esc(f.name)}</h4><div>${r ? esc(P().fullTitle(world, r)) + ' tends the flame.' : ''}</div></div>`;
           }
           const ward = (pl.wardenOf || []).map(id => ECHO.Sim.settlement(world, id)).filter(Boolean);
+          for (const v of ward.filter(v => v.warden === pl.charId)) html += `<div class="card" style="border-color:#c8a85a"><h4>${esc(v.name)} — your village</h4><div>${P().residents(world, v).length} people · ${(v.projects || []).filter(x => !x.done).length ? 'works under way' : 'no works under way'}</div><div class="row"><button class="small" data-hold="${v.id}">Send word to the reeve</button></div></div>`;
           html += `<div class="card"><h4>Your standing</h4><div>${pl.knighted ? 'Knight of ' + esc(world.factions[pl.knighted].short) + '. ' : ''}${ward.length ? 'Warden of ' + ward.map(x => esc(x.name)).join(', ') + ' — you receive a share of the dues each season.' : 'You hold no lands.'}</div><div class="dim">Clear a frontier site for the crown and you may name — and keep — the village that rises there.</div></div>`;
           const pol = ECHO.Chronicle.knownEntries(world).filter(e => e.kind === 'politics' || e.kind === 'war').slice(-14).reverse();
           if (pol.length) html += `<h3 class="gold">Recent affairs of state</h3><div class="chron">${pol.map(e => `<div class="e i${e.imp}"><span class="d">${T.fmtDate(e.d)}</span>${esc(e.text)}</div>`).join('')}</div>`;
@@ -1170,6 +1270,10 @@
           html += `<div class="chron">${mine.map(e => `<div class="e i${e.imp} me"><span class="d">${T.fmtDate(e.d)}</span>${esc(e.text)}</div>`).join('') || '<p class="dim">Nothing yet. The world is waiting to see what you will do.</p>'}</div>`;
         } else {
           html += `<div class="prose" style="font-size:17px">
+<b>Choose what this life is for.</b> Six roads — the Blade, the Crown, the Purse, the Lore, the Road and the Watch — each with five standings to rise through, each standing asking real things of you and giving something back. You rise on every road you walk; the one you follow is the one the line at the top of the screen points you along, with an arrow and, when it is near, a beacon over the place. Any quest in your journal can be tracked instead.
+
+<b>Make a place your own.</b> Buy a royal charter at a capital's keep, clear the land, name your village and rule it: build houses, fields, a granary, walls, a watchtower, a fair; set its dues; invite settlers; watch it grow. Or take honest work in town — at the mill, the mine, the smithy, the inn — and ride the coaches between towns.
+
 <b>Nothing waits for you.</b> Every person in this world has a life — they eat, trade, marry, feud, raise children, change trades, turn outlaw, go to war, and die. Requests for help have deadlines; if you don't come, someone else might — or no one will.
 
 <b>Everyone wants something.</b> Each person has a purpose of their own — saving for a stall, courting a neighbour, mastering their trade, rising in the guard, a pilgrimage, the reeve's chair, getting the children away from the monster in the hills. Ask them what they want most; help them, and they remember it. They see their world for themselves: how safe it is, whether there is bread, whether their ruler is any good, and what they have heard about you.
@@ -1208,6 +1312,9 @@
 </div>`;
         }
         body.innerHTML = html;
+        body.querySelectorAll('button[data-hold]').forEach(b => b.addEventListener('click', () => UI.openHolding(ECHO.Sim.settlement(world, b.dataset.hold))));
+        body.querySelectorAll('button[data-focus]').forEach(b => b.addEventListener('click', () => { pl.focus = b.dataset.focus; pl.tracked = null; ECHO.Purpose._html = null; ECHO.Purpose.t = 0; render(); }));
+        body.querySelectorAll('button[data-track]').forEach(b => b.addEventListener('click', () => { pl.tracked = pl.tracked === b.dataset.track ? null : b.dataset.track; ECHO.Purpose._html = null; ECHO.Purpose.t = 0; render(); }));
         body.querySelectorAll('button[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
         body.querySelectorAll('button[data-k]').forEach(b => b.addEventListener('click', () => { kind = b.dataset.k; render(); }));
         body.querySelectorAll('[data-letter]').forEach(c => c.addEventListener('click', () => { const l = ECHO.Letters.list(world).find(x => x.id === c.dataset.letter); if (l) { l.read = true; openLetter = openLetter === l.id ? null : l.id; render(); } }));
@@ -1253,7 +1360,7 @@
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const body = UI.openPanel(`Map of ${world.name}`, `<div class="mapwrap"><canvas id="worldmap"></canvas></div><div class="legend-row"><span>■ towns (by allegiance)</span><span style="color:#d0563c">▲ outlaw camps you've seen</span><span style="color:#ffcf8a">✸ lairs</span><span style="color:#c8c0b0">◇ ruins</span><span style="color:#9fd3ff">◆ the vault</span><span style="color:#bfe8ff">✧ echoes</span><span style="color:#fff">✦ fallen stars</span><span style="color:#e0a070">▼ delves</span><span style="color:#a8e0c0">△ landmarks</span><span style="color:#ffd38a">✶ wonders</span><span style="color:#ffe08a">○ your quests</span><span style="color:#fff">● you</span></div>`, 'map');
       const c = body.querySelector('#worldmap');
-      const s = Math.max(3, Math.floor(Math.min(window.innerWidth * 0.86 / world.W, window.innerHeight * 0.66 / world.H)));
+      const s = Math.max(2, Math.floor(Math.min(window.innerWidth * 0.86 / world.W, window.innerHeight * 0.66 / world.H)));
       c.width = world.W * s; c.height = world.H * s;
       const g = c.getContext('2d');
       g.imageSmoothingEnabled = false;

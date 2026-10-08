@@ -70,7 +70,7 @@
       return pl.tech;
     },
     level(k) { const pl = G().pl; if (!pl || !pl.tech) return 0; return pl.tech.active.includes(k) ? (pl.tech.known[k] || 0) : 0; },
-    slots(pl) { const n = Object.keys(T.st(pl).known).length; return Math.min(5, 2 + Math.floor(n / 3)); },
+    slots(pl) { const n = Object.keys(T.st(pl).known).length, x = pl.extraSlots || 0; return Math.min(5 + x, 2 + Math.floor(n / 3) + x); },
     v(k) { const lv = T.level(k); return lv ? TECHS[k].lv[lv] : 0; },
 
     // Count something done in a real fight.

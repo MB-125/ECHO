@@ -188,6 +188,7 @@
         if (alive) return UI().toast('Not with them still about.', 'warn', 2);
         if (site.chestTaken) return UI().toast('The chest is empty.', 'info', 2);
         site.chestTaken = true; site.cleared = true; site.clearedDay = world.day;
+        if (ECHO.Ambition) ECHO.Ambition.note(pl, 'delves');
         it.label = 'An empty chest';
         const got = Q.loot(game, site);
         ECHO.Sfx.play('coin'); ECHO.Music.stinger('star');

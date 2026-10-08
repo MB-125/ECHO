@@ -41,7 +41,8 @@
       const near = (x, y, r, set) => { let n = 0; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (set.includes(ECHO.World.tile(world, x + dx, y + dy))) n++; return n; };
       const clear = (x, y, d) => world.settlements.every(s => U.dist(s.x, s.y, x, y) > d) && world.camps.every(c => U.dist(c.x, c.y, x, y) > 9) && world.lairs.every(l => U.dist(l.x, l.y, x, y) > 10) && world.ruins.every(r => U.dist(r.x, r.y, x, y) > 8) && sites.every(o => U.dist(o.x, o.y, x, y) > 14);
       const standable = (x, y) => [T.GRASS, T.FOREST, T.HILL, T.SAND, T.SNOW, T.SWAMP].includes(ECHO.World.tile(world, x, y)) && !ECHO.World.isSolid(world, x + 0.5, y + 0.5);
-      const want = [['falls', 1], ['springs', 1], ['grotto', 1], ['bones', 1], ['crater', 1], ['ring', 1]];
+      const sc = ECHO.World.scale ? ECHO.World.scale(world) : 1;
+      const want = [['falls', sc], ['springs', sc], ['grotto', sc], ['bones', sc], ['crater', sc], ['ring', sc]];
       for (const [kind, n] of want) for (let k = 0; k < n; k++) {
         let best = null, bs = -Infinity;
         for (let i = 0; i < 900; i++) {
@@ -64,7 +65,7 @@
       }
       // hidden caches
       const caches = world.caches = [];
-      for (let i = 0; i < 4000 && caches.length < 20; i++) {
+      for (let i = 0; i < 4000 * sc && caches.length < 20 * sc; i++) {
         const x = rng.int(8, world.W - 9), y = rng.int(8, world.H - 9);
         if (!standable(x, y) || !clear(x, y, 9) || caches.some(c => U.dist(c.x, c.y, x, y) < (i < 2000 ? 12 : 8))) continue;
         const t = ECHO.World.tile(world, x, y);
@@ -76,7 +77,7 @@
       world.expedition = { first: L[0], last: L[1], title: L[2], pages: [], next: null, done: false, year: ECHO.TIME.dateOf(world.day).year - 40 - rng.int(0, 30) };
       // rare herbs, by the ground they like
       const herbs = world.herbs = [];
-      for (let i = 0; i < 1600 && herbs.length < 46; i++) {
+      for (let i = 0; i < 1600 * sc && herbs.length < 46 * sc; i++) {
         const x = rng.int(6, world.W - 7), y = rng.int(6, world.H - 7);
         if (!standable(x, y) || herbs.some(h => U.dist(h.x, h.y, x, y) < 6) || world.settlements.some(s => U.dist(s.x, s.y, x, y) < 9)) continue;
         const tn = Object.keys(T).find(k => T[k] === ECHO.World.tile(world, x, y));

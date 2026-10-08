@@ -187,6 +187,7 @@
       if (ECHO.Watch) ECHO.Watch.dailyTick(world, rng);
       ECHO.Politics.dailyTick(world, rng);
       if (ECHO.Realm) ECHO.Realm.dailyTick(world, rng);
+      if (ECHO.Holding) ECHO.Holding.dailyTick(world, rng);
       if (ECHO.Explore) ECHO.Explore.dailyTick(world, rng);
       ECHO.Intel.dailyTick(world, rng);
       ECHO.Plights.dailyTick(world, rng);
@@ -196,6 +197,7 @@
       if (ECHO.Festivals) ECHO.Festivals.dailyTick(world, rng);
       if (ECHO.Letters) ECHO.Letters.dailyTick(world, rng);
       if (ECHO.Wonders && world.player) ECHO.Wonders.dailyTick(world, rng);
+      if (ECHO.Ambition) ECHO.Ambition.seasonal(world);
       if (background) Sim.hourlyTick(world, 24);
       world.rngState = rng.state;
       ECHO.emit('day', { world, background });

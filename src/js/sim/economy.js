@@ -144,13 +144,13 @@
             const route = ECHO.Sim.route(world, s.id, t.id);
             if (!route) continue;
             // Danger along the way
-            const danger = U.sum(route.roads.map(rid => (world.roads.find(r => r.id === rid) || {}).danger || 0));
+            const danger = world.size === 'vast' ? Math.max(0, ...route.roads.map(rid => (world.roads.find(r => r.id === rid) || {}).danger || 0)) : U.sum(route.roads.map(rid => (world.roads.find(r => r.id === rid) || {}).danger || 0));
             const nerve = ECHO.People.has(m, 'brave') ? 1.8 : ECHO.People.has(m, 'cowardly') ? 0.4 : 1;
             if (danger > nerve * 1.2) continue;
             for (const g of ['food', 'ore', 'arms', 'herbs', 'timber']) {
               const reserve = g === 'food' ? Eco.need(world, s) * 14 : 6;
               const avail = Math.max(0, s.stock[g] - reserve);
-              const qty = Math.min(avail, g === 'arms' ? 6 : g === 'food' ? 30 : 15);
+              const qty = Math.min(avail, g === 'arms' ? 6 : g === 'food' ? (t.hunger > 0.2 ? 60 : 30) : 15);
               if (qty < 3) continue;
               const profit = (t.prices[g] * 0.92 - s.prices[g]) * qty - route.len * 0.05 - danger * 20;
               if (profit > bestProfit) { bestProfit = profit; best = { t, g, qty, route }; }
@@ -166,6 +166,20 @@
     },
 
     sendAid(world, rng) {
+      // In a wide realm, any town with full granaries helps its hungry neighbours.
+      if (world.size === 'vast') for (const s of world.settlements) {
+        if (s.hunger < 0.2 || s.faction === 'ashfang' || (world.journeys || []).some(j => j.kind === 'aid' && j.to === s.id)) continue;
+        const giver = world.settlements.filter(t => t !== s && t.faction === s.faction && t.stock.food > Eco.need(world, t) * 22 && ECHO.Sim.route(world, t.id, s.id)).sort((a, b) => b.stock.food - a.stock.food)[0];
+        if (!giver || !rng.chance(0.5)) continue;
+        const qty = Math.min(giver.stock.food - Eco.need(world, giver) * 14, Eco.need(world, s) * 10);
+        if (qty < 10) continue;
+        giver.stock.food -= qty;
+        const carters = ECHO.People.residents(world, giver).filter(n => (n.prof === 'farmer' || n.prof === 'guard') && !n.journey).slice(0, 1);
+        if (!carters.length) { giver.stock.food += qty; continue; }
+        const j = ECHO.Sim.startJourney(world, { kind: 'aid', npcs: carters.map(g => g.id), from: giver.id, to: s.id, speed: 2.6, cargo: { food: qty }, meta: { faction: s.faction, fromFaction: s.faction } });
+        if (j) ECHO.Chronicle.add(world, { text: `${giver.name} sent ${Math.round(qty)} sacks of grain to the hungry of ${s.name}.`, kind: 'economy', importance: 0, sid: giver.id });
+        else giver.stock.food += qty;
+      }
       for (const f of Object.values(world.factions)) {
         if (f.type !== 'kingdom' && f.type !== 'order') continue;
         const cap = ECHO.Sim.settlement(world, f.capital);
