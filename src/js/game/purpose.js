@@ -26,6 +26,11 @@
       return { kind: 'ambition', label: g.done ? g.text : `${A().PATHS[g.path].icon} ${g.title}: ${g.text}${g.need > 1 ? ` (${g.have}/${g.need})` : ''}`, where: g.where, done: g.done };
     },
     trackedGoal(world, pl, id) {
+      if (id.startsWith('mark:')) {
+        const [, x, y, ...nm] = id.split(':'), mx = +x, my = +y;
+        if (U.dist(mx, my, pl.x, pl.y) < 3) { if (UI() && UI().toast) UI().toast(`You have reached ${nm.join(':')}.`, 'info', 3); return null; }
+        return { kind: 'track', label: `⚑ ${nm.join(':')}`, where: { x: mx, y: my, name: nm.join(':') } };
+      }
       if (id.startsWith('site:')) {
         const s = ECHO.Explore.byId(world, id.slice(5));
         if (!s || s.cleared) return null;

@@ -131,6 +131,19 @@
       if (e.type === 'creature') return ECHO.Ecology.speciesName(game.world, game.world.regions[e.regionId], e.species);
       return 'Foe';
     },
+    // Dungeon entrances you know announce themselves from a distance.
+    siteLabels(game) {
+      const out = [], pl = game.pl, pe = game.pe;
+      if (!pl || !pe || ECHO.Interior.cur) return out;
+      for (const s of ECHO.Explore.sites(game.world)) {
+        if (s.cat !== 'delve' || !s.found) continue;
+        const d = U.dist(s.x, s.y, pe.x, pe.y);
+        if (d > 32 || d < 2.5) continue;
+        const L = ECHO.Explore.level(game.world, s), D = Pw().diff(L, Pw().level(pl));
+        out.push({ x: s.x, y: s.y, text: `▼ ${s.name} ${s.cleared ? '✓' : ECHO.Explore.stars(s)}`, color: s.cleared ? '#9a9080' : D.color, a: U.clamp(1.3 - d / 32, 0.35, 1) });
+      }
+      return out;
+    },
     // A label for the world: "Cave spider · Lv 3", coloured by how it measures against you.
     label(game, e) {
       const L = Pw().foeLevel(e), D = Pw().diff(L, Pw().level(game.pl)), rk = Pw().foeRank(e);

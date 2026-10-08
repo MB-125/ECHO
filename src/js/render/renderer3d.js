@@ -1695,6 +1695,7 @@
         ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       }
       if (ECHO.Fest) { ECHO.Fest.drawHUD(ctx, game, R.cw); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
+      if (ECHO.Progress) for (const sl of ECHO.Progress.siteLabels(game)) { if (!R.onScreen(game, sl.x, sl.y)) continue; const p = R.project(sl.x, sl.y, 2.6); if (p.z > 1) continue; ctx.globalAlpha = sl.a; text(sl.text, p.x, p.y, sl.color); ctx.globalAlpha = 1; }
       const heights = { player: 1.25, person: 1.25, boss: 3.6 };
       for (const e of game.ents) {
         if (e.dead || e.hidden || e === game.pe) continue;

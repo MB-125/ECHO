@@ -100,29 +100,7 @@
       UI.miniT -= dt;
       if (UI.miniT <= 0) { UI.miniT = 0.4; UI.minimap(game); }
     },
-    minimap(game) {
-      const world = game.world, pe = ECHO.Interior.cur ? { x: game.pl.x, y: game.pl.y, dir: game.pe.dir } : game.pe;
-      const c = $('#minimap'), g = c.getContext('2d');
-      if (!UI.miniBase) UI.miniBase = ECHO.Renderer.mapImage(world);
-      const scale = 2.2;
-      g.imageSmoothingEnabled = false;
-      g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height);
-      const sx = pe.x - c.width / scale / 2, sy = pe.y - c.height / scale / 2;
-      g.drawImage(UI.miniBase, sx, sy, c.width / scale, c.height / scale, 0, 0, c.width, c.height);
-      // fog
-      const cw = Math.ceil(world.W / 4);
-      g.fillStyle = '#0b0a0f';
-      for (let y = Math.floor(sy / 4); y <= Math.ceil((sy + c.height / scale) / 4); y++) for (let x = Math.floor(sx / 4); x <= Math.ceil((sx + c.width / scale) / 4); x++) {
-        if (x < 0 || y < 0 || x >= cw || !game.pl.explored[y * cw + x]) g.fillRect((x * 4 - sx) * scale, (y * 4 - sy) * scale, 4 * scale + 1, 4 * scale + 1);
-      }
-      for (const s of world.settlements) {
-        const x = (s.x - sx) * scale, y = (s.y - sy) * scale;
-        if (x < -10 || y < -10 || x > c.width + 10 || y > c.height + 10 || !game.explored(s.x, s.y)) continue;
-        g.fillStyle = world.factions[s.faction].color; g.fillRect(x - 3, y - 3, 6, 6);
-      }
-      for (const cp of world.camps) if (cp.seen && cp.alive) { const x = (cp.x - sx) * scale, y = (cp.y - sy) * scale; g.fillStyle = '#d0563c'; g.fillRect(x - 2, y - 2, 4, 4); }
-      g.fillStyle = '#fff'; g.fillRect(c.width / 2 - 2, c.height / 2 - 2, 4, 4);
-    },
+    minimap(game) { ECHO.WorldMap.mini(game, $('#minimap')); },
 
     // ------------------------------------------------------------ Toasts & banners
     toast(text, kind = 'info', secs = 4) {
@@ -199,6 +177,7 @@
       UI.panelOpen = true; UI.panelKind = kind || null;
       ECHO.Input.clear();
       $('#panel').classList.remove('hidden');
+      $('#panel .panel-inner').classList.toggle('wide', kind === 'map');
       $('#panel h2').textContent = title;
       const body = $('#panel .panel-body');
       body.innerHTML = html;
@@ -1435,70 +1414,7 @@
       UI.toast(`${why}: ${got.length === 1 ? `a letter from ${got[0].fromName}` : `${got.length} letters`}. (J — Journal, Letters)`, 'legend', 7);
       return got.length;
     },
-    openMap() {
-      const game = ECHO.Game, world = game.world, pl = game.pl;
-      const body = UI.openPanel(`Map of ${world.name}`, `<div class="mapwrap"><canvas id="worldmap"></canvas></div><div class="legend-row"><span>■ towns (by allegiance)</span><span style="color:#d0563c">▲ outlaw camps you've seen</span><span style="color:#ffcf8a">✸ lairs</span><span style="color:#c8c0b0">◇ ruins</span><span style="color:#9fd3ff">◆ the vault</span><span style="color:#bfe8ff">✧ echoes</span><span style="color:#fff">✦ fallen stars</span><span style="color:#e0a070">▼ delves</span><span style="color:#a8e0c0">△ landmarks</span><span style="color:#ffd38a">✶ wonders</span><span style="color:#ffe08a">○ your quests</span><span style="color:#fff">● you</span></div>`, 'map');
-      const c = body.querySelector('#worldmap');
-      const s = Math.max(2, Math.floor(Math.min(window.innerWidth * 0.86 / world.W, window.innerHeight * 0.66 / world.H)));
-      c.width = world.W * s; c.height = world.H * s;
-      const g = c.getContext('2d');
-      g.imageSmoothingEnabled = false;
-      g.drawImage(ECHO.Renderer.mapImage(world), 0, 0, c.width, c.height);
-      const cw = Math.ceil(world.W / 4);
-      g.fillStyle = '#d9c9a3';
-      for (let y = 0; y < Math.ceil(world.H / 4); y++) for (let x = 0; x < cw; x++) if (!pl.explored[y * cw + x]) g.fillRect(x * 4 * s, y * 4 * s, 4 * s + 1, 4 * s + 1);
-      g.globalAlpha = 0.25; g.fillStyle = '#8a7a5a';
-      for (let i = 0; i < 400; i++) g.fillRect((ECHO.hash2(i, 1, 9) * c.width) | 0, (ECHO.hash2(i, 2, 9) * c.height) | 0, 2, 2);
-      g.globalAlpha = 1;
-      g.font = `${Math.max(12, s * 4)}px "Pixelify Sans"`; g.textAlign = 'center';
-      const lbl = (t, x, y, col) => { g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.8)'; g.strokeText(t, x, y); g.fillStyle = col; g.fillText(t, x, y); };
-      g.fillStyle = 'rgba(120,90,50,0.55)';
-      for (const r of world.roads) for (let k = 0; k < r.path.length; k += 2) { const i = r.path[k]; g.fillRect((i % world.W) * s, ((i / world.W) | 0) * s, s, s); }
-      for (const st of world.settlements) {
-        g.fillStyle = world.factions[st.faction].color; g.fillRect(st.x * s - 2 * s, st.y * s - 2 * s, 4 * s, 4 * s);
-        lbl(st.name, st.x * s, st.y * s - 3 * s, '#f0e6d0');
-      }
-      for (const cp of world.camps) if (cp.seen && cp.alive) lbl('▲', cp.x * s, cp.y * s, '#d0563c');
-      for (const l of world.lairs) if (l.seen) lbl(l.boss.alive ? '✸' : '✕', l.x * s, l.y * s, '#ffcf8a');
-      for (const r of world.ruins) if (r.visited || game.explored(r.x, r.y)) lbl('◇', r.x * s, r.y * s, '#c8c0b0');
-      if (world.lang.vault && world.lang.vault.revealed && !world.lang.vault.opened) lbl('◆', world.lang.vault.x * s, world.lang.vault.y * s, '#9fd3ff');
-      if (world.rift) lbl('✧', world.rift.x * s, world.rift.y * s, '#b48aff');
-      const wst = world.wonders;
-      if (wst) {
-        for (const e of wst.echoes || []) if (e.revealed && !e.found) { lbl('✧', e.x * s, e.y * s, '#bfe8ff'); }
-        for (const st2 of wst.stars || []) if (!st2.taken) lbl('✦', st2.x * s, st2.y * s, '#ffffff');
-      }
-      // places of the wild
-      for (const site of ECHO.Explore.sites(world)) {
-        if (!site.found && !site.seen) continue;
-        lbl(site.cat === 'delve' ? '▼' : site.cat === 'wonder' ? '✶' : '△', site.x * s, site.y * s, site.found ? (site.cat === 'delve' ? (site.cleared ? '#9a8f7a' : '#e0a070') : site.cat === 'wonder' ? '#ffd38a' : '#a8e0c0') : '#8a8478');
-        if (site.found) { g.save(); g.font = `${Math.max(10, s * 3)}px "Pixelify Sans"`; lbl(site.name, site.x * s, site.y * s + 4 * s, 'rgba(240,230,208,0.75)'); g.restore(); }
-      }
-      for (const c of world.caches || []) if (c.found || (c.seen && pl.compass)) lbl('·', c.x * s, c.y * s, c.found ? '#c8b890' : '#fff2c0');
-      const ring = (x, y, r, dash) => { g.strokeStyle = '#ffe08a'; g.lineWidth = 2; g.setLineDash(dash ? [4, 4] : []); g.beginPath(); g.arc(x * s, y * s, r * s, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); };
-      const EX = world.expedition;
-      if (EX && EX.next) ring(EX.next.x + (ECHO.hash2(EX.next.x | 0, 7, 3) - 0.5) * 10, EX.next.y + (ECHO.hash2(EX.next.y | 0, 8, 3) - 0.5) * 10, 9, true);
-      const inv = pl.investigating && ECHO.Watch && ECHO.Watch.byId(world, pl.investigating);
-      if (inv && inv.status === 'open') ring(inv.x, inv.y, 3);
-      for (const p of world.plights) {
-        if (p.status !== 'open' || !pl.accepted.includes(p.id)) continue;
-        const camp = p.campId && world.camps.find(c2 => c2.id === p.campId);
-        const lair = p.lairId && world.lairs.find(l => l.id === p.lairId);
-        const site = p.siteId && ECHO.Explore.byId(world, p.siteId);
-        const t = camp || lair || (site && site.found ? site : null);
-        if (t) ring(t.x, t.y, 5);
-        else if (site) ring(site.x + (ECHO.hash2(site.x | 0, 3, 7) - 0.5) * 16, site.y + (ECHO.hash2(site.y | 0, 4, 7) - 0.5) * 16, 14, true);
-        else if (p.kind === 'treasure') ring(p.x + (ECHO.hash2(p.x | 0, 5, 7) - 0.5) * 8, p.y + (ECHO.hash2(p.y | 0, 6, 7) - 0.5) * 8, 7, true);
-        else if (p.kind === 'lost' || p.kind === 'hunt') ring(p.x, p.y, p.kind === 'lost' ? 9 : 11, true);
-        else if (p.kind === 'clearsite' && p.x != null) ring(p.x, p.y, 5);
-        else if (p.kind === 'courier' || p.kind === 'envoy') {
-          const to = p.kind === 'courier' ? ECHO.Sim.settlement(world, p.toSid) : world.factions[p.toFaction] && ECHO.Sim.settlement(world, world.factions[p.toFaction].capital);
-          if (to) ring(to.x, to.y, 6);
-        }
-      }
-      g.fillStyle = '#fff'; g.beginPath(); g.arc(game.pl.x * s, game.pl.y * s, Math.max(4, s * 1.4), 0, Math.PI * 2); g.fill();
-      g.strokeStyle = '#000'; g.lineWidth = 2; g.stroke();
-    },
+    openMap() { ECHO.WorldMap.open(ECHO.Game); },
     openCharacter() {
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const Ch = ECHO.Character;
