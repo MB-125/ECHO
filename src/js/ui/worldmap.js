@@ -106,6 +106,7 @@
     open(game) {
       const world = game.world, pl = game.pl, UI = ECHO.UI;
       WM.layers = WM.layers || Object.fromEntries(LAYERS.map(([k]) => [k, true]));
+      if (ECHO.Tutorial) ECHO.Tutorial.flag('map');
       const body = UI.openPanel(`Map of ${world.name}`, `<div class="wmap"><div class="wmap-main"><canvas id="worldmap"></canvas><div id="map-tip" class="hidden"></div>
           <div class="wmap-ctl"><button data-z="1" title="Zoom in">＋</button><button data-z="-1" title="Zoom out">－</button><button data-me="1" title="Centre on you">◎</button></div>
           <div class="wmap-hint">Scroll to zoom · drag to move · click a place for details</div></div>

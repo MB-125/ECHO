@@ -265,6 +265,7 @@
       ECHO.Game.start(world);
       const home = ECHO.Sim.settlement(world, pl.homeId);
       setTimeout(() => ECHO.Purpose.calling(ECHO.Game, k => {
+        if (ECHO.Tutorial && !ECHO.UI.settings.tutorialDone) ECHO.Tutorial.begin(ECHO.Game);
         ECHO.UI.toast(k ? `You are ${pl.first} ${pl.last} of ${home.name}. The line at the top of the screen shows the next step on your road, and points the way. Tab opens your journal.` : `You are ${pl.first} ${pl.last} of ${home.name}. Talk to people. Read the notice board. Or walk out into the world and see what it does.`, 'world', 10);
       }), 1800);
     },

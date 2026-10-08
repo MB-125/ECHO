@@ -23,32 +23,33 @@
       <div id="hud-comp"></div>
       <div id="hud-tech" title="Techniques you carry (K to choose)"></div>
       <div id="hud-wanted"></div>
+      <div id="hud-tut" class="hidden"></div>
+      <div id="hud-help">
+        <div class="hh-title">Controls <span>F1 hide</span></div>
+        <div class="hh-group">Move</div>
+        <div class="hh-row"><b><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></b><span>walk</span></div>
+        <div class="hh-row"><b><kbd>Space</kbd></b><span>dodge roll</span></div>
+        <div class="hh-row"><b><kbd>Ctrl</kbd></b><span>sneak (hold)</span></div>
+        <div class="hh-group">Fight</div>
+        <div class="hh-row"><b><kbd>L-click</kbd></b><span>strike · tap ×3 = combo</span></div>
+        <div class="hh-row"><b><kbd>Hold L</kbd></b><span>heavy blow</span></div>
+        <div class="hh-row"><b><kbd>R-click</kbd></b><span>bow (hold, release)</span></div>
+        <div class="hh-row"><b><kbd>Shift</kbd></b><span>guard · tap to parry</span></div>
+        <div class="hh-row"><b><kbd>R</kbd></b><span>lock on target</span></div>
+        <div class="hh-row"><b><kbd>Q</kbd></b><span>fireball · hold to grow</span></div>
+        <div class="hh-row"><b><kbd>G</kbd> <kbd>H</kbd></b><span>herbs · eat (heal)</span></div>
+        <div class="hh-row"><b><kbd>1</kbd>–<kbd>4</kbd></b><span>drink a potion</span></div>
+        <div class="hh-group">World</div>
+        <div class="hh-row"><b><kbd>E</kbd></b><span>talk · enter · use</span></div>
+        <div class="hh-row"><b><kbd>F</kbd></b><span>study a creature</span></div>
+        <div class="hh-row"><b><kbd>Tab</kbd> <kbd>M</kbd> <kbd>K</kbd></b><span>journal · map · you</span></div>
+        <div class="hh-row"><b><kbd>J</kbd></b><span>guide: what to do next</span></div>
+        <div class="hh-row"><b><kbd>Esc</kbd></b><span>menu &amp; save</span></div>
+      </div>
+      <div id="hud-help-tab" class="hidden">F1 · controls</div>
     </div>
     <div id="hud-goal" class="hidden"></div>
     <div id="hud-target" class="hidden"></div>
-    <div id="hud-help">
-      <div class="hh-title">Controls <span>F1 hide</span></div>
-      <div class="hh-group">Move</div>
-      <div class="hh-row"><b><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></b><span>walk</span></div>
-      <div class="hh-row"><b><kbd>Space</kbd></b><span>dodge roll</span></div>
-      <div class="hh-row"><b><kbd>Ctrl</kbd></b><span>sneak (hold)</span></div>
-      <div class="hh-group">Fight</div>
-      <div class="hh-row"><b><kbd>L-click</kbd></b><span>strike · tap ×3 = combo</span></div>
-      <div class="hh-row"><b><kbd>Hold L</kbd></b><span>heavy blow</span></div>
-      <div class="hh-row"><b><kbd>R-click</kbd></b><span>bow (hold, release)</span></div>
-      <div class="hh-row"><b><kbd>Shift</kbd></b><span>guard · tap to parry</span></div>
-      <div class="hh-row"><b><kbd>R</kbd></b><span>lock on target</span></div>
-      <div class="hh-row"><b><kbd>Q</kbd></b><span>fireball · hold to grow</span></div>
-      <div class="hh-row"><b><kbd>G</kbd> <kbd>H</kbd></b><span>herbs · eat (heal)</span></div>
-      <div class="hh-row"><b><kbd>1</kbd>–<kbd>4</kbd></b><span>drink a potion</span></div>
-      <div class="hh-group">World</div>
-      <div class="hh-row"><b><kbd>E</kbd></b><span>talk · enter · use</span></div>
-      <div class="hh-row"><b><kbd>F</kbd></b><span>study a creature</span></div>
-      <div class="hh-row"><b><kbd>Tab</kbd> <kbd>M</kbd> <kbd>K</kbd></b><span>journal · map · you</span></div>
-      <div class="hh-row"><b><kbd>J</kbd></b><span>guide: what to do next</span></div>
-      <div class="hh-row"><b><kbd>Esc</kbd></b><span>menu &amp; save</span></div>
-    </div>
-    <div id="hud-help-tab" class="hidden">F1 · controls</div>
     <div id="hud-right">
       <div id="hud-clock"><span id="hud-time"></span><span id="hud-date"></span></div>
       <div id="hud-place"></div>
@@ -127,6 +128,7 @@
   <script src="js/game/guide.js"></script>
   <script src="js/game/progress.js"></script>
   <script src="js/game/companions.js"></script>
+  <script src="js/game/tutorial.js"></script>
   <script src="js/game/game.js"></script>
   <script src="js/render/sprites.js"></script>
   <script src="js/render/renderer2d.js"></script>

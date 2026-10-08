@@ -217,6 +217,7 @@
       return c;
     },
     openDialogue(ent) {
+      if (ECHO.Tutorial) ECHO.Tutorial.flag('talk');
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const npc = world.npcs[ent.npcId];
       if (!npc) return;
@@ -374,6 +375,7 @@
       arms: { icon: '🗡', name: 'Arms', use: 'Trade good. Worth most where there is war.' }
     },
     openMarket(s) {
+      if (ECHO.Tutorial) ECHO.Tutorial.flag('market');
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const body = UI.openPanel(`Market of ${s.name}`, '', 'market');
       if (ECHO.Minds.refuses(world, s, pl)) { body.innerHTML = `<p class="prose">The stallholders turn their backs on you. "We don't trade with your kind here. Go on — before someone calls the guard."</p>`; return; }
@@ -466,6 +468,7 @@
       render();
     },
     openSmithy(s) {
+      if (ECHO.Tutorial) ECHO.Tutorial.flag('smith');
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const smith = P().residents(world, s).find(n => n.prof === 'smith');
       const f = world.factions[s.faction];
@@ -1300,7 +1303,7 @@
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
         const tabs = [['guide', 'Guide'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-        if (tab === 'guide') html += ECHO.Guide.html(game);
+        if (tab === 'guide') { html += ECHO.Guide.html(game); if (ECHO.Tutorial) ECHO.Tutorial.flag('guide'); }
         else if (tab === 'ambition') html += ECHO.Purpose.journalHtml(world, pl);
         else if (tab === 'tasks') {
           const mine = world.plights.filter(p => pl.accepted.includes(p.id));
@@ -1445,6 +1448,7 @@
     },
     openMap() { ECHO.WorldMap.open(ECHO.Game); },
     openCharacter() {
+      if (ECHO.Tutorial) ECHO.Tutorial.flag('char');
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const Ch = ECHO.Character;
       const bio = Ch.biography(world, pl);

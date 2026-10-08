@@ -99,7 +99,7 @@
         if (l.taken || U.dist(l.x, l.y, pe.x, pe.y) > 9) continue;
         const it = l.kind === 'item' && world.items[l.itemId];
         if (it) out.push({ x: l.x, y: l.y, text: `${it.name}${it.plus ? ' +' + it.plus : ''} [E]`, color: ECHO.Gear.rarity(it.rarity).color });
-        else if (l.kind === 'gold') out.push({ x: l.x, y: l.y, text: `${l.qty} crowns`, color: '#ffd84a' });
+        else if (l.kind === 'gold') out.push({ x: l.x, y: l.y, text: `${l.qty} crown${l.qty === 1 ? '' : 's'}`, color: '#ffd84a' });
         else if (l.kind === 'key') out.push({ x: l.x, y: l.y, text: 'Iron key', color: '#ffd84a' });
         else { const m = ECHO.Gear.MATS[l.kind]; if (m) out.push({ x: l.x, y: l.y, text: `${l.qty} ${m.name}`, color: m.color }); }
       }

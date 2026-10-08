@@ -126,6 +126,7 @@
       ECHO.Purpose.update(Game, dt);
       ECHO.Progress.update(Game, dt);
       if (ECHO.Companions) ECHO.Companions.hud(Game);
+      if (ECHO.Tutorial) ECHO.Tutorial.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -410,6 +411,7 @@
         if (l.kind !== 'item' && quiet && d < 3.5 && d > 0.3) { const k = Math.min(1, 0.06 + 0.5 / d * 0.1); l.x += (pe.x - l.x) * k; l.y += (pe.y - l.y) * k; }
         if (d > 1.2) continue;
         if (l.kind === 'item') continue; // items need E
+        if (ECHO.Tutorial) ECHO.Tutorial.flag('loot');
         if (l.kind === 'key') {
           l.taken = true;
           const site = ECHO.Explore.byId(Game.world, l.site);
