@@ -65,6 +65,7 @@
         PC.lock = next;
         if (!next) PC.unlock(game, false);
       }
+      if (In.padName && In.padAim != null) aim = In.padAim;
       if (PC.lock) aim = Math.atan2(PC.lock.y - pe.y, PC.lock.x - pe.x);
       pe.stamina = pl.stamina; pe.maxSta = pl.maxSta;
       pe.cd = Math.max(0, pe.cd - dt);

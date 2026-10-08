@@ -55,6 +55,7 @@
       const dt = Math.min(0.05, (ts - Game.lastFrame) / 1000);
       Game.lastFrame = ts;
       try {
+        if (In.pollPad) In.pollPad();
         let simDt = dt;
         if (Game.ff) Game.stepFastForward();
         else if (Game.world && Game.pl && !ECHO.UI.paused()) {

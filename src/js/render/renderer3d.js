@@ -114,10 +114,24 @@
       R.initParticles();
       window.addEventListener('resize', R.resize);
       R.canvas.addEventListener('wheel', e => { R.zoomExtra = U.clamp(R.zoomExtra + Math.sign(e.deltaY) * 0.08, -0.35, 0.6); }, { passive: true });
+      R.applyQuality();
+    },
+    // Graphics quality: how sharp, how far, how many lights and shadows.
+    QUALITY: { low: { dpr: 0.7, chunk: 1, lights: 4, shadows: false, map: 512 }, medium: { dpr: 1, chunk: 2, lights: 6, shadows: true, map: 1024 }, high: { dpr: 1.5, chunk: 2, lights: 8, shadows: true, map: 2048 } },
+    lightN: 8, chunkR: CHUNK_RADIUS,
+    applyQuality() {
+      const q = R.QUALITY[(ECHO.UI && ECHO.UI.settings.quality) || 'high'] || R.QUALITY.high;
+      R.lightN = q.lights; R.chunkR = q.chunk;
+      if (!R.renderer) return;
+      const was = R.renderer.shadowMap.enabled;
+      R.renderer.shadowMap.enabled = q.shadows;
+      if (R.sun) { R.sun.shadow.mapSize.set(q.map, q.map); if (R.sun.shadow.map) { R.sun.shadow.map.dispose(); R.sun.shadow.map = null; } }
+      if (was !== q.shadows && R.scene) R.scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
       R.resize();
     },
     resize() {
-      R.dpr = Math.min(1.5, window.devicePixelRatio || 1);
+      const q = R.QUALITY[(ECHO.UI && ECHO.UI.settings.quality) || 'high'] || R.QUALITY.high;
+      R.dpr = Math.min(q.dpr, window.devicePixelRatio || 1);
       R.cw = Math.floor(window.innerWidth * R.dpr);
       R.ch = Math.floor(window.innerHeight * R.dpr);
       R.renderer.setPixelRatio(R.dpr);
@@ -206,7 +220,7 @@
       const ccx = Math.floor(R.camTarget.x / CH), ccy = Math.floor(R.camTarget.z / CH);
       const epoch = R.chunkKey(world);
       const want = [];
-      for (let dy = -CHUNK_RADIUS; dy <= CHUNK_RADIUS; dy++) for (let dx = -CHUNK_RADIUS; dx <= CHUNK_RADIUS; dx++) {
+      for (let dy = -R.chunkR; dy <= R.chunkR; dy++) for (let dx = -R.chunkR; dx <= R.chunkR; dx++) {
         const cx = ccx + dx, cy = ccy + dy;
         if (cx < 0 || cy < 0 || cx * CH >= world.W || cy * CH >= world.H) continue;
         want.push([cx, cy, dx * dx + dy * dy]);
@@ -825,7 +839,7 @@
       const flick = 1 + Math.sin(R.time * 11) * 0.05 + Math.sin(R.time * 23) * 0.04;
       for (let i = 0; i < MAX_LIGHTS; i++) {
         const P = R.points[i], c = cand[i];
-        if (!c) { P.intensity = 0; continue; }
+        if (!c || i >= R.lightN) { P.intensity = 0; continue; }
         P.position.set(c.x, c.h, c.y);
         P.color.copy(C(c.color));
         P.distance = c.r * 2.1;
@@ -1566,7 +1580,7 @@
       R.cloud = cloud; R.wx = wx;
       R.sun.intensity = 1.35 * Math.max(0, dl) * cloud;
       R.sun.color.copy(lerpC(C('#fff4e0'), C('#ff9a5a'), Math.max(dusk, 0)));
-      R.sun.castShadow = dl > 0.05;
+      R.sun.castShadow = dl > 0.05 && R.renderer.shadowMap.enabled;
       R.moon.position.set(tgt.x + 20, 40, tgt.z + 10); R.moon.target.position.copy(tgt);
       R.moon.intensity = 0.27 * (1 - dl);
       R.hemi.intensity = (0.2 + 0.5 * dl) * (0.75 + 0.25 * cloud);
@@ -1608,7 +1622,7 @@
       const flick = 1 + Math.sin(R.time * 11) * 0.04 + Math.sin(R.time * 23) * 0.03;
       for (let i = 0; i < MAX_LIGHTS; i++) {
         const L = R.points[i], c = cand[i];
-        if (!c || c.d > 900) { L.intensity = 0; continue; }
+        if (!c || c.d > 900 || i >= R.lightN) { L.intensity = 0; continue; }
         L.position.set(c.x, R.groundH(c.x, c.y) + c.h, c.y);
         L.color.copy(C(c.color));
         L.distance = c.r * 1.9;
