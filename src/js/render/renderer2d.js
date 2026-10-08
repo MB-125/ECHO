@@ -235,13 +235,25 @@
     },
 
     // Simple top-down room view for the 2D renderer.
-    FURN_COL: { bed: '#8a3a3a', table: '#7a5634', chair: '#6a4a2c', stool: '#6a4a2c', counter: '#5a3e26', barrel: '#6e4a28', crate: '#8a6a3a', hearth: '#5a554e', shelf: '#4a3420', desk: '#6a4a2c', lectern: '#5a3e26', altar: '#d8d0c0', throne: '#c8a040', bench: '#6a4a2c', rug: '#7a2e2e', anvil: '#3a3a40', forge: '#4a4440', rack: '#5a4a3a', chest: '#7a5a2a', candles: '#f0e0b0', standard: '#6f8fc4', pillar: '#a8a094', stairs: '#2a282e' },
+    FURN_COL: { bed: '#8a3a3a', table: '#7a5634', chair: '#6a4a2c', stool: '#6a4a2c', counter: '#5a3e26', barrel: '#6e4a28', crate: '#8a6a3a', hearth: '#5a554e', shelf: '#4a3420', desk: '#6a4a2c', lectern: '#5a3e26', altar: '#d8d0c0', throne: '#c8a040', bench: '#6a4a2c', rug: '#7a2e2e', anvil: '#3a3a40', forge: '#4a4440', rack: '#5a4a3a', chest: '#7a5a2a', candles: '#f0e0b0', standard: '#6f8fc4', pillar: '#a8a094', stairs: '#2a282e', door: '#4a4a54', tablet: '#8a867c', campfire: '#ff9a4a', boulder: '#6a655c', rock: '#c8c0b0' },
     drawRoom(game, L) {
       const ctx = R.ctx, B = ECHO.Interior.BASE, Z = R.Z;
       const floorCol = { wood: '#6e4c2e', stone: '#6a655d', marble: '#cfc8ba', cave: '#4a443c', crypt: '#55524c' }[L.floor];
       const wallCol = { plaster: '#b8a47e', stone: '#5e5850', marble: '#bdb5a6', rock: '#3e3a33' }[L.wall];
+      if (L.carved && !L._wall2d) {
+        const k = L._wall2d = new Uint8Array(L.W * L.H), rk = (x, y) => x < 0 || y < 0 || x >= L.W || y >= L.H || L.rock[y * L.W + x];
+        for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) { if (!rk(x, y)) { k[y * L.W + x] = 0; continue; } let w = 2; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!rk(x + dx, y + dy)) w = 1; k[y * L.W + x] = w; }
+      }
       for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) {
         const p = R.toScreen(game, B + x, y);
+        if (L.carved) {
+          const k = L._wall2d[y * L.W + x];
+          if (k === 2) continue;
+          const inR = r => r && x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1;
+          ctx.fillStyle = k === 1 ? wallCol : inR(L.lordRoom) ? ((x + y) % 2 ? '#6a5a50' : '#5e5048') : ((x + y) % 2 ? floorCol : R.shade(floorCol));
+          ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(TS * Z), Math.ceil(TS * Z));
+          continue;
+        }
         const edge = x === 0 || y === 0 || x === L.W - 1 || y === L.H - 1;
         ctx.fillStyle = edge ? (x === L.doorX && y === L.H - 1 ? '#2a1c12' : wallCol) : ((x + y) % 2 ? floorCol : R.shade(floorCol));
         ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(TS * Z), Math.ceil(TS * Z));
@@ -253,6 +265,11 @@
           for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r * 0.6); ctx.stroke(); }
           for (const k of [0.4, 0.75]) { ctx.beginPath(); ctx.ellipse(p.x, p.y, r * k, r * k * 0.6, 0, 0, Math.PI * 2); ctx.stroke(); }
         }
+      }
+      for (const t of L.traps || []) {
+        const st = ECHO.Quests.trapState(game, t), p = R.toScreen(game, B + t.x - 0.45, t.y - 0.45), w = 0.9 * TS * Z;
+        ctx.fillStyle = st === 'warn' ? (t.kind === 'flame' ? '#a03a08' : '#7a6a48') : '#3a3430'; ctx.fillRect(Math.round(p.x), Math.round(p.y), w, w);
+        if (st === 'up') { ctx.fillStyle = t.kind === 'flame' ? '#ff9a3a' : '#d8d4cc'; if (t.kind === 'flame') ctx.fillRect(Math.round(p.x + w * 0.2), Math.round(p.y - w * 0.8), w * 0.6, w * 1.4); else for (let i = 0; i < 4; i++) ctx.fillRect(Math.round(p.x + (i % 2 ? 0.6 : 0.2) * w), Math.round(p.y + (i < 2 ? 0.15 : 0.55) * w - 3 * Z), Math.max(1, Z), 5 * Z); }
       }
       const objs = [];
       for (const f of L.furn) objs.push({ y: f.y + f.h / 2, draw: () => {

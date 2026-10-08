@@ -78,6 +78,7 @@
       if (e.venomT > 0) { e.venomT -= dt; e.hp -= e.venomDps * dt; if (Math.random() < dt * 3) ECHO.Combat.burst(e.x, e.y - 0.4, '#9fe05a', 2, 1, 0.3, 1); if (e.hp <= 0 && !e.dead) { ECHO.Combat.kill(e, game.pe, 'poison', {}); return true; } }
       if (ab.regen && !(e.burn > 0) && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + ab.regen * dt);
       if (ab.frenzy && !e.frenzied && e.hp < e.maxHp * 0.4) { e.frenzied = true; e.speed *= 1.45; e.cdMul = (e.cdMul || 1) * 0.6; e.say = 'RAAAH!'; e.sayT = 1.2; ECHO.Combat.ring(e.x, e.y, 1.6, 'rgba(255,80,60,0.7)', 0.4); }
+      if (e.boss2 && !e.summoner && !e.phase2 && e.hp < e.maxHp * 0.5) { M.phase(game, e); return true; }
       if (e.state === 'cast') {
         e.moving = false; e.dir = e.aim;
         if (e.t > e.castEnd) M.release(game, e);
@@ -184,6 +185,29 @@
       const a = pl.armor && world.items[pl.armor];
       if (a && a.affix === 'thorns' && dmg > 0) ECHO.Combat.damage(from, Math.max(2, dmg * 0.3), { type: 'melee', from: game.pe, angle: Math.atan2(from.y - game.pe.y, from.x - game.pe.x), knock: 0.05 });
     },
+    // Halfway down, a lord changes how it fights.
+    PHASES: {
+      necromancer: { name: 'The dead answer', say: 'Rise — ALL of you!', summon: ['skeleton', 4], f: e => { if (e.ab.bolt) e.ab.bolt = { ...e.ab.bolt, cd: e.ab.bolt.cd * 0.65 }; } },
+      queen: { name: 'The brood wakes', say: '*a shriek that shakes the walls*', summon: ['spider', 4], f: e => { if (e.ab.web) e.ab.web = { ...e.ab.web, cd: e.ab.web.cd * 0.5 }; } },
+      ogre: { name: 'Blood rage', say: 'YOU. DIE. NOW.', f: e => { e.speed *= 1.25; e.dmgMul *= 1.3; if (e.ab.charge) e.ab.charge = { ...e.ab.charge, cd: 4 }; e.rage = true; } },
+      golem: { name: 'Its core lies bare', say: '…', f: e => { e.resist = { melee: 0, ranged: 0.2, fire: 0 }; e.dmgMul *= 1.25; if (e.ab.slam) e.ab.slam = { ...e.ab.slam, cd: e.ab.slam.cd * 0.6 }; e.rage = true; } },
+      warlord: { name: 'The war horn', say: '*BWAAARRRR* — to me, to me!', summon: ['goblin', 3], extra: ['shaman', 1], f: e => { e.speed *= 1.2; e.cdMul = (e.cdMul || 1) * 0.75; } }
+    },
+    phase(game, e) {
+      e.phase2 = true;
+      const P = M.PHASES[e.species] || { name: 'It rages', say: 'RRRAAAH!', f: x => { x.speed *= 1.15; x.dmgMul *= 1.2; x.rage = true; } };
+      P.f(e);
+      e.say = P.say; e.sayT = 2.2;
+      e.state = 'chase'; e.cd = 0.8;
+      game.shake(0.5); game.slowMo && game.slowMo(0.6, 0.35);
+      ECHO.Combat.ring(e.x, e.y, 3.2, 'rgba(255,90,60,0.9)', 0.6);
+      ECHO.Combat.burst(e.x, e.y, '#ff5a3a', 30, 5, 0.9, 3);
+      ECHO.UI.banner(P.name, U.cap(e.label || e.foe.name), true);
+      const spawn = (kind, n) => { for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; const sp = ECHO.Ent.freeSpot(game.world, e.x + Math.cos(a) * 2.6, e.y + Math.sin(a) * 2.6, 3); if (!sp) continue; const m = M.make(game, kind, sp.x, sp.y, Math.max(1, e.lvl - 1), { noElite: true, aggro: true, delve: e.delve, indoor: e.indoor, questId: e.questId }); m.summoner = e; m.floor = e.floor; game.ents.push(m); ECHO.Combat.burst(sp.x, sp.y, '#c8a8ff', 10, 3, 0.5, 2); } };
+      if (P.summon) spawn(P.summon[0], P.summon[1]);
+      if (P.extra) spawn(P.extra[0], P.extra[1]);
+      if (ECHO.Music) ECHO.Music.stinger('discover');
+    },
     // Your poison, your webs: ticks every frame.
     tickPlayer(game, dt) {
       const pl = game.pl, pe = game.pe;
@@ -280,6 +304,8 @@
       split: 'Slimes split when cut. Fire kills them cleanly.',
       gear: 'Gear dropped! Walk to it and press E to take it — better pieces are equipped at once. Sell the rest at a market, or have a smith hone what you keep.',
       mats: 'Monster parts are worth money at any market — and a smith can turn them into better gear (talk to a smith → "Improve your gear").',
+      trap: 'A trap! Watch the floor in the passages — plates glow just before they fire. Roll (Space) across them.',
+      key: 'The iron door needs a key. One of the monsters on this floor carries it — look for the Keybearer.',
       lowhp: 'You are badly hurt. Back off, eat (H) or use herbs (G). Dying to monsters costs a thread of fate.'
     },
     tip(game, k) {

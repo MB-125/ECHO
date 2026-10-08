@@ -364,7 +364,29 @@
     },
 
     // ------------------------------------------------------------ the minimap
+    // Below ground: the floor as you have seen it.
+    miniDungeon(game, c) {
+      const L = ECHO.Interior.cur, g = c.getContext('2d'), B = ECHO.Interior.BASE, pe = game.pe;
+      const s = Math.min((c.width - 8) / L.W, (c.height - 8) / L.H), ox = (c.width - L.W * s) / 2, oy = (c.height - L.H * s) / 2;
+      g.fillStyle = '#0a0806'; g.fillRect(0, 0, c.width, c.height);
+      for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) {
+        if (L.rock[y * L.W + x] || !L.seen[y * L.W + x]) continue;
+        const lord = L.lordRoom && x >= L.lordRoom.x0 && x < L.lordRoom.x1 && y >= L.lordRoom.y0 && y < L.lordRoom.y1;
+        g.fillStyle = lord ? '#6a3a30' : '#8a7c66'; g.fillRect(ox + x * s, oy + y * s, Math.ceil(s), Math.ceil(s));
+      }
+      const mark = (x, y, col, r = 2.2) => { if (!L.seen[Math.floor(y) * L.W + Math.floor(x)]) return; g.fillStyle = col; g.beginPath(); g.arc(ox + x * s, oy + y * s, r, 0, Math.PI * 2); g.fill(); };
+      for (const f of L.furn) {
+        if (f.action === 'delvedown' || f.action === 'delveup') mark(f.x, f.y, '#9fd3ff', 3);
+        else if (f.tag === 'door') mark(f.x, f.y, '#d8b04a', 2.4);
+        else if (f.action === 'delvechest' || f.action === 'delvetreasure' || f.action === 'delvecache') mark(f.x, f.y, '#ffe08a', 2.2);
+      }
+      for (const t of L.traps || []) mark(t.x, t.y, '#ff6a4a', 1.4);
+      for (const e of game.ents) if (!e.dead && e.delve && L.seen[Math.floor(e.y) * L.W + Math.floor(e.x - B)] && U.dist(e.x, e.y, pe.x, pe.y) < 9) mark(e.x - B, e.y, e.boss2 ? '#ffcf5a' : e.keybearer ? '#ffd84a' : '#e05a4a', e.boss2 ? 3.2 : 1.8);
+      mark(L.inside.x - B, L.inside.y + 0.5, '#fff0c0', 2.6);
+      WM.icon(g, 'player', ox + (pe.x - B) * s, oy + pe.y * s, '#fff', 0.55, pe.dir || 0);
+    },
     mini(game, c) {
+      if (ECHO.Interior.cur && ECHO.Interior.cur.carved) return WM.miniDungeon(game, c);
       const world = game.world, pl = game.pl, g = c.getContext('2d');
       const pe = ECHO.Interior.cur ? { x: pl.x, y: pl.y, dir: game.pe ? game.pe.dir : 0 } : game.pe;
       const scale = 2.2, sx = pe.x - c.width / scale / 2, sy = pe.y - c.height / scale / 2;

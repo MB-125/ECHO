@@ -613,11 +613,76 @@
       crypt: (x, y) => ['#55524c', '#5d5a53', '#4e4b45', '#625e56'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4]
     },
     WALLS: { plaster: ['#cbb894', '#5a3e26'], stone: ['#7c766c', '#5a554e'], marble: ['#e0d9cc', '#a89e8c'], rock: ['#5a544a', '#3e3a33'] },
+    // A dungeon floor cut from the rock: floor only where it is open, walls
+    // where rock meets air (low on the side facing the camera), and the traps.
+    buildCarved(game, L, g, B) {
+      const W = L.W, H = L.H, bl = L.blocked;
+      const isOpen = (x, y) => x >= 0 && y >= 0 && x < W && y < H && !bl[y * W + x];
+      const solidRock = (x, y) => x < 0 || y < 0 || x >= W || y >= H || L.rock[y * W + x];
+      const tmp = new THREE.Color();
+      const quads = [];
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (!L.rock[y * W + x]) quads.push([x, y]);
+      const pos = new Float32Array(quads.length * 18), col = new Float32Array(quads.length * 18);
+      let o = 0;
+      const lord = L.lordRoom, tre = L.treasureRoom;
+      for (const [x, y] of quads) {
+        const inR = r => r && x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1;
+        tmp.set(inR(lord) ? R.FLOORS[L.floor === 'cave' ? 'stone' : 'marble'](x, y) : inR(tre) ? R.FLOORS.stone(x, y) : R.FLOORS[L.floor](x, y)).convertSRGBToLinear();
+        const j = 0.94 + ((x * 13 + y * 7) % 5) * 0.03;
+        const X = B + x;
+        for (const [qx, qy] of [[X, y], [X, y + 1], [X + 1, y], [X + 1, y], [X, y + 1], [X + 1, y + 1]]) { pos[o] = qx; pos[o + 1] = 0; pos[o + 2] = qy; col[o] = tmp.r * j; col[o + 1] = tmp.g * j; col[o + 2] = tmp.b * j; o += 3; }
+      }
+      const fg = new THREE.BufferGeometry();
+      fg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); fg.setAttribute('color', new THREE.BufferAttribute(col, 3)); fg.computeVertexNormals();
+      const floor = new THREE.Mesh(fg, R.mat.terrain); floor.receiveShadow = true; floor.userData.own = true; g.add(floor);
+      const [wc, tc] = R.WALLS[L.wall] || R.WALLS.stone;
+      const wallMat = new THREE.MeshStandardMaterial({ color: C(wc).multiplyScalar(1.25), roughness: 0.92, flatShading: true });
+      const capMat = new THREE.MeshStandardMaterial({ color: C(tc), roughness: 0.9 });
+      // walls: rock touching open floor; merged along each row
+      for (let y = 0; y < H; y++) {
+        let run = null;
+        const flush = () => { if (!run) return; const w = run.x1 - run.x0 + 1, h = run.h; const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1), wallMat); m.position.set(B + run.x0 + w / 2, h / 2, y + 0.5); m.castShadow = true; m.receiveShadow = true; m.userData.own = true; g.add(m); const cap = new THREE.Mesh(new THREE.BoxGeometry(w, 0.08, 1.02), capMat); cap.position.set(B + run.x0 + w / 2, h + 0.04, y + 0.5); cap.userData.own = true; g.add(cap); run = null; };
+        for (let x = 0; x < W; x++) {
+          let wall = false;
+          if (solidRock(x, y)) for (let dy = -1; dy <= 1 && !wall; dy++) for (let dx = -1; dx <= 1; dx++) if (!solidRock(x + dx, y + dy)) { wall = true; break; }
+          if (!wall) { flush(); continue; }
+          const h = !solidRock(x, y - 1) ? 0.45 : 1.15 + ((x * 7 + y * 3) % 3) * 0.1;
+          if (run && run.h === h && run.x1 === x - 1) run.x1 = x; else { flush(); run = { x0: x, x1: x, h }; }
+        }
+        flush();
+      }
+      // the way out
+      const exit = new THREE.Mesh(new THREE.PlaneGeometry(2, 1.2), new THREE.MeshBasicMaterial({ color: '#fff0c0', transparent: true, opacity: 0.3, depthWrite: false }));
+      exit.rotation.x = -Math.PI / 2; exit.position.set(L.inside.x, 0.02, L.inside.y + 0.6); exit.userData.own = true; g.add(exit);
+      R.roomDoorGlow = exit; R.roomWinMat = null;
+      // traps
+      R.trapMeshes = [];
+      const plateMat = new THREE.MeshStandardMaterial({ color: C('#3a3430'), roughness: 0.8, emissive: C('#000000') });
+      const spikeMat = new THREE.MeshStandardMaterial({ color: C('#c8c4bc'), roughness: 0.4, metalness: 0.5 });
+      for (const t of L.traps || []) {
+        const pm = plateMat.clone();
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.05, 0.9), pm); plate.position.set(B + t.x, 0.03, t.y); plate.userData.own = true; g.add(plate);
+        const sp = new THREE.Group(); sp.position.set(B + t.x, 0, t.y);
+        if (t.kind === 'flame') { const fl = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.4, 6), new THREE.MeshBasicMaterial({ color: '#ff9a3a', transparent: true, opacity: 0.8 })); fl.position.y = 0.7; fl.userData.own = true; sp.add(fl); }
+        else for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.5, 4), spikeMat); c.position.set((i % 2 - 0.5) * 0.4, 0.25, (Math.floor(i / 2) - 0.5) * 0.4); c.userData.own = true; sp.add(c); }
+        g.add(sp);
+        R.trapMeshes.push({ t, plate, pm, sp });
+      }
+    },
+    animateTraps(game) {
+      for (const m of R.trapMeshes || []) {
+        const st = ECHO.Quests.trapState(game, m.t);
+        m.sp.visible = st === 'up';
+        m.pm.emissive.set(st === 'warn' ? (m.t.kind === 'flame' ? '#a03a08' : '#6a5a3a') : '#000000');
+      }
+    },
     buildRoom(game, L) {
       const g = R.groups.room;
       for (const o of g.children.slice()) { g.remove(o); o.traverse(c => { if (c.geometry && c.userData.own) c.geometry.dispose(); }); }
       R.roomWindows = [];
       const B = ECHO.Interior.BASE;
+      if (L.carved) R.buildCarved(game, L, g, B);
+      else {
       // floor: one quad per tile, coloured by pattern
       const n = (L.W - 2) * (L.H - 2);
       const pos = new Float32Array(n * 18), col = new Float32Array(n * 18);
@@ -671,10 +736,17 @@
       }
       R.roomWinMat = wmat;
       }
+      }
       // furniture
       const stoneMat = R._stairMat || (R._stairMat = new THREE.MeshStandardMaterial({ color: C('#4a4650'), roughness: 0.95 }));
       const voidMat = R._voidMat || (R._voidMat = new THREE.MeshBasicMaterial({ color: '#020203' }));
       for (const f of L.furn) {
+        if (f.model === 'door') {
+          const dm = R._doorMat || (R._doorMat = new THREE.MeshStandardMaterial({ color: C('#3a3a42'), roughness: 0.5, metalness: 0.6 }));
+          const d = new THREE.Mesh(new THREE.BoxGeometry(1, 1.8, 1), dm); d.position.set(B + f.x, 0.9, f.y); d.castShadow = true; d.userData.own = true; g.add(d);
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.03, 6, 10), R._keyMat || (R._keyMat = new THREE.MeshStandardMaterial({ color: C('#d8b04a'), metalness: 0.7, roughness: 0.3 }))); ring.position.set(B + f.x, 1.0, f.y + 0.52); ring.userData.own = true; g.add(ring);
+          continue;
+        }
         if (f.model === 'stairs') {
           // steps going down into the dark (or up toward the light)
           const up = f.action === 'delveup';
@@ -804,7 +876,7 @@
         M.recolor(inst, 'metal', V.metal || '#8a8a90'); M.recolor(inst, 'cape', V.cloth2);
         for (const k of ['robe', 'apron', 'cape', 'helm', 'bandana', 'hood', 'hairLong', 'beard', 'crown', 'shield', 'bow', 'spear', 'torch', 'staff', 'sword', 'hair']) M.show(inst, k, false);
         for (const k of V.show || []) M.show(inst, k, true);
-        for (const m of inst.mats) { if (m.emissive) m.emissive.set(e.elite ? '#3a0a08' : V.em || '#000000'); if (V.opacity) { m.transparent = true; m.opacity = V.opacity; } }
+        for (const m of inst.mats) { if (m.emissive) m.emissive.set(e.rage ? '#6a0c04' : e.elite ? '#3a0a08' : V.em || '#000000'); if (V.opacity) { m.transparent = true; m.opacity = V.opacity; } }
         inst.root.scale.setScalar(e.scale || 1);
         return;
       }
@@ -1554,7 +1626,7 @@
       const rm = ECHO.Interior && ECHO.Interior.cur;
       const lk = ECHO.PlayerCtl.lock;
       if (lk && pe && !rm) { tx = U.lerp(tx, lk.x, 0.3); ty = U.lerp(ty, lk.y, 0.3); }
-      if (rm) { // frame the room rather than the player alone
+      if (rm && !rm.carved) { // frame the room rather than the player alone
         const cx = ECHO.Interior.BASE + rm.W / 2, cy = rm.H / 2;
         tx = U.lerp(tx, cx, rm.W > 12 ? 0.25 : 0.6); ty = U.lerp(ty, cy, 0.55) + 0.6;
       }
@@ -1565,9 +1637,9 @@
       R.camTarget.x = U.lerp(R.camTarget.x, tx, k); R.camTarget.z = U.lerp(R.camTarget.z, ty, k); R.camTarget.y = U.lerp(R.camTarget.y, gh, k);
       const room = ECHO.Interior && ECHO.Interior.cur;
       R.setInteriorMode(!!room);
-      if (room && R.roomKey !== room) { R.roomKey = room; R.roomFlames = []; R.buildRoom(game, room); R.camTarget.set(tx, 0, ty); }
+      if (room && (R.roomKey !== room || R.roomRev !== (room.rev || 0))) { const fresh = R.roomKey !== room; R.roomKey = room; R.roomRev = room.rev || 0; R.roomFlames = []; R.buildRoom(game, room); if (fresh) R.camTarget.set(tx, 0, ty); }
       const punch = game.camPunch || 0;
-      const D = R.camDistNow = R.camDist * (1 + R.zoomExtra) * (room ? U.clamp(0.5 + room.H * 0.035, 0.72, 0.95) : 1) * (1 - Math.min(0.12, punch * 0.07));
+      const D = R.camDistNow = R.camDist * (1 + R.zoomExtra) * (room ? (room.carved ? 0.82 : U.clamp(0.5 + room.H * 0.035, 0.72, 0.95)) : 1) * (1 - Math.min(0.12, punch * 0.07));
       let sx = 0, sy = 0;
       if (game.shakeT > 0) { sx = (Math.random() - 0.5) * game.shakeA * 0.4; sy = (Math.random() - 0.5) * game.shakeA * 0.4; }
       const kk = game.camKick || { x: 0, y: 0 };
@@ -1590,7 +1662,7 @@
         }
         if (R.rift) R.rift.rotation.y += dt * 0.6;
         R.updateOcclusion(game);
-      } else for (const f of R.roomFlames || []) f.scale.y = f.scale.x * (1 + Math.sin(R.time * 13 + f.position.x) * 0.12);
+      } else { for (const f of R.roomFlames || []) f.scale.y = f.scale.x * (1 + Math.sin(R.time * 13 + f.position.x) * 0.12); if (room.carved) R.animateTraps(game); }
       R.updateEntities(game, dt);
       R.updateFx(game, dt);
       R.updateGlows(game);

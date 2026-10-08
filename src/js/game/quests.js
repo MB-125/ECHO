@@ -85,6 +85,7 @@
       }
     },
     onKill(target, from) {
+      if (target.keybearer && !target._keyDropped) { target._keyDropped = true; ECHO.Game.loot.push({ x: target.x, y: target.y, kind: 'key', qty: 1, site: target.delve, depth: target.floor || 0 }); }
       const game = ECHO.Game, world = game.world;
       if (ECHO.Monsters && ECHO.Monsters.DEFS[target.species]) ECHO.Monsters.onKill(game, target);
       else {
@@ -126,87 +127,149 @@
       const world = game.world, site = b.site, depth = b.depth || 0;
       const def = X().DELVES[site.kind] || {};
       const floors = X().floors(site), last = depth >= floors - 1;
-      const small = site.kind === 'hideout';
-      const W = small ? 19 : depth ? 25 : 23, H = small ? 13 : depth ? 18 : 16;
+      const small = site.kind === 'hideout' || site.kind === 'cave';
       const style = def.style || 'cave';
       const cave = style === 'cave';
-      const L = { id: b.id, b, s, type: 'delve', kind: site.kind, site, depth, floors, W, H, floor: cave ? 'cave' : style === 'stone' ? 'stone' : 'crypt', wall: cave ? 'rock' : 'stone', cave: true, furn: [], spots: [], lights: [], webs: [], blocked: new Uint8Array(W * H) };
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x === 0 || y === 0 || x === W - 1 || y === H - 1) L.blocked[y * W + x] = 1;
-      L.doorX = Math.floor(W / 2);
+      const rng = new ECHO.RNG(ECHO.hashStr(site.id + world.seed + ':' + depth));
+      // rooms and passages: bigger and more tangled the deeper you go
+      const cols = small ? 2 : depth >= 2 ? 3 : 3, rows = small ? 2 : depth >= 1 ? 3 : 2;
+      const G = ECHO.DGen.carve(rng, cols, rows);
+      const W = G.W, H = G.H;
+      const L = { id: b.id, b, s, type: 'delve', kind: site.kind, site, depth, floors, W, H, floor: cave ? 'cave' : style === 'stone' ? 'stone' : 'crypt', wall: cave ? 'rock' : 'stone', cave: true, carved: true, G, rev: 0,
+        furn: [], spots: [], lights: [], webs: [], traps: [], blocked: G.blocked, rock: G.blocked.slice(), seen: new Uint8Array(W * H) };
+      L.doorX = G.doorX;
       const f = (model, x, y, o = {}) => {
-        const it = { model, x, y, rot: o.rot || 0, w: o.w || 1, h: o.h || 1, solid: o.solid !== false, action: o.action || null, label: o.label || null, light: o.light || null, colors: o.colors || null, scale: o.scale || 1 };
+        const it = { model, x, y, rot: o.rot || 0, w: o.w || 1, h: o.h || 1, solid: o.solid !== false, action: o.action || null, label: o.label || null, light: o.light || null, colors: o.colors || null, scale: o.scale || 1, tag: o.tag || null };
         L.furn.push(it);
         if (it.solid) for (let ty = Math.floor(y - it.h / 2 + 0.05); ty <= Math.floor(y + it.h / 2 - 0.05); ty++) for (let tx = Math.floor(x - it.w / 2 + 0.05); tx <= Math.floor(x + it.w / 2 - 0.05); tx++) if (tx > 0 && ty > 0 && tx < W - 1 && ty < H - 1) L.blocked[ty * W + tx] = 1;
         if (it.light) L.lights.push({ x: BASE + x, y, ...it.light });
         return it;
       };
-      const rng = new ECHO.RNG(ECHO.hashStr(site.id + world.seed + ':' + depth));
-      const keep = (x, y) => (Math.abs(x - L.doorX) > 2.5 || y < H - 4) && !(x > W - 5 && y < 4) && !(x < 5 && y > H - 5) && !(Math.abs(x - W / 2) < 2.5 && y < 6);
-      // pillars, boulders and broken walls break up the room
-      const nPill = 8 + depth * 2 + (small ? -3 : 0);
-      for (let i = 0; i < nPill; i++) {
-        const x = 2.5 + rng.int(0, W - 6), y = 2.5 + rng.int(0, H - 7);
-        if (!keep(x, y)) continue;
-        if (cave) f('boulder', x, y, { scale: 0.6 + rng.next() * 0.45, rot: rng.next() * 6 });
-        else f('pillar', x, y, { scale: 0.9, colors: style === 'stone' ? { stone: '#5a4a40' } : null });
-      }
-      // light
       const glow = { r: 5.5, a: 0.95, color: def.glow || '#ffb060', h: 1.1 };
-      const lights = [[2.5, 2.5], [W - 2.5, 2.5], [2.5, H - 3], [W - 2.5, H - 3]];
-      if (depth) lights.push([W / 2, H / 2 + 2]);
-      for (const [x, y] of lights) f('candles', x, y, { solid: false, light: glow, colors: { flame: def.glow || '#ffb060', glow: def.glow || '#ffb060' } });
-      // furnishing by kind
-      const K = site.kind;
-      if ((K === 'barrow' || K === 'crypt') && depth === 0) f('tablet', W / 2 - 3.5, 1.7, { action: 'delvetablet', label: 'Read the carving' });
-      if (K === 'barrow' || K === 'crypt' || K === 'catacomb') for (let i = 0; i < 4; i++) f('chest', 3 + i * (W - 6) / 3, H / 2 + (i % 2 ? 2 : -2), { scale: 0.7, rot: Math.PI / 2, colors: { wood: '#5a5650', darkwood: '#3a3632' } });
-      if (K === 'hideout' || K === 'warren') { for (let i = 0; i < 6; i++) { const x = 2 + rng.int(0, W - 4), y = 2 + rng.int(0, 3); if (keep(x, y)) f(i % 2 ? 'crate' : 'barrel', x, y); } }
-      if (K === 'warren') f('campfire', W / 2 - 3, H / 2, { solid: false, light: { r: 4, a: 1, color: '#ff9a4a', h: 0.6 } });
-      if (K === 'cave' || K === 'trollden' || K === 'nest') for (let i = 0; i < 6; i++) f('rock', 2 + rng.int(0, W - 4), 2 + rng.int(0, H - 5), { solid: false, scale: 0.35, colors: { rock: '#e2dccb', darkstone: '#cfc7b4' } });
-      if (K === 'nest' || def.webs) for (let i = 0; i < 7 + depth * 2; i++) { const x = 2 + rng.int(0, W - 4) + 0.5, y = 2 + rng.int(0, H - 6) + 0.5; if (keep(x, y)) L.webs.push({ x, y, r: 0.8 + rng.next() * 0.6 }); }
-      if (K === 'forge') { f('forge', W / 2 - 4, 2.2, { w: 2, h: 1, light: { r: 6, a: 1.2, color: '#ff7a2a', h: 0.8 } }); f('forge', W / 2 + 4, 2.2, { w: 2, h: 1, light: { r: 6, a: 1.2, color: '#ff7a2a', h: 0.8 } }); }
-      if ((K === 'sanctum' || K === 'catacomb') && last) f('altar', W / 2, 2.2, { w: 3, h: 1, colors: { glow: def.glow } });
-      if ((K === 'barrow' || K === 'crypt') && last) f('altar', W / 2, 2.2, { w: 3, h: 1 });
-      // the way down, the way back up, and a cache on each floor
-      if (!last) f('stairs', W - 2.6, 2.4, { w: 2, h: 2, action: 'delvedown', label: `Go down the stairs (floor ${depth + 2} of ${floors})` });
-      if (depth > 0) f('stairs', 2.6, H - 2.6, { w: 2, h: 2, action: 'delveup', label: 'Climb back up a floor', rot: Math.PI });
-      if (!last) { const cx = 2.5 + rng.int(0, 1) * (W - 9), cy = 2.6; f('chest', cx + 0.5, cy, { scale: 0.8, action: 'delvecache', label: (site.caches || {})[depth] ? 'An empty cache' : 'Open the cache' }); }
-      if (last) L.chest = f('chest', W / 2, cave ? 2.4 : 3.6, { action: 'delvechest', label: site.chestTaken ? 'An empty chest' : 'Open the chest', colors: { metal: '#e8c860' } });
-      L.inside = { x: BASE + L.doorX + 0.5, y: H - 1.5 };
+      const K = site.kind, far = G.far, ent = G.entrance;
+      // the lord's chamber / the way down sits in the far room, behind an iron door
+      site.keys = site.keys || {}; site.doors = site.doors || {}; site.treasure = site.treasure || {};
+      L.farRoom = far; L.treasureRoom = G.treasure;
+      if (last) L.lordRoom = far;
+      // furnish each room by what it is
+      for (const r of G.rooms) {
+        const tiles = ECHO.DGen.tiles(G, r, 1);
+        const pick = () => { const k = rng.int(0, tiles.length - 1); return tiles.splice(k, 1)[0]; };
+        // light in every room
+        f('candles', r.x0 + 1.2, r.y0 + 1.2, { solid: false, light: glow, colors: { flame: def.glow || '#ffb060', glow: def.glow || '#ffb060' } });
+        if (r === far || r === ent) continue;
+        const n = 2 + rng.int(0, 2);
+        for (let i = 0; i < n && tiles.length > 4; i++) {
+          const t = pick();
+          if (cave) f('boulder', t.x + 0.5, t.y + 0.5, { scale: 0.55 + rng.next() * 0.35, rot: rng.next() * 6 });
+          else f('pillar', t.x + 0.5, t.y + 0.5, { scale: 0.85, colors: style === 'stone' ? { stone: '#5a4a40' } : null });
+        }
+        if (K === 'hideout' || K === 'warren') for (let i = 0; i < 2 && tiles.length; i++) { const t = pick(); f(i % 2 ? 'crate' : 'barrel', t.x + 0.5, t.y + 0.5); }
+        if (K === 'cave' || K === 'trollden' || K === 'nest') for (let i = 0; i < 3 && tiles.length; i++) { const t = pick(); f('rock', t.x + 0.5, t.y + 0.5, { solid: false, scale: 0.35, colors: { rock: '#e2dccb', darkstone: '#cfc7b4' } }); }
+        if (K === 'barrow' || K === 'crypt' || K === 'catacomb') for (let i = 0; i < 2 && tiles.length; i++) { const t = pick(); f('chest', t.x + 0.5, t.y + 0.5, { scale: 0.7, rot: Math.PI / 2, colors: { wood: '#5a5650', darkwood: '#3a3632' } }); }
+        if (K === 'warren' && rng.next() < 0.5 && tiles.length) { const t = pick(); f('campfire', t.x + 0.5, t.y + 0.5, { solid: false, light: { r: 4, a: 1, color: '#ff9a4a', h: 0.6 } }); }
+        if (K === 'forge' && rng.next() < 0.6 && tiles.length) { const t = pick(); f('forge', t.x + 0.5, t.y + 0.5, { w: 1, h: 1, light: { r: 5, a: 1.1, color: '#ff7a2a', h: 0.8 } }); }
+      }
+      // webs in the nests
+      if (K === 'nest' || def.webs) for (const r of G.rooms) if (r !== ent) for (let i = 0; i < 2 + depth; i++) L.webs.push({ x: r.x0 + 1 + rng.int(0, r.x1 - r.x0 - 3) + 0.5, y: r.y0 + 1 + rng.int(0, r.y1 - r.y0 - 3) + 0.5, r: 0.8 + rng.next() * 0.6 });
+      // a carving to read in the old tombs
+      if ((K === 'barrow' || K === 'crypt') && depth === 0) f('tablet', ent.x0 + 1.5, ent.y0 + 0.9, { action: 'delvetablet', label: 'Read the carving' });
+      // the far room
+      const fx = far.mx, fy = far.my;
+      if (last) {
+        L.chest = f('chest', fx, far.y0 + 1.4, { action: 'delvechest', label: site.chestTaken ? 'An empty chest' : 'Open the chest', colors: { metal: '#e8c860' } });
+        if (!cave || K === 'catacomb' || K === 'sanctum') f('altar', fx, far.y0 + 0.6, { w: 3, h: 1, solid: false, colors: { glow: def.glow } });
+        f('standard', far.x0 + 0.8, far.y0 + 0.8, { colors: { banner: '#5a1a1a' } }); f('standard', far.x1 - 0.8, far.y0 + 0.8, { colors: { banner: '#5a1a1a' } });
+        f('candles', far.x0 + 1, far.y1 - 1, { solid: false, light: { r: 6, a: 1.2, color: '#ff6a4a', h: 1.1 } });
+        f('candles', far.x1 - 1, far.y1 - 1, { solid: false, light: { r: 6, a: 1.2, color: '#ff6a4a', h: 1.1 } });
+      } else f('stairs', fx, fy, { w: 2, h: 2, action: 'delvedown', label: `Go down the stairs (floor ${depth + 2} of ${floors})` });
+      // the way back up, by the entrance
+      if (depth > 0) f('stairs', ent.x0 + 1.5, ent.y0 + 1.5, { w: 2, h: 2, action: 'delveup', label: 'Climb back up a floor', rot: Math.PI });
+      // the iron door, unless already opened
+      L.doorTiles = G.gap;
+      if (!site.doors[depth] && G.gap.length) for (const g of G.gap) f('door', g.x + 0.5, g.y + 0.5, { action: 'delvedoor', label: site.keys[depth] ? 'Unlock the iron door' : 'A locked iron door', tag: 'door' });
+      // a key on the floor if its bearer fell but it was never taken
+      if (!site.keys[depth] && (site.floorsDone || {})[depth] && !site.doors[depth]) { const r = G.rooms.find(x => x !== far && x !== ent) || ent; f('chest', r.mx, r.my, { solid: false, scale: 0.5, action: 'delvekey', label: 'Pick up the iron key', colors: { metal: '#ffd84a' } }); }
+      // a cache somewhere on each floor, and a treasure room in a dead end
+      if (!last) { const r = G.rooms.filter(x => x !== far && x !== ent)[rng.int(0, Math.max(0, G.rooms.length - 3))] || ent; f('chest', r.x1 - 1.5, r.y0 + 1.3, { scale: 0.8, action: 'delvecache', label: (site.caches || {})[depth] ? 'An empty cache' : 'Open the cache' }); }
+      if (G.treasure) { const r = G.treasure; f('chest', r.mx - 0.8, r.y0 + 1.4, { action: 'delvetreasure', label: site.treasure[depth] ? 'An empty strongbox' : 'Open the strongbox', colors: { metal: '#c8d0e0' } }); f('candles', r.mx + 1, r.y0 + 1.2, { solid: false, light: { r: 4, a: 1, color: '#ffe08a', h: 1 } }); L.treasureRoom = r; }
+      // traps in the passages
+      const ctiles = ECHO.DGen.corridorTiles(G).filter(t => !G.gap.some(g => g.x === t.x && g.y === t.y) && Math.abs(t.x - G.doorX) + Math.abs(t.y - (H - 2)) > 5);
+      const nTrap = Math.min(ctiles.length, 2 + depth * 2 + (small ? -1 : 0));
+      const fire = K === 'forge' || K === 'sanctum';
+      for (let i = 0; i < nTrap; i++) { const t = ctiles.splice(rng.int(0, ctiles.length - 1), 1)[0]; if (t) L.traps.push({ x: t.x + 0.5, y: t.y + 0.5, phase: rng.next() * 3, kind: fire ? 'flame' : 'spikes', cycle: -1 }); }
+      L.inside = { x: BASE + G.doorX + 1, y: H - 2.2 };
       L.outside = { x: site.x, y: site.y + 1.6 };
       L.name = U.cap(site.name) + (floors > 1 ? ` — ${depth === floors - 1 ? 'the deepest floor' : 'floor ' + (depth + 1) + ' of ' + floors}` : '');
       return L;
     },
     populate(game, L) {
-      const world = game.world, site = L.site, BASE = ECHO.Interior.BASE, depth = L.depth || 0;
+      const world = game.world, site = L.site, BASE = ECHO.Interior.BASE, depth = L.depth || 0, G = L.G;
       site.floorsDone = site.floorsDone || {};
       if (site.cleared || site.floorsDone[depth]) return;
       const def = X().DELVES[site.kind];
       const last = depth >= L.floors - 1;
       const lvl = Math.min(9, X().level(world, site) + Math.floor(depth / 2) + Math.floor((site.round || 0) / 2));
-      const n = Math.min(12, 4 + depth + Math.min(3, site.round || 0) + (L.W > 23 ? 1 : 0) - (last ? 1 : 0));
-      const spots = [];
-      for (let y = 2; y < L.H - 5; y++) for (let x = 2; x < L.W - 2; x++) if (!L.blocked[y * L.W + x]) spots.push({ x: BASE + x + 0.5, y: y + 0.5 });
-      spots.sort(() => Math.random() - 0.5);
       const roster = (def.roster || [[def.foes, 1]]).concat(depth >= 1 ? def.deep || [] : []);
       const pick = () => { const tot = roster.reduce((a, r) => a + r[1], 0); let r = Math.random() * tot; for (const [k, w] of roster) { r -= w; if (r <= 0) return k; } return roster[0][0]; };
       const tag = e => { e.delve = site.id; e.indoor = true; e.floor = depth; return e; };
       const wolf = (x, y, boss) => { const e = ECHO.Spawner.makeCreature(game, 'wolf', x, y, null, 'den'); e.lvl = lvl; e.hp = e.maxHp = Math.round(e.maxHp * (1 + 0.35 * (lvl - 1)) * (boss ? 3 : 1)); e.dmgMul = (e.dmgMul || 1) * (1 + 0.25 * (lvl - 1)) * (boss ? 1.7 : 1); if (boss) { e.scale = 1.5; e.label = 'the Den-Mother'; e.boss2 = true; } return tag(e); };
-      for (let i = 0; i < n; i++) {
-        const s0 = spots.pop(); if (!s0) break;
-        const k = pick();
-        const e = k === 'wolf' ? wolf(s0.x, s0.y) : tag(ECHO.Monsters.make(game, k, s0.x, s0.y, lvl));
-        if (k === 'wolf') e.aggro = i < 2;
-        game.ents.push(e);
+      const free = r => ECHO.DGen.tiles(G, r, 1).filter(t => !L.blocked[t.y * L.W + t.x]).sort(() => Math.random() - 0.5);
+      // a pack in every room but the first; the far room keeps its own guard
+      const rooms = G.rooms.filter(r => r !== G.entrance && r !== L.farRoom);
+      const keyRoom = rooms.slice().sort((a, b) => b.depth - a.depth)[Math.floor(rooms.length / 3)] || rooms[0];
+      for (const r of rooms) {
+        const spots = free(r);
+        const empty = r !== keyRoom && r !== L.treasureRoom && Math.random() < 0.3;
+        const n = empty ? 0 : Math.min(spots.length, 1 + Math.floor(Math.random() * 2) + (depth >= 2 ? 1 : 0) + (r === L.treasureRoom ? 1 : 0));
+        for (let i = 0; i < n; i++) {
+          const s0 = spots.pop(), k = pick();
+          const e = k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, r === L.treasureRoom ? { eliteChance: 0.6 } : {}));
+          game.ents.push(e);
+        }
+        // the one who carries the key
+        if (r === keyRoom && !site.keys[depth] && !site.doors[depth] && spots.length) {
+          const s0 = spots.pop(), k = roster.slice().sort((a, b) => (ECHO.Monsters.DEFS[b[0]] || { hp: 0 }).hp - (ECHO.Monsters.DEFS[a[0]] || { hp: 0 }).hp)[0][0];
+          const e = k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl + 1, { noElite: true }));
+          e.keybearer = true; e.label = `Keybearer ${(e.label || (e.foe && e.foe.name) || 'wolf').replace(/^the /, '').toLowerCase()}`; e.hp = e.maxHp = Math.round(e.maxHp * 1.4); e.scale = (e.scale || 1) * 1.1;
+          game.ents.push(e);
+        }
       }
-      // the master of the place, on the deepest floor
+      // behind the iron door: the lord, or the guards of the stair
+      const fr = L.farRoom, fs = free(fr);
       if (last) {
-        const bx = BASE + L.W / 2, by = L.cave ? 5 : 6;
+        const bx = BASE + fr.mx, by = fr.my - 0.5;
         const e = def.boss === 'den-mother' ? wolf(bx, by, true) : tag(ECHO.Monsters.make(game, def.boss, bx, by, lvl + 1, { noElite: true }));
         if (!ECHO.Monsters.DEFS[def.boss] && e.foe) { e.hp = e.maxHp = Math.round(e.maxHp * (1 + 0.4 * (lvl - 1))); e.boss2 = true; }
         game.ents.push(e);
-      }
+        for (let i = 0; i < 2 && fs.length; i++) { const s0 = fs.pop(); const k = pick(); game.ents.push(k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { noElite: true }))); }
+      } else for (let i = 0; i < 2 && fs.length; i++) { const s0 = fs.pop(); const k = pick(); game.ents.push(k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { eliteChance: 0.5 }))); }
       ECHO.Music.stinger('discover');
       if (ECHO.Monsters) ECHO.Monsters.tip(game, 'dungeon');
+    },
+    // Pressure plates: spikes (or fire) every few seconds; they warn you first.
+    trapState(game, t) { const c = (game.time + t.phase) % 3.2; return c < 1.7 ? 'down' : c < 2.3 ? 'warn' : 'up'; },
+    tickTraps(game, dt) {
+      const L = ECHO.Interior.cur;
+      if (!L || !L.traps || !L.traps.length) return;
+      const pe = game.pe, B = ECHO.Interior.BASE;
+      for (const t of L.traps) {
+        const st = Q.trapState(game, t), cyc = Math.floor((game.time + t.phase) / 3.2);
+        if (st === 'up' && t.firedCycle !== cyc) {
+          t.firedCycle = cyc;
+          if (t.kind === 'flame') { ECHO.Combat.burst(B + t.x, t.y, '#ff9a3a', 14, 3, 0.6, 3); ECHO.Combat.burst(B + t.x, t.y, '#ffe08a', 6, 2, 0.5, 2); }
+          else ECHO.Combat.burst(B + t.x, t.y, '#c8c0b0', 8, 2, 0.3, 2);
+        }
+        if (st === 'up' && t.hitCycle !== cyc && Math.abs(pe.x - (B + t.x)) < 0.75 && Math.abs(pe.y - t.y) < 0.75 && !(pe.iframes > 0)) {
+          t.hitCycle = cyc;
+          const lvl = X().level(game.world, L.site) + Math.floor((L.depth || 0) / 2);
+          ECHO.Combat.damage(pe, 7 + lvl * 3, { type: t.kind === 'flame' ? 'fire' : 'melee', from: null, angle: Math.random() * 6.28, knock: 0.25 });
+          ECHO.Combat.floater(pe.x, pe.y - 1.4, t.kind === 'flame' ? 'fire trap!' : 'spike trap!', '#ffb08a');
+          if (ECHO.Monsters) ECHO.Monsters.tip(game, 'trap');
+        }
+      }
+      // what you have seen of this floor, for the map in the corner
+      if (L.seen) { const px = Math.floor(pe.x - B), py = Math.floor(pe.y); for (let y = py - 5; y <= py + 5; y++) for (let x = px - 6; x <= px + 6; x++) if (x >= 0 && y >= 0 && x < L.W && y < L.H && (x - px) ** 2 + (y - py) ** 2 < 34) L.seen[y * L.W + x] = 1; }
     },
     use(game, it) {
       const L = ECHO.Interior.cur, world = game.world, pl = game.pl, site = L.site;
@@ -226,6 +289,43 @@
         ECHO.Sfx.play('door');
         return Q.enterDelve(game, site, d);
       }
+      if (it.action === 'delvedoor') {
+        site.keys = site.keys || {}; site.doors = site.doors || {};
+        if (!site.keys[L.depth]) {
+          const bearer = game.ents.find(e => e.keybearer && !e.dead);
+          return UI().toast(bearer ? `Locked. ${U.cap(bearer.label)} carries the key — find it and take it.` : 'Locked. The key must be somewhere on this floor.', 'warn', 4);
+        }
+        site.doors[L.depth] = true;
+        for (const d of L.furn.filter(x => x.tag === 'door')) { L.blocked[Math.floor(d.y) * L.W + Math.floor(d.x)] = 0; }
+        L.furn = L.furn.filter(x => x.tag !== 'door');
+        L.rev = (L.rev || 0) + 1;
+        ECHO.Sfx.play('door'); game.shake(0.15);
+        return UI().toast(L.depth >= L.floors - 1 ? 'The iron door grinds open. Something large stirs in the chamber beyond.' : 'The iron door grinds open. The way down lies beyond.', 'legend', 4);
+      }
+      if (it.action === 'delvekey') {
+        site.keys = site.keys || {}; site.keys[L.depth] = true;
+        L.furn = L.furn.filter(x => x !== it); L.rev = (L.rev || 0) + 1;
+        for (const d of L.furn) if (d.tag === 'door') d.label = 'Unlock the iron door';
+        ECHO.Sfx.play('coin');
+        return UI().toast('You take the iron key.', 'legend', 3);
+      }
+      if (it.action === 'delvetreasure') {
+        site.treasure = site.treasure || {};
+        if (site.treasure[L.depth]) return UI().toast('The strongbox is empty.', 'info', 2);
+        const near = game.ents.filter(e => e.delve === site.id && !e.dead && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6).length;
+        if (near) return UI().toast('Not with its guards still standing.', 'warn', 2);
+        site.treasure[L.depth] = true; it.label = 'An empty strongbox';
+        const lvl = X().level(world, site) + Math.floor((L.depth || 0) / 2);
+        const gold = Math.round((40 + Math.random() * 60) * (1 + 0.35 * (lvl - 1))); pl.gold += gold;
+        const out = [`${gold} crowns`];
+        const D0 = X().DELVES[site.kind];
+        const mats = (D0.roster || []).concat(D0.deep || []).map(r => ECHO.Monsters.DEFS[r[0]]).filter(Boolean).flatMap(m => (m.loot || []).map(l => l[0]));
+        for (let i = 0; i < 2 && mats.length; i++) { const k = mats[Math.floor(Math.random() * mats.length)], q = 2 + Math.floor(Math.random() * 3); pl.inv[k] = (pl.inv[k] || 0) + q; out.push(`${q} ${ECHO.Gear.MATS[k].name}`); }
+        if (Math.random() < 0.7) { ECHO.Monsters.dropGear(game, ECHO.Interior.BASE + it.x, it.y + 1, lvl + 1, 14, `in a strongbox in ${site.name}`); out.push('a piece of gear (on the floor)'); }
+        if (Math.random() < 0.4) { pl.inv.herbs = (pl.inv.herbs || 0) + 2; out.push('two bundles of herbs'); }
+        ECHO.Sfx.play('coin'); ECHO.Music.stinger('star');
+        return UI().toast(`A treasure room! In the strongbox: ${out.join(', ')}.`, 'legend', 6);
+      }
       if (it.action === 'delvecache') {
         site.caches = site.caches || {};
         if (site.caches[L.depth]) return UI().toast('The cache is empty.', 'info', 2);
@@ -242,7 +342,7 @@
         return UI().toast(`In the cache: ${out.join(', ')}.`, 'legend', 5);
       }
       if (it.action === 'delvechest') {
-        const alive = game.ents.filter(e => e.delve === site.id && !e.dead && (e.floor == null || e.floor === (L.depth || 0))).length;
+        const alive = game.ents.filter(e => e.delve === site.id && !e.dead && (e.floor == null || e.floor === (L.depth || 0)) && (e.boss2 || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 8)).length;
         if (alive) return UI().toast('Not with them still about.', 'warn', 2);
         if (site.chestTaken) return UI().toast('The chest is empty.', 'info', 2);
         site.chestTaken = true; site.cleared = true; site.clearedDay = world.day;

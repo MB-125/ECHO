@@ -83,7 +83,7 @@
       for (const l of game.loot) {
         if (l.taken || U.dist(l.x, l.y, pe.x, pe.y) > 30) continue;
         const it = l.kind === 'item' && world.items[l.itemId];
-        const col = it ? ECHO.Gear.rarity(it.rarity).color : l.kind === 'gold' ? '#ffd84a' : (ECHO.Gear.MATS[l.kind] || {}).color || '#f0e6d0';
+        const col = it ? ECHO.Gear.rarity(it.rarity).color : l.kind === 'gold' || l.kind === 'key' ? '#ffd84a' : (ECHO.Gear.MATS[l.kind] || {}).color || '#f0e6d0';
         const tall = it ? 4 + ['common', 'fine', 'rare', 'epic', 'legendary'].indexOf(it.rarity || 'common') : ECHO.Gear.MATS[l.kind] || l.kind === 'gold' ? 3 : 2;
         for (let i = 0; i < tall; i++) Pg.glows.push({ x: l.x, y: l.y, h: 0.25 + i * 0.32, s: 0.42 - i * 0.03, c: col, a: (0.28 - i * 0.025) * (0.8 + 0.2 * Math.sin(game.time * 4 + l.x)) });
       }
@@ -99,6 +99,7 @@
         const it = l.kind === 'item' && world.items[l.itemId];
         if (it) out.push({ x: l.x, y: l.y, text: `${it.name}${it.plus ? ' +' + it.plus : ''} [E]`, color: ECHO.Gear.rarity(it.rarity).color });
         else if (l.kind === 'gold') out.push({ x: l.x, y: l.y, text: `${l.qty} crowns`, color: '#ffd84a' });
+        else if (l.kind === 'key') out.push({ x: l.x, y: l.y, text: 'Iron key', color: '#ffd84a' });
         else { const m = ECHO.Gear.MATS[l.kind]; if (m) out.push({ x: l.x, y: l.y, text: `${l.qty} ${m.name}`, color: m.color }); }
       }
       return out;

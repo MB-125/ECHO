@@ -146,7 +146,7 @@
     refill(world, site) {
       if (site.cat !== 'delve' || !site.cleared || world.day - site.clearedDay < 40) return false;
       site.cleared = false; site.chestTaken = false; site.round = (site.round || 0) + 1;
-      site.floorsDone = {}; site.caches = {};
+      site.floorsDone = {}; site.caches = {}; site.keys = {}; site.doors = {}; site.treasure = {};
       return true;
     },
 

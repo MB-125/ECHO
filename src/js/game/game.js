@@ -93,6 +93,7 @@
       // Player
       ECHO.PlayerCtl.update(Game, dt);
       if (ECHO.Monsters) ECHO.Monsters.tickPlayer(Game, dt);
+      if (ECHO.Interior.cur && ECHO.Interior.cur.carved) ECHO.Quests.tickTraps(Game, dt);
       if (ECHO.Interior.cur) { Game.pl.x = ECHO.Interior.cur.outside.x; Game.pl.y = ECHO.Interior.cur.outside.y; }
       else { Game.pl.x = Game.pe.x; Game.pl.y = Game.pe.y; }
       // Others
@@ -408,6 +409,15 @@
         if (l.kind !== 'item' && quiet && d < 3.5 && d > 0.3) { const k = Math.min(1, 0.06 + 0.5 / d * 0.1); l.x += (pe.x - l.x) * k; l.y += (pe.y - l.y) * k; }
         if (d > 1.2) continue;
         if (l.kind === 'item') continue; // items need E
+        if (l.kind === 'key') {
+          l.taken = true;
+          const site = ECHO.Explore.byId(Game.world, l.site);
+          if (site) { site.keys = site.keys || {}; site.keys[l.depth] = true; }
+          const L = ECHO.Interior.cur; if (L && L.furn) for (const d of L.furn) if (d.tag === 'door') d.label = 'Unlock the iron door';
+          ECHO.Combat.floater(l.x, l.y - 0.5, 'the iron key!', '#ffd84a', true); ECHO.Sfx.play('coin');
+          ECHO.UI.toast('You take the iron key. It opens the iron door on this floor.', 'legend', 4);
+          continue;
+        }
         l.taken = true;
         if (l.kind === 'gold') pl.gold += l.qty;
         else pl.inv[l.kind] = (pl.inv[l.kind] || 0) + l.qty;
