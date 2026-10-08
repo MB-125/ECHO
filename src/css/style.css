@@ -233,3 +233,30 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 .calling b { display: block; color: var(--gold); margin-bottom: 3px; }
 .calling span { display: block; font-size: 13px; line-height: 1.35; }
 @media (max-width: 760px) { .callings { grid-template-columns: 1fr; } #hud-goal { max-width: 90vw; } }
+
+/* rank, experience and the foe in front of you */
+#hud-rank { display: flex; align-items: center; gap: 8px; margin: -2px 0 6px; font-size: 13px; text-shadow: 0 1px 0 #000; }
+#hud-rank .rk { font-weight: bold; letter-spacing: 0.5px; white-space: nowrap; flex: none; }
+#hud-rank .xp { position: relative; flex: none; width: 70px; height: 5px; background: rgba(0,0,0,0.6); border: 1px solid rgba(200,168,255,0.35); }
+#hud-rank .xp i { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #8a6ad8, #c8a8ff); }
+#hud-rank .xpn { font-size: 11px; color: #b8a8d8; white-space: nowrap; flex: none; }
+#hud-target { position: absolute; left: 16px; bottom: 64px; width: 230px; padding: 8px 10px; background: rgba(14,10,8,0.72); border: 1px solid rgba(200,120,90,0.45); border-radius: 4px; font-size: 13px; text-shadow: 0 1px 0 #000; pointer-events: none; }
+#hud-target .tn { font-size: 15px; color: #f0e2c8; }
+#hud-target .tl { margin: 2px 0 4px; }
+#hud-target .tb { position: relative; height: 6px; background: rgba(0,0,0,0.6); }
+#hud-target .tb i { position: absolute; left: 0; top: 0; bottom: 0; }
+#hud-target .td { margin-top: 4px; font-size: 11px; color: #b8ac98; }
+#hud-target .tw { margin-top: 3px; font-size: 11px; color: #e8c86a; }
+#hud.fighting #hud-target { border-color: rgba(255,120,90,0.8); }
+.gear-slots { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: start; margin: 8px 0 12px; }
+.gear-doll { width: 150px; height: 190px; image-rendering: pixelated; background: radial-gradient(circle at 50% 60%, rgba(200,168,90,0.12), rgba(0,0,0,0.25)); border: 1px solid rgba(200,168,90,0.3); border-radius: 4px; }
+.gear-slot { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.gear-ic { width: 56px; height: 56px; image-rendering: pixelated; flex: none; background: rgba(0,0,0,0.3); border: 1px solid rgba(200,168,90,0.25); border-radius: 4px; }
+.gear-ic.small { width: 44px; height: 44px; }
+.gear-ic.big { width: 112px; height: 112px; }
+.upg-arrow { display: inline-flex; align-items: center; gap: 6px; }
+.prowess-card { display: flex; gap: 14px; align-items: center; padding: 8px 10px; margin: 8px 0; border: 1px solid rgba(200,168,90,0.3); border-radius: 4px; background: rgba(0,0,0,0.2); }
+.prowess-card .big { font-size: 28px; font-weight: bold; }
+.prowess-card .xp { height: 7px; background: rgba(0,0,0,0.5); margin: 4px 0; }
+.prowess-card .xp i { display: block; height: 100%; background: linear-gradient(90deg, #8a6ad8, #c8a8ff); }
+.rank-ladder span { margin-right: 6px; font-size: 12px; }

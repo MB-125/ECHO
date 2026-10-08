@@ -686,7 +686,7 @@
     },
     // Wisps, fireflies, lanterns, fallen stars: soft lights drawn over the dark.
     drawGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : []);
       if (!list.length) return;
       const ctx = R.ctx;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -783,10 +783,19 @@
           ctx.fillStyle = '#2a2420'; ctx.fillText(e.say, p.x, top - 5 * R.dpr);
           continue;
         }
-        if (e.type === 'boss') { text(e.label, p.x, top, '#ffcf8a'); continue; }
+        if (e.type === 'boss') { const lb = ECHO.Progress ? ECHO.Progress.label(game, e) : { text: e.label, color: '#ffcf8a' }; text(lb.text, p.x, top, lb.color); continue; }
         if (e.marvel) { if (e.label && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6) text(e.label, p.x, top, '#bfe8ff'); continue; }
         if (e.yielded) { text('yields — [E] to spare', p.x, top, '#9fe0c8'); continue; }
         if (e.sleeping && hover) { text('asleep', p.x, top, '#9fb7d8'); continue; }
+        const foeish = ECHO.Progress && (e.type === 'creature' || e.type === 'person') && e.species !== 'hare' && e.species !== 'gnawer' && e.species !== 'hind' && ECHO.Progress.counts(game, e);
+        if (foeish) {
+          if (hover || e === ECHO.PlayerCtl.lock || e.boss2 || e.beast || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 9) {
+            const lb = ECHO.Progress.label(game, e);
+            text(lb.text, p.x, top, lb.color);
+            if (e.hp < e.maxHp && e.type === 'creature') { const bw = 44 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, top + 4 * R.dpr, bw, bh); ctx.fillStyle = e.boss2 ? '#ffcf5a' : '#e05a4a'; ctx.fillRect(p.x - bw / 2, top + 4 * R.dpr, bw * Math.max(0, e.hp / e.maxHp), bh); }
+          }
+          continue;
+        }
         if (e.type === 'person' && (hover || (e.carrying && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6))) {
           const npc = world.npcs[e.npcId];
           if (!npc) continue;

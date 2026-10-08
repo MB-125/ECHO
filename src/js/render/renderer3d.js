@@ -900,7 +900,39 @@
         M.show(inst, 'hood', !e.crown && !(e.look && e.look.female));
         if (e.child) scale = 0.66;
       }
+      if (e.type === 'player' && e.gearLook) R.dressPlayer(inst, e.gearLook);
       inst.root.scale.setScalar(scale);
+    },
+    // The player's gear, as it looks: finer metal, gems and glow as it is upgraded.
+    dressPlayer(inst, G) {
+      const M = ECHO.Models, P = inst.parts;
+      if (!inst._split) {
+        inst._split = true;
+        const split = (part, from, to) => { if (!P[part]) return; P[part].traverse(o => { if (o.isMesh && o.material && o.material.name === from) { const m = o.material.clone(); m.name = to; o.material = m; inst.mats.push(m); } }); };
+        split('sword', 'metal', 'blade'); split('sword', 'gold', 'guard'); split('bow', 'wood', 'bowwood'); split('helm', 'metal', 'helmmetal');
+        // shoulder plates and a crest, shown as the armour grows
+        const plate = new THREE.MeshStandardMaterial({ color: '#8a8a90', roughness: 0.6, metalness: 0.35, flatShading: true }); plate.name = 'plate'; inst.mats.push(plate);
+        inst.pauldrons = [];
+        for (const arm of ['armL', 'armR']) if (P[arm]) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.12, 0.26), plate); m.position.set(0, 0.03, arm === 'armL' ? 0.03 : -0.03); m.castShadow = true; P[arm].add(m); inst.pauldrons.push(m); }
+        if (P.helm) { const c = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 5), plate); c.position.set(0, 0.95, 0); P.helm.add(c); inst.crest = c; }
+      }
+      const glowSet = (name, col, k) => { for (const m of inst.mats) if (m.name === name && m.emissive) { m.emissive.set(col); m.emissiveIntensity = k; } };
+      const B = G.blade;
+      if (B) {
+        M.recolor(inst, 'blade', B.metal); glowSet('blade', B.glowCol, B.glow * 1.4);
+        M.recolor(inst, 'guard', B.gold ? '#f2c84a' : B.rarity === 'rare' ? '#c8d0e0' : '#8a6a3a'); glowSet('guard', B.glowCol, B.gold ? 0.25 : 0);
+        if (P.sword) P.sword.scale.set(1, 1 + B.plus * 0.05 + (B.rarity === 'legendary' ? 0.1 : 0), 1);
+      }
+      if (G.bow) { M.recolor(inst, 'bowwood', G.bow.wood || '#6a4a2a'); glowSet('bowwood', G.bow.glowCol, G.bow.glow); }
+      const A = G.armor;
+      if (A) {
+        M.recolor(inst, 'cloth', A.body); M.recolor(inst, 'cloth2', A.trim); M.recolor(inst, 'leather', A.trim);
+        M.show(inst, 'helm', A.helm); M.show(inst, 'hair', !A.helm); M.recolor(inst, 'helmmetal', '#' + new THREE.Color(A.metal).lerp(new THREE.Color('#6a6a72'), 0.55).getHexString()); M.recolor(inst, 'plate', A.gold ? '#d8b04a' : A.metal);
+        glowSet('plate', A.glowCol, A.glow * 0.6); glowSet('helmmetal', A.glowCol, A.glow * 0.4);
+      } else { M.show(inst, 'helm', false); }
+      for (const m of inst.pauldrons || []) m.visible = !!(A && A.pauldrons);
+      if (inst.crest) inst.crest.visible = !!(A && A.crest && A.helm);
+      if (G.rank) M.recolor(inst, 'cape', '#' + new THREE.Color(G.rank.color).multiplyScalar(0.62).getHexString());
     },
     animatePerson(game, e, v, dt) {
       const P = v.inst.parts;
@@ -1188,7 +1220,7 @@
       R.festGroup = new THREE.Group(); R.scene.add(R.festGroup); R.festKey = ''; R.festFlames = [];
     },
     updateGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : []);
       const ga = R.glows.geometry.attributes;
       const n = Math.min(list.length, ga.size.count);
       const tmp = R._gc || (R._gc = new THREE.Color());
@@ -1684,10 +1716,19 @@
           ctx.fillStyle = '#2a2420'; ctx.fillText(e.say, p.x, ty - 5 * R.dpr);
           continue;
         }
-        if (e.type === 'boss') { text(e.label, p.x, ty, '#ffcf8a'); continue; }
+        if (e.type === 'boss') { const lb = ECHO.Progress ? ECHO.Progress.label(game, e) : { text: e.label, color: '#ffcf8a' }; text(lb.text, p.x, ty, lb.color); continue; }
         if (e.marvel) { if (e.label && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6) text(e.label, p.x, ty, '#bfe8ff'); continue; }
         if (e.yielded) { text('yields — [E] to spare', p.x, ty, '#9fe0c8'); continue; }
         if (e.sleeping && hover) { text('asleep', p.x, ty, '#9fb7d8'); continue; }
+        const foeish = ECHO.Progress && (e.type === 'creature' || e.type === 'person') && e.species !== 'hare' && e.species !== 'gnawer' && e.species !== 'hind' && ECHO.Progress.counts(game, e);
+        if (foeish) {
+          if (hover || e === ECHO.PlayerCtl.lock || e.boss2 || e.beast || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 9) {
+            const lb = ECHO.Progress.label(game, e);
+            text(lb.text, p.x, ty, lb.color);
+            if (e.hp < e.maxHp && e.type === 'creature') { const bw = 44 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw, bh); ctx.fillStyle = e.boss2 ? '#ffcf5a' : '#e05a4a'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw * Math.max(0, e.hp / e.maxHp), bh); }
+          }
+          continue;
+        }
         if (e.type === 'person' && (hover || (e.carrying && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6))) {
           const npc = world.npcs[e.npcId];
           if (!npc) continue;

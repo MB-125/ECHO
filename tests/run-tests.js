@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -480,6 +480,34 @@ function main() {
     pl.inv.silk = 4; pl.inv.tusk = 1; pl.gold = 0;
     const s0 = B.settlements[0], sold = Gr.sellMats(pl, s0);
     check('monster parts sell at market', sold.total > 0 && pl.gold === sold.total && !pl.inv.silk && !pl.inv.tusk, `${sold.out.join(', ')} → ${sold.total} crowns`);
+  }
+
+  console.log('\nProwess: levels, ranks and the strength of foes');
+  {
+    const Pw = ECHO.Prowess;
+    const pl = { skills: { blade: 10, archery: 10 }, items: [] };
+    check('you start a Novice at level 1', Pw.level(pl) === 1 && Pw.title(pl) === 'Novice' && Pw.dmgMult(pl) === 1);
+    const wolf = { type: 'creature', species: 'wolf', maxHp: 46, hp: 46 }, leader = { type: 'creature', species: 'wolf', maxHp: 120, dmgMul: 1.4, label: 'the pack leader' };
+    const beast = { type: 'boss', maxHp: 600 }, lord = { lvl: 6, boss2: true, species: 'necromancer' }, rat = { lvl: 1, species: 'giantrat' };
+    check('every foe has a level and a rank', Pw.foeLevel(wolf) === 1 && Pw.foeLevel(leader) >= 3 && Pw.foeLevel(beast) >= 7 && Pw.foeRank(leader) === 'champion' && Pw.foeRank(lord) === 'lord' && Pw.foeRank(beast) === 'great' && Pw.foeRank(rat) === 'minion',
+      `wolf ${Pw.foeLevel(wolf)}, leader ${Pw.foeLevel(leader)}, beast ${Pw.foeLevel(beast)}`);
+    check('foes are measured against you', Pw.diff(1, 1).k === 'even' && Pw.diff(6, 1).k === 'hopeless' && Pw.diff(3, 1).k === 'hard' && Pw.diff(1, 6).k === 'trivial');
+    const xEven = Pw.xpFor(pl, { lvl: 1 }), xHard = Pw.xpFor(pl, { lvl: 3 }), xLord = Pw.xpFor(pl, lord);
+    check('stronger foes teach you far more', xHard > xEven * 2 && xLord > xHard, `even ${xEven}, hard ${xHard}, lord ${xLord}`);
+    let ups = []; for (let i = 0; i < 4; i++) ups = ups.concat(Pw.onKill(pl, { lvl: 3 }).ups);
+    check('experience raises your level, and your blows grow harder', Pw.level(pl) >= 2 && Pw.dmgMult(pl) > 1 && Pw.hpBonus(pl) > 0 && ups.length >= 1, `level ${Pw.level(pl)}, ×${Pw.dmgMult(pl).toFixed(2)}`);
+    const rankUp = Pw.gain(pl, 5000);
+    check('levels bring new ranks', Pw.level(pl) >= 5 && rankUp.some(u => u.rank && u.rank.title === 'Fighter') && Pw.title(pl) !== 'Novice', `level ${Pw.level(pl)} ${Pw.title(pl)}`);
+    const lv = Pw.level(pl), x0 = Pw.st(pl).xp, xp = Pw.onKill(pl, { lvl: 1 }).xp;
+    check('things far beneath you teach you almost nothing', xp <= 3 && Pw.level(pl) === lv, `${xp} xp`);
+    Pw.gain(pl, 1e7);
+    check('there is a height to reach', Pw.level(pl) === Pw.MAX && Pw.title(pl) === 'Mythic' && Pw.gain(pl, 100).length === 0);
+    void x0;
+    const Gr = ECHO.Gear;
+    const a = Gr.look({ kind: 'sword', rarity: 'common', plus: 0 }), b = Gr.look({ kind: 'sword', rarity: 'legendary', plus: 5, affix: 'ember' });
+    check('upgraded gear looks finer', b.glow > a.glow && b.gems === 5 && a.gems === 0 && b.gold && !a.gold && b.metal !== a.metal);
+    const ar = Gr.look({ kind: 'armor', rarity: 'rare', plus: 3, def: 20 });
+    check('armour grows plates and a helm as it is reinforced', ar.helm && ar.pauldrons && ar.body);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

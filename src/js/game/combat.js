@@ -289,6 +289,7 @@
       const world = game.world;
       if (target.dead) return;
       if (target === game.pe) { target.hp = 0; game.playerDefeated(from); return; }
+      target._xpOk = ECHO.Progress && ECHO.Progress.counts(game, target);
       target.dead = true;
       target.deathT = 0;
       const byPlayer = from === game.pe || (from && from.isCompanion);
@@ -297,6 +298,7 @@
       target.deathAngle = ka;
       if (target.type !== 'boss') { const kb = (src.knock || 0.12) * 1.8 + 0.15; target.kbx += Math.cos(ka) * kb; target.kby += Math.sin(ka) * kb; }
       if (byPlayer && target.species !== 'hare' && target.species !== 'gnawer') ECHO.Tech.onKill(game, target, type, src);
+      if (byPlayer && ECHO.Progress) ECHO.Progress.onKill(game, target);
       if (byPlayer) {
         if (ECHO.Sfx) ECHO.Sfx.play('kill', { pitch: target.species === 'gnawer' || target.species === 'hare' ? 1.5 : 1 });
         game.hitStop(target.type === 'boss' ? 0.2 : target.species === 'hare' || target.species === 'gnawer' ? 0.06 : 0.1);

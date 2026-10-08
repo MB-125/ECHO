@@ -28,6 +28,7 @@
       if (ECHO.Patrol) ECHO.Patrol.reset();
       if (ECHO.Finds) ECHO.Finds.reset();
       if (ECHO.Purpose) ECHO.Purpose.reset();
+      if (ECHO.Progress) ECHO.Progress.reset();
       if (ECHO.Explore) ECHO.Explore.sites(world);
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
@@ -122,6 +123,7 @@
       ECHO.Patrol.update(Game, dt);
       ECHO.Finds.update(Game, dt);
       ECHO.Purpose.update(Game, dt);
+      ECHO.Progress.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }

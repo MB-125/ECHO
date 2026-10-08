@@ -147,7 +147,8 @@
       const bb = $('#bossbar');
       if (!e) { bb.classList.add('hidden'); return; }
       bb.classList.remove('hidden');
-      $('#bossbar .name').textContent = `${e.boss.name} ${e.boss.title}`;
+      const L = ECHO.Prowess ? ECHO.Prowess.foeLevel(e) : 0, D = ECHO.Prowess && ECHO.Prowess.diff(L, ECHO.Prowess.level(ECHO.Game.pl));
+      $('#bossbar .name').innerHTML = `${esc(e.boss ? `${e.boss.name} ${e.boss.title}` : U.cap(e.label || 'a lord of the deep'))}${L ? ` <span style="color:${D.color}">· Lv ${L} ${e.type === 'boss' ? 'Great beast' : 'Lord'} ${'☠'.repeat(D.skulls)}</span>` : ''}`;
     },
     onNewDay(world) {
       const d = T.dateOf(world.day);
@@ -538,13 +539,16 @@
         });
         body.querySelectorAll('button[data-hone]').forEach(btn => btn.addEventListener('click', () => {
           const it = world.items[btn.dataset.hone]; if (!it) return;
+          const before = { ...it };
           const c = ECHO.Gear.honeCost(it);
           const why = ECHO.Gear.hone(world, pl, it);
           if (why) { UI.toast(why, 'warn', 3); return; }
           s.wealth += c.gold; if (smith) smith.wealth += c.gold * 0.5;
           ECHO.PlayerCtl.derivedT = 0; ECHO.Sfx.play('block');
-          UI.toast(`${smith ? smith.first : 'The smith'} works it over at the anvil: ${it.name} is now +${it.plus}.`, 'legend', 4);
           render();
+          UI.modal({ title: `${it.name} +${it.plus}`, html: `<div class="upg-arrow" style="justify-content:center;gap:18px;margin:8px 0">${ECHO.GearArt.img(before, 'gear-ic big')}<span class="gold" style="font-size:26px">➜</span>${ECHO.GearArt.img(it, 'gear-ic big')}</div>
+            <p class="prose" style="text-align:center">${esc(smith ? smith.first : 'The smith')} works it over at the anvil${it.kind === 'armor' ? ', riveting on new plate' : it.kind === 'bow' ? ', fitting a new string and horn' : ' until the edge sings'}. ${it.plus >= 3 ? 'It catches the light now in a way it did not before.' : ''}</p>
+            <p style="text-align:center">${esc(ECHO.Gear.line(before))} <span class="gold">➜</span> <b>${esc(ECHO.Gear.line(it))}</b></p>`, choices: [{ label: 'Good work', onPick: () => {} }] });
         }));
         body.querySelectorAll('button[data-craft]').forEach(btn => btn.addEventListener('click', () => {
           const r = ECHO.Gear.craft(world, pl, btn.dataset.craft);
@@ -562,6 +566,26 @@
       };
       render();
     },
+    // Your level and rank, and what they give you.
+    prowessHtml(world, pl) {
+      const Pw = ECHO.Prowess, st = Pw.st(pl), L = st.lv, R = Pw.rank(L), nx = Pw.nextRank(L), need = Pw.need(L);
+      const pow = Pw.power(world, pl);
+      return `<h3 class="gold">Prowess</h3><div class="prowess-card"><div style="text-align:center;min-width:86px"><div class="big" style="color:${R.color}">Lv ${L}</div><div style="color:${R.color}">${esc(R.title)}</div></div>
+        <div style="flex:1"><div class="xp"><i style="width:${L >= Pw.MAX ? 100 : Math.round(st.xp / need * 100)}%"></i></div>
+        <div class="dim" style="font-size:13px">${L >= Pw.MAX ? 'You have reached the height of your strength.' : `${Math.floor(st.xp)} / ${need} experience to level ${L + 1}`}${nx ? ` · ${esc(nx.title)} at level ${nx.lv}` : ''}</div>
+        <div style="font-size:13px;margin-top:4px">Power <b class="gold">${pow.total}</b> · sword <b>${pow.melee}</b> a blow · bow <b>${pow.bow}</b> a shot · armour <b>${pow.def}</b></div>
+        <div class="dim" style="font-size:12px">From your level: +${Math.round((Pw.dmgMult(pl) - 1) * 100)}% damage, +${Pw.hpBonus(pl)} life, +${Pw.staBonus(pl)} stamina. Strongest foe beaten: ${st.best ? 'level ' + st.best : 'none yet'}.</div>
+        <div class="rank-ladder" style="margin-top:4px">${Pw.RANKS.map(r => `<span style="color:${L >= r.lv ? r.color : '#5a5248'}">${L >= r.lv ? '◆' : '◇'} ${esc(r.title)}</span>`).join('')}</div>
+        <div class="dim" style="font-size:12px">You grow by defeating foes. The stronger they are than you, the more you learn; things far beneath you teach you nothing.</div></div></div>`;
+    },
+    // What you carry and wear, drawn so that every upgrade shows.
+    equipHtml(world, pl) {
+      const GA = ECHO.GearArt, Gr = ECHO.Gear;
+      const look = ECHO.Progress.lookOf(world, pl);
+      const slot = (it, what) => `<div class="gear-slot">${GA.img(it)}<div>${it ? `<b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}</b><div style="font-size:13px">${esc(Gr.line(it))}</div><div class="dim" style="font-size:12px">${Gr.honeCost(it) ? `A smith can take it to +${(it.plus || 0) + 1}.` : 'Upgraded as far as it goes.'}</div>` : `<span class="dim">No ${what}.</span>`}</div></div>`;
+      return `<h3 class="gold">Equipment</h3><div class="gear-slots"><img class="gear-doll" src="${GA.doll(look, pl.look && pl.look.skin || '#e0ac85', pl.look && pl.look.hair || '#4a3020')}" alt="">
+        <div>${slot(world.items[pl.weapon], 'sword')}${slot(world.items[pl.bow], 'bow')}${slot(pl.armor && world.items[pl.armor], 'armour')}</div></div>`;
+    },
     // What a market pays for a piece of gear.
     gearPrice(world, pl, s, it) { return Math.max(3, Math.round(ECHO.Gear.value(it) * (0.7 + (s.prosperity || 50) / 250) / ECHO.Minds.priceMult(world, s, pl))); },
     lootMarketHtml(world, pl, s) {
@@ -573,7 +597,7 @@
         html += `<h4 class="ware-h">Monster parts</h4><p class="dim">Alchemists, tanners and curio-sellers buy what you bring up from below. A smith can use them too — see the smithy.</p><div class="wares">${mats.map(m => `<div class="ware"><div class="ware-ic" style="color:${m.color}">◆</div><div class="ware-main"><div class="ware-top"><b>${esc(U.cap(m.name))}</b><span class="gold">${Gr.matPrice(s, m.k)} each</span></div><div class="ware-meta">You have <b>${m.n}</b></div><div class="row"><button class="small" data-sellmat="${m.k}">Sell all (${Gr.matPrice(s, m.k) * m.n})</button></div></div></div>`).join('')}</div>
           <div class="row"><button data-sellmats="1">Sell every part — ${total} crowns</button></div>`;
       }
-      if (spare.length) html += `<h4 class="ware-h">Gear you do not use</h4><div class="wares">${spare.map(it => `<div class="ware"><div class="ware-ic">${it.kind === 'armor' ? '🛡' : it.kind === 'bow' ? '🏹' : '⚔'}</div><div class="ware-main"><div class="ware-top"><b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}</b><span class="gold">${UI.gearPrice(world, pl, s, it)} cr</span></div><div class="ware-use">${esc(Gr.line(it))}</div><div class="row"><button class="small" data-sellgear="${it.id}">Sell</button></div></div></div>`).join('')}</div>`;
+      if (spare.length) html += `<h4 class="ware-h">Gear you do not use</h4><div class="wares">${spare.map(it => `<div class="ware">${ECHO.GearArt.img(it, 'gear-ic small')}<div class="ware-main"><div class="ware-top"><b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}</b><span class="gold">${UI.gearPrice(world, pl, s, it)} cr</span></div><div class="ware-use">${esc(Gr.line(it))}</div><div class="row"><button class="small" data-sellgear="${it.id}">Sell</button></div></div></div>`).join('')}</div>`;
       return html;
     },
     smithGearHtml(world, pl, s, smith) {
@@ -582,8 +606,9 @@
       const cost = c => `<span class="gold">${c.gold} cr</span>${Object.entries(c.mats).map(([k, n]) => ` + <span style="color:${(Gr.MATS[k] || { color: '#c8b890' }).color}" class="${(pl.inv[k] || 0) >= n ? '' : 'ember'}">${n} ${esc(Gr.MATS[k] ? Gr.MATS[k].name : k === 'hide' ? 'hides' : k)} (${pl.inv[k] || 0})</span>`).join('')}`;
       const gear = [[pl.weapon, 'Hone the blade'], [pl.bow, 'Restring and tiller the bow'], [pl.armor, 'Reinforce the armour']].map(([id, verb]) => [world.items[id], verb]).filter(([it]) => it);
       let html = `<h4 class="ware-h">Improve your gear</h4><p class="dim">"Bring me what you take off the things down there, and I can do things with steel you wouldn't believe."</p><div class="wares">`;
-      html += gear.map(([it, verb]) => { const c = Gr.honeCost(it); return `<div class="ware"><div class="ware-ic">${it.kind === 'armor' ? '🛡' : it.kind === 'bow' ? '🏹' : '⚔'}</div><div class="ware-main"><div class="ware-top"><b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}</b><span class="dim">${esc(Gr.line(it))}</span></div>${c ? `<div class="ware-use">${verb} to +${(it.plus || 0) + 1} (${it.kind === 'armor' ? 'armour +' + (c.add + 1) : 'power +' + c.add}): ${cost(c)}</div><div class="row"><button class="small" data-hone="${it.id}" ${Gr.canPay(pl, c) ? '' : 'disabled'}>${verb}</button></div>` : '<div class="ware-use gold">It can be made no finer.</div>'}</div></div>`; }).join('');
-      html += `</div><h4 class="ware-h">Have armour made</h4><div class="wares">${Gr.CRAFT.map(r => `<div class="ware"><div class="ware-ic">🛡</div><div class="ware-main"><div class="ware-top"><b>${esc(r.name)}</b><span class="dim">armour ${r.def}${r.affix ? ' · ' + Gr.AFFIX[r.affix].desc : ''}</span></div><div class="ware-use">${esc(r.desc)} ${cost(r)}</div><div class="row"><button class="small" data-craft="${r.id}" ${Gr.canPay(pl, r) ? '' : 'disabled'}>Have it made</button></div></div></div>`).join('')}</div>`;
+      const nextOf = it => ({ ...it, plus: (it.plus || 0) + 1 });
+      html += gear.map(([it, verb]) => { const c = Gr.honeCost(it); return `<div class="ware"><div class="ware-main"><div class="upg-arrow">${ECHO.GearArt.img(it, 'gear-ic small')}${c ? `<span class="gold">➜</span>${ECHO.GearArt.img(nextOf(it), 'gear-ic small')}` : ''}</div><div class="ware-top"><b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}</b><span class="dim">${esc(Gr.line(it))}</span></div>${c ? `<div class="ware-use">${verb} to +${(it.plus || 0) + 1} (${it.kind === 'armor' ? 'armour +' + (c.add + 1) : 'power +' + c.add}): ${cost(c)}</div><div class="row"><button class="small" data-hone="${it.id}" ${Gr.canPay(pl, c) ? '' : 'disabled'}>${verb}</button></div>` : '<div class="ware-use gold">It can be made no finer.</div>'}</div></div>`; }).join('');
+      html += `</div><h4 class="ware-h">Have armour made</h4><div class="wares">${Gr.CRAFT.map(r => `<div class="ware">${ECHO.GearArt.img({ kind: 'armor', def: r.def, rarity: r.def >= 20 ? 'rare' : r.def >= 10 ? 'fine' : 'common', affix: r.affix || null, plus: 0, craft: r.id }, 'gear-ic small')}<div class="ware-main"><div class="ware-top"><b>${esc(r.name)}</b><span class="dim">armour ${r.def}${r.affix ? ' · ' + Gr.AFFIX[r.affix].desc : ''}</span></div><div class="ware-use">${esc(r.desc)} ${cost(r)}</div><div class="row"><button class="small" data-craft="${r.id}" ${Gr.canPay(pl, r) ? '' : 'disabled'}>Have it made</button></div></div></div>`).join('')}</div>`;
       return html;
     },
     openInn(s) {
@@ -1486,7 +1511,9 @@
       UI.openPanel(`${pl.first} ${pl.last}, ${Ch.title(pl)}`, `<div class="two"><div><p class="prose">${bio.map(esc).join(' ')}</p>
         <p class="dim">Renown ${Math.round(pl.renown)} · Armour ${ECHO.Gear.def(world, pl)} (${Math.round((1 - ECHO.Gear.taken(world, pl, 'melee')) * 100)}% of every blow turned) · Fate ${pl.fate}/3${pl.knighted ? ' · Knight of ' + world.factions[pl.knighted].short : ''}${pl.legacyOf ? ' · kin of ' + esc((ECHO.Legacy.legendOf(world, pl.legacyOf) || {}).name || '') : ''}</p>
         ${pl.spells.length ? `<p class="gold">Secrets: ${pl.spells.map(k => ECHO.Mysteries.REWARDS[k].name).join(', ')}</p>` : ''}
-        <h3 class="gold">Belongings</h3><div class="list">${items.map(it => `<div class="card"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}</div>`).join('')}</div>
+        ${UI.prowessHtml(world, pl)}
+        ${UI.equipHtml(world, pl)}
+        <h3 class="gold">Belongings</h3><div class="list">${items.map(it => `<div class="card" style="display:flex;gap:10px">${it.kind === 'sword' || it.kind === 'bow' || it.kind === 'armor' ? ECHO.GearArt.img(it, 'gear-ic small') : ''}<div style="flex:1"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}</div></div>`).join('')}</div>
         ${ECHO.Gear.mats(pl).length ? `<h3 class="gold">Monster parts</h3><div>${ECHO.Gear.mats(pl).map(m => `<span style="color:${m.color}">◆</span> ${m.n} ${esc(m.name)}`).join(' · ')}</div><p class="dim" style="font-size:13px">Sell them at a market, or bring them to a smith to improve your gear.</p>` : ''}
         ${ECHO.Tech.pageHtml(pl)}
         ${reps.length ? `<h3 class="gold">Standing</h3><div class="dim">${reps.join(' · ')}</div>` : ''}</div>

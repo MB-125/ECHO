@@ -21,21 +21,22 @@
       const bow = game.world.items[pl.bow];
       const wdmg = weapon ? weapon.dmg : 5;
       const charm = k => ECHO.Wonders && ECHO.Wonders.has(game.world, pl, k);
+      const lvM = ECHO.Prowess ? ECHO.Prowess.dmgMult(pl) : 1;
       PC.derived = {
         aggr, caution, reck,
         meleeCd: 0.5 * (1 - 0.32 * aggr),
-        meleeDmg: wdmg * (0.75 + pl.skills.blade / 70) * (1 + 0.28 * aggr) * (charm('courage') ? 1.12 : 1),
+        meleeDmg: wdmg * (0.75 + pl.skills.blade / 70) * (1 + 0.28 * aggr) * (charm('courage') ? 1.12 : 1) * lvM,
         meleeRange: weapon ? 1.35 : 0.95,
         meleeStam: 11 * (1 - 0.2 * aggr),
         blockMul: 1 - 0.4 * caution,
         guardPenalty: aggr * 0.25,
-        bowDmg: bow ? bow.dmg * (0.7 + pl.skills.archery / 65) : 0,
+        bowDmg: bow ? bow.dmg * (0.7 + pl.skills.archery / 65) * lvM : 0,
         drawTime: 0.75 * (1 - pl.skills.archery / 250),
-        flameDmg: 19 * (0.8 + pl.skills.flame / 55) * (1 + 0.45 * reck) * (pl.spells.includes('starfire') ? 1.25 : 1),
+        flameDmg: 19 * (0.8 + pl.skills.flame / 55) * (1 + 0.45 * reck) * (pl.spells.includes('starfire') ? 1.25 : 1) * lvM,
         flameInstab: pl.spells.includes('starfire') ? 0 : reck * 0.2,
         speed: 4.3 * (1 + pl.skills.endurance / 260),
-        maxHp: 100 + pl.skills.endurance * 0.6 + pl.skills.ward * 0.4 + ((pl.boons && pl.boons.hp) || 0) + (charm('health') ? 20 : 0) - (charm('hindcurse') ? 20 : 0) + (pl.armor && game.world.items[pl.armor] && game.world.items[pl.armor].affix === 'vigor' ? 25 : 0),
-        maxSta: 100 + pl.skills.endurance * 0.8 + ((pl.boons && pl.boons.sta) || 0),
+        maxHp: 100 + pl.skills.endurance * 0.6 + pl.skills.ward * 0.4 + ((pl.boons && pl.boons.hp) || 0) + (charm('health') ? 20 : 0) - (charm('hindcurse') ? 20 : 0) + (pl.armor && game.world.items[pl.armor] && game.world.items[pl.armor].affix === 'vigor' ? 25 : 0) + (ECHO.Prowess ? ECHO.Prowess.hpBonus(pl) : 0),
+        maxSta: 100 + pl.skills.endurance * 0.8 + ((pl.boons && pl.boons.sta) || 0) + (ECHO.Prowess ? ECHO.Prowess.staBonus(pl) : 0),
         maxMana: 60 + pl.skills.flame * 1.2 + ((pl.boons && pl.boons.mana) || 0),
         wellfed: charm('wellfed')
       };

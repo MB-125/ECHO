@@ -354,7 +354,8 @@
       if (prof === 'guard' && npc) { const f = world.factions[npc.faction]; cols = [f ? f.color : '#6f8fc4', f ? f.banner : '#2b3f66']; }
       if (prof === 'child' && npc) { const kc = ['#c8574a', '#4a8ac8', '#d8b84a', '#6aa85a', '#9a5ac8', '#d87a3a']; cols = [kc[ECHO.hashStr(npc.id) % kc.length], '#4a3a2a']; }
       if (prof === 'farmer' && npc && ECHO.hashStr(npc.id) % 2) cols = ['#8a6a3a', '#4a3a24'];
-      if (e.type === 'player') cols = ['#2f7f86', '#1f4f56'];
+      const GL = e.type === 'player' ? e.gearLook : null;
+      if (e.type === 'player') cols = GL && GL.armor ? [GL.armor.body, GL.armor.trim] : ['#2f7f86', '#1f4f56'];
       if (e.isCompanion) cols = [shade(cols[0], 0.1), cols[1]];
       const walk = e.moving ? Math.sin(e.anim * 12) : 0;
       const child = npc && prof === 'child';
@@ -377,7 +378,14 @@
       if (prof === 'smith') R('#3a2a1a', -3, -11, 6, 6);
       if (prof === 'guard' || e.role === 'soldier') { R(shade(cols[0], 0.25), -1, -12, 2, 6); }
       if (prof === 'bandit') { R('#2a1a18', -4, -13, 8, 2); }
-      if (e.type === 'player') { R('#1f4f56', -5, -13, 2, 9); R('#c8b46a', -1, -12, 2, 1); }
+      if (e.type === 'player') {
+        R(GL && GL.rank ? shade(GL.rank.color, -0.4) : '#1f4f56', -5, -13, 2, 9); R('#c8b46a', -1, -12, 2, 1);
+        const A = GL && GL.armor;
+        if (A) {
+          for (let i = 0; i < Math.min(5, A.plus); i++) R(A.gold ? '#f2c84a' : A.metal, -3 + i * 1.5, -10, 1, 1);
+          if (A.pauldrons) { R(A.gold ? '#d8b04a' : A.metal, -6, -13, 3, 2); R(A.gold ? '#d8b04a' : A.metal, 3, -13, 3, 2); }
+        }
+      }
       // arms
       const sw = e.attackT ? 1 : 0;
       R(look.skin, -6, -12 + Math.round(-walk), 2, 5); R(look.skin, 4, -12 + Math.round(walk) - sw * 2, 2, 5);
@@ -386,7 +394,8 @@
       R('#1a1410', -2 + (e.flip ? 0 : 2), -17, 1, 1);
       // hair / helmet / hood
       const elderHair = prof === 'elder' ? '#d8d4cc' : look.hair;
-      if (e.gear && e.gear.helm) { R('#8a8a92', -3, -20, 6, 3); R('#a8a8b0', -3, -20, 6, 1); }
+      if (GL && GL.armor && GL.armor.helm) { R(shade(GL.armor.metal, -0.25), -3, -20, 6, 3); R(GL.armor.metal, -3, -20, 6, 1); if (GL.armor.crest) R(GL.armor.glowCol, -1, -22, 2, 2); }
+      else if (e.gear && e.gear.helm) { R('#8a8a92', -3, -20, 6, 3); R('#a8a8b0', -3, -20, 6, 1); }
       else if (prof === 'bandit') { R('#3a1a16', -4, -20, 8, 4); R('#3a1a16', -4, -17, 1, 3); R('#3a1a16', 3, -17, 1, 3); }
       else if (prof === 'priest') { R('#e8dcc0', -4, -20, 8, 3); }
       else {
@@ -409,7 +418,13 @@
         if (!(e.gear && (e.gear.spear || e.gear.bow))) {
           const legendary = e.carrying && world.items[e.carrying] && (world.items[e.carrying].legend || world.items[e.carrying].history.some(h => h.t.includes('taken by')));
           const blade = legendary ? '#f2dc8a' : '#d8dce4';
-          if (e.type !== 'player' || ECHO.Game.pl && ECHO.Game.pl.weapon) { R(blade, e.flip ? -7 : 6, -18, 1, 8); R('#6a4a2a', e.flip ? -8 : 5, -10, 3, 1); }
+          const B = GL && GL.blade;
+          if (B) {
+            const len = 8 + Math.min(4, B.plus) + (B.rarity === 'legendary' ? 1 : 0), bx = e.flip ? -7 : 6;
+            if (B.glow > 0.15) { g.globalAlpha = 0.25 + B.glow * 0.35; R(B.glowCol, bx - 1, -10 - len, 3, len); g.globalAlpha = 1; }
+            R(B.metal, bx, -10 - len, 1, len); R(B.gold ? '#f2c84a' : '#6a4a2a', e.flip ? -8 : 5, -10, 3, 1);
+            for (let i = 0; i < B.gems; i++) R(B.glowCol, bx, -9 - len + 2 + i * 2, 1, 1);
+          } else if (e.type !== 'player' || ECHO.Game.pl && ECHO.Game.pl.weapon) { R(blade, e.flip ? -7 : 6, -18, 1, 8); R('#6a4a2a', e.flip ? -8 : 5, -10, 3, 1); }
         }
       }
       if (prof === 'elder') R('#6a4a2a', e.flip ? -7 : 6, -12, 1, 12);

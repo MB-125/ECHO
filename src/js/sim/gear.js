@@ -126,7 +126,7 @@
       if (!G.canPay(pl, r)) return { error: 'You lack what the smith needs.' };
       G.pay(pl, r);
       const it = ECHO.Character.makeItem(world, { kind: 'armor', name: r.name, holder: 'player', history: [{ d: world.day, t: 'made to your measure by a smith' }] });
-      it.def = r.def; it.rarity = r.def >= 20 ? 'rare' : r.def >= 10 ? 'fine' : 'common'; it.affix = r.affix || null; it.plus = 0; it.level = 1;
+      it.def = r.def; it.rarity = r.def >= 20 ? 'rare' : r.def >= 10 ? 'fine' : 'common'; it.affix = r.affix || null; it.plus = 0; it.level = 1; it.craft = r.id;
       pl.items.push(it.id);
       if (!pl.armor || G.def(world, pl) < it.def) pl.armor = it.id;
       return { item: it };
@@ -140,6 +140,27 @@
       return { total, out };
     },
     mats(pl) { return Object.keys(MATS).filter(k => pl.inv[k] > 0).map(k => ({ k, n: pl.inv[k], ...MATS[k] })); },
+    // How a piece of gear looks: the metal, the glow, the jewels — better gear, finer look.
+    look(it) {
+      if (!it) return null;
+      const R = G.rarity(it.rarity), plus = it.plus || 0;
+      const AFX = { ember: '#ff8a3a', venom: '#8fe05a', thirst: '#ff4a5a', keen: '#e8f4ff', warding: '#9fd3ff', thorns: '#c8e07a', vigor: '#ff9ab0' };
+      const METAL = { common: '#a8acb4', fine: '#d4d8e0', rare: '#9cc4ff', epic: '#c4a0ff', legendary: '#ffd884' };
+      const glowCol = it.affix ? AFX[it.affix] : it.starforged ? '#bfe8ff' : R.color;
+      const glow = Math.min(1, plus * 0.14 + (it.starforged || 0) * 0.15 + ({ common: 0, fine: 0.05, rare: 0.15, epic: 0.3, legendary: 0.45 }[R.k] || 0) + (it.affix ? 0.1 : 0));
+      const lift = (hex, f) => { const n = parseInt(hex.slice(1), 16), c = v => Math.min(255, Math.round(v + (255 - v) * f)); return '#' + ((c(n >> 16) << 16) | (c((n >> 8) & 255) << 8) | c(n & 255)).toString(16).padStart(6, '0'); };
+      const L = { rarity: R.k, color: R.color, plus, gems: Math.min(5, plus), glow, glowCol, metal: lift(METAL[R.k] || METAL.common, plus * 0.07), gold: R.k === 'epic' || R.k === 'legendary' || plus >= 4, affix: it.affix || null };
+      if (it.kind === 'armor') {
+        const CR = { leather: ['#7a5634', '#4a3420'], silk: ['#e8e4dc', '#a8a49a'], troll: ['#5a6a3a', '#3a4426'], grave: ['#3e4650', '#262a30'], golem: ['#8a8276', '#5a544c'] };
+        const RC = { common: ['#6a5a48', '#4a3e32'], fine: ['#6a7a5a', '#45503a'], rare: ['#4a6a9a', '#2e4466'], epic: ['#6a4a9a', '#422e66'], legendary: ['#b08a3a', '#6a5020'] };
+        const c = CR[it.craft] || RC[R.k] || RC.common;
+        L.body = c[0]; L.trim = c[1];
+        L.helm = (it.def || 0) >= 12 || plus >= 2;
+        L.pauldrons = plus >= 3 || R.k === 'epic' || R.k === 'legendary';
+        L.crest = plus >= 5 || R.k === 'legendary';
+      } else if (it.kind === 'bow') L.wood = { common: '#6a4a2a', fine: '#7a5634', rare: '#3a4a6a', epic: '#4a2a5a', legendary: '#8a6a2a' }[R.k] || '#6a4a2a';
+      return L;
+    },
     // Describe an item in a line.
     line(it) {
       if (!it) return '';

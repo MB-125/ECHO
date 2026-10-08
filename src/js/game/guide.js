@@ -43,7 +43,8 @@
     power(world, pl) {
       const w = world.items[pl.weapon], a = pl.armor && world.items[pl.armor];
       const dmg = w ? w.dmg : 10, def = a ? a.def || 0 : 0;
-      return U.clamp(Math.round(1 + Math.max(0, dmg - 13) / 5 + def / 9 + (pl.renown || 0) / 60), 1, 6);
+      const lv = ECHO.Prowess ? ECHO.Prowess.level(pl) : 1;
+      return U.clamp(Math.round(lv + Math.max(0, dmg - 16) / 8 + def / 15), 1, 15);
     },
     dungeons(world) { return X().sites(world).filter(s => s.cat === 'delve'); },
     // The dungeon worth going to next: known, not cleared, near your strength, not far.
@@ -129,6 +130,8 @@
       // ---- how things work
       html += `<h3 class="gold">How to…</h3><div class="prose guide-how">
 <p><b>Fight.</b> Left mouse strikes; hold it for a heavy blow. Right mouse shoots your bow. <b>Space</b> rolls through attacks; <b>Shift</b> guards (a guard just as a blow lands staggers the attacker). <b>Q</b> throws fire (hold to grow it) — many monsters burn. <b>G</b> uses herbs to heal, <b>H</b> eats. <b>R</b> locks on to a foe; <b>F</b> studies a creature.</p>
+<p><b>Grow stronger.</b> Every foe you defeat teaches you something: experience fills the purple bar under your name, and each level makes every blow harder and your life deeper. Ranks run Novice, Fighter, Veteran, Champion, Hero, Legend, Mythic. Foes above your level teach you the most; foes far below you teach you nothing. Your skills (blade, archery, flame…) also grow with use.</p>
+<p><b>Know your enemy.</b> Every foe's name shows its level, coloured by how it measures against you — grey trivial, green easy, white even, gold hard, orange deadly (☠☠), red: run (☠☠☠). ◆ marks an elite, ◆◆ a champion, ♛ a lord or great beast. The panel at the bottom-left shows the foe you face: its level and rank, its health, what it is worth, and its weakness once it is in your bestiary.</p>
 <p><b>Read a monster.</b> Over each monster is its name and level. A red circle on the ground means a slam is coming — get out of it. Poison (green) drains you over time; webs slow you; some monsters heal, split, teleport, charge or call for help. Elites (Hulking, Frenzied, Venomous, Ancient) are tougher and drop more. Floating words tell you when something resists a blow or is weak to it.</p>
 <p><b>Explore a dungeon.</b> Walk into the entrance (E). Each floor holds monsters and a small cache; the stairs lead down; the lord waits on the last floor with the great chest. You can climb back up and leave at any time. Cleared dungeons fill again after a while.</p>
 <p><b>Collect loot.</b> Monsters drop coins, parts and sometimes gear. Walk over coins and parts to pick them up; stand over gear and press <b>E</b>. Gear comes in five rarities — <span style="color:${ECHO.Gear.RARITY[0].color}">Common</span>, <span style="color:${ECHO.Gear.RARITY[1].color}">Fine</span>, <span style="color:${ECHO.Gear.RARITY[2].color}">Rare</span>, <span style="color:${ECHO.Gear.RARITY[3].color}">Epic</span>, <span style="color:${ECHO.Gear.RARITY[4].color}">Legendary</span> — and the better pieces carry a power of their own.</p>
