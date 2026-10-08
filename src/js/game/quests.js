@@ -664,6 +664,7 @@
       for (const s of X().sites(world)) {
         const d = U.dist(s.x, s.y, pe.x, pe.y);
         if (d > 2.6) continue;
+        if (s.cat === 'delve' && s.kind === 'riftdeep' && !(world.story && world.story.ch === 5 && !world.story.kingSlain)) continue;
         if (s.cat === 'delve') { X().refill(world, s); const fl = X().floors(s); out.push({ kind: 'act', label: `Enter ${s.name} — ${X().stars(s.level ? s : (X().level(world, s), s))}${fl > 1 ? ' · ' + fl + ' floors' : ''}${s.cleared ? ' (quiet now)' : ''}`, d: d * 0.5, act: () => Q.enterDelve(game, s) }); }
         else {
           const label = { stones: 'Read the standing stones', lookout: 'Look out over the land', moonwell: 'Drink from the moonwell', oak: 'Rest beneath the great oak', battlefield: 'Search the battlefield', wayshrine: 'Pray at the wayside shrine', wreck: 'Search the wreck',

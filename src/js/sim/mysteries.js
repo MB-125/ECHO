@@ -136,7 +136,7 @@
     },
     canOpen(world) {
       const v = world.lang.vault;
-      return v && !v.opened && world.lang.known.echo && world.lang.known.open;
+      return v && !v.opened && ((world.lang.known.echo && world.lang.known.open) || (world.story && world.story.ch === 4 && world.story.seals >= 3));
     },
     openVault(world) {
       const v = world.lang.vault;

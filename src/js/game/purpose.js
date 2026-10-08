@@ -26,6 +26,7 @@
       return { kind: 'ambition', label: g.done ? g.text : `${A().PATHS[g.path].icon} ${g.title}: ${g.text}${g.need > 1 ? ` (${g.have}/${g.need})` : ''}`, where: g.where, done: g.done };
     },
     trackedGoal(world, pl, id) {
+      if (id === 'story') return ECHO.Saga ? ECHO.Saga.tracked(world, pl) : null;
       if (id.startsWith('mark:')) {
         const [, x, y, ...nm] = id.split(':'), mx = +x, my = +y;
         if (U.dist(mx, my, pl.x, pl.y) < 3) { if (UI() && UI().toast) UI().toast(`You have reached ${nm.join(':')}.`, 'info', 3); return null; }
@@ -73,7 +74,7 @@
         Pu.t = 1.2;
         Pu.goal = Pu.current(game);
         // ceremonies
-        if (!UI().paused() && !game.defeating) {
+        if (!UI().paused() && !game.defeating && !(game.combatT != null && game.time - game.combatT < 6) && !game.ents.some(e => e.boss2 && !e.dead && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 12)) {
           const up = A().check(world, pl);
           for (const r of up) Pu.ceremony(game, r);
         }

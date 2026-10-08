@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -528,6 +528,29 @@ function main() {
     check('potions are brewed from herbs and parts', !why && !why2 && pl.potions.heal === 1 && pl.potions.might === 1 && pl.inv.herbs === 5, why || why2);
     pl.buffs = { stone: 30 };
     check('a stoneskin tonic turns blows', Gr.taken(B, pl, 'melee') < 0.7);
+  }
+
+  console.log('\nThe Hollow Crown');
+  {
+    const B = ECHO.generateWorld({ seed: 999, name: 'Storyworld' });
+    const pl = B.player = { charId: 'c-s', first: 'Ada', last: 'Vell', alive: true, items: [], inv: {}, gold: 0, skills: {}, x: B.settlements[0].x, y: B.settlements[0].y, explored: new Uint8Array(4000) };
+    const S = ECHO.Story, rng = ECHO.Sim.rngFor(B);
+    S.begin(B, rng);
+    check('the story begins with a voice in the stone', S.chapter(B).id === 'voice' && S.objectives(B, pl)[0].where);
+    check('a chapter does not close until its work is done', !S.advance(B, pl, rng));
+    S.flag(B, 'archive');
+    const r = S.advance(B, pl, rng);
+    check('visiting the archive opens the next chapter', r && r.next && r.next.id === 'words');
+    B.story.ch = 3;
+    for (let i = 0; i < 3; i++) S.lordSlain(B);
+    const r3 = S.advance(B, pl, rng);
+    check('three lords yield three seals, and the seals point to the vault', B.story.seals === 3 && r3 && r3.next.id === 'vault' && B.lang.vault.revealed && ECHO.Mysteries.canOpen(B));
+    ECHO.Mysteries.openVault(B);
+    const r4 = S.advance(B, pl, rng);
+    check('opening the vault opens the Rift, and a way through it', r4 && r4.next.id === 'rift' && B.rift && ECHO.Explore.sites(B).some(s => s.kind === 'riftdeep'));
+    pl.prowess = { lv: 9, xp: 0 }; S.kingSlain(B);
+    const r5 = S.advance(B, pl, rng);
+    check('slaying the Hollow King seals the Rift and ends the story', r5 && !r5.next && B.story.done && B.rift.sealed);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

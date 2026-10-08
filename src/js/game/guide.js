@@ -11,6 +11,10 @@
 
   // How to do each kind of objective (matched on the objective's text).
   const HOW = [
+    [/archive of a capital/i, 'Each capital has an archive. Walk into it and press E at the shelves or the lectern — or ask a scholar about the old records.'],
+    [/seals taken/i, 'The lords on the deepest floors of the big dungeons (catacombs, warrens, nests, troll dens, sanctums, forges) each carry a seal. Grow strong first — the guide suggests dungeons that match you.'],
+    [/strong enough to face him/i, 'Fight foes at or above your level: dungeon lords, great beasts and elites teach you the most.'],
+    [/hollow king/i, 'Go to the Rift and step through it (E). Bring potions, a companion, and the best gear you can get.'],
     [/outlaws or beasts/i, 'Wolves roam the wild and outlaws camp off the roads. Follow the arrow at the top of the screen to the nearest camp. Left mouse strikes, right mouse shoots, Space rolls, Shift guards.'],
     [/plea/i, 'Read the notice board in any town square (walk up and press E), or talk to anyone who looks troubled. Accept a plea, do it, and come back to claim the reward.'],
     [/delve or dungeon|deep dungeon/i, 'Dungeons are marked ▼ on the map (M) once you have seen them; the stars show how dangerous they are. Fight floor by floor, take the stairs down, and open the chest on the last floor to clear it. The Guide page lists the ones you know.'],

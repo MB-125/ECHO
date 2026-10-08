@@ -71,7 +71,7 @@
       const fighting = game.combatT != null && game.time - game.combatT < 4;
       if (fighting !== UI.wasFighting) { UI.wasFighting = fighting; $('#hud').classList.toggle('fighting', fighting); }
       set('#hud-hero', pl.first + ' ' + pl.last);
-      const hon = ECHO.Ambition && ECHO.Ambition.honor(pl);
+      const hon = pl.honor || (ECHO.Ambition && ECHO.Ambition.honor(pl));
       set('#hud-title', hon ? `${hon} · ${ECHO.Character.title(pl)}` : ECHO.Character.title(pl));
       $('#hud-left .hp .fill').style.transform = `scaleX(${U.clamp(pl.hp / pl.maxHp, 0, 1)})`;
       set('#hud-left .hp span', Math.ceil(pl.hp) + ' / ' + Math.round(pl.maxHp));
@@ -1132,6 +1132,7 @@
 
     // ------------------------------------------------------------ Archive
     openArchive(s) {
+      if (s && s.kind === 'capital' && ECHO.Story) ECHO.Story.flag(ECHO.Game.world, 'archive');
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const body = UI.openPanel(`The archive of ${s.name}`, '', 'archive');
       let tab = 'chron', filter = 'all', page = 0;
@@ -1301,9 +1302,10 @@
       const body = UI.openPanel('Journal', '', 'journal');
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
-        const tabs = [['guide', 'Guide'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
+        const tabs = [['guide', 'Guide'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'guide') { html += ECHO.Guide.html(game); if (ECHO.Tutorial) ECHO.Tutorial.flag('guide'); }
+        else if (tab === 'story') html += ECHO.Saga.html(world, pl);
         else if (tab === 'ambition') html += ECHO.Purpose.journalHtml(world, pl);
         else if (tab === 'tasks') {
           const mine = world.plights.filter(p => pl.accepted.includes(p.id));
