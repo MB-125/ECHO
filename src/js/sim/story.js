@@ -63,7 +63,7 @@
     if (!w.rift && ECHO.Civ) { const f = Object.values(w.factions).filter(f => f.type === 'kingdom').sort((a, b) => (b.tech && b.tech.era || 0) - (a.tech && a.tech.era || 0))[0]; if (f) ECHO.Civ.openRift(w, f, rng); }
     const r = w.rift; if (!r) return;
     const sites = ECHO.Explore.sites(w);
-    if (!sites.some(s => s.kind === 'riftdeep')) sites.push({ id: 'site_rift', cat: 'delve', kind: 'riftdeep', name: 'Beyond the Rift', x: r.x + 0.5, y: r.y + 0.5, found: true, seen: true, cleared: false, used: {}, level: 8, hidden: true });
+    if (!sites.some(s => s.kind === 'riftdeep')) sites.push({ id: 'site_rift', cat: 'delve', kind: 'riftdeep', name: 'Beyond the Rift', x: r.x + 0.5, y: r.y + 0.5, found: true, seen: true, cleared: false, used: {}, level: 7, hidden: true });
   };
 
   const St = ECHO.Story = {

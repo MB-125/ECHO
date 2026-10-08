@@ -87,7 +87,9 @@
       const L = P.foeLevel(e), me = P.level(pl);
       const R = FOE_RANK[P.foeRank(e)];
       const gap = L - me;
-      const scale = gap <= -4 ? 0.05 : U.clamp(1 + 0.3 * gap, 0.2, 2.5);
+      // foes well below you teach little; the deepest places top out around level 9,
+      // so the penalty is gentle enough that the last levels are still reachable
+      const scale = gap <= -6 ? 0.05 : U.clamp(1 + 0.2 * gap, 0.25, 2.5);
       // no single kill carries you too far: about two levels, three for a lord or a great beast
       const rk = P.foeRank(e), cap = P.capXp(pl, rk === 'great' || rk === 'lord' ? 3 : 2);
       return Math.max(1, Math.min(cap, Math.round(8 * Math.pow(L, 1.3) * R.mult * scale)));
