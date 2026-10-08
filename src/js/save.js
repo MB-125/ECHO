@@ -20,7 +20,8 @@
     serialize(world) {
       const out = {};
       for (const k of Object.keys(world)) {
-        if (k[0] === '_' && k !== '_eid') continue;
+        // derived caches are rebuilt on load; plain flags and counters are kept
+        if (k[0] === '_' && (typeof world[k] === 'object' || k === '_tileEpoch' || k === '_hourAcc')) continue;
         if (k === 'blocked') continue;
         out[k] = world[k];
       }
@@ -32,6 +33,9 @@
       w.tiles = fromB64(w.tiles);
       w.journeys = w.journeys || [];
       w.news = w.news || [];
+      // saves made before the flags were kept: don't place the wild a second time
+      if (w.caches && !w._wild) w._wild = 1;
+      if (w.sites && !w._dng && ECHO.Explore && w.sites.some(x => ECHO.Explore.DUNGEONS.some(([k]) => k === x.kind))) w._dng = 1;
       ECHO.World.rebuildBlocked(w);
       return w;
     },

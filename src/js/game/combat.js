@@ -67,7 +67,7 @@
       const p = {
         x: att.x + Math.cos(angle) * (att.r + 0.25), y: att.y + Math.sin(angle) * (att.r + 0.25) - 0.15,
         vx: Math.cos(angle) * o.speed, vy: Math.sin(angle) * o.speed, angle, kind: o.kind, dmg: o.dmg, from: att,
-        t: 0, life: o.life || 1.4, radius: o.radius || 0, power: o.power || 1, type: o.type || 'ranged'
+        t: 0, life: o.life || 1.4, radius: o.radius || 0, power: o.power || 1, type: o.type || 'ranged', color: o.color, effect: o.effect
       };
       C.proj.push(p);
       return p;
@@ -109,6 +109,7 @@
           if (ECHO.World.isSolid(world, p.x, p.y) && ECHO.World.tile(world, p.x, p.y) !== ECHO.TILE.WATER) {
             p.done = true;
             if (p.kind === 'fire') C.explode(p);
+            else if (p.kind === 'orb') C.burst(p.x, p.y, p.color || '#b48aff', 8, 2, 0.35, 2);
             else { C.burst(p.x, p.y, '#c9b28a', 4, 2, 0.3, 1); if (p.from === game.pe && ECHO.Sfx) ECHO.Sfx.play('arrowHit', { vol: 0.4 }); }
             break;
           }
@@ -121,6 +122,7 @@
             if (!canHit) continue;
             p.done = true;
             if (p.kind === 'fire') C.explode(p);
+            else if (p.kind === 'orb') ECHO.Monsters.orbHit(game, p, e);
             else C.damage(e, p.dmg, { type: 'ranged', from: p.from, angle: p.angle, knock: p.crit ? 0.22 : 0.08, crit: p.crit, stagger: p.crit ? 0.35 : 0 });
             break;
           }
@@ -209,8 +211,11 @@
         dmg *= 1 - (b.armor[type] || 0);
         ECHO.Boss.noteDamage(target, type, dmg);
       }
+      // Monsters' resistances and weaknesses
+      if (target.resist && ECHO.Monsters) dmg = ECHO.Monsters.resist(game, target, type, dmg, from);
       // Critical: knowledge of the creature's weak points
       let crit = !!src.crit;
+      if (from === game.pe && !crit && ECHO.Monsters && Math.random() < ECHO.Monsters.keen(game, type)) crit = true;
       if (from === game.pe && !crit) {
         const known = target.species ? (game.pl.studied[target.species] || 0) : target.type === 'boss' ? (game.pl.studied['boss:' + target.boss.id] || 0) : 0;
         if (Math.random() < Math.min(0.35, known * 0.035)) crit = true;
@@ -219,7 +224,7 @@
       if (crit) dmg *= 1.8;
       if (src.stealth) dmg *= from === game.pe ? ECHO.Tech.stealthMul() : 3;
       if (from === game.pe && target !== game.pe) dmg *= ECHO.Tech.dealt(target, src);
-      if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken();
+      if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken() * (ECHO.Gear ? ECHO.Gear.taken(world, game.pl, type) : 1);
       dmg = Math.max(1, Math.round(dmg));
       // Your own fire can hurt you badly, but never below 15% of your life.
       if (target === game.pe && (from === game.pe || !from)) { const floor = Math.max(1, target.maxHp * 0.15); if (target.hp - dmg < floor) dmg = Math.max(0, Math.floor(target.hp - floor)); }
@@ -235,7 +240,8 @@
         if (target.species === 'wolf' && (target.state === 'windup' || target.state === 'lunge')) { target.state = 'retreat'; target.t = 0; }
         if (target.type === 'boss' && st > 0.3) C.floater(target.x, target.y - 2, 'staggered', '#ffe08a');
       }
-      if (target === game.pe) { game.pl.hp = target.hp; game.lastHurtTime = game.time; if (from && from !== game.pe) { game.combatT = game.time; ECHO.Tech.onHurt(game, dmg); } }
+      if (target === game.pe) { game.pl.hp = target.hp; game.lastHurtTime = game.time; if (from && from !== game.pe) { game.combatT = game.time; ECHO.Tech.onHurt(game, dmg); if (from.ab && type !== 'magic') ECHO.Monsters.hitPlayer(game, from, dmg); } }
+      if (from === game.pe && target.foe && ECHO.Monsters) ECHO.Monsters.playerHit(game, target, dmg, type);
       if (from === game.pe && target !== game.pe && target.type !== 'ghost' && !(target.type === 'creature' && target.species === 'hare')) ECHO.Tech.onHit(game, target, { ...src, crit, wasStaggered, perfect: !!src.crit }, dmg);
       if (from === game.pe && target !== game.pe) {
         const sk = type === 'melee' ? 'blade' : type === 'ranged' ? 'archery' : 'flame';

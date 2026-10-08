@@ -37,9 +37,11 @@
       const d = U.dist(e.x, e.y, pe.x, pe.y);
       const hostile = !pe.dead && !game.pl.capture && !game.defeating;
       const sees = hostile && (d < (e.indoor ? 14 : 9) || e.aggro) && (d < 3 || ECHO.Ent.lineOfSight(world, e.x, e.y, pe.x, pe.y));
-      if (sees) e.aggro = true;
+      if (sees && !e.aggro) { e.aggro = true; for (const o of game.ents) if (o !== e && o.foe && !o.aggro && !o.dead && o.floor === e.floor && U.dist(o.x, o.y, e.x, e.y) < (e.ab && e.ab.pack ? 12 : 7)) o.aggro = true; }
       if (!e.aggro || !hostile || d > 22) { e.state = 'idle'; e.moving = false; if (Math.random() < dt * 0.2) e.dir = Math.random() * Math.PI * 2; return; }
       const ang = Math.atan2(pe.y - e.y, pe.x - e.x);
+      if (ECHO.Monsters && ECHO.Monsters.tick(game, e, dt, d, ang)) return;
+      const dmul = e.dmgMul || 1;
       // the elites call for help once, when hurt
       if (F.elite && !e.called && e.hp < e.maxHp * 0.5) {
         e.called = true;
@@ -55,19 +57,20 @@
         case 'windup':
           e.moving = false; e.dir = e.aim; e.flip = Math.cos(e.dir) < 0;
           if (e.t > e.windEnd) {
+            if (ECHO.Monsters && ECHO.Monsters.afterWindup(game, e)) return;
             e.state = 'attack'; e.t = 0; e.attackT = 0.2; e.attackDur = 0.2; e.attackKind = 'fore';
-            if (e.shooter) ECHO.Combat.shoot(e, e.aim + (Math.random() - 0.5) * 0.1, { kind: 'arrow', speed: 13, dmg: F.dmg * 0.8, life: 1.3, type: 'ranged' });
+            if (e.shooter) ECHO.Combat.shoot(e, e.aim + (Math.random() - 0.5) * 0.1, { kind: 'arrow', speed: 13, dmg: F.dmg * 0.8 * dmul, life: 1.3, type: 'ranged' });
             else {
-              ECHO.Combat.melee(e, { angle: e.aim, arc: F.elite ? 2.2 : 1.6, range: F.reach, dmg: F.dmg * (0.9 + Math.random() * 0.2), knock: F.elite ? 0.3 : 0.15 });
+              ECHO.Combat.melee(e, { angle: e.aim, arc: F.elite ? 2.2 : 1.6, range: F.reach, dmg: F.dmg * dmul * (0.9 + Math.random() * 0.2), knock: F.elite || e.boss2 ? 0.3 : 0.15 });
               ECHO.Combat.slash(e.x, e.y, e.aim, F.reach + 0.1, F.elite ? 2.2 : 1.6, F.look === 'wight' || F.look === 'king' ? 'rgba(170,255,210,0.75)' : 'rgba(255,220,200,0.7)');
             }
-            e.cd = F.cd + Math.random() * 0.5;
+            e.cd = (F.cd + Math.random() * 0.5) * (e.cdMul || 1);
           }
           return;
         case 'attack': if (e.t > 0.25) e.state = 'chase'; return;
         default: {
           e.state = 'chase';
-          e.shooter = e.gear.bow && d > 3;
+          e.shooter = (e.gear.bow || (e.ab && e.ab.ranged)) && d > 3;
           const want = e.shooter ? 6 : F.reach + 0.3;
           if (d > want) ECHO.Ent.travel(world, e, pe.x, pe.y, e.speed, dt);
           else if (e.shooter && d < 4) ECHO.Ent.seek(world, e, e.x - Math.cos(ang) * 2, e.y - Math.sin(ang) * 2, e.speed * 0.8, dt);
@@ -83,8 +86,12 @@
     },
     onKill(target, from) {
       const game = ECHO.Game, world = game.world;
-      const gold = target.foe ? (target.foe.elite ? 30 + Math.floor(Math.random() * 40) : Math.floor(Math.random() * 8)) : 0;
-      if (gold) game.loot.push({ x: target.x, y: target.y, kind: 'gold', qty: gold });
+      if (ECHO.Monsters && ECHO.Monsters.DEFS[target.species]) ECHO.Monsters.onKill(game, target);
+      else {
+        const gold = target.foe ? (target.foe.elite ? 30 + Math.floor(Math.random() * 40) : Math.floor(Math.random() * 8)) : 0;
+        if (gold) game.loot.push({ x: target.x, y: target.y, kind: 'gold', qty: gold });
+        if (target.foe && target.foe.look === 'wight' && Math.random() < 0.5) game.loot.push({ x: target.x + 0.3, y: target.y, kind: 'bonedust', qty: 1 });
+      }
       if (target.questId) {
         const p = ECHO.Plights.byId(world, target.questId);
         if (p && p.status === 'open') {
@@ -101,19 +108,29 @@
       }
       if (target.delve) {
         const site = X().byId(world, target.delve);
-        const left = game.ents.filter(e => e.delve === target.delve && !e.dead && e !== target).length;
-        if (site && !left) UI().toast(`${U.cap(site.name)} falls quiet. Whatever was down here is finished — and what it guarded is yours.`, 'legend', 5);
+        const L = ECHO.Interior.cur;
+        const left = game.ents.filter(e => e.delve === target.delve && !e.dead && e !== target && (e.floor == null || e.floor === target.floor)).length;
+        if (site && !left) {
+          site.floorsDone = site.floorsDone || {}; site.floorsDone[target.floor || 0] = world.day;
+          const last = !L || L.depth >= L.floors - 1;
+          UI().toast(last ? `${U.cap(site.name)} falls quiet. Whatever was down here is finished — and what it guarded is yours.` : 'This floor is quiet now. The stairs lead deeper — the things below are stronger.', 'legend', 5);
+        }
       }
       void from;
     },
 
     // ------------------------------------------------------------ delves (rooms below ground)
-    delveBuilding(site, s) { return { id: 'delve_' + site.id, type: 'delve', site, x: Math.floor(site.x), y: Math.floor(site.y), w: 1, h: 1, s }; },
+    delveBuilding(site, s, depth = 0) { return { id: 'delve_' + site.id + '_' + depth, type: 'delve', site, depth, x: Math.floor(site.x), y: Math.floor(site.y), w: 1, h: 1, s }; },
+    // One floor of a delve or dungeon.
     layout(game, b, s, BASE) {
-      const world = game.world, site = b.site;
-      const W = site.kind === 'hideout' ? 19 : 23, H = site.kind === 'hideout' ? 13 : 16;
-      const cave = site.kind === 'cave';
-      const L = { id: b.id, b, s, type: 'delve', kind: site.kind, site, W, H, floor: cave ? 'cave' : 'crypt', wall: cave ? 'rock' : 'stone', cave: true, furn: [], spots: [], lights: [], blocked: new Uint8Array(W * H) };
+      const world = game.world, site = b.site, depth = b.depth || 0;
+      const def = X().DELVES[site.kind] || {};
+      const floors = X().floors(site), last = depth >= floors - 1;
+      const small = site.kind === 'hideout';
+      const W = small ? 19 : depth ? 25 : 23, H = small ? 13 : depth ? 18 : 16;
+      const style = def.style || 'cave';
+      const cave = style === 'cave';
+      const L = { id: b.id, b, s, type: 'delve', kind: site.kind, site, depth, floors, W, H, floor: cave ? 'cave' : style === 'stone' ? 'stone' : 'crypt', wall: cave ? 'rock' : 'stone', cave: true, furn: [], spots: [], lights: [], webs: [], blocked: new Uint8Array(W * H) };
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x === 0 || y === 0 || x === W - 1 || y === H - 1) L.blocked[y * W + x] = 1;
       L.doorX = Math.floor(W / 2);
       const f = (model, x, y, o = {}) => {
@@ -123,53 +140,73 @@
         if (it.light) L.lights.push({ x: BASE + x, y, ...it.light });
         return it;
       };
-      const rng = new ECHO.RNG(ECHO.hashStr(site.id + world.seed));
-      const free = (x, y) => Math.abs(x - L.doorX) > 2.5 || y < H - 4;
-      // pillars / boulders break up the room
-      for (let i = 0; i < 9; i++) {
+      const rng = new ECHO.RNG(ECHO.hashStr(site.id + world.seed + ':' + depth));
+      const keep = (x, y) => (Math.abs(x - L.doorX) > 2.5 || y < H - 4) && !(x > W - 5 && y < 4) && !(x < 5 && y > H - 5) && !(Math.abs(x - W / 2) < 2.5 && y < 6);
+      // pillars, boulders and broken walls break up the room
+      const nPill = 8 + depth * 2 + (small ? -3 : 0);
+      for (let i = 0; i < nPill; i++) {
         const x = 2.5 + rng.int(0, W - 6), y = 2.5 + rng.int(0, H - 7);
-        if (!free(x, y) || (Math.abs(x - W / 2) < 2 && y < 4)) continue;
-        if (cave) f('boulder', x, y, { scale: 0.6 + rng.next() * 0.4, rot: rng.next() * 6 });
-        else f('pillar', x, y, { scale: 0.9 });
+        if (!keep(x, y)) continue;
+        if (cave) f('boulder', x, y, { scale: 0.6 + rng.next() * 0.45, rot: rng.next() * 6 });
+        else f('pillar', x, y, { scale: 0.9, colors: style === 'stone' ? { stone: '#5a4a40' } : null });
       }
       // light
-      const glow = site.kind === 'barrow' || site.kind === 'crypt' ? { r: 5, a: 0.9, color: '#9fe8c8', h: 1.1 } : { r: 5, a: 1.0, color: '#ffb060', h: 1.1 };
-      for (const [x, y] of [[2.5, 2.5], [W - 2.5, 2.5], [2.5, H - 3], [W - 2.5, H - 3]]) f('candles', x, y, { solid: false, light: glow, colors: site.kind === 'barrow' || site.kind === 'crypt' ? { flame: '#9fe8c8', glow: '#9fe8c8' } : null });
+      const glow = { r: 5.5, a: 0.95, color: def.glow || '#ffb060', h: 1.1 };
+      const lights = [[2.5, 2.5], [W - 2.5, 2.5], [2.5, H - 3], [W - 2.5, H - 3]];
+      if (depth) lights.push([W / 2, H / 2 + 2]);
+      for (const [x, y] of lights) f('candles', x, y, { solid: false, light: glow, colors: { flame: def.glow || '#ffb060', glow: def.glow || '#ffb060' } });
       // furnishing by kind
-      if (site.kind === 'barrow' || site.kind === 'crypt') {
-        f('altar', W / 2, 2.2, { w: 3, h: 1 });
-        f('tablet', W / 2 - 3.5, 1.7, { action: 'delvetablet', label: 'Read the carving' });
-        for (let i = 0; i < 4; i++) f('chest', 3 + i * (W - 6) / 3, H / 2 + (i % 2 ? 2 : -2), { scale: 0.7, rot: Math.PI / 2, solid: true, colors: { wood: '#5a5650', darkwood: '#3a3632' } });
-      } else if (site.kind === 'hideout') {
-        for (let i = 0; i < 6; i++) f(i % 2 ? 'crate' : 'barrel', 2 + rng.int(0, W - 4), 2 + rng.int(0, 3));
-        f('table', W / 2 + 3, H / 2, { w: 2, h: 1 });
-      } else {
-        for (let i = 0; i < 5; i++) f('rock', 2 + rng.int(0, W - 4), 2 + rng.int(0, H - 5), { solid: false, scale: 0.35, colors: { rock: '#e2dccb', darkstone: '#cfc7b4' } });
-      }
-      L.chest = f('chest', W / 2, cave ? 2.2 : 3.6, { action: 'delvechest', label: site.chestTaken ? 'An empty chest' : 'Open the chest', colors: { metal: '#e8c860' } });
+      const K = site.kind;
+      if ((K === 'barrow' || K === 'crypt') && depth === 0) f('tablet', W / 2 - 3.5, 1.7, { action: 'delvetablet', label: 'Read the carving' });
+      if (K === 'barrow' || K === 'crypt' || K === 'catacomb') for (let i = 0; i < 4; i++) f('chest', 3 + i * (W - 6) / 3, H / 2 + (i % 2 ? 2 : -2), { scale: 0.7, rot: Math.PI / 2, colors: { wood: '#5a5650', darkwood: '#3a3632' } });
+      if (K === 'hideout' || K === 'warren') { for (let i = 0; i < 6; i++) { const x = 2 + rng.int(0, W - 4), y = 2 + rng.int(0, 3); if (keep(x, y)) f(i % 2 ? 'crate' : 'barrel', x, y); } }
+      if (K === 'warren') f('campfire', W / 2 - 3, H / 2, { solid: false, light: { r: 4, a: 1, color: '#ff9a4a', h: 0.6 } });
+      if (K === 'cave' || K === 'trollden' || K === 'nest') for (let i = 0; i < 6; i++) f('rock', 2 + rng.int(0, W - 4), 2 + rng.int(0, H - 5), { solid: false, scale: 0.35, colors: { rock: '#e2dccb', darkstone: '#cfc7b4' } });
+      if (K === 'nest' || def.webs) for (let i = 0; i < 7 + depth * 2; i++) { const x = 2 + rng.int(0, W - 4) + 0.5, y = 2 + rng.int(0, H - 6) + 0.5; if (keep(x, y)) L.webs.push({ x, y, r: 0.8 + rng.next() * 0.6 }); }
+      if (K === 'forge') { f('forge', W / 2 - 4, 2.2, { w: 2, h: 1, light: { r: 6, a: 1.2, color: '#ff7a2a', h: 0.8 } }); f('forge', W / 2 + 4, 2.2, { w: 2, h: 1, light: { r: 6, a: 1.2, color: '#ff7a2a', h: 0.8 } }); }
+      if ((K === 'sanctum' || K === 'catacomb') && last) f('altar', W / 2, 2.2, { w: 3, h: 1, colors: { glow: def.glow } });
+      if ((K === 'barrow' || K === 'crypt') && last) f('altar', W / 2, 2.2, { w: 3, h: 1 });
+      // the way down, the way back up, and a cache on each floor
+      if (!last) f('stairs', W - 2.6, 2.4, { w: 2, h: 2, action: 'delvedown', label: `Go down the stairs (floor ${depth + 2} of ${floors})` });
+      if (depth > 0) f('stairs', 2.6, H - 2.6, { w: 2, h: 2, action: 'delveup', label: 'Climb back up a floor', rot: Math.PI });
+      if (!last) { const cx = 2.5 + rng.int(0, 1) * (W - 9), cy = 2.6; f('chest', cx + 0.5, cy, { scale: 0.8, action: 'delvecache', label: (site.caches || {})[depth] ? 'An empty cache' : 'Open the cache' }); }
+      if (last) L.chest = f('chest', W / 2, cave ? 2.4 : 3.6, { action: 'delvechest', label: site.chestTaken ? 'An empty chest' : 'Open the chest', colors: { metal: '#e8c860' } });
       L.inside = { x: BASE + L.doorX + 0.5, y: H - 1.5 };
       L.outside = { x: site.x, y: site.y + 1.6 };
-      L.name = U.cap(site.name);
+      L.name = U.cap(site.name) + (floors > 1 ? ` — ${depth === floors - 1 ? 'the deepest floor' : 'floor ' + (depth + 1) + ' of ' + floors}` : '');
       return L;
     },
     populate(game, L) {
-      const world = game.world, site = L.site, BASE = ECHO.Interior.BASE;
-      if (site.cleared) return;
+      const world = game.world, site = L.site, BASE = ECHO.Interior.BASE, depth = L.depth || 0;
+      site.floorsDone = site.floorsDone || {};
+      if (site.cleared || site.floorsDone[depth]) return;
       const def = X().DELVES[site.kind];
-      const n = 4 + Math.min(4, site.round || 0) + (site.kind === 'cave' ? 1 : 0);
+      const last = depth >= L.floors - 1;
+      const lvl = Math.min(9, X().level(world, site) + Math.floor(depth / 2) + Math.floor((site.round || 0) / 2));
+      const n = Math.min(12, 4 + depth + Math.min(3, site.round || 0) + (L.W > 23 ? 1 : 0) - (last ? 1 : 0));
       const spots = [];
       for (let y = 2; y < L.H - 5; y++) for (let x = 2; x < L.W - 2; x++) if (!L.blocked[y * L.W + x]) spots.push({ x: BASE + x + 0.5, y: y + 0.5 });
       spots.sort(() => Math.random() - 0.5);
-      const put = (mk) => { const s0 = spots.pop(); if (s0) { const e = mk(s0.x, s0.y); e.delve = site.id; e.indoor = true; game.ents.push(e); } };
+      const roster = (def.roster || [[def.foes, 1]]).concat(depth >= 1 ? def.deep || [] : []);
+      const pick = () => { const tot = roster.reduce((a, r) => a + r[1], 0); let r = Math.random() * tot; for (const [k, w] of roster) { r -= w; if (r <= 0) return k; } return roster[0][0]; };
+      const tag = e => { e.delve = site.id; e.indoor = true; e.floor = depth; return e; };
+      const wolf = (x, y, boss) => { const e = ECHO.Spawner.makeCreature(game, 'wolf', x, y, null, 'den'); e.lvl = lvl; e.hp = e.maxHp = Math.round(e.maxHp * (1 + 0.35 * (lvl - 1)) * (boss ? 3 : 1)); e.dmgMul = (e.dmgMul || 1) * (1 + 0.25 * (lvl - 1)) * (boss ? 1.7 : 1); if (boss) { e.scale = 1.5; e.label = 'the Den-Mother'; e.boss2 = true; } return tag(e); };
       for (let i = 0; i < n; i++) {
-        if (def.foes === 'wolf') put((x, y) => { const e = ECHO.Spawner.makeCreature(game, 'wolf', x, y, null, 'den'); e.aggro = i < 2; return e; });
-        else put((x, y) => Q.makeFoe(game, def.foes, x, y));
+        const s0 = spots.pop(); if (!s0) break;
+        const k = pick();
+        const e = k === 'wolf' ? wolf(s0.x, s0.y) : tag(ECHO.Monsters.make(game, k, s0.x, s0.y, lvl));
+        if (k === 'wolf') e.aggro = i < 2;
+        game.ents.push(e);
       }
-      // the master of the place, by the chest
-      const bx = BASE + L.W / 2, by = 5;
-      if (def.foes === 'wolf') { const e = ECHO.Spawner.makeCreature(game, 'wolf', bx, by, null, 'den'); e.hp = e.maxHp = 170; e.scale = 1.5; e.dmgMul = 1.7; e.label = 'the Den-Mother'; e.delve = site.id; e.indoor = true; game.ents.push(e); }
-      else { const e = Q.makeFoe(game, def.boss, bx, by); e.delve = site.id; e.indoor = true; game.ents.push(e); }
+      // the master of the place, on the deepest floor
+      if (last) {
+        const bx = BASE + L.W / 2, by = L.cave ? 5 : 6;
+        const e = def.boss === 'den-mother' ? wolf(bx, by, true) : tag(ECHO.Monsters.make(game, def.boss, bx, by, lvl + 1, { noElite: true }));
+        if (!ECHO.Monsters.DEFS[def.boss] && e.foe) { e.hp = e.maxHp = Math.round(e.maxHp * (1 + 0.4 * (lvl - 1))); e.boss2 = true; }
+        game.ents.push(e);
+      }
       ECHO.Music.stinger('discover');
+      if (ECHO.Monsters) ECHO.Monsters.tip(game, 'dungeon');
     },
     use(game, it) {
       const L = ECHO.Interior.cur, world = game.world, pl = game.pl, site = L.site;
@@ -183,12 +220,33 @@
         UI().toast(`Old runes, cut deep. You make out two words of ${lang.name}: ${words.join(', ')}.`, 'study', 6);
         return;
       }
+      if (it.action === 'delvedown' || it.action === 'delveup') {
+        const d = (L.depth || 0) + (it.action === 'delvedown' ? 1 : -1);
+        if (d < 0) return ECHO.Interior.leave(game);
+        ECHO.Sfx.play('door');
+        return Q.enterDelve(game, site, d);
+      }
+      if (it.action === 'delvecache') {
+        site.caches = site.caches || {};
+        if (site.caches[L.depth]) return UI().toast('The cache is empty.', 'info', 2);
+        site.caches[L.depth] = true; it.label = 'An empty cache';
+        const lvl = X().level(world, site) + Math.floor((L.depth || 0) / 2);
+        const gold = Math.round((12 + Math.random() * 25) * (1 + 0.3 * (lvl - 1))); pl.gold += gold;
+        const out = [`${gold} crowns`];
+        const D = X().DELVES[site.kind];
+        const mats = (D.roster || []).map(r => ECHO.Monsters.DEFS[r[0]]).filter(Boolean).flatMap(m => (m.loot || []).map(l => l[0]));
+        if (mats.length) { const k = mats[Math.floor(Math.random() * mats.length)], q = 1 + Math.floor(Math.random() * 3); pl.inv[k] = (pl.inv[k] || 0) + q; out.push(`${q} ${ECHO.Gear.MATS[k].name}`); }
+        if (Math.random() < 0.3) { pl.inv.herbs = (pl.inv.herbs || 0) + 1; out.push('a bundle of herbs'); }
+        if (Math.random() < 0.3) { ECHO.Monsters.dropGear(game, ECHO.Interior.BASE + it.x, it.y + 1, lvl, 4, `in a cache in ${site.name}`); out.push('something wrapped in oilcloth (on the floor)'); }
+        ECHO.Sfx.play('coin');
+        return UI().toast(`In the cache: ${out.join(', ')}.`, 'legend', 5);
+      }
       if (it.action === 'delvechest') {
-        const alive = game.ents.filter(e => e.delve === site.id && !e.dead).length;
+        const alive = game.ents.filter(e => e.delve === site.id && !e.dead && (e.floor == null || e.floor === (L.depth || 0))).length;
         if (alive) return UI().toast('Not with them still about.', 'warn', 2);
         if (site.chestTaken) return UI().toast('The chest is empty.', 'info', 2);
         site.chestTaken = true; site.cleared = true; site.clearedDay = world.day;
-        if (ECHO.Ambition) ECHO.Ambition.note(pl, 'delves');
+        if (ECHO.Ambition) { ECHO.Ambition.note(pl, 'delves'); if (X().floors(site) >= 3) ECHO.Ambition.note(pl, 'deep'); }
         it.label = 'An empty chest';
         const got = Q.loot(game, site);
         ECHO.Sfx.play('coin'); ECHO.Music.stinger('star');
@@ -224,6 +282,14 @@
         if (p) { p.mapped = true; pl.accepted.push(p.id); out.push('a treasure map, marked in a smuggler\'s hand (see your journal)'); }
       }
       if (r() < 0.5) { pl.inv.herbs += 2; out.push('2 bundles of herbs'); }
+      // the dungeon's own treasures
+      const lv = X().level(world, site) + Math.floor(((ECHO.Interior.cur && ECHO.Interior.cur.depth) || 0) / 2);
+      const D = X().DELVES[site.kind];
+      const MATS = { catacomb: ['grave', 'bonedust'], warren: ['trinket', 'fetish'], nest: ['queensilk', 'silk', 'venom'], trollden: ['tusk', 'trollhide'], sanctum: ['sigil', 'ecto'], forge: ['core', 'heartstone'], crypt: ['bonedust', 'ecto'], barrow: ['bonedust'] }[site.kind];
+      if (MATS) for (const k of MATS) if (r() < 0.75) { const q = 1 + Math.floor(r() * 2); pl.inv[k] = (pl.inv[k] || 0) + q; out.push(`${q} ${ECHO.Gear.MATS[k].name}`); }
+      const L0 = ECHO.Interior.cur;
+      if (L0 && L0.chest) { ECHO.Monsters.dropGear(game, ECHO.Interior.BASE + L0.chest.x, L0.chest.y + 1.2, lv + 1, 14 + lv * 3, `at the bottom of ${site.name}`); out.push('a piece of gear, left on the floor beside the chest — take it (E)'); }
+      if (lv >= 3 && D) { const extra = Math.round(lv * 25 * r()); pl.gold += extra; if (extra) out.push(`${extra} more crowns, hidden under the lining`); }
       return out;
     },
 
@@ -234,7 +300,7 @@
       pl.discovered = (pl.discovered || 0) + 1;
       ECHO.Music.stinger('discover');
       UI().banner(U.cap(site.name), X().label(site));
-      UI().toast(`${X().desc(site)}${site.cat === 'delve' ? ' (E to enter.)' : ''}${site.unnamed ? ' No one has ever charted this place.' : ' The archives pay for accounts of places like this.'}`, 'legend', 7);
+      UI().toast(`${X().desc(site)}${site.cat === 'delve' ? ` Danger ${X().stars((X().level(world, site), site))}${X().floors(site) > 1 ? ', ' + X().floors(site) + ' floors deep' : ''}. (E to enter.)` : ''}${site.unnamed ? ' No one has ever charted this place.' : ' The archives pay for accounts of places like this.'}`, 'legend', 7);
       if (site.unnamed) setTimeout(() => Q.nameModal(game, site), 1400);
       ECHO.Chronicle.add(world, { text: `${pl.first} ${pl.last} came upon ${site.name}.`, kind: 'player', importance: 0, x: site.x, y: site.y, char: pl.charId });
       if (site.kind === 'lookout') { site.used[pl.charId] = world.day; Q.lookout(game, site, true); }
@@ -493,7 +559,7 @@
       for (const s of X().sites(world)) {
         const d = U.dist(s.x, s.y, pe.x, pe.y);
         if (d > 2.6) continue;
-        if (s.cat === 'delve') { X().refill(world, s); out.push({ kind: 'act', label: `Enter ${s.name}${s.cleared ? ' (quiet now)' : ''}`, d: d * 0.5, act: () => Q.enterDelve(game, s) }); }
+        if (s.cat === 'delve') { X().refill(world, s); const fl = X().floors(s); out.push({ kind: 'act', label: `Enter ${s.name} — ${X().stars(s.level ? s : (X().level(world, s), s))}${fl > 1 ? ' · ' + fl + ' floors' : ''}${s.cleared ? ' (quiet now)' : ''}`, d: d * 0.5, act: () => Q.enterDelve(game, s) }); }
         else {
           const label = { stones: 'Read the standing stones', lookout: 'Look out over the land', moonwell: 'Drink from the moonwell', oak: 'Rest beneath the great oak', battlefield: 'Search the battlefield', wayshrine: 'Pray at the wayside shrine', wreck: 'Search the wreck',
             falls: 'Stand beneath the falls', springs: 'Soak in the springs', grotto: 'Work a crystal free', bones: 'Study the bones', crater: 'Search the crater', ring: 'Step into the ring and make a wish' }[s.kind];
@@ -511,9 +577,9 @@
       }
       return out;
     },
-    enterDelve(game, site) {
+    enterDelve(game, site, depth = 0) {
       const s = ECHO.World.nearestSettlement(game.world, site.x, site.y) || game.world.settlements[0];
-      ECHO.Interior.enter(game, Q.delveBuilding(site, s), s);
+      ECHO.Interior.enter(game, Q.delveBuilding(site, s, depth), s);
     },
     dig(game, p) {
       const world = game.world, pl = game.pl;

@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -446,6 +446,40 @@ function main() {
     const s0 = V.settlements[0];
     const w = H.shift(V, s0, 'mill'), c = H.coach(V, s0, V.settlements.find(t => t !== s0 && ECHO.Sim.route(V, s0.id, t.id)), pl);
     check('there is work in town and coaches on the roads', w && w.pay > 0 && c && c.cost > 0 && c.hours >= 2, `${w && w.pay} crowns a shift; coach ${c && c.cost} crowns, ${c && c.hours} h`);
+  }
+
+  console.log('\nDungeons, loot and gear');
+  {
+    const B = ECHO.generateWorld({ seed: 777, name: 'Deepworld' });
+    const X = ECHO.Explore, Gr = ECHO.Gear;
+    const delves = X.sites(B).filter(s => s.cat === 'delve');
+    const kinds = new Set(delves.map(s => s.kind));
+    check('many dungeons lie across the map, of many kinds', delves.length >= 12 && ['catacomb', 'warren', 'nest', 'trollden', 'sanctum', 'forge'].every(k => kinds.has(k)), `${delves.length} dungeons: ${[...kinds].join(' ')}`);
+    check('dungeons have floors, and grow deadlier away from the capitals', delves.every(s => s.level >= 1 && s.level <= 6 && X.floors(s) >= 1) && delves.some(s => X.floors(s) >= 3) && new Set(delves.map(s => s.level)).size >= 3, delves.map(s => s.level + '/' + X.floors(s)).join(' '));
+    check('no dungeon sits on solid ground or in a town', delves.every(s => !ECHO.World.isSolid(B, s.x, s.y) && B.settlements.every(t => ECHO.U.dist(t.x, t.y, s.x, s.y) > 10)));
+    const json = ECHO.Save.serialize(B), B2 = ECHO.Save.deserialize(json);
+    const cachesFound = B.caches.filter(c => c.found).length; B.caches[0].found = true;
+    const B3 = ECHO.Save.deserialize(ECHO.Save.serialize(B));
+    check('dungeons, wonders and caches survive a save without moving or doubling', X.sites(B2).filter(s => s.cat === 'delve').length === delves.length && X.sites(B3).length === X.sites(B).length && B3.caches.length === B.caches.length && B3.caches[0].found && cachesFound === 0, `${X.sites(B3).length}/${X.sites(B).length} sites`);
+    const pl = B.player = { charId: 'c-g', first: 'Bryn', last: 'Ash', alive: true, known: [], accepted: [], fate: 3, inv: { arrows: 0, herbs: 0, food: 0 }, items: [], gold: 0, renown: 0, skills: {}, x: B.settlements[0].x, y: B.settlements[0].y };
+    const rng = ECHO.Sim.rngFor(B);
+    const rolls = {}; for (let i = 0; i < 400; i++) { const r = Gr.rollRarity(rng, 3); rolls[r] = (rolls[r] || 0) + 1; }
+    check('gear drops in five rarities, rarer the better', Object.keys(rolls).length >= 4 && rolls.common > (rolls.epic || 0) && (rolls.rare || 0) > (rolls.legendary || 0), JSON.stringify(rolls));
+    const plain = Gr.make(B, rng, 'sword', 3, 'common'), fine = Gr.make(B, rng, 'sword', 3, 'epic'), arm = Gr.make(B, rng, 'armor', 3, 'rare');
+    check('better rarity, better gear — and it is worth more', fine.dmg > plain.dmg && Gr.value(fine) > Gr.value(plain) && arm.def > 0 && fine.affix, `${plain.name} ${plain.dmg} · ${fine.name} ${fine.dmg} · ${arm.name} ${arm.def}`);
+    pl.items.push(arm.id); pl.armor = arm.id;
+    check('armour turns part of every blow', Gr.taken(B, pl, 'melee') < 0.85 && Gr.taken(B, pl, 'melee') > 0.3, Gr.taken(B, pl, 'melee').toFixed(2));
+    pl.gold = 0; pl.inv.bonedust = 3;
+    check('a smith will not work for nothing', Gr.hone(B, pl, plain) && plain.plus === 0);
+    pl.gold = 100;
+    const d0 = plain.dmg, why = Gr.hone(B, pl, plain);
+    check('monster parts and coin hone a blade', !why && plain.plus === 1 && plain.dmg > d0 && pl.gold === 70 && pl.inv.bonedust === 0, why || `${d0} → ${plain.dmg}`);
+    pl.inv.hide = 4; pl.gold = 30;
+    const cr = Gr.craft(B, pl, 'leather');
+    check('a smith makes armour from what you bring', cr.item && cr.item.def === 6 && pl.inv.hide === 0 && pl.items.includes(cr.item.id), cr.error);
+    pl.inv.silk = 4; pl.inv.tusk = 1; pl.gold = 0;
+    const s0 = B.settlements[0], sold = Gr.sellMats(pl, s0);
+    check('monster parts sell at market', sold.total > 0 && pl.gold === sold.total && !pl.inv.silk && !pl.inv.tusk, `${sold.out.join(', ')} → ${sold.total} crowns`);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

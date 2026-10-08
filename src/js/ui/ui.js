@@ -39,7 +39,8 @@
       if (!game.pl) return;
       if (!UI.paused()) {
         if (In.pressed.has('e') && game._interact) game.interact(game._interact);
-        if (In.pressed.has('Tab') || In.pressed.has('j')) UI.openJournal();
+        if (In.pressed.has('Tab')) UI.openJournal();
+        if (In.pressed.has('j')) UI.openJournal('guide');
         if (In.pressed.has('m')) UI.openMap();
         if (In.pressed.has('c') && !In.down.has('Control')) { /* c also sneaks; character sheet on K */ }
         if (In.pressed.has('k')) UI.openCharacter();
@@ -429,6 +430,7 @@
           <h4 class="ware-h">Supplies</h4><div class="wares">${['food', 'herbs'].map(card).join('')}</div>
           <h4 class="ware-h">Sell your hunt</h4><div class="wares">${['meat', 'hide'].map(card).join('')}</div>
           <h4 class="ware-h">Trade goods</h4><div class="wares">${['ore', 'timber', 'arms'].map(card).join('')}</div>
+          ${UI.lootMarketHtml(world, pl, s)}
           ${(pl.inv.starshard || 0) + (pl.inv.whitehide || 0) > 0 ? `<h4 class="ware-h">Rare things</h4><div class="wares">
             ${pl.inv.starshard ? `<div class="ware"><div class="ware-ic">✦</div><div class="ware-main"><div class="ware-top"><b>Star-iron shard</b><span class="gold">they pay ${rare.star}</span></div><div class="ware-use">A smith can forge it into your blade; a priest knows other uses.</div><div class="ware-meta">You have <b>${pl.inv.starshard}</b></div><div class="row"><button class="small" data-rare="starshard">Sell 1</button></div></div></div>` : ''}
             ${pl.inv.whitehide ? `<div class="ware"><div class="ware-ic">🦌</div><div class="ware-main"><div class="ware-top"><b>White hind's hide</b><span class="gold">they pay ${rare.hide}</span></div><div class="ware-use">Nobody asks where it came from. Everybody knows.</div><div class="ware-meta">You have <b>${pl.inv.whitehide}</b></div><div class="row"><button class="small" data-rare="whitehide">Sell 1</button></div></div></div>` : ''}</div>` : ''}
@@ -436,6 +438,9 @@
           <p class="dim" style="margin-top:10px">Prices move with what is in the stores. Bread here has cost: <span style="display:inline-flex;align-items:flex-end;height:30px;vertical-align:middle">${spark}</span></p>`;
         body.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
           const d = btn.dataset;
+          if (d.sellmats) { const r = ECHO.Gear.sellMats(pl, s); if (r.total) { ECHO.Sfx.play('coin'); UI.toast(`Sold ${r.out.join(', ')} for ${r.total} crowns.`, 'info', 4); } }
+          if (d.sellmat) { const k = d.sellmat, n = pl.inv[k] || 0; if (n) { const got = ECHO.Gear.matPrice(s, k) * n; pl.inv[k] = 0; pl.gold += got; s.wealth = (s.wealth || 0) + got * 0.2; ECHO.Sfx.play('coin'); } }
+          if (d.sellgear) { const it = world.items[d.sellgear]; if (it && it.id !== pl.weapon && it.id !== pl.bow && it.id !== pl.armor) { const got = UI.gearPrice(world, pl, s, it); pl.items = pl.items.filter(x => x !== it.id); it.holder = null; it.history.push({ d: world.day, t: `sold at the market in ${s.name}` }); pl.gold += got; ECHO.Sfx.play('coin'); UI.toast(`Sold ${it.name} for ${got} crowns.`, 'info', 3); } }
           if (d.arrows) { const n = +d.arrows; if (pl.gold >= arrowP * n) { pl.gold -= arrowP * n; pl.inv.arrows += 10 * n; s.wealth += arrowP * n; ECHO.Sfx.play('coin'); } }
           if (d.rare && pl.inv[d.rare] > 0) {
             pl.inv[d.rare]--; const got = d.rare === 'starshard' ? rare.star : rare.hide; pl.gold += got; s.wealth = Math.max(0, s.wealth - got * 0.5); ECHO.Sfx.play('coin');
@@ -499,6 +504,8 @@
       const render = () => {
         body.innerHTML = `<p class="prose">${smith ? `<b>${esc(P().name(smith))}</b> wipes soot from ${smith.sex === 'f' ? 'her' : 'his'} hands. "Everything here is my own work."` : 'The forge is cold; an apprentice minds the stock.'}</p>
           <p>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns. Wielding: <b>${esc(world.items[pl.weapon] ? world.items[pl.weapon].name : 'nothing')}</b>.</p>
+          ${UI.smithGearHtml(world, pl, s, smith)}
+          <h4 class="ware-h">Buy from the forge</h4>
           <table class="grid"><tr><th>Item</th><th>Power</th><th>Price</th><th></th></tr>${wares.map((w, i) => `<tr><td>${w.name}</td><td>${w.dmg}</td><td class="gold">${w.price}</td><td><button class="small" data-i="${i}" ${pl.gold < w.price ? 'disabled' : ''}>Buy</button></td></tr>`).join('')}</table>
           <div class="ware featured" style="margin-top:10px"><div class="ware-ic">🏹</div><div class="ware-main"><div class="ware-top"><b>Arrows</b><span class="gold">20 for 13 cr</span></div><div class="ware-use">You have <b>${pl.inv.arrows}</b>.</div><div class="row"><button data-arrows="1" ${pl.gold < 13 ? 'disabled' : ''}>Buy 20 arrows</button></div></div></div>
           <p class="dim">The smith buys hides at ${UI.priceOf(s, 'hide')} each.</p><button data-hides="1" ${!(pl.inv.hide > 0) ? 'disabled' : ''}>Sell all hides (${pl.inv.hide || 0})</button>
@@ -529,11 +536,55 @@
           UI.toast(`The blade comes out of the quench with a pale light running down its edge: ${wpn.name}.`, 'legend', 6);
           render();
         });
+        body.querySelectorAll('button[data-hone]').forEach(btn => btn.addEventListener('click', () => {
+          const it = world.items[btn.dataset.hone]; if (!it) return;
+          const c = ECHO.Gear.honeCost(it);
+          const why = ECHO.Gear.hone(world, pl, it);
+          if (why) { UI.toast(why, 'warn', 3); return; }
+          s.wealth += c.gold; if (smith) smith.wealth += c.gold * 0.5;
+          ECHO.PlayerCtl.derivedT = 0; ECHO.Sfx.play('block');
+          UI.toast(`${smith ? smith.first : 'The smith'} works it over at the anvil: ${it.name} is now +${it.plus}.`, 'legend', 4);
+          render();
+        }));
+        body.querySelectorAll('button[data-craft]').forEach(btn => btn.addEventListener('click', () => {
+          const r = ECHO.Gear.craft(world, pl, btn.dataset.craft);
+          if (r.error) { UI.toast(r.error, 'warn', 3); return; }
+          const rec = ECHO.Gear.CRAFT.find(c => c.id === btn.dataset.craft);
+          s.wealth += rec.gold; if (smith) smith.wealth += rec.gold * 0.5;
+          r.item.made = { by: smith ? P().name(smith) : 'a smith', at: s.name, d: world.day };
+          ECHO.PlayerCtl.derivedT = 0; ECHO.Sfx.play('block');
+          UI.toast(`${smith ? smith.first : 'The smith'} fits you for it: ${r.item.name}${pl.armor === r.item.id ? ' (worn)' : ''}.`, 'legend', 4);
+          render();
+        }));
         const hb = body.querySelector('button[data-hides]');
         if (hb) hb.addEventListener('click', () => { const n = pl.inv.hide || 0; pl.gold += n * UI.priceOf(s, 'hide'); pl.inv.hide = 0; render(); });
         UI.extras(body, s, { work: 'smithy' });
       };
       render();
+    },
+    // What a market pays for a piece of gear.
+    gearPrice(world, pl, s, it) { return Math.max(3, Math.round(ECHO.Gear.value(it) * (0.7 + (s.prosperity || 50) / 250) / ECHO.Minds.priceMult(world, s, pl))); },
+    lootMarketHtml(world, pl, s) {
+      const Gr = ECHO.Gear, mats = Gr.mats(pl);
+      const spare = pl.items.map(id => world.items[id]).filter(it => it && it.id !== pl.weapon && it.id !== pl.bow && it.id !== pl.armor && !it.legend);
+      let html = '';
+      if (mats.length) {
+        const total = mats.reduce((a, m) => a + Gr.matPrice(s, m.k) * m.n, 0);
+        html += `<h4 class="ware-h">Monster parts</h4><p class="dim">Alchemists, tanners and curio-sellers buy what you bring up from below. A smith can use them too — see the smithy.</p><div class="wares">${mats.map(m => `<div class="ware"><div class="ware-ic" style="color:${m.color}">◆</div><div class="ware-main"><div class="ware-top"><b>${esc(U.cap(m.name))}</b><span class="gold">${Gr.matPrice(s, m.k)} each</span></div><div class="ware-meta">You have <b>${m.n}</b></div><div class="row"><button class="small" data-sellmat="${m.k}">Sell all (${Gr.matPrice(s, m.k) * m.n})</button></div></div></div>`).join('')}</div>
+          <div class="row"><button data-sellmats="1">Sell every part — ${total} crowns</button></div>`;
+      }
+      if (spare.length) html += `<h4 class="ware-h">Gear you do not use</h4><div class="wares">${spare.map(it => `<div class="ware"><div class="ware-ic">${it.kind === 'armor' ? '🛡' : it.kind === 'bow' ? '🏹' : '⚔'}</div><div class="ware-main"><div class="ware-top"><b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}</b><span class="gold">${UI.gearPrice(world, pl, s, it)} cr</span></div><div class="ware-use">${esc(Gr.line(it))}</div><div class="row"><button class="small" data-sellgear="${it.id}">Sell</button></div></div></div>`).join('')}</div>`;
+      return html;
+    },
+    smithGearHtml(world, pl, s, smith) {
+      if (!smith) return '';
+      const Gr = ECHO.Gear;
+      const cost = c => `<span class="gold">${c.gold} cr</span>${Object.entries(c.mats).map(([k, n]) => ` + <span style="color:${(Gr.MATS[k] || { color: '#c8b890' }).color}" class="${(pl.inv[k] || 0) >= n ? '' : 'ember'}">${n} ${esc(Gr.MATS[k] ? Gr.MATS[k].name : k === 'hide' ? 'hides' : k)} (${pl.inv[k] || 0})</span>`).join('')}`;
+      const gear = [[pl.weapon, 'Hone the blade'], [pl.bow, 'Restring and tiller the bow'], [pl.armor, 'Reinforce the armour']].map(([id, verb]) => [world.items[id], verb]).filter(([it]) => it);
+      let html = `<h4 class="ware-h">Improve your gear</h4><p class="dim">"Bring me what you take off the things down there, and I can do things with steel you wouldn't believe."</p><div class="wares">`;
+      html += gear.map(([it, verb]) => { const c = Gr.honeCost(it); return `<div class="ware"><div class="ware-ic">${it.kind === 'armor' ? '🛡' : it.kind === 'bow' ? '🏹' : '⚔'}</div><div class="ware-main"><div class="ware-top"><b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}</b><span class="dim">${esc(Gr.line(it))}</span></div>${c ? `<div class="ware-use">${verb} to +${(it.plus || 0) + 1} (${it.kind === 'armor' ? 'armour +' + (c.add + 1) : 'power +' + c.add}): ${cost(c)}</div><div class="row"><button class="small" data-hone="${it.id}" ${Gr.canPay(pl, c) ? '' : 'disabled'}>${verb}</button></div>` : '<div class="ware-use gold">It can be made no finer.</div>'}</div></div>`; }).join('');
+      html += `</div><h4 class="ware-h">Have armour made</h4><div class="wares">${Gr.CRAFT.map(r => `<div class="ware"><div class="ware-ic">🛡</div><div class="ware-main"><div class="ware-top"><b>${esc(r.name)}</b><span class="dim">armour ${r.def}${r.affix ? ' · ' + Gr.AFFIX[r.affix].desc : ''}</span></div><div class="ware-use">${esc(r.desc)} ${cost(r)}</div><div class="row"><button class="small" data-craft="${r.id}" ${Gr.canPay(pl, r) ? '' : 'disabled'}>Have it made</button></div></div></div>`).join('')}</div>`;
+      return html;
     },
     openInn(s) {
       const game = ECHO.Game, world = game.world, pl = game.pl;
@@ -1214,9 +1265,10 @@
       const body = UI.openPanel('Journal', '', 'journal');
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
-        const tabs = [['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
+        const tabs = [['guide', 'Guide'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-        if (tab === 'ambition') html += ECHO.Purpose.journalHtml(world, pl);
+        if (tab === 'guide') html += ECHO.Guide.html(game);
+        else if (tab === 'ambition') html += ECHO.Purpose.journalHtml(world, pl);
         else if (tab === 'tasks') {
           const mine = world.plights.filter(p => pl.accepted.includes(p.id));
           const open = mine.filter(p => p.status === 'open');
@@ -1302,7 +1354,9 @@
 
 <b>Fighting teaches you.</b> Fight the way you like and your body learns from it: enough perfect guards and you discover the riposte; enough rolls and you learn to lunge out of them; enough fire and your blade catches it. Fifteen techniques, each growing through three ranks. You can carry only a few at once — choose them on your character page (K).
 
-<b>The wild is full of places.</b> Standing stones, lookouts, moonwells, old battlefields, shrines and wrecks each give something the first time — and some every night. Barrows, caves, crypts and outlaw hideouts can be entered and cleared for what they guard, and fill again in time. People ask for help: a child lost in the woods, a great wolf with a name, a buried cache on a treasure map, a parcel for another town.
+<b>The wild is full of places.</b> Standing stones, lookouts, moonwells, old battlefields, shrines and wrecks each give something the first time — and some every night. Barrows, caves, crypts and outlaw hideouts can be entered and cleared for what they guard, and fill again in time.
+
+<b>Below the world are dungeons.</b> Catacombs, goblin warrens, spider nests, troll dens, drowned sanctums and deep forges lie across the map, deeper and deadlier the further they are from the capitals (★ to ★★★★★★). Each has several floors joined by stairs, a cache on each floor and a lord on the last. Their monsters have abilities of their own — poison, webs, fire, healing, splitting, summoning, slams and charges — and resistances and weaknesses the bestiary records. What they drop sells at markets, or goes to a smith to hone your blade, restring your bow and make or reinforce your armour. Gear drops in five rarities, the best with powers of their own. Press <b>J</b> for the guide: what to do next, and how. People ask for help: a child lost in the woods, a great wolf with a name, a buried cache on a treasure map, a parcel for another town.
 
 <b>Some places have no name.</b> Waterfalls, hot springs, crystal grottoes, the bones of a giant, a star's crater, a fairy ring — find one first and you name it, for good. Cairns, hollow trees and loose stones hide caches; one holds the first page of a lost expedition's journal, and each page leads to the next. Rare herbs open only at certain hours. The archives pay for accounts, maps and crystals.
 
@@ -1430,15 +1484,18 @@
       const items = pl.items.map(id => world.items[id]).filter(Boolean);
       const reps = world.settlements.filter(s => s.rep && s.rep[pl.charId]).map(s => `${s.name}: ${s.rep[pl.charId] > 0 ? '+' : ''}${Math.round(s.rep[pl.charId])}`);
       UI.openPanel(`${pl.first} ${pl.last}, ${Ch.title(pl)}`, `<div class="two"><div><p class="prose">${bio.map(esc).join(' ')}</p>
-        <p class="dim">Renown ${Math.round(pl.renown)} · Fate ${pl.fate}/3${pl.knighted ? ' · Knight of ' + world.factions[pl.knighted].short : ''}${pl.legacyOf ? ' · kin of ' + esc((ECHO.Legacy.legendOf(world, pl.legacyOf) || {}).name || '') : ''}</p>
+        <p class="dim">Renown ${Math.round(pl.renown)} · Armour ${ECHO.Gear.def(world, pl)} (${Math.round((1 - ECHO.Gear.taken(world, pl, 'melee')) * 100)}% of every blow turned) · Fate ${pl.fate}/3${pl.knighted ? ' · Knight of ' + world.factions[pl.knighted].short : ''}${pl.legacyOf ? ' · kin of ' + esc((ECHO.Legacy.legendOf(world, pl.legacyOf) || {}).name || '') : ''}</p>
         ${pl.spells.length ? `<p class="gold">Secrets: ${pl.spells.map(k => ECHO.Mysteries.REWARDS[k].name).join(', ')}</p>` : ''}
-        <h3 class="gold">Belongings</h3><div class="list">${items.map(it => `<div class="card"><h4>${esc(it.name)}${it.id === pl.weapon ? ' (wielded)' : it.id === pl.bow ? ' (bow)' : ''}</h4><div class="dim" style="font-size:13px">${it.history.map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : ''}</div>`).join('')}</div>
+        <h3 class="gold">Belongings</h3><div class="list">${items.map(it => `<div class="card"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}</div>`).join('')}</div>
+        ${ECHO.Gear.mats(pl).length ? `<h3 class="gold">Monster parts</h3><div>${ECHO.Gear.mats(pl).map(m => `<span style="color:${m.color}">◆</span> ${m.n} ${esc(m.name)}`).join(' · ')}</div><p class="dim" style="font-size:13px">Sell them at a market, or bring them to a smith to improve your gear.</p>` : ''}
         ${ECHO.Tech.pageHtml(pl)}
         ${reps.length ? `<h3 class="gold">Standing</h3><div class="dim">${reps.join(' · ')}</div>` : ''}</div>
         <div><h3 class="gold">Skills — grown by use</h3>${skills}<h3 class="gold" style="margin-top:16px">Tendencies — what you keep doing</h3>${tends}
         <p class="dim" style="font-size:13px">Tendencies change how you fight: aggression quickens strikes and weakens your guard; patience cheapens guarding; recklessness strengthens fire and makes it unstable.</p></div></div>`, 'char');
       document.querySelectorAll('#panel button[data-tech]').forEach(b => b.addEventListener('click', () => { if (ECHO.Tech.toggle(b.dataset.tech) === false) UI.toast(`You can only carry ${ECHO.Tech.slots(pl)} techniques. Set one down first.`, 'warn', 3); UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-w]').forEach(b => b.addEventListener('click', () => { pl.weapon = b.dataset.w; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
+      document.querySelectorAll('#panel button[data-bow]').forEach(b => b.addEventListener('click', () => { pl.bow = b.dataset.bow; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
+      document.querySelectorAll('#panel button[data-arm]').forEach(b => b.addEventListener('click', () => { pl.armor = b.dataset.arm || null; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
     }
   };
   ECHO.on('chronicle', e => UI.onChronicle(e));

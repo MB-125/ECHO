@@ -48,7 +48,14 @@
   const near = (w, pl, list) => { let b = null, bd = Infinity; for (const x of list) { const d = U.dist(x.x, x.y, pl.x, pl.y); if (d < bd) { bd = d; b = x; } } return b; };
   const town = (w, pl, f) => { const s = near(w, pl, w.settlements.filter(t => t.faction !== 'ashfang' && (!f || f(t)))); return s ? { x: s.x, y: s.y + 2, name: s.name } : null; };
   const capital = (w, pl) => { const caps = w.settlements.filter(s => s.kind === 'capital'); const s = caps.sort((a, b) => ((b.rep && b.rep[pl.charId]) || 0) - ((a.rep && a.rep[pl.charId]) || 0) || U.dist(a.x, a.y, pl.x, pl.y) - U.dist(b.x, b.y, pl.x, pl.y))[0]; return s ? { x: s.x, y: s.y, name: 'the keep at ' + s.name } : null; };
-  const delve = (w, pl) => { const d = near(w, pl, ECHO.Explore.sites(w).filter(s => s.cat === 'delve' && !s.cleared && (s.found || s.seen))); return d ? { x: d.x, y: d.y, name: d.name } : town(w, pl); };
+  const delve = (w, pl, minFloors = 0) => {
+    const X = ECHO.Explore, all = X.sites(w).filter(s => s.cat === 'delve' && !s.cleared && X.floors(s) >= minFloors);
+    const d = near(w, pl, all.filter(s => s.found || s.seen));
+    if (d) return { x: d.x, y: d.y, name: d.name };
+    const u = near(w, pl, all);
+    return u ? { x: u.x, y: u.y, name: 'a dungeon no one has charted', vague: true } : town(w, pl);
+  };
+  const bestiary = pl => Object.keys(pl.bestiary || {}).length;
   const lair = (w, pl) => { const l = near(w, pl, w.lairs.filter(l => l.boss.alive && l.boss.absentUntil <= w.day)); return l ? { x: l.x, y: l.y, name: `the lair of ${l.boss.name}`, vague: !l.seen } : null; };
   const camp = (w, pl) => { const c = near(w, pl, w.camps.filter(c => c.alive)); return c ? { x: c.x, y: c.y, name: c.name, vague: !c.seen } : null; };
   const ruin = (w, pl) => { const r = near(w, pl, w.ruins.filter(r => !r.visited)); return r ? { x: r.x, y: r.y, name: r.name, vague: true } : null; };
@@ -77,13 +84,13 @@
         { title: 'Sellsword', desc: 'You fight for coin, and people have started to notice.', reward: '30 crowns.', grant: (w, pl) => { pl.gold += 30; },
           objectives: (w, pl) => [O('Win fights against outlaws or beasts', kills(pl), 6, camp(w, pl)), O('See a plea through to the end', pleasDone(w, pl), 1, town(w, pl))] },
         { title: 'Champion', desc: 'Towns send for you when something needs killing.', reward: 'A champion\'s blade, and +15 life.', grant: (w, pl) => { const it = ECHO.Character.makeItem(w, { kind: 'sword', name: 'Champion\'s Blade', dmg: 22, holder: 'player', history: [{ d: w.day, t: 'given to a champion' }] }); pl.items.push(it.id); if (ECHO.Wonders) ECHO.Wonders.boon(pl, 'hp', 15); },
-          objectives: (w, pl) => [O('Clear a delve — a barrow, den, crypt or hideout', st(pl).delves || 0, 1, delve(w, pl)), O('Hunt a named beast or collect a bounty', huntsDone(w, pl), 1, town(w, pl)), O('Renown', Math.floor(pl.renown), 25)] },
+          objectives: (w, pl) => [O('Clear a delve or dungeon — fight down to its chest', st(pl).delves || 0, 1, delve(w, pl)), O('Hunt a named beast or collect a bounty', huntsDone(w, pl), 1, town(w, pl)), O('Renown', Math.floor(pl.renown), 25)] },
         { title: 'Knight', desc: 'A ruler has put a sword on your shoulder. You are sworn now.', reward: 'One more technique carried, and a warhorse\'s worth of crowns (120).', grant: (w, pl) => { pl.extraSlots = (pl.extraSlots || 0) + 1; pl.gold += 120; },
-          objectives: (w, pl) => [O('Be knighted by a ruler (renown 40 and their trust)', pl.knighted ? 1 : 0, 1, capital(w, pl)), O('Learn techniques in battle', techs(pl), 3)] },
+          objectives: (w, pl) => [O('Be knighted by a ruler (renown 40 and their trust)', pl.knighted ? 1 : 0, 1, capital(w, pl)), O('Learn techniques in battle', techs(pl), 3), O('Kinds of monster defeated (see the bestiary)', bestiary(pl), 8, delve(w, pl))] },
         { title: 'Beastbane', desc: 'You killed a thing the old songs are written about.', reward: '+25 life, and a thread of fate restored.', grant: (w, pl) => { if (ECHO.Wonders) ECHO.Wonders.boon(pl, 'hp', 25); pl.fate = Math.min(3, pl.fate + 1); },
-          objectives: (w, pl) => [O('Slay one of the great beasts in its lair', apexKilled(w, pl), 1, lair(w, pl)), O('Renown', Math.floor(pl.renown), 60)] },
+          objectives: (w, pl) => [O('Slay one of the great beasts in its lair', apexKilled(w, pl), 1, lair(w, pl)), O('Clear a deep dungeon (three floors or more) to the bottom', st(pl).deep || 0, 1, delve(w, pl, 3)), O('Renown', Math.floor(pl.renown), 60)] },
         { title: 'Legend', desc: 'Children play at being you. A statue will stand.', reward: 'A statue in the capital, and the realm\'s undying fame.', grant: (w, pl) => { A.statue(w, pl); },
-          objectives: (w, pl) => [O('Kill an outlaw chieftain', st(pl).chiefs || 0, 1, camp(w, pl)), O('Slay great beasts', apexKilled(w, pl), 2, lair(w, pl)), O('Renown', Math.floor(pl.renown), 100)] }
+          objectives: (w, pl) => [O('Kill an outlaw chieftain', st(pl).chiefs || 0, 1, camp(w, pl)), O('Slay great beasts', apexKilled(w, pl), 2, lair(w, pl)), O('Dungeon lords slain', st(pl).lords || 0, 3, delve(w, pl, 3)), O('Renown', Math.floor(pl.renown), 100)] }
       ]
     },
     crown: {

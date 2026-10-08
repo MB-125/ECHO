@@ -235,7 +235,7 @@
     },
 
     // Simple top-down room view for the 2D renderer.
-    FURN_COL: { bed: '#8a3a3a', table: '#7a5634', chair: '#6a4a2c', stool: '#6a4a2c', counter: '#5a3e26', barrel: '#6e4a28', crate: '#8a6a3a', hearth: '#5a554e', shelf: '#4a3420', desk: '#6a4a2c', lectern: '#5a3e26', altar: '#d8d0c0', throne: '#c8a040', bench: '#6a4a2c', rug: '#7a2e2e', anvil: '#3a3a40', forge: '#4a4440', rack: '#5a4a3a', chest: '#7a5a2a', candles: '#f0e0b0', standard: '#6f8fc4', pillar: '#a8a094' },
+    FURN_COL: { bed: '#8a3a3a', table: '#7a5634', chair: '#6a4a2c', stool: '#6a4a2c', counter: '#5a3e26', barrel: '#6e4a28', crate: '#8a6a3a', hearth: '#5a554e', shelf: '#4a3420', desk: '#6a4a2c', lectern: '#5a3e26', altar: '#d8d0c0', throne: '#c8a040', bench: '#6a4a2c', rug: '#7a2e2e', anvil: '#3a3a40', forge: '#4a4440', rack: '#5a4a3a', chest: '#7a5a2a', candles: '#f0e0b0', standard: '#6f8fc4', pillar: '#a8a094', stairs: '#2a282e' },
     drawRoom(game, L) {
       const ctx = R.ctx, B = ECHO.Interior.BASE, Z = R.Z;
       const floorCol = { wood: '#6e4c2e', stone: '#6a655d', marble: '#cfc8ba', cave: '#4a443c', crypt: '#55524c' }[L.floor];
@@ -246,6 +246,14 @@
         ctx.fillStyle = edge ? (x === L.doorX && y === L.H - 1 ? '#2a1c12' : wallCol) : ((x + y) % 2 ? floorCol : R.shade(floorCol));
         ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(TS * Z), Math.ceil(TS * Z));
       }
+      if (L.webs) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.strokeStyle = 'rgba(238,240,255,0.45)'; ctx.lineWidth = Math.max(1, Z * 0.6);
+        for (const w of L.webs) {
+          const p = R.toScreen(game, B + w.x, w.y), r = w.r * TS * Z;
+          for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r * 0.6); ctx.stroke(); }
+          for (const k of [0.4, 0.75]) { ctx.beginPath(); ctx.ellipse(p.x, p.y, r * k, r * k * 0.6, 0, 0, Math.PI * 2); ctx.stroke(); }
+        }
+      }
       const objs = [];
       for (const f of L.furn) objs.push({ y: f.y + f.h / 2, draw: () => {
         const p = R.toScreen(game, B + f.x - f.w / 2 * f.scale, f.y - f.h / 2 * f.scale);
@@ -253,6 +261,7 @@
         ctx.fillStyle = (f.colors && f.colors.banner && f.model !== 'throne') ? f.colors.banner : (R.FURN_COL[f.model] || '#6a4a2c');
         ctx.fillRect(Math.round(p.x), Math.round(p.y), w, h);
         ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(Math.round(p.x), Math.round(p.y + h - 3 * Z), w, 3 * Z);
+        if (f.model === 'stairs') { ctx.fillStyle = '#5a5660'; for (let i = 0; i < 4; i++) ctx.fillRect(Math.round(p.x + 2 * Z), Math.round(p.y + (f.action === 'delveup' ? i : 3 - i) * h / 4), w - 4 * Z, Math.max(1, h / 10)); }
         if (f.light) game.light(B + f.x, f.y, f.light.r * 0.6, 0.5, f.light.color);
       } });
       for (const e of game.ents) if (!e.hidden) objs.push({ y: e.y, draw: () => R.entity(game, e) });
@@ -297,6 +306,12 @@
         case 'cache_hollow': R2('#5a4028', -6, -14, 12, 14); R2('#120c08', -2, -9, 4, 4); break;
         case 'cache_loose': for (let i = 0; i < 5; i++) R2('#8a857b', Math.cos(i * 2.4) * 7 - 2, Math.sin(i * 2.4) * 3 - 3, 4, 3); break;
         case 'expcamp': R2('#2a2a2a', -4, -3, 8, 3); R2('#6a6050', -24, -14, 14, 12); R2('#7a5a3a', 12, -8, 8, 8); break;
+        case 'catacomb': R2('#6a655d', -20, -20, 7, 20); R2('#6a655d', 13, -20, 7, 20); R2('#5a554e', -20, -22, 40, 4); R2('#0a0a10', -8, -10, 16, 10); for (let i = 0; i < 5; i++) R2('#e2dccb', -16 + i * 8, 2, 4, 3); break;
+        case 'warren': g.fillStyle = '#7a6a4a'; g.beginPath(); g.ellipse(0, -6, 28, 14, 0, Math.PI, 0); g.fill(); R2('#0a0a10', -6, -9, 12, 9); R2('#0a0a10', -22, -4, 6, 4); R2('#0a0a10', 16, -4, 6, 4); R2('#5a3e26', 10, -24, 2, 18); R2('#5a7a2a', 12, -24, 7, 5); R2('#ff9a4a', -2, 4, 4, 3); break;
+        case 'nest': g.fillStyle = '#6a655c'; g.beginPath(); g.ellipse(0, -8, 22, 16, 0, Math.PI, 0); g.fill(); R2('#0a0a10', -7, -12, 14, 12); g.strokeStyle = 'rgba(244,244,255,0.7)'; g.lineWidth = 1; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(-8, -12 + i * 2); g.lineTo(8, -4 - i * 2); g.stroke(); } break;
+        case 'trollden': g.fillStyle = '#5a554c'; g.beginPath(); g.ellipse(0, -10, 30, 22, 0, Math.PI, 0); g.fill(); R2('#0a0a10', -10, -16, 20, 16); for (let i = 0; i < 5; i++) R2(i % 2 ? '#e2dccb' : '#7a756c', -24 + i * 11, 1, 5, 3); break;
+        case 'sanctum': R2('#4a4458', -18, -18, 7, 18); R2('#4a4458', 11, -18, 7, 18); R2('#3a3448', -18, -20, 36, 3); R2('#0a0a10', -6, -10, 12, 10); R2('#b48aff', -1, -15, 2, 3); g.fillStyle = 'rgba(58,42,90,0.6)'; g.beginPath(); g.ellipse(0, 2, 18, 5, 0, 0, Math.PI * 2); g.fill(); break;
+        case 'forge': R2('#3a3438', -22, -26, 44, 26); R2('#1a1414', -8, -18, 16, 18); R2('#ff7a2a', -6, -3, 12, 2); R2('#5a5458', -24, -28, 48, 3); break;
         case 'crypt': R2('#6a655d', -16, -16, 6, 16); R2('#6a655d', 10, -16, 6, 16); R2('#5a554e', -16, -18, 32, 3); R2('#0a0a10', -6, -8, 12, 8); break;
       }
       R.ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -444,6 +459,28 @@
       R.ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
 
+    // Spiders and slimes, drawn by hand.
+    drawShape(ctx, e, t) {
+      const s = e.scale || 1;
+      ctx.save(); ctx.scale(s, s);
+      if (e.flip) ctx.scale(-1, 1);
+      if (e.shape === 'spider') {
+        const col = e.species === 'queen' ? '#3a1a2a' : '#2a2228', mv = e.moving ? Math.sin(t * 18) * 2 : 0;
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(-7, 0, 14, 2);
+        ctx.strokeStyle = col; ctx.lineWidth = 1;
+        for (let i = 0; i < 4; i++) { const x = -3 + i * 2; ctx.beginPath(); ctx.moveTo(x, -4); ctx.lineTo(x - 4 + (i % 2 ? mv : -mv), 0); ctx.moveTo(x, -4); ctx.lineTo(x + 4 + (i % 2 ? -mv : mv), 0); ctx.stroke(); }
+        ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(3, -6, 5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(-3, -5, 3, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+        if (e.species === 'queen') { ctx.fillStyle = '#c83a3a'; ctx.fillRect(2, -8, 3, 2); }
+        ctx.fillStyle = '#ff3a2a'; ctx.fillRect(-6, -6, 1, 1); ctx.fillRect(-5, -6, 1, 1);
+      } else {
+        const q = Math.sin(t * (e.moving ? 9 : 3) + e.id) * 0.1;
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(-6, 0, 12, 2);
+        ctx.fillStyle = e.species === 'slimeling' ? 'rgba(160,232,160,0.85)' : e.elite ? 'rgba(232,200,74,0.85)' : 'rgba(111,208,138,0.85)';
+        ctx.beginPath(); ctx.ellipse(0, -4, 7 * (1 + q), 5 * (1 - q), 0, Math.PI, 0); ctx.lineTo(7, 0); ctx.lineTo(-7, 0); ctx.fill();
+        ctx.fillStyle = '#103010'; ctx.fillRect(-3, -6, 1, 1); ctx.fillRect(1, -6, 1, 1);
+      }
+      ctx.restore();
+    },
     entity(game, e) {
       const world = game.world;
       const p = R.toScreen(game, e.x, e.y);
@@ -454,7 +491,16 @@
       if (e.iframes > 0 && e === game.pe) ctx.globalAlpha = 0.55;
       if (e.type === 'ghost' || e.species === 'hind') { ctx.globalAlpha = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)); if (e.type === 'ghost') ctx.filter = 'grayscale(1) brightness(1.9) sepia(0.3) hue-rotate(170deg)'; }
       if (e.type === 'person' && e.dancing) ctx.translate(0, -Math.abs(Math.sin(game.time * 7 + e.id)) * 2);
-      if (e.humanoid) {
+      if (e.shape === 'spider' || e.shape === 'slime') R.drawShape(ctx, e, game.time);
+      else if (e.shape === 'rat') { ctx.scale(e.scale || 1, e.scale || 1); if (e.elite) ctx.filter = 'sepia(1) hue-rotate(-30deg)'; S.creature(ctx, { ...e, species: 'gnawer' }, game.time); }
+      else if (e.humanoid && e.foe && e.foe.vis) {
+        const V = e.foe.vis;
+        ctx.filter = V.f2d || 'none';
+        const fake = { prof: (V.show || []).includes('robe') ? 'priest' : 'bandit', id: 'f' + e.id, faction: 'wild' };
+        const sc = e.scale || 1;
+        if (!e.flip) S.person(ctx, e, fake, world, game.time, sc);
+        else { ctx.scale(-1, 1); S.person(ctx, { ...e, flip: false }, fake, world, game.time, sc); }
+      } else if (e.humanoid) {
         const lk = e.foe ? e.foe.look : 'brigand', dead = lk === 'wight' || lk === 'king';
         if (dead) ctx.filter = 'grayscale(0.6) hue-rotate(90deg) brightness(1.2)';
         const fake = { prof: dead ? 'priest' : 'bandit', id: 'f' + e.id, faction: 'wild' };
@@ -524,7 +570,7 @@
       for (const l of game.loot) {
         const g = R.art(game, l.x, l.y);
         const bob = Math.sin(game.time * 4 + l.x) * 1;
-        const col = { meat: '#d88a8a', hide: '#8a6a4a', gold: '#f2d14b', item: '#f2e6b0', food: '#d8b86a', ore: '#8a8a92', arms: '#a8a8b0', herbs: '#7ac87a', timber: '#8a6a42' }[l.kind] || '#fff';
+        const col = { meat: '#d88a8a', hide: '#8a6a4a', gold: '#f2d14b', item: (l.itemId && ECHO.Game.world.items[l.itemId] && ECHO.Gear.rarity(ECHO.Game.world.items[l.itemId].rarity).color) || '#f2e6b0', food: '#d8b86a', ore: '#8a8a92', arms: '#a8a8b0', herbs: '#7ac87a', timber: '#8a6a42' }[l.kind] || (ECHO.Gear.MATS[l.kind] || {}).color || '#fff';
         g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(-3, 1, 6, 2);
         g.fillStyle = col;
         if (l.kind === 'item') { g.fillRect(-5, -2 + bob, 10, 1); g.fillRect(-1, -4 + bob, 1, 5); if (Math.sin(game.time * 5) > 0.7) { g.fillStyle = '#fff'; g.fillRect(3, -4 + bob, 1, 1); } }
@@ -547,6 +593,9 @@
           g.fillStyle = p.star ? '#bfe3ff' : '#ff6a2a'; g.fillRect(-s / 2, -s / 2 - 4, s, s);
           g.fillStyle = p.star ? '#ffffff' : '#ffd36a'; g.fillRect(-s / 4, -s / 4 - 4, s / 2, s / 2);
           game.light(p.x, p.y - 0.25, 2.8 + p.radius, 0.9, p.star ? '#bfe3ff' : '#ff9a3c');
+        } else if (p.kind === 'orb') {
+          g.fillStyle = p.color || '#b48aff'; g.beginPath(); g.arc(0, -4, 2.5, 0, Math.PI * 2); g.fill();
+          g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(-1, -5, 1, 1);
         } else if (p.kind === 'spit') {
           g.fillStyle = '#9ad84a'; g.fillRect(-2, -6, 4, 4);
         }
@@ -748,6 +797,11 @@
           if (it) {
             const yours = game.pl && it.history.some(h => h.t.includes(game.pl.first + ' ' + game.pl.last));
             text(yours ? '(carrying your sword)' : it.legend ? `(carrying ${it.name})` : '', p.x, top + fs + 2 * R.dpr, '#f2d47a');
+          }
+        } else if (e.type === 'creature' && e.lvl && !e.dead) {
+          if (hover || e.label || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 8) {
+            text(`${e.label || e.foe.name} · lv ${e.lvl}`, p.x, top, e.boss2 ? '#ffcf5a' : e.elite ? '#ff9a7a' : '#ffb0a0');
+            if (e.hp < e.maxHp) { const bw = 44 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, top + 4 * R.dpr, bw, bh); ctx.fillStyle = e.boss2 ? '#ffcf5a' : '#e05a4a'; ctx.fillRect(p.x - bw / 2, top + 4 * R.dpr, bw * Math.max(0, e.hp / e.maxHp), bh); }
           }
         } else if (e.type === 'creature' && e.label && !e.marvel) {
           if (hover || (e.foe && e.foe.elite) || e.beast || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 7) text(e.label, p.x, top, '#ffb0a0');

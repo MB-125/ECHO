@@ -91,6 +91,7 @@
       Game.pl.lanternOn = Game.isNight();
       // Player
       ECHO.PlayerCtl.update(Game, dt);
+      if (ECHO.Monsters) ECHO.Monsters.tickPlayer(Game, dt);
       if (ECHO.Interior.cur) { Game.pl.x = ECHO.Interior.cur.outside.x; Game.pl.y = ECHO.Interior.cur.outside.y; }
       else { Game.pl.x = Game.pe.x; Game.pl.y = Game.pe.y; }
       // Others
@@ -404,7 +405,9 @@
         l.taken = true;
         if (l.kind === 'gold') pl.gold += l.qty;
         else pl.inv[l.kind] = (pl.inv[l.kind] || 0) + l.qty;
-        ECHO.Combat.floater(l.x, l.y - 0.5, `+${l.qty} ${l.kind}`, '#e8d9a0');
+        const mat = ECHO.Gear && ECHO.Gear.MATS[l.kind];
+        ECHO.Combat.floater(l.x, l.y - 0.5, `+${l.qty} ${mat ? mat.name : l.kind}`, mat ? mat.color : '#e8d9a0');
+        if (mat && ECHO.Monsters) ECHO.Monsters.tip(Game, 'mats');
       }
       Game.loot = Game.loot.filter(l => !l.taken);
     },
@@ -418,6 +421,9 @@
       const legend = it.legend ? ECHO.Legacy.legendOf(world, it.legend) : null;
       it.history.push({ d: world.day, t: `taken up by ${pl.first} ${pl.last}` });
       if (it.kind === 'sword' && (!world.items[pl.weapon] || it.dmg >= (world.items[pl.weapon].dmg || 0) || it.legend)) pl.weapon = it.id;
+      if (it.kind === 'bow' && (!world.items[pl.bow] || it.dmg > (world.items[pl.bow].dmg || 0))) pl.bow = it.id;
+      if (it.kind === 'armor' && (!world.items[pl.armor] || (it.def || 0) > (world.items[pl.armor].def || 0))) pl.armor = it.id;
+      if (it.rarity && ECHO.Gear) ECHO.UI.toast(`${it.name} — ${ECHO.Gear.line(it)}${[pl.weapon, pl.bow, pl.armor].includes(it.id) ? ' (equipped)' : ' (in your pack; sell it, or equip it from your character page)'}`, it.rarity === 'common' ? 'info' : 'legend', 5);
       Game.loot = Game.loot.filter(l => l.itemId !== itemId);
       for (const r of world.ruins) r.relics = r.relics.filter(x => x !== itemId);
       ECHO.PlayerCtl.derivedT = 0;

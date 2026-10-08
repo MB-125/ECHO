@@ -220,6 +220,13 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 #hud-goal .gt { position: absolute; right: 6px; top: 3px; font-size: 10px; color: #9fd3ff; text-transform: uppercase; letter-spacing: 1px; }
 #hud-goal .arrow { display: inline-block; color: #ffe08a; margin-right: 6px; font-style: normal; transition: transform 0.25s; }
 #hud.fighting #hud-goal { opacity: 0.35; }
+#hud-goal .gk { display: block; font-size: 10px; color: #8a7a58; letter-spacing: 1px; margin-top: 1px; }
+.guide-steps { margin: 6px 0; padding-left: 4px; list-style: none; }
+.guide-steps li { margin: 6px 0; }
+.guide-tip { display: flex; gap: 10px; align-items: flex-start; }
+.guide-tip .gi { font-size: 20px; width: 26px; text-align: center; flex: none; }
+.bestiary { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.guide-how p { margin: 8px 0; }
 .callings { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0; }
 .calling { display: flex; flex-direction: column; justify-content: flex-start; border: 1px solid rgba(200,168,90,0.35); padding: 8px 10px; border-radius: 3px; background: rgba(0,0,0,0.2); text-align: left; cursor: pointer; font: inherit; color: inherit; }
 .calling:hover { border-color: #ffe08a; background: rgba(200,168,90,0.12); }

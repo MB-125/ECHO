@@ -26,6 +26,12 @@
       return { kind: 'ambition', label: g.done ? g.text : `${A().PATHS[g.path].icon} ${g.title}: ${g.text}${g.need > 1 ? ` (${g.have}/${g.need})` : ''}`, where: g.where, done: g.done };
     },
     trackedGoal(world, pl, id) {
+      if (id.startsWith('site:')) {
+        const s = ECHO.Explore.byId(world, id.slice(5));
+        if (!s || s.cleared) return null;
+        const known = s.found || s.seen;
+        return { kind: 'track', label: `▼ ${known ? s.name : 'An uncharted dungeon'} ${ECHO.Explore.stars(s)}`, where: { x: s.x, y: s.y, name: known ? s.name : 'somewhere in the wild', vague: !known } };
+      }
       if (id === 'expedition') { const E = world.expedition; return E && E.next ? { kind: 'track', label: `The lost expedition: ${E.next.camp ? 'the last camp' : 'the next page'}`, where: { x: E.next.x, y: E.next.y, name: E.next.hint, vague: true } } : null; }
       if (id.startsWith('case')) {
         const c = ECHO.Watch.byId(world, id);
@@ -92,7 +98,7 @@
         else if (g.where.vague) dirTxt = `${d > 60 ? 'far ' : ''}to the ${DIRS[((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8]}`;
         else dirTxt = `${Math.round(d)} leagues`;
       }
-      const html = `<span class="gl">${esc(g.label)}</span>${g.where ? `<span class="gw">${ang != null && dirTxt !== 'here' ? `<i class="arrow" style="transform:rotate(${Math.round(ang * 180 / Math.PI)}deg)">➤</i>` : ''}${esc(g.where.name || '')}${dirTxt ? ' · ' + dirTxt : ''}</span>` : ''}${g.kind === 'track' ? '<span class="gt">tracked</span>' : ''}`;
+      const html = `<span class="gl">${esc(g.label)}</span>${g.where ? `<span class="gw">${ang != null && dirTxt !== 'here' ? `<i class="arrow" style="transform:rotate(${Math.round(ang * 180 / Math.PI)}deg)">➤</i>` : ''}${esc(g.where.name || '')}${dirTxt ? ' · ' + dirTxt : ''}</span>` : ''}${g.kind === 'track' ? '<span class="gt">tracked</span>' : ''}<span class="gk">J · how?</span>`;
       if (Pu._html !== html) { Pu._html = html; el.innerHTML = html; el.classList.remove('hidden'); }
     },
 
@@ -134,7 +140,7 @@
         const r = A().rank(pl, k), n = A().next(world, pl, k);
         const ladder = p.ranks.map((R, i) => `<span class="${i < r ? 'gold' : i === r ? '' : 'dim'}">${i < r ? '✔ ' : ''}${esc(R.title)}</span>`).join(' → ');
         html += `<div class="card" style="${pl.focus === k ? 'border-color:#c8a85a' : ''}"><h4>${p.icon} ${esc(p.name)} ${pl.focus === k ? '<span class="gold">· your road</span>' : ''}</h4><div class="dim">${esc(p.blurb)}</div><div style="margin:6px 0">${ladder}</div>
-          ${n ? `<div><b>Next: ${esc(n.R.title)}</b> — <span class="dim">${esc(n.R.reward)}</span></div><ul>${n.objectives.map(o => `<li class="${o.done ? 'gold' : ''}">${o.done ? '✔ ' : ''}${esc(o.text)}${o.need > 1 ? ` — ${o.have}/${o.need}` : ''}${!o.done && o.where && o.where.name ? ` <span class="dim">(${esc(o.where.vague ? 'somewhere ' + Pu.dirTo(world, pl, o.where) : o.where.name)})</span>` : ''}</li>`).join('')}</ul>` : '<div class="gold">You have risen as far as this road goes.</div>'}
+          ${n ? `<div><b>Next: ${esc(n.R.title)}</b> — <span class="dim">${esc(n.R.reward)}</span></div><ul>${n.objectives.map(o => `<li class="${o.done ? 'gold' : ''}">${o.done ? '✔ ' : ''}${esc(o.text)}${o.need > 1 ? ` — ${o.have}/${o.need}` : ''}${!o.done && o.where && o.where.name ? ` <span class="dim">(${esc(o.where.vague ? 'somewhere ' + Pu.dirTo(world, pl, o.where) : o.where.name)})</span>` : ''}${!o.done && pl.focus === k && ECHO.Guide ? `<div class="dim" style="font-size:13px">${esc(ECHO.Guide.how(o.text))}</div>` : ''}</li>`).join('')}</ul>` : '<div class="gold">You have risen as far as this road goes.</div>'}
           ${pl.focus === k ? '' : `<div class="row"><button class="small" data-focus="${k}">Follow this road</button></div>`}</div>`;
       }
       return html;

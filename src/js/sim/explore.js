@@ -21,19 +21,30 @@
     wayshrine: { label: 'Wayside shrine', names: ['the Wayfarer\'s Shrine', 'the Pilgrim\'s Rest', 'the Little Flame'], desc: 'A tiny roadside shrine with a lamp that someone keeps lit.' },
     wreck: { label: 'Wreck', names: ['the Sunken Barge', 'the Drowned Cart', 'the Old Ferry'], desc: 'A wreck half-sunk in the shallows. Something might still be in it.' }
   };
+  // Delves and dungeons: floors to fight down through, what lives on them,
+  // and what waits at the bottom. lvl: added danger.
   const DELVES = {
-    barrow: { label: 'Barrow', names: ['the King\'s Barrow', 'the Sleeping Mound', 'the Barrow of Nine', 'the Low Barrow'], desc: 'A grass-grown mound with a stone door. The old people buried their kings here — and something still guards them.', foes: 'wight', boss: 'barrow-king' },
-    cave: { label: 'Wolf den', names: ['the Dark Den', 'Fang Hollow', 'the Bone Cave', 'Greyhowl Cave'], desc: 'A cave mouth littered with bones. The smell of wolf is strong.', foes: 'wolf', boss: 'den-mother' },
-    hideout: { label: 'Smugglers\' hideout', names: ['the Rat\'s Nest', 'Smuggler\'s Cut', 'the Low Cellar', 'Crooked Hole'], desc: 'A hidden cellar dug into a bank, with crates stacked inside. Smugglers use it, when they are not cutting throats.', foes: 'brigand', boss: 'smuggler-chief' },
-    crypt: { label: 'Sunken crypt', names: ['the Drowned Chapel', 'the Sunken Crypt', 'the Lost Shrine'], desc: 'The roof of an old shrine pokes out of the ground. Stairs lead down into the dark.', foes: 'wight', boss: 'crypt-warden' }
+    barrow: { label: 'Barrow', names: ['the King\'s Barrow', 'the Sleeping Mound', 'the Barrow of Nine', 'the Low Barrow'], desc: 'A grass-grown mound with a stone door. The old people buried their kings here — and something still guards them.', foes: 'wight', boss: 'barrow-king', floors: 2, roster: [['wight', 3], ['skeleton', 3], ['skelarcher', 1]], deep: [['ghoul', 1]], style: 'crypt', glow: '#9fe8c8' },
+    cave: { label: 'Wolf den', names: ['the Dark Den', 'Fang Hollow', 'the Bone Cave', 'Greyhowl Cave'], desc: 'A cave mouth littered with bones. The smell of wolf is strong.', foes: 'wolf', boss: 'den-mother', floors: 1, roster: [['wolf', 4], ['giantrat', 1]], style: 'cave', glow: '#ffb060' },
+    hideout: { label: 'Smugglers\' hideout', names: ['the Rat\'s Nest', 'Smuggler\'s Cut', 'the Low Cellar', 'Crooked Hole'], desc: 'A hidden cellar dug into a bank, with crates stacked inside. Smugglers use it, when they are not cutting throats.', foes: 'brigand', boss: 'smuggler-chief', floors: 1, roster: [['brigand', 4], ['giantrat', 1]], style: 'cave', glow: '#ffb060' },
+    crypt: { label: 'Sunken crypt', names: ['the Drowned Chapel', 'the Sunken Crypt', 'the Lost Shrine'], desc: 'The roof of an old shrine pokes out of the ground. Stairs lead down into the dark.', foes: 'wight', boss: 'crypt-warden', floors: 3, roster: [['skeleton', 3], ['skelarcher', 2], ['wight', 2]], deep: [['ghoul', 2], ['wraith', 1]], style: 'crypt', glow: '#9fe8c8', lvl: 1 },
+    catacomb: { label: 'Catacombs', names: ['the Bone Halls', 'the Ossuary', 'the Catacombs of Saint Vell', 'the Deep Graves'], desc: 'Stairs into the hill, and below them corridors of skulls in their thousands. Something down there is raising them.', boss: 'necromancer', floors: 4, roster: [['skeleton', 4], ['skelarcher', 2], ['ghoul', 1], ['cultist', 1]], deep: [['wraith', 1], ['ghoul', 2]], style: 'crypt', glow: '#9fe8c8', lvl: 1 },
+    warren: { label: 'Goblin warren', names: ['the Snaggle Warren', 'Gutrot Holes', 'the Mudwarrens', 'Grizzlegut\'s Delve'], desc: 'Burrows dug into a hillside, stinking of smoke and stolen mutton. Goblins.', boss: 'warlord', floors: 3, roster: [['goblin', 5], ['giantrat', 2], ['shaman', 1]], deep: [['shaman', 1], ['goblin', 2]], style: 'cave', glow: '#ff9a4a' },
+    nest: { label: 'Spider nest', names: ['the Webbed Hollow', 'Silkfall Cave', 'the Weaver\'s Pit', 'Spindle Deep'], desc: 'White silk thick across a cave mouth. Things the size of dogs move behind it.', boss: 'queen', floors: 3, roster: [['spider', 5], ['slime', 1]], deep: [['spider', 2]], style: 'cave', glow: '#c8e8ff', webs: true, lvl: 1 },
+    trollden: { label: 'Troll den', names: ['Troll Hole', 'the Gnawed Cave', 'Boulderthrow Den', 'the Stinking Hollow'], desc: 'A huge cave under a cliff, the ground around it gnawed bones and smashed stone.', boss: 'ogre', floors: 2, roster: [['troll', 2], ['giantrat', 2], ['goblin', 1]], deep: [['troll', 2]], style: 'cave', glow: '#ffb060', lvl: 2 },
+    sanctum: { label: 'Drowned sanctum', names: ['the Black Sanctum', 'the Drowned Temple', 'the Fane of Whispers'], desc: 'A temple to something without a name, half-swallowed by the earth. Robed figures go in and out at night.', boss: 'necromancer', floors: 3, roster: [['cultist', 3], ['wraith', 1], ['slime', 1]], deep: [['wraith', 2], ['cultist', 2]], style: 'crypt', glow: '#b48aff', lvl: 2 },
+    forge: { label: 'Deep forge', names: ['the Old Deep Forge', 'the Dwarrow Halls', 'Hammerdeep', 'the Cinder Halls'], desc: 'A door of black iron in the mountainside. The ground is warm. Something inside still keeps the fires.', boss: 'golem', floors: 3, roster: [['golemling', 2], ['slime', 2]], deep: [['golemling', 3]], style: 'stone', glow: '#ff7a2a', lvl: 3 }
   };
+  // The dungeons a world holds: the old delves, and the deep ones added later.
+  const DUNGEONS = [['catacomb', 2], ['warren', 2], ['nest', 2], ['trollden', 1], ['sanctum', 1], ['forge', 1]];
   const BEAST_NAMES = ['Greymaw', 'Old Ragged', 'Nightjaw', 'the Widowmaker', 'Bloodfang', 'Ashpelt', 'Moonhowl'];
 
   const X = ECHO.Explore = {
-    LANDMARKS, DELVES,
+    LANDMARKS, DELVES, DUNGEONS,
     sites(world) {
       if (!world.sites) X.place(world);
       if (!world._wild && ECHO.Discover) ECHO.Discover.ensure(world);
+      if (!world._dng) X.placeDungeons(world);
       return world.sites;
     },
     place(world) {
@@ -77,6 +88,55 @@
       ECHO.World.rebuildBlocked(world);
       world._tileEpoch = (world._tileEpoch || 0) + 1;
     },
+    // The deep dungeons — added to every world, old ones included, once.
+    placeDungeons(world) {
+      world._dng = 1;
+      const rng = new RNG((world.seed ^ 0xd06e) >>> 0);
+      const T = ECHO.TILE, sites = world.sites;
+      const near = (x, y, r, set) => { let n = 0; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (set.includes(ECHO.World.tile(world, x + dx, y + dy))) n++; return n; };
+      let relax = 0;
+      const far = (x, y) => world.settlements.every(s => U.dist(s.x, s.y, x, y) > 16 - relax * 4) && world.camps.every(c => U.dist(c.x, c.y, x, y) > 9) && world.lairs.every(l => U.dist(l.x, l.y, x, y) > 10) && world.ruins.every(r => U.dist(r.x, r.y, x, y) > 8) && sites.every(o => U.dist(o.x, o.y, x, y) > 14 - relax * 5);
+      const scale = ECHO.World.scale ? ECHO.World.scale(world) : 1;
+      const used = new Set(sites.map(s => s.name));
+      for (const [kind, n0] of DUNGEONS) for (let k = 0; k < n0 * scale; k++) {
+        let best = null, bs = -Infinity;
+        for (let i = 0; i < 1600 && !(i >= 800 && best); i++) {
+          relax = i < 800 ? 0 : 1;
+          const x = rng.int(8, world.W - 9), y = rng.int(8, world.H - 9);
+          const t = ECHO.World.tile(world, x, y);
+          if (![T.GRASS, T.FOREST, T.HILL, T.SAND, T.SNOW, T.SWAMP].includes(t) || ECHO.World.isSolid(world, x + 0.5, y + 0.5) || !far(x, y)) continue;
+          let sc = rng.next() * 2;
+          const high = near(x, y, 3, [T.HILL, T.ROCK, T.SNOW]);
+          if (kind === 'forge' || kind === 'trollden') sc += high * 0.35;
+          if (kind === 'nest' || kind === 'warren') sc += near(x, y, 3, [T.FOREST, T.TREE]) * 0.15 + high * 0.1;
+          if (kind === 'sanctum') sc += near(x, y, 3, [T.SWAMP, T.WATER]) * 0.2;
+          if (kind === 'catacomb') sc += world.ruins.some(r => U.dist(r.x, r.y, x, y) < 30) ? 2 : 0;
+          sc += Math.min(...world.settlements.map(s => U.dist(s.x, s.y, x, y))) * 0.03;
+          if (sc > bs) { bs = sc; best = { x, y }; }
+        }
+        if (!best) continue;
+        const def = DELVES[kind];
+        let name = def.names.find(n => !used.has(n));
+        if (!name) { const reg = ECHO.World.regionAt(world, best.x, best.y); name = `the ${def.label.toLowerCase()} of ${reg ? reg.name : 'the wilds'}`; }
+        used.add(name);
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const t = ECHO.World.tile(world, best.x + dx, best.y + dy); if (t === T.TREE) ECHO.World.setTile(world, best.x + dx, best.y + dy, T.FOREST); }
+        sites.push({ id: 'site' + sites.length, cat: 'delve', kind, name, x: best.x + 0.5, y: best.y + 0.5, found: false, cleared: false, used: {} });
+      }
+      for (const s of sites) if (s.cat === 'delve') X.level(world, s);
+      ECHO.World.rebuildBlocked(world);
+      world._tileEpoch = (world._tileEpoch || 0) + 1;
+    },
+    // How dangerous a delve is: deeper into the wilds, away from the capitals, the worse it gets.
+    level(world, site) {
+      if (site.level) return site.level;
+      const caps = world.settlements.filter(s => s.kind !== 'village');
+      const d = caps.length ? Math.min(...caps.map(s => U.dist(s.x, s.y, site.x, site.y))) : 40;
+      const def = DELVES[site.kind] || {};
+      site.level = U.clamp(1 + Math.floor(d / ((world.W || 200) * 0.13)) + (def.lvl || 0), 1, 6);
+      return site.level;
+    },
+    floors(site) { return (DELVES[site.kind] || {}).floors || 1; },
+    stars(site) { return '★'.repeat(Math.min(6, site.level || 1)); },
     byId(world, id) { return X.sites(world).find(s => s.id === id); },
     def(site) { return site.cat === 'wonder' ? ECHO.Discover.WONDERS[site.kind] : (site.cat === 'landmark' ? LANDMARKS : DELVES)[site.kind]; },
     label(site) { return X.def(site).label; },
@@ -86,6 +146,7 @@
     refill(world, site) {
       if (site.cat !== 'delve' || !site.cleared || world.day - site.clearedDay < 40) return false;
       site.cleared = false; site.chestTaken = false; site.round = (site.round || 0) + 1;
+      site.floorsDone = {}; site.caches = {};
       return true;
     },
 

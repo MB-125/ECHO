@@ -187,7 +187,7 @@
     // Find room for a new building in a town (no overlap, on open ground).
     placeBuilding(world, s, type, w, h, minR, maxR, dry) {
       const Tl = ECHO.TILE, W = world.W;
-      const occ = (x, y) => world.blocked[y * W + x] || s.buildings.some(b => x >= b.x - 1 && x < b.x + b.w + 1 && y >= b.y - 1 && y < b.y + b.h + 1);
+      const occ = (x, y) => world.blocked[y * W + x] || (world.sites && world.sites.some(o => Math.abs(o.x - 0.5 - x) < 3 && Math.abs(o.y - 0.5 - y) < 3)) || s.buildings.some(b => x >= b.x - 1 && x < b.x + b.w + 1 && y >= b.y - 1 && y < b.y + b.h + 1);
       for (let t = 0; t < 300; t++) {
         const a = (t * 2.399) % (Math.PI * 2), d = minR + (t / 300) * (maxR - minR);
         const x = Math.round(s.x + Math.cos(a) * d - w / 2), y = Math.round(s.y + Math.sin(a) * d - h / 2);
@@ -248,7 +248,7 @@
         if (near < 26) continue;
         if (world.camps.some(c => c.alive && U.dist(c.x, c.y, x, y) < 12) || world.lairs.some(l => U.dist(l.x, l.y, x, y) < 16) || world.ruins.some(r => U.dist(r.x, r.y, x, y) < 12)) continue;
         if (world.wonders && world.wonders.echoes && world.wonders.echoes.some(e => U.dist(e.x, e.y, x, y) < 10)) continue;
-        if (world.sites && world.sites.some(e => U.dist(e.x, e.y, x, y) < 10)) continue;
+        if (world.sites && world.sites.some(e => U.dist(e.x, e.y, x, y) < 9)) continue;
         const sc = ECHO.World.siteScore(world, x, y);
         if (sc < 70) continue;
         const ownD = Math.min(...own.map(s => U.dist(s.x, s.y, x, y)));
