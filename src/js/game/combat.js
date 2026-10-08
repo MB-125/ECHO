@@ -329,6 +329,7 @@
         const npc = world.npcs[target.npcId];
         C.burst(target.x, target.y, '#7a1d24', 14, 3, 0.7, 2);
         if (npc && npc.status !== 'dead') {
+          if (target.isCompanion && ECHO.Companions) ECHO.Companions.fell(game, npc);
           npc._x = target.x; npc._y = target.y;
           const killerName = game.killerNameFor(target, from);
           const cause = byPlayer ? (src.stealth ? 'killed in their sleep' : 'cut down') : 'killed in a skirmish';

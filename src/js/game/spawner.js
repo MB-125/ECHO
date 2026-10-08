@@ -266,7 +266,8 @@
       for (const e of game.ents) if (e.npcId === n.id) { e.dead = true; e.vanish = true; }
       const e = S.makePerson(game, n, game.pe.x - 1, game.pe.y + 0.6, 'companion');
       e.isCompanion = true; e.faction = 'player';
-      e.maxHp *= 1.3; e.hp = e.maxHp;
+      if (ECHO.Companions) ECHO.Companions.apply(game, e, n); else { e.maxHp *= 1.3; e.hp = e.maxHp; }
+      e.hp = e.maxHp;
       game.addEnt(e);
     }
   };

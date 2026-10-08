@@ -39,8 +39,12 @@
       const sees = hostile && (d < (e.indoor ? 14 : 9) || e.aggro) && (d < 3 || ECHO.Ent.lineOfSight(world, e.x, e.y, pe.x, pe.y));
       if (sees && !e.aggro) { e.aggro = true; for (const o of game.ents) if (o !== e && o.foe && !o.aggro && !o.dead && o.floor === e.floor && U.dist(o.x, o.y, e.x, e.y) < (e.ab && e.ab.pack ? 12 : 7)) o.aggro = true; }
       if (!e.aggro || !hostile || d > 22) { e.state = 'idle'; e.moving = false; if (Math.random() < dt * 0.2) e.dir = Math.random() * Math.PI * 2; return; }
-      const ang = Math.atan2(pe.y - e.y, pe.x - e.x);
-      if (ECHO.Monsters && ECHO.Monsters.tick(game, e, dt, d, ang)) return;
+      // a companion close at hand draws some of the blows
+      let T = pe, dT = d;
+      const comp = game.ents.find(o => o.isCompanion && !o.dead && !o.hidden);
+      if (comp) { const dc = U.dist(e.x, e.y, comp.x, comp.y); if (dc < d - 1.2 && dc < 4) { T = comp; dT = dc; } }
+      const ang = Math.atan2(T.y - e.y, T.x - e.x);
+      if (ECHO.Monsters && ECHO.Monsters.tick(game, e, dt, dT, ang)) return;
       const dmul = e.dmgMul || 1;
       // the elites call for help once, when hurt
       if (F.elite && !e.called && e.hp < e.maxHp * 0.5) {
@@ -70,13 +74,13 @@
         case 'attack': if (e.t > 0.25) e.state = 'chase'; return;
         default: {
           e.state = 'chase';
-          e.shooter = (e.gear.bow || (e.ab && e.ab.ranged)) && d > 3;
+          e.shooter = (e.gear.bow || (e.ab && e.ab.ranged)) && dT > 3;
           const want = e.shooter ? 6 : F.reach + 0.3;
-          if (d > want) ECHO.Ent.travel(world, e, pe.x, pe.y, e.speed, dt);
-          else if (e.shooter && d < 4) ECHO.Ent.seek(world, e, e.x - Math.cos(ang) * 2, e.y - Math.sin(ang) * 2, e.speed * 0.8, dt);
+          if (dT > want) ECHO.Ent.travel(world, e, T.x, T.y, e.speed, dt);
+          else if (e.shooter && dT < 4) ECHO.Ent.seek(world, e, e.x - Math.cos(ang) * 2, e.y - Math.sin(ang) * 2, e.speed * 0.8, dt);
           else e.moving = false;
           e.dir = ang; e.flip = Math.cos(ang) < 0;
-          if (e.cd <= 0 && d < (e.shooter ? 9 : want + 0.4)) {
+          if (e.cd <= 0 && dT < (e.shooter ? 9 : want + 0.4)) {
             e.state = 'windup'; e.t = 0; e.aim = ang; e.windEnd = e.shooter ? 0.7 : F.wind;
             if (!e.shooter) ECHO.Combat.telegraph({ x: e.x, y: e.y - 0.1, angle: ang, len: F.reach + 0.3, arc: F.elite ? 2.2 : 1.6, life: e.windEnd, shape: 'cone', color: 'rgba(255,90,70,0.22)', follow: e });
             if (F.look === 'wight' && Math.random() < 0.3) { e.say = ['…', 'Leave…', 'Not yours…', 'Sleep…'][Math.floor(Math.random() * 4)]; e.sayT = 1.5; }
@@ -246,6 +250,7 @@
       } else for (let i = 0; i < 2 && fs.length; i++) { const s0 = fs.pop(); const k = pick(); game.ents.push(k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { eliteChance: 0.5 }))); }
       ECHO.Music.stinger('discover');
       if (ECHO.Monsters) ECHO.Monsters.tip(game, 'dungeon');
+      if (ECHO.Companions) ECHO.Companions.event(game, 'enter');
     },
     // Pressure plates: spikes (or fire) every few seconds; they warn you first.
     trapState(game, t) { const c = (game.time + t.phase) % 3.2; return c < 1.7 ? 'down' : c < 2.3 ? 'warn' : 'up'; },

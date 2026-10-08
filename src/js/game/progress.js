@@ -30,6 +30,7 @@
         ECHO.UI.toast(`+${r.xp} experience for ${Pg.nameOf(game, e)} (level ${r.level} ${Pw().FOE_RANK[r.rank].name.toLowerCase()})${r.ups.length ? ` — you rise to level ${s.lv}!` : ` — ${Math.floor(s.xp)}/${Pw().need(s.lv)} toward level ${s.lv + 1}`}.`, 'legend', 6);
       }
       for (const u of r.ups) Pg.levelUp(game, u);
+      if (ECHO.Companions) { ECHO.Companions.gain(game, r.xp); ECHO.Companions.event(game, 'kill', e); }
       // outlaws carry coin, and sometimes something worth taking
       if (e.type === 'person' && !e.foe) {
         const rr = Math.random;

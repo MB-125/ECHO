@@ -478,10 +478,10 @@
         if (e.t > e.windEnd) {
           e.state = 'attack'; e.t = 0;
           if (archer && !e.meleeWind) {
-            ECHO.Combat.shoot(e, e.aimAngle + (Math.random() - 0.5) * 0.12, { kind: e.gear.crossbow ? 'bolt' : 'arrow', speed: e.gear.crossbow ? 17 : 13, dmg: 5 + skill * 0.11 + (e.gear.crossbow ? 4 : 0), life: 1.3, type: 'ranged' });
+            ECHO.Combat.shoot(e, e.aimAngle + (Math.random() - 0.5) * 0.12, { kind: e.gear.crossbow ? 'bolt' : 'arrow', speed: e.gear.crossbow ? 17 : 13, dmg: (5 + skill * 0.11 + (e.gear.crossbow ? 4 : 0)) * (e.dmgMul || 1), life: 1.3, type: 'ranged' });
           } else {
             const reach = spear ? 2.1 : 1.25;
-            ECHO.Combat.melee(e, { angle: e.aimAngle, arc: spear ? 0.7 : 1.6, range: reach, dmg: 5 + skill * 0.13 + npc.rank * 3 + (npc.carry ? 4 : 0), knock: 0.12 });
+            ECHO.Combat.melee(e, { angle: e.aimAngle, arc: spear ? 0.7 : 1.6, range: reach, dmg: (5 + skill * 0.13 + npc.rank * 3 + (npc.carry ? 4 : 0)) * (e.dmgMul || 1), knock: 0.12 });
             ECHO.Combat.slash(e.x, e.y - 0.25, e.aimAngle, reach + 0.1, spear ? 0.7 : 1.6, 'rgba(255,200,180,0.7)');
           }
           e.cd = archer && !e.meleeWind ? 1.6 + Math.random() * 0.6 : 1.1 + Math.random() * 0.5 - skill * 0.004;
@@ -664,6 +664,7 @@
       if (!pe) return;
       const d = U.dist(e.x, e.y, pe.x, pe.y);
       if (d > 18) { e.x = pe.x - 1; e.y = pe.y + 0.5; }
+      if (ECHO.Companions && ECHO.Companions.act(game, e, npc, dt, target)) return;
       if (target && U.dist(target.x, target.y, pe.x, pe.y) < 10) return Person.fight(game, e, npc, dt, target);
       if (d > 2.4) ECHO.Ent.travel(game.world, e, pe.x - Math.cos(pe.dir) * 1.2, pe.y - Math.sin(pe.dir) * 1.2, e.speed * (d > 6 ? 1.2 : 0.9), dt);
       else e.moving = false;

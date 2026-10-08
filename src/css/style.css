@@ -286,3 +286,7 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 #hud-rank.gain .xpn { animation: xpgaintxt 1.2s ease-out; }
 @keyframes xpgain { 0% { box-shadow: 0 0 0 0 rgba(200,168,255,0.9); background: rgba(200,168,255,0.6); } 100% { box-shadow: 0 0 12px 2px rgba(200,168,255,0); background: rgba(0,0,0,0.6); } }
 @keyframes xpgaintxt { 0% { color: #ffffff; } 100% { color: #b8a8d8; } }
+
+#hud-comp { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 12px; color: #9fe0c8; text-shadow: 0 1px 0 #000; }
+#hud-comp .cb { position: relative; width: 80px; height: 5px; background: rgba(0,0,0,0.6); }
+#hud-comp .cb i { position: absolute; left: 0; top: 0; bottom: 0; background: #6ac8a0; }

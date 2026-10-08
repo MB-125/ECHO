@@ -125,6 +125,7 @@
       ECHO.Finds.update(Game, dt);
       ECHO.Purpose.update(Game, dt);
       ECHO.Progress.update(Game, dt);
+      if (ECHO.Companions) ECHO.Companions.hud(Game);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }

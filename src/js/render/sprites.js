@@ -427,7 +427,7 @@
           } else if (e.type !== 'player' || ECHO.Game.pl && ECHO.Game.pl.weapon) { R(blade, e.flip ? -7 : 6, -18, 1, 8); R('#6a4a2a', e.flip ? -8 : 5, -10, 3, 1); }
         }
       }
-      if (prof === 'elder') R('#6a4a2a', e.flip ? -7 : 6, -12, 1, 12);
+      if (prof === 'elder' || (e.gear && e.gear.staff)) { R('#6a4a2a', e.flip ? -7 : 6, -14, 1, 14); if (e.gear && e.gear.staff) R('#ff9a3c', e.flip ? -8 : 5, -16, 3, 2); }
       g.restore();
       void time; void child;
     },

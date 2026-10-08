@@ -957,7 +957,7 @@
       M.show(inst, 'bow', !!gear.bow);
       M.show(inst, 'spear', !!gear.spear);
       M.show(inst, 'torch', !ECHO.Interior.cur && (!!gear.torch || (e.type === 'player' && game.isNight())));
-      M.show(inst, 'staff', prof === 'elder');
+      M.show(inst, 'staff', prof === 'elder' || !!gear.staff);
       const fighter = e.type === 'player' ? !!(pl && pl.weapon) : (prof === 'guard' || bandit || prof === 'wanderer' || e.role === 'soldier' || !!e.carrying || e.isCompanion);
       M.show(inst, 'sword', fighter && !gear.spear && !gear.bow);
       if (e.carrying) {
