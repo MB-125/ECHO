@@ -23,7 +23,25 @@
       const r = Pw().onKill(pl, e);
       const D = Pw().diff(r.level, Pw().level(pl) - r.ups.length);
       ECHO.Combat.floater(e.x, e.y - 1.2, `+${r.xp} xp${D.skulls ? ' — stronger foe!' : D.k === 'trivial' ? ' (too weak to teach you)' : ''}`, D.skulls ? '#ffcf5a' : '#c8a8ff', D.skulls > 0);
+      Pg.flash();
+      // the great kills are announced, so you see what they gave you
+      if (r.rank === 'great' || r.rank === 'lord' || r.rank === 'champion') {
+        const s = Pw().st(pl);
+        ECHO.UI.toast(`+${r.xp} experience for ${Pg.nameOf(game, e)} (level ${r.level} ${Pw().FOE_RANK[r.rank].name.toLowerCase()})${r.ups.length ? ` — you rise to level ${s.lv}!` : ` — ${Math.floor(s.xp)}/${Pw().need(s.lv)} toward level ${s.lv + 1}`}.`, 'legend', 6);
+      }
       for (const u of r.ups) Pg.levelUp(game, u);
+      // outlaws carry coin, and sometimes something worth taking
+      if (e.type === 'person' && !e.foe) {
+        const rr = Math.random;
+        game.loot.push({ x: e.x + (rr() - 0.5) * 0.6, y: e.y + (rr() - 0.5) * 0.6, kind: 'gold', qty: Math.round(3 + rr() * 10 + r.level * 2) });
+        if (rr() < (e.isLeader ? 0.6 : 0.08)) ECHO.Monsters.dropGear(game, e.x + (rr() - 0.5), e.y + (rr() - 0.5), r.level, e.isLeader ? 12 : 0, `on an outlaw${e.isLeader ? ' chief' : ''}`);
+      }
+    },
+    // the experience bar glows when it fills
+    flash() {
+      const el = document.getElementById('hud-rank');
+      if (!el) return;
+      el.classList.remove('gain'); void el.offsetWidth; el.classList.add('gain');
     },
     levelUp(game, u) {
       const pl = game.pl;
@@ -61,8 +79,29 @@
           Pg.glows.push({ x: pe.x + Math.cos(a) * 0.45, y: pe.y + Math.sin(a) * 0.45, h: 0.5 + 0.5 * Math.sin(t * 3 + i), s: 0.18 + L.glow * 0.15, c: L.glowCol, a: 0.25 + L.glow * 0.35 });
         }
       }
+      // loot shines where it lies, so you can find it after a fight
+      for (const l of game.loot) {
+        if (l.taken || U.dist(l.x, l.y, pe.x, pe.y) > 30) continue;
+        const it = l.kind === 'item' && world.items[l.itemId];
+        const col = it ? ECHO.Gear.rarity(it.rarity).color : l.kind === 'gold' ? '#ffd84a' : (ECHO.Gear.MATS[l.kind] || {}).color || '#f0e6d0';
+        const tall = it ? 4 + ['common', 'fine', 'rare', 'epic', 'legendary'].indexOf(it.rarity || 'common') : ECHO.Gear.MATS[l.kind] || l.kind === 'gold' ? 3 : 2;
+        for (let i = 0; i < tall; i++) Pg.glows.push({ x: l.x, y: l.y, h: 0.25 + i * 0.32, s: 0.42 - i * 0.03, c: col, a: (0.28 - i * 0.025) * (0.8 + 0.2 * Math.sin(game.time * 4 + l.x)) });
+      }
       Pg.hud(game);
       Pg.targetHud(game);
+    },
+    // Labels for loot lying near you.
+    lootLabels(game) {
+      const out = [], pe = game.pe, world = game.world;
+      if (!pe) return out;
+      for (const l of game.loot) {
+        if (l.taken || U.dist(l.x, l.y, pe.x, pe.y) > 9) continue;
+        const it = l.kind === 'item' && world.items[l.itemId];
+        if (it) out.push({ x: l.x, y: l.y, text: `${it.name}${it.plus ? ' +' + it.plus : ''} [E]`, color: ECHO.Gear.rarity(it.rarity).color });
+        else if (l.kind === 'gold') out.push({ x: l.x, y: l.y, text: `${l.qty} crowns`, color: '#ffd84a' });
+        else { const m = ECHO.Gear.MATS[l.kind]; if (m) out.push({ x: l.x, y: l.y, text: `${l.qty} ${m.name}`, color: m.color }); }
+      }
+      return out;
     },
     // What the player's gear looks like on the body.
     lookOf(world, pl) {

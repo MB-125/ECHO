@@ -770,6 +770,7 @@
         ctx.lineWidth = 3 * R.dpr; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(t, x, y);
         ctx.fillStyle = col; ctx.fillText(t, x, y);
       };
+      if (ECHO.Progress) for (const ll of ECHO.Progress.lootLabels(game)) { if (!R.onScreen(game, ll.x, ll.y)) continue; const p = R.toScreen(game, ll.x, ll.y); text(ll.text, p.x, p.y - 8 * R.Z, ll.color); }
       if (ECHO.Progress) for (const sl of ECHO.Progress.siteLabels(game)) { if (!R.onScreen(game, sl.x, sl.y)) continue; const p = R.toScreen(game, sl.x, sl.y); ctx.globalAlpha = sl.a; text(sl.text, p.x, p.y - 30 * R.Z, sl.color); ctx.globalAlpha = 1; }
       for (const e of game.ents) {
         if (e.dead || e.hidden || e === game.pe) continue;

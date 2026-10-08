@@ -1398,7 +1398,7 @@
           const it = l.kind === 'item' && game.world.items[l.itemId];
           const rc = it && it.rarity ? ECHO.Gear.rarity(it.rarity).color : null;
           m = l.kind === 'item' ? new THREE.Mesh(new THREE.BoxGeometry(it && it.kind === 'armor' ? 0.4 : 0.7, it && it.kind === 'armor' ? 0.3 : 0.05, it && it.kind === 'armor' ? 0.3 : 0.08), rc ? new THREE.MeshStandardMaterial({ color: C(rc), emissive: C(rc).multiplyScalar(0.45), roughness: 0.4, metalness: 0.4 }) : R.mat.loot)
-            : new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.18), new THREE.MeshStandardMaterial({ color: C({ meat: '#c87a7a', hide: '#8a6a4a', gold: '#f2d14b', food: '#d8b86a', ore: '#8a8a92', arms: '#a8a8b0', herbs: '#7ac87a', timber: '#8a6a42' }[l.kind] || (ECHO.Gear.MATS[l.kind] || {}).color || '#ffffff'), roughness: 0.7 }));
+            : new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.2, 0.28), new THREE.MeshStandardMaterial({ emissive: C('#2a2010'), color: C({ meat: '#c87a7a', hide: '#8a6a4a', gold: '#f2d14b', food: '#d8b86a', ore: '#8a8a92', arms: '#a8a8b0', herbs: '#7ac87a', timber: '#8a6a42' }[l.kind] || (ECHO.Gear.MATS[l.kind] || {}).color || '#ffffff'), roughness: 0.7 }));
           m.castShadow = true;
           R.lootMeshes.set(l, m); R.groups.fx.add(m);
         }
@@ -1695,6 +1695,7 @@
         ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       }
       if (ECHO.Fest) { ECHO.Fest.drawHUD(ctx, game, R.cw); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
+      if (ECHO.Progress) { ctx.font = `${Math.round(fs * 0.85)}px "Pixelify Sans", monospace`; for (const ll of ECHO.Progress.lootLabels(game)) { if (!R.onScreen(game, ll.x, ll.y)) continue; const p = R.project(ll.x, ll.y, 0.75); if (p.z > 1) continue; text(ll.text, p.x, p.y, ll.color); } ctx.font = `${fs}px "Pixelify Sans", monospace`; }
       if (ECHO.Progress) for (const sl of ECHO.Progress.siteLabels(game)) { if (!R.onScreen(game, sl.x, sl.y)) continue; const p = R.project(sl.x, sl.y, 2.6); if (p.z > 1) continue; ctx.globalAlpha = sl.a; text(sl.text, p.x, p.y, sl.color); ctx.globalAlpha = 1; }
       const heights = { player: 1.25, person: 1.25, boss: 3.6 };
       for (const e of game.ents) {

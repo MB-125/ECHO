@@ -295,8 +295,35 @@
       if (e.t > 0.75 || stopped) { e.state = 'recover'; e.t = stopped ? -0.4 : 0; if (stopped) { e.stagger = 0.5; ECHO.Combat.floater(e.x, e.y - 2, 'stunned', '#ffe08a'); } }
     },
 
+    // What a great beast leaves behind: hide, fangs, coin from those it killed, and the gear of its victims.
+    spoils(game, e, full) {
+      const r = Math.random, L = ECHO.Prowess ? ECHO.Prowess.foeLevel(e) : 8, out = [];
+      const add = (kind, qty) => { game.loot.push({ x: e.x + (r() - 0.5) * 2.4, y: e.y + (r() - 0.5) * 2.4, kind, qty }); out.push(`${qty} ${kind === 'gold' ? 'crowns' : (ECHO.Gear.MATS[kind] || { name: kind }).name}`); };
+      if (full) {
+        add('gold', Math.round(80 + r() * 120 + L * 10));
+        add('greathide', 2 + Math.floor(r() * 2));
+        add('greatfang', 1 + Math.floor(r() * 2));
+        if (r() < 0.5) add('heartstone', 1);
+        add('meat', 3); add('hide', 2);
+        for (let i = 0; i < 2; i++) ECHO.Monsters.dropGear(game, e.x + (r() - 0.5) * 2, e.y + (r() - 0.5) * 2, L, 25, `in the lair of ${e.boss.name}`);
+        out.push('two pieces of gear from its victims');
+      } else {
+        add('greathide', 1);
+        if (r() < 0.5) add('gold', Math.round(20 + r() * 40));
+      }
+      game.ui.toast(`${full ? 'Spoils' : 'It left behind'}: ${out.join(', ')}. Walk over them to pick them up${full ? ' — and press E over the gear' : ''}.`, 'legend', 7);
+      return out;
+    },
     fled(game, e) {
       const world = game.world, b = e.boss, pl = game.pl;
+      // what you learned driving it off, and what it shed
+      if (ECHO.Prowess) {
+        const xp = Math.round(ECHO.Prowess.xpFor(pl, e) * 0.4), ups = ECHO.Prowess.gain(pl, xp);
+        ECHO.Combat.floater(game.pe.x, game.pe.y - 1.6, `+${xp} xp — you drove it off`, '#ffcf5a', true);
+        for (const u of ups) ECHO.Progress.levelUp(game, u);
+        ECHO.Progress.flash();
+      }
+      B.spoils(game, e, 0);
       const rng = ECHO.Sim.rngFor(world);
       e.dead = true; e.vanish = true;
       game.ui.bossBar(null);
@@ -333,6 +360,7 @@
         game.ui.toast(`${b.name} ${b.title} is dead. You take ${trophy.name}.`, 'boss', 6);
         for (const p of ECHO.Plights.open(world)) if (p.kind === 'apex' && p.lairId === e.lair.id) { p.playerDone = true; }
         void key;
+        B.spoils(game, e, 1);
       }
     }
   };

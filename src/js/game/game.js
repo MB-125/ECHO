@@ -400,9 +400,13 @@
     },
     pickupLoot() {
       const pe = Game.pe, pl = Game.pl;
+      const quiet = !Game.ents.some(e => !e.dead && e !== pe && (e.state === 'chase' || e.state === 'windup' || e.state === 'attack') && U.dist(e.x, e.y, pe.x, pe.y) < 8);
       for (const l of Game.loot) {
         if (l.taken) continue;
-        if (U.dist(l.x, l.y, pe.x, pe.y) > 0.8) continue;
+        const d = U.dist(l.x, l.y, pe.x, pe.y);
+        // coin and parts drift to you once the fighting is done
+        if (l.kind !== 'item' && quiet && d < 3.5 && d > 0.3) { const k = Math.min(1, 0.06 + 0.5 / d * 0.1); l.x += (pe.x - l.x) * k; l.y += (pe.y - l.y) * k; }
+        if (d > 1.2) continue;
         if (l.kind === 'item') continue; // items need E
         l.taken = true;
         if (l.kind === 'gold') pl.gold += l.qty;

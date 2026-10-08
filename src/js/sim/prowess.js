@@ -88,8 +88,16 @@
       const R = FOE_RANK[P.foeRank(e)];
       const gap = L - me;
       const scale = gap <= -4 ? 0.05 : U.clamp(1 + 0.3 * gap, 0.2, 2.5);
-      // no single kill, however great, carries you more than about two levels
-      return Math.max(1, Math.min(Math.round(P.need(me) * 2.2), Math.round(8 * Math.pow(L, 1.3) * R.mult * scale)));
+      // no single kill carries you too far: about two levels, three for a lord or a great beast
+      const rk = P.foeRank(e), cap = P.capXp(pl, rk === 'great' || rk === 'lord' ? 3 : 2);
+      return Math.max(1, Math.min(cap, Math.round(8 * Math.pow(L, 1.3) * R.mult * scale)));
+    },
+    // Experience that would carry you up n levels from where you stand.
+    capXp(pl, n) {
+      const s = P.st(pl);
+      let t = -s.xp;
+      for (let i = 0; i < n; i++) t += P.need(Math.min(MAX, s.lv + i));
+      return Math.max(1, Math.round(t + P.need(s.lv) * 0.1));
     },
     // Add experience; returns the levels gained (each with the rank it brings, if new).
     gain(pl, xp) {

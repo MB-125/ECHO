@@ -498,6 +498,10 @@ function main() {
     check('experience raises your level, and your blows grow harder', Pw.level(pl) >= 2 && Pw.dmgMult(pl) > 1 && Pw.hpBonus(pl) > 0 && ups.length >= 1, `level ${Pw.level(pl)}, ×${Pw.dmgMult(pl).toFixed(2)}`);
     const rankUp = Pw.gain(pl, 5000);
     check('levels bring new ranks', Pw.level(pl) >= 5 && rankUp.some(u => u.rank && u.rank.title === 'Fighter') && Pw.title(pl) !== 'Novice', `level ${Pw.level(pl)} ${Pw.title(pl)}`);
+    const fresh = { skills: {}, items: [] };
+    const bx = Pw.xpFor(fresh, beast), gained = Pw.gain(fresh, bx).length;
+    check('slaying a great beast lifts you several levels at once', gained >= 2 && gained <= 3, `${bx} xp → ${gained} levels`);
+    check('great beasts leave hide and fangs worth having', ECHO.Gear.MATS.greathide && ECHO.Gear.MATS.greatfang && ECHO.Gear.CRAFT.some(c => c.mats.greathide));
     const lv = Pw.level(pl), x0 = Pw.st(pl).xp, xp = Pw.onKill(pl, { lvl: 1 }).xp;
     check('things far beneath you teach you almost nothing', xp <= 3 && Pw.level(pl) === lv, `${xp} xp`);
     Pw.gain(pl, 1e7);

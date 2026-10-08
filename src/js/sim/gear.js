@@ -25,7 +25,9 @@
     core: { name: 'golem cores', value: 30, tier: 4, color: '#ff9a4a' },
     grave: { name: 'grave-iron', value: 34, tier: 4, color: '#7a8a9a' },
     queensilk: { name: 'queen\'s silk', value: 45, tier: 4, color: '#ffffff' },
-    heartstone: { name: 'heartstones', value: 60, tier: 5, color: '#ff4a6a' }
+    heartstone: { name: 'heartstones', value: 60, tier: 5, color: '#ff4a6a' },
+    greathide: { name: 'great beast hide', value: 55, tier: 5, color: '#c87a3a' },
+    greatfang: { name: 'great beast fangs', value: 70, tier: 5, color: '#fff0c8' }
   };
   const RARITY = [
     { k: 'common', name: 'Common', mult: 1, color: '#c8c0b0', affix: 0 },
@@ -60,6 +62,7 @@
     { id: 'silk', name: 'Silkweave coat', def: 10, gold: 60, mats: { silk: 5, hide: 2 }, desc: 'Spider silk as tough as mail and half the weight.' },
     { id: 'troll', name: 'Troll-hide brigandine', def: 15, gold: 120, mats: { trollhide: 4, bonedust: 4 }, desc: 'It closes over small cuts as if it were still alive.', affix: 'vigor' },
     { id: 'grave', name: 'Grave-iron hauberk', def: 20, gold: 220, mats: { grave: 3, sigil: 3 }, desc: 'Black iron from the tombs. Spells slide off it.', affix: 'warding' },
+    { id: 'beast', name: 'Beastlord\'s mantle', def: 24, gold: 260, mats: { greathide: 2, greatfang: 1 }, desc: 'Cut from the hide of a great beast. Wolves go quiet when you pass.', affix: 'vigor' },
     { id: 'golem', name: 'Golemplate', def: 26, gold: 360, mats: { core: 3, tusk: 2 }, desc: 'Plates of living stone.', affix: 'thorns' }
   ];
 
@@ -151,7 +154,7 @@
       const lift = (hex, f) => { const n = parseInt(hex.slice(1), 16), c = v => Math.min(255, Math.round(v + (255 - v) * f)); return '#' + ((c(n >> 16) << 16) | (c((n >> 8) & 255) << 8) | c(n & 255)).toString(16).padStart(6, '0'); };
       const L = { rarity: R.k, color: R.color, plus, gems: Math.min(5, plus), glow, glowCol, metal: lift(METAL[R.k] || METAL.common, plus * 0.07), gold: R.k === 'epic' || R.k === 'legendary' || plus >= 4, affix: it.affix || null };
       if (it.kind === 'armor') {
-        const CR = { leather: ['#7a5634', '#4a3420'], silk: ['#e8e4dc', '#a8a49a'], troll: ['#5a6a3a', '#3a4426'], grave: ['#3e4650', '#262a30'], golem: ['#8a8276', '#5a544c'] };
+        const CR = { beast: ['#8a5a2a', '#4a2e18'], leather: ['#7a5634', '#4a3420'], silk: ['#e8e4dc', '#a8a49a'], troll: ['#5a6a3a', '#3a4426'], grave: ['#3e4650', '#262a30'], golem: ['#8a8276', '#5a544c'] };
         const RC = { common: ['#6a5a48', '#4a3e32'], fine: ['#6a7a5a', '#45503a'], rare: ['#4a6a9a', '#2e4466'], epic: ['#6a4a9a', '#422e66'], legendary: ['#b08a3a', '#6a5020'] };
         const c = CR[it.craft] || RC[R.k] || RC.common;
         L.body = c[0]; L.trim = c[1];
