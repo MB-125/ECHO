@@ -414,6 +414,7 @@
           <h4 class="ware-h">Trade goods</h4><div class="wares">${['ore', 'timber', 'arms'].map(card).join('')}</div>
           ${UI.lootMarketHtml(world, pl, s)}
           ${UI.apothecaryHtml(pl)}
+          ${UI.stablesHtml(pl, s)}
           ${(pl.inv.starshard || 0) + (pl.inv.whitehide || 0) > 0 ? `<h4 class="ware-h">Rare things</h4><div class="wares">
             ${pl.inv.starshard ? `<div class="ware"><div class="ware-ic">✦</div><div class="ware-main"><div class="ware-top"><b>Star-iron shard</b><span class="gold">they pay ${rare.star}</span></div><div class="ware-use">A smith can forge it into your blade; a priest knows other uses.</div><div class="ware-meta">You have <b>${pl.inv.starshard}</b></div><div class="row"><button class="small" data-rare="starshard">Sell 1</button></div></div></div>` : ''}
             ${pl.inv.whitehide ? `<div class="ware"><div class="ware-ic">🦌</div><div class="ware-main"><div class="ware-top"><b>White hind's hide</b><span class="gold">they pay ${rare.hide}</span></div><div class="ware-use">Nobody asks where it came from. Everybody knows.</div><div class="ware-meta">You have <b>${pl.inv.whitehide}</b></div><div class="row"><button class="small" data-rare="whitehide">Sell 1</button></div></div></div>` : ''}</div>` : ''}
@@ -421,6 +422,8 @@
           <p class="dim" style="margin-top:10px">Prices move with what is in the stores. Bread here has cost: <span style="display:inline-flex;align-items:flex-end;height:30px;vertical-align:middle">${spark}</span></p>`;
         body.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
           const d = btn.dataset;
+          if (d.horse) { const why = ECHO.Life.buyHorse(pl, d.horse); if (why) UI.toast(why, 'warn', 3); else { s.wealth += ECHO.Life.BREEDS[d.horse].price; UI.toast(`${pl.horse.name} the ${ECHO.Life.BREEDS[d.horse].name.toLowerCase()} is yours. Press V to mount or dismount.`, 'legend', 5); } }
+          if (d.rod) { if (pl.gold >= 12) { pl.gold -= 12; pl.inv.rod = 1; UI.toast('A fishing rod. Stand by any water and press E to cast; press E again when something bites.', 'info', 5); } }
           if (d.brew) { const why = ECHO.Gear.brew(pl, d.brew); if (why) UI.toast(why, 'warn', 3); else { ECHO.Sfx.play('coin'); UI.toast(`You have a ${ECHO.Gear.POTIONS[d.brew].name.toLowerCase()} made up. Drink it with ${ECHO.Gear.POTIONS[d.brew].key}.`, 'info', 3); } }
           if (d.sellmats) { const r = ECHO.Gear.sellMats(pl, s); if (r.total) { ECHO.Sfx.play('coin'); UI.toast(`Sold ${r.out.join(', ')} for ${r.total} crowns.`, 'info', 4); } }
           if (d.sellmat) { const k = d.sellmat, n = pl.inv[k] || 0; if (n) { const got = ECHO.Gear.matPrice(s, k) * n; pl.inv[k] = 0; pl.gold += got; s.wealth = (s.wealth || 0) + got * 0.2; ECHO.Sfx.play('coin'); } }
@@ -584,6 +587,11 @@
       return `<h3 class="gold">Equipment</h3><div class="gear-slots"><img class="gear-doll" src="${GA.doll(look, pl.look && pl.look.skin || '#e0ac85', pl.look && pl.look.hair || '#4a3020')}" alt="">
         <div>${slot(world.items[pl.weapon], 'sword')}${slot(world.items[pl.bow], 'bow')}${slot(pl.armor && world.items[pl.armor], 'armour')}</div></div>`;
     },
+    stablesHtml(pl, s) {
+      const L = ECHO.Life;
+      return `<h4 class="ware-h">The stables</h4><p class="dim">A horse carries you along the roads far faster than your feet. Press V to mount; you leap down to fight.${pl.horse ? ` You ride <b>${esc(pl.horse.name)}</b>, a ${esc(L.BREEDS[pl.horse.breed].name.toLowerCase())}.` : ''}</p><div class="wares">${Object.entries(L.BREEDS).map(([k, B]) => `<div class="ware"><div class="ware-ic" style="color:${B.color}">🐎</div><div class="ware-main"><div class="ware-top"><b>${esc(B.name)}</b><span class="gold">${B.price} cr</span></div><div class="ware-use">${esc(B.desc)} Speed ×${B.speed}.</div><div class="row"><button class="small" data-horse="${k}" ${pl.gold < B.price ? 'disabled' : ''}>${pl.horse ? 'Trade up' : 'Buy'}</button></div></div></div>`).join('')}
+        <div class="ware"><div class="ware-ic">🎣</div><div class="ware-main"><div class="ware-top"><b>Fishing rod</b><span class="gold">12 cr</span></div><div class="ware-use">Fish at any water (E). Trout to eat, silverfin and moonfish to sell.</div><div class="row"><button class="small" data-rod="1" ${pl.inv.rod || pl.gold < 12 ? 'disabled' : ''}>${pl.inv.rod ? 'You have one' : 'Buy'}</button></div></div></div></div>`;
+    },
     apothecaryHtml(pl) {
       const Gr = ECHO.Gear;
       const cost = c => `<span class="gold">${c.gold} cr</span>${Object.entries(c.mats).map(([k, n]) => ` + <span class="${(pl.inv[k] || 0) >= n ? '' : 'ember'}">${n} ${esc(Gr.MATS[k] ? Gr.MATS[k].name : k)} (${pl.inv[k] || 0})</span>`).join('')}`;
@@ -736,7 +744,7 @@
         UI.toast(`${c.hours} hours on the coach. You climb down in ${to.name}.${note}`, note ? 'warn' : 'world', 6);
       }, 500);
     },
-    sleepUntilMorning(s) {
+    sleepUntilMorning(s, home) {
       const game = ECHO.Game, world = game.world, pl = game.pl;
       UI.fadeOut(() => {
         // advance to 7:00 next morning, ticking the world
@@ -748,6 +756,7 @@
         game.ents = game.ents.filter(e => e === game.pe || e.isCompanion);
         UI.fadeIn();
         UI.toast(`You wake rested in ${s ? s.name : 'your bed'}. ${T.fmtDate(world.day)}.`, 'info', 4);
+        if (home && ECHO.Life) for (const m of ECHO.Life.slept(world, pl, home)) UI.toast(m, 'legend', 6);
       });
     },
     openShrine(s, b) {
@@ -841,8 +850,15 @@
     openHouse(b, s) {
       const game = ECHO.Game, world = game.world, pl = game.pl;
       if (b.owner === pl.charId && !b.legend) {
-        const body = UI.openPanel('Your house', `<p class="prose">Your bed, your hearth, your door. ${s.name} is home.</p><button>Sleep until morning</button>`, 'house');
-        body.querySelector('button').addEventListener('click', () => { UI.closePanel(); UI.sleepUntilMorning(s); });
+        const body = UI.openPanel('Your house', '', 'house');
+        const render = () => {
+          const F = ECHO.Life.FURNISH, have = b.furnish || {};
+          body.innerHTML = `<p class="prose">Your bed, your hearth, your door. ${esc(s.name)} is home.</p><button data-sleep="1">Sleep until morning</button>
+            <h4 class="ware-h">Make it yours</h4><div class="wares">${Object.entries(F).map(([k, f]) => `<div class="ware"><div class="ware-main"><div class="ware-top"><b>${esc(f.name)}</b>${have[k] ? '<span class="gold">done</span>' : `<span class="gold">${f.cost} cr</span>`}</div><div class="ware-use">${esc(f.desc)}</div>${have[k] ? '' : `<div class="row"><button class="small" data-furnish="${k}" ${pl.gold < f.cost ? 'disabled' : ''}>Have it done</button></div>`}</div></div>`).join('')}</div>`;
+          body.querySelector('[data-sleep]').addEventListener('click', () => { UI.closePanel(); UI.sleepUntilMorning(s, b); });
+          body.querySelectorAll('[data-furnish]').forEach(x => x.addEventListener('click', () => { const why = ECHO.Life.furnish(world, pl, x.dataset.furnish); if (why) UI.toast(why, 'warn', 3); else { ECHO.Sfx.play('coin'); if (ECHO.Interior.cur) ECHO.Interior.cur.rev = (ECHO.Interior.cur.rev || 0) + 1; } render(); }));
+        };
+        render();
         return;
       }
       const l = ECHO.Legacy.legendOf(world, b.legend);
@@ -953,7 +969,7 @@
       let tab = tab0 || 'pleas';
       const body = UI.openPanel(`Notice board — ${s.name}`, '', 'board');
       const render = () => {
-        const tabs = [['pleas', 'Pleas & bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['affairs', 'Town affairs']];
+        const tabs = [['pleas', 'Pleas'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['affairs', 'Town affairs']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'pleas') html += '<p class="dim">Pleas, bounties and warnings, nailed up by people who will not wait forever.</p><div class="list" id="pl"></div>';
         else if (tab === 'law') {
@@ -967,6 +983,12 @@
           const trials = world.chronicle.filter(e => e.kind === 'crime' && e.sid === s.id && /tried|hanged|banished|stocks/.test(e.text)).slice(-6).reverse();
           if (trials.length) html += `<h4 class="ware-h">Recent judgements</h4>${trials.map(e => `<div class="card"><span class="dim">${T.fmtDate(e.d)}</span> — ${esc(e.text)}</div>`).join('')}`;
         } else if (tab === 'watch') html += UI.watchHtml(s);
+        else if (tab === 'bounty') {
+          const B = ECHO.Bounty, today = B.forTown(world, s), mine = B.mine(pl);
+          html += `<p class="dim">Today's bounties. Carry up to three; a messenger pays you the moment the work is done, wherever you are. They lapse after five days.</p><div class="list">${today.map(b => { const taken = mine.some(x => x.id === b.id); return `<div class="card"><h4>${esc(B.text(b))}</h4><div class="gold">${b.gold} crowns · ${b.xp} experience</div><div class="row">${taken ? '<span class="dim">taken</span>' : `<button class="small" data-bounty="${b.id}">Take it</button>`}</div></div>`; }).join('')}</div>`;
+          const act = mine.filter(b => !b.done);
+          if (act.length) html += `<h4 class="ware-h">Your bounties</h4>${act.map(b => `<div class="card"><b>${esc(B.text(b))}</b> — ${b.have}/${b.need} <span class="dim">(${Math.max(0, 5 - (world.day - b.day))} days left)</span></div>`).join('')}`;
+        }
         else if (tab === 'deeds') html += UI.deedsHtml(s);
         else {
           const lines = [];
@@ -989,6 +1011,7 @@
           for (const p of world.plights) if (p.status === 'open' && p.kind === 'apex' && p.playerDone && !p.claimable) { p.claimable = true; UI.fillPlights(body.querySelector('#pl'), s); }
         }
         if (tab === 'deeds') UI.bindDeeds(body, s, render);
+        if (tab === 'bounty') body.querySelectorAll('button[data-bounty]').forEach(b => b.addEventListener('click', () => { const bt = ECHO.Bounty.forTown(world, s).find(x => x.id === b.dataset.bounty); const why = ECHO.Bounty.accept(world, pl, bt); if (why) UI.toast(why, 'warn', 3); else UI.toast('You tear the bounty from the board.', 'info', 2); render(); }));
         if (tab === 'watch') body.querySelectorAll('button[data-case]').forEach(b => b.addEventListener('click', () => { pl.investigating = b.dataset.case; UI.toast('You take down the notice. (Added to your journal.)', 'info', 3); render(); }));
       };
       render();

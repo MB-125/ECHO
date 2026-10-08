@@ -128,6 +128,7 @@
       if (ECHO.Companions) ECHO.Companions.hud(Game);
       if (ECHO.Tutorial) ECHO.Tutorial.update(Game, dt);
       if (ECHO.Saga) ECHO.Saga.update(Game, dt);
+      if (ECHO.Life) ECHO.Life.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -150,6 +151,7 @@
       for (const f in pl.wanted) { pl.wanted[f] = Math.max(0, pl.wanted[f] - 12); if (!pl.wanted[f]) delete pl.wanted[f]; }
       ECHO.UI.onNewDay(world);
       for (const t of ECHO.Property.playerBills(world, pl)) ECHO.UI.toast(t, 'info', 5);
+      if (ECHO.Life) ECHO.Life.newDay(world, pl);
       Game.save();
     },
 
@@ -566,6 +568,7 @@
       if (v && !v.opened && near(v.x + 0.5, v.y + 1.2, 1.8)) out.push({ kind: 'vault', label: 'Examine the carved stone', d: 0.5 });
       if (world.rift && near(world.rift.x + 0.5, world.rift.y + 0.5, 2.4)) out.push({ kind: 'rift', label: 'Look into the Rift', d: 0.5 });
       for (const c of world.camps) if (c.captives.length && near(c.x + 2.5, c.y - 1.2, 1.6)) { /* captives handled as entities */ }
+      if (ECHO.Life) out.push(...ECHO.Life.interactables(Game));
       out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game), ...ECHO.Patrol.interactables(Game), ...ECHO.Finds.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;

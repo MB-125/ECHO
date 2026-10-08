@@ -95,6 +95,8 @@
         const known = d.found || d.seen;
         add('▼', `${known ? `<b>${esc(d.name)}</b>` : 'An uncharted dungeon'} ${known ? '' : 'lies '}${esc(ECHO.Purpose.dirTo(world, pl, d))}, ${Math.round(U.dist(d.x, d.y, pl.x, pl.y))} leagues — ${X().stars(d)} ${X().floors(d)} floor${X().floors(d) > 1 ? 's' : ''}${lv > p ? ' <span class="ember">(harder than you are ready for)</span>' : lv < p - 1 ? ' <span class="dim">(easy for you now)</span>' : ' <span class="gold">(about your strength)</span>'}.`, { track: 'site:' + d.id, label: pl.tracked === 'site:' + d.id ? 'Stop guiding' : 'Guide me there' });
       }
+      if (!pl.horse && pl.gold >= 120) add('🐎', 'You can afford a horse. Markets have stables; press <b>V</b> to ride — far faster on the roads.');
+      if (!(pl.bounties || []).some(b => !b.done)) add('📜', 'Notice boards post three <b>bounties</b> a day — kill so many of a monster, an elite, a lord — paid the moment you finish.');
       if (!pl.focus) add('✦', 'You have not chosen a road. The Ambitions page (Tab) lets you pick one — then the line at the top of the screen always points the way.');
       return out;
     },
@@ -126,6 +128,8 @@
         return `<tr><td><b>${esc(s.name)}</b><div class="dim" style="font-size:12px">${esc(X().label(s))}</div></td><td class="gold">${X().stars(s)}</td><td>${s.cleared ? '<span class="gold">cleared</span>' : `${Math.min(done, fl)}/${fl}`}</td><td class="dim">${Math.round(U.dist(s.x, s.y, pl.x, pl.y))} lg ${esc(ECHO.Purpose.dirTo(world, pl, s).replace('to the ', ''))}</td><td>${s.cleared ? '' : `<button class="small" data-track="site:${s.id}">${pl.tracked === 'site:' + s.id ? 'Stop' : 'Guide me'}</button>`}</td></tr>`;
       }).join('')}</table>` : '<p class="dim">You know of none yet. Walk the wild; hilltops (lookouts) show you what lies around them.</p>';
       if (all.length > known.length) html += `<p class="dim">${all.length - known.length} more lie uncharted. The deeper into the wild, the worse they are.</p>`;
+      // ---- rivals
+      if (ECHO.Rivals) { const rows = ECHO.Rivals.board(world, pl); html += `<h3 class="gold">Rival adventurers</h3><p class="dim">Others go down into the dungeons too — and sometimes get there first.</p><table class="grid"><tr><th>#</th><th>Adventurer</th><th>Level</th><th>Renown</th><th>Dungeons</th></tr>${rows.map((r, i) => `<tr style="${r.you ? 'color:#ffe08a' : ''}"><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.lv} <span class="dim">${esc(ECHO.Prowess.rank(r.lv).title)}</span></td><td>${r.renown}</td><td>${r.cleared}</td></tr>`).join('')}</table>`; }
       // ---- bestiary
       const D = ECHO.Monsters.DEFS, best = pl.bestiary || {};
       const kinds = Object.keys(D).filter(k => k !== 'slimeling');
@@ -141,6 +145,8 @@
 <p><b>Collect loot.</b> Monsters drop coins, parts and sometimes gear. Walk over coins and parts to pick them up; stand over gear and press <b>E</b>. Gear comes in five rarities — <span style="color:${ECHO.Gear.RARITY[0].color}">Common</span>, <span style="color:${ECHO.Gear.RARITY[1].color}">Fine</span>, <span style="color:${ECHO.Gear.RARITY[2].color}">Rare</span>, <span style="color:${ECHO.Gear.RARITY[3].color}">Epic</span>, <span style="color:${ECHO.Gear.RARITY[4].color}">Legendary</span> — and the better pieces carry a power of their own.</p>
 <p><b>Choose your weapon.</b> Swords are balanced. Axes are slow and brutal, and stagger. Spears reach far with narrow thrusts. Staffs are weak in a melee but make your fire burn hotter, and a held blow (hold the left button) looses an arcane bolt. Smiths sell them and forge finer ones from monster parts.</p>
 <p><b>Potions.</b> The apothecary at any market makes draughts from your herbs and monster parts: healing (1), might (2), stoneskin (3) and fireward (4). Drink them with the number keys.</p>
+<p><b>Ride, fish, settle.</b> Markets sell horses (press <b>V</b> to mount; you leap down to fight) and fishing rods (stand by water, press E, and E again when it bites). If you own a house, furnish it: a proper bed makes you Well Rested, a shrine restores fate, a garden grows herbs.</p>
+<p><b>Bounties.</b> Every notice board posts three a day. Take up to three; a messenger pays you the moment they are done.</p>
 <p><b>Companions.</b> Fighters look for work at every inn — sellswords, hunters and hedge-mages who heal you. They grow with you; if they fall, they are gone for good.</p>
 <p><b>Sell or upgrade.</b> Any market buys monster parts and spare gear. A smith will hone your sword, restring your bow and reinforce your armour — five times each — for coin and the right parts, and makes armour from hides, silk, troll hide, grave-iron and golem cores.</p>
 <p><b>Make money.</b> Dungeon chests and caches, monster parts, gear, bounties and pleas; a shift of work in town; a share in a mill or mine.</p>

@@ -137,7 +137,7 @@
       R.chunks = {};
       for (const g of ['towns', 'sites', 'ents', 'fx', 'room']) R.clear(R.groups[g]);
       R.roomKey = null;
-      R.views.clear(); R.fxMeshes.clear(); R.projMeshes.clear(); R.lootMeshes.clear();
+      if (R.horse) { R.scene.remove(R.horse.root); R.horse = null; } R.views.clear(); R.fxMeshes.clear(); R.projMeshes.clear(); R.lootMeshes.clear();
       R.towns = {};
       R.buildHeights(world);
       R.buildWater(world);
@@ -975,6 +975,27 @@
       if (e.type === 'player' && e.gearLook) R.dressPlayer(inst, e.gearLook);
       inst.root.scale.setScalar(scale);
     },
+    // Your horse, under you while you ride.
+    syncHorse(game, e, v, gy) {
+      const pl = game.pl;
+      if (!e.mounted || !pl.horse || ECHO.Interior.cur) { if (R.horse) R.horse.root.visible = false; return; }
+      const M = ECHO.Models, B = ECHO.Life.BREEDS[pl.horse.breed];
+      if (!R.horse || R.horse.breed !== pl.horse.breed) {
+        if (R.horse) R.scene.remove(R.horse.root);
+        const inst = M.instance('stag'); if (!inst) return;
+        M.recolor(inst, 'stag', B.color); M.recolor(inst, 'cloth2', B.color); M.recolor(inst, 'white', B.mane); M.recolor(inst, 'darkwood', '#2a2018'); M.recolor(inst, 'eyeglow', '#1a1410');
+        for (const k of ['antlers', 'armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false);
+        if (B.armored) M.show(inst, 'armorMelee', true);
+        for (const m of inst.mats) if (m.emissive) m.emissive.set('#000000');
+        inst.root.scale.setScalar(0.62);
+        R.scene.add(inst.root);
+        R.horse = { ...inst, breed: pl.horse.breed };
+      }
+      const h = R.horse.root;
+      h.visible = true;
+      h.position.set(v.px, gy + (e.moving ? Math.abs(Math.sin(R.time * 10)) * 0.06 : 0), v.py);
+      h.rotation.y = Math.PI - v.dir;
+    },
     // The player's gear, as it looks: finer metal, gems and glow as it is upgraded.
     dressPlayer(inst, G) {
       const M = ECHO.Models, P = inst.parts;
@@ -1187,7 +1208,8 @@
         root.rotation.y = Math.PI - v.dir + (v.twist || 0);
         v.twist = 0;
         const gy = R.groundH(v.px, v.py);
-        root.position.set(v.px, gy + (v.yOff || 0), v.py);
+        root.position.set(v.px, gy + (v.yOff || 0) + (e.mounted ? 0.62 : 0), v.py);
+        if (e === game.pe) R.syncHorse(game, e, v, gy);
         // hurt: squash and recoil
         const base = v.baseScale || (v.baseScale = root.scale.x);
         const hk = e.hurtT > 0 && !e.dead ? e.hurtT / 0.18 : 0;

@@ -83,6 +83,10 @@
           f('chest', 7.4, 1.6, { action: legendHouse ? 'heirloom' : mine ? 'ownchest' : 'cupboard', label: legendHouse ? 'Open the old chest' : mine ? 'Open your chest' : 'Search the cupboard' });
           f('rug', 4.4, 4.3, { solid: false });
           f('candles', 7.6, 5.4, { solid: false, light: { r: 3.5, a: 0.8, color: '#ffc070', h: 1.2 } });
+          const fu = mine && b.furnish || {};
+          if (fu.shrine) f('altar', 6.4, 1.4, { w: 1, h: 1, scale: 0.55, light: { r: 3, a: 0.7, color: '#ffcf70', h: 1 } });
+          if (fu.trophies) f('rack', 2.2, 5.6, { w: 2, h: 1, colors: { wood: '#5a3e26' } });
+          if (fu.garden) f('crop', 5.6, 5.6, { solid: false, scale: 0.6 });
           spot(2.1, 2.2, { pose: 'bed', tag: 'bed', dir: 0 }); spot(2.1, 4.0, { pose: 'bed', tag: 'bed', dir: 0 });
           spot(5.3, 3.8, { pose: 'sit', dir: 0, tag: 'seat' }); spot(7.5, 3.8, { pose: 'sit', dir: Math.PI, tag: 'seat' });
           spot(4.5, 2.6, { tag: 'any', dir: north }); spot(3.4, 5.2, { tag: 'any', dir: 0 });
@@ -352,7 +356,7 @@
         case 'keep': return UI.openKeep(s);
         case 'heirloom': case 'ownchest': return UI.openHouse(b, s);
         case 'sleep':
-          if (I.isMine(b, pl) || (b.legend && pl.legacyOf === b.legend)) return UI.sleepUntilMorning(s);
+          if (I.isMine(b, pl) || (b.legend && pl.legacyOf === b.legend)) return UI.sleepUntilMorning(s, I.isMine(b, pl) ? b : null);
           return UI.toast('This is not your bed.', 'info', 2);
         case 'cupboard': return I.steal(game);
         default: return ECHO.Quests.use(game, it);

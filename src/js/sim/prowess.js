@@ -115,7 +115,7 @@
     // A kill by the player: experience, and the record of the strongest thing you have beaten.
     onKill(pl, e) {
       const s = P.st(pl);
-      const xp = P.xpFor(pl, e);
+      const xp = Math.round(P.xpFor(pl, e) * (pl._xpMul || 1));
       s.kills++;
       const L = P.foeLevel(e);
       if (L > s.best) s.best = L;

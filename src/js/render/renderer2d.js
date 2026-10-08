@@ -508,6 +508,18 @@
       if (e.iframes > 0 && e === game.pe) ctx.globalAlpha = 0.55;
       if (e.type === 'ghost' || e.species === 'hind') { ctx.globalAlpha = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)); if (e.type === 'ghost') ctx.filter = 'grayscale(1) brightness(1.9) sepia(0.3) hue-rotate(170deg)'; }
       if (e.type === 'person' && e.dancing) ctx.translate(0, -Math.abs(Math.sin(game.time * 7 + e.id)) * 2);
+      if (e === game.pe && e.mounted && game.pl.horse) {
+        const B = ECHO.Life.BREEDS[game.pl.horse.breed], H = (c, x, y, w, h) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
+        const f = e.flip ? -1 : 1, gait = e.moving ? Math.round(Math.sin(game.time * 16) * 1.5) : 0;
+        ctx.save(); ctx.scale(f, 1);
+        H('rgba(0,0,0,0.25)', -10, -1, 20, 2);
+        H(B.color, -8, -6 + Math.max(0, gait), 2, 6 - Math.max(0, gait)); H(B.color, -5, -6, 2, 6); H(B.color, 4, -6 + Math.max(0, -gait), 2, 6 - Math.max(0, -gait)); H(B.color, 7, -6, 2, 6);
+        H(B.color, -9, -13, 18, 7); H(B.mane, -10, -12, 2, 5);
+        H(B.color, 8, -18, 4, 8); H(B.color, 10, -20, 5, 4); H(B.mane, 7, -19, 2, 6); H('#1a1410', 13, -19, 1, 1);
+        if (B.armored) H('#6a6a72', -6, -13, 12, 3);
+        ctx.restore();
+        ctx.translate(0, -7);
+      }
       if (e.shape === 'spider' || e.shape === 'slime') R.drawShape(ctx, e, game.time);
       else if (e.shape === 'rat') { ctx.scale(e.scale || 1, e.scale || 1); if (e.elite) ctx.filter = 'sepia(1) hue-rotate(-30deg)'; S.creature(ctx, { ...e, species: 'gnawer' }, game.time); }
       else if (e.humanoid && e.foe && e.foe.vis) {

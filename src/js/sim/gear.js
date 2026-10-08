@@ -27,7 +27,10 @@
     queensilk: { name: 'queen\'s silk', value: 45, tier: 4, color: '#ffffff' },
     heartstone: { name: 'heartstones', value: 60, tier: 5, color: '#ff4a6a' },
     greathide: { name: 'great beast hide', value: 55, tier: 5, color: '#c87a3a' },
-    greatfang: { name: 'great beast fangs', value: 70, tier: 5, color: '#fff0c8' }
+    greatfang: { name: 'great beast fangs', value: 70, tier: 5, color: '#fff0c8' },
+    fish: { name: 'trout', value: 3, tier: 0, color: '#9ab8c8' },
+    silverfin: { name: 'silverfin', value: 12, tier: 0, color: '#d8e8f0' },
+    moonfish: { name: 'moonfish', value: 40, tier: 0, color: '#f0f4ff' }
   };
   const RARITY = [
     { k: 'common', name: 'Common', mult: 1, color: '#c8c0b0', affix: 0 },

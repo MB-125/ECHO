@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -551,6 +551,23 @@ function main() {
     pl.prowess = { lv: 9, xp: 0 }; S.kingSlain(B);
     const r5 = S.advance(B, pl, rng);
     check('slaying the Hollow King seals the Rift and ends the story', r5 && !r5.next && B.story.done && B.rift.sealed);
+  }
+
+  console.log('\nBounties and rivals');
+  {
+    const B = ECHO.generateWorld({ seed: 31337, name: 'Bountyworld' });
+    const pl = B.player = { charId: 'c-b', first: 'Kit', last: 'Vale', alive: true, items: [], inv: {}, gold: 0, skills: {}, renown: 0, x: B.settlements[0].x, y: B.settlements[0].y };
+    const s0 = B.settlements[0], today = ECHO.Bounty.forTown(B, s0);
+    check('every board posts three bounties a day, the same all day', today.length === 3 && JSON.stringify(today) === JSON.stringify(ECHO.Bounty.forTown(B, s0)), today.map(b => b.kind).join(' '));
+    const kb = today.find(b => b.kind === 'kill') || today[0];
+    ECHO.Bounty.accept(B, pl, kb);
+    let paid = [];
+    for (let i = 0; i < 12 && !paid.length; i++) paid = ECHO.Bounty.onKill(B, pl, { species: kb.species, elite: true, boss2: true, type: kb.kind === 'beast' ? 'boss' : 'creature' });
+    check('a finished bounty is paid at once', paid.length === 1 && pl.gold === kb.gold, `${pl.gold} crowns`);
+    for (let d = 0; d < 120; d++) ECHO.Sim.dailyTick(B, true);
+    const R = ECHO.Rivals.list(B);
+    check('rival adventurers go down into the dungeons too', R.length >= 4 && R.some(r => r.cleared > 0 || !r.alive) && B.chronicle.some(e => R.some(r => e.text.includes(r.name))), R.map(r => `${r.name}:${r.lv}/${r.cleared}${r.alive ? '' : '†'}`).join(' '));
+    check('the standings include you', ECHO.Rivals.board(B, pl).some(r => r.you));
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

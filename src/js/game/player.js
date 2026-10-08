@@ -94,7 +94,7 @@
         ECHO.Ent.move(world, pe, Math.cos(PC.dodgeDir) * sp, Math.sin(PC.dodgeDir) * sp);
         if (Math.random() < 0.6) ECHO.Combat.fx.push({ kind: 'p', x: pe.x, y: pe.y + 0.2, vx: 0, vy: 0, t: 0, life: 0.3, color: 'rgba(200,190,170,0.6)', size: 2 });
       } else if (pe.stagger <= 0) {
-        let sp = D.speed * ECHO.World.speedAt(world, pe.x, pe.y) * ECHO.Tech.speedMul() * (ECHO.Monsters ? ECHO.Monsters.slowMul() : 1);
+        let sp = D.speed * (ECHO.Life ? ECHO.Life.speedMul(pl) : 1) * ECHO.World.speedAt(world, pe.x, pe.y) * ECHO.Tech.speedMul() * (ECHO.Monsters ? ECHO.Monsters.slowMul() : 1);
         if (pe.blocking) sp *= 0.45;
         if (PC.drawing) sp *= 0.55;
         if (PC.charging) sp *= 0.6;
@@ -238,6 +238,7 @@
       } else { PC.studyT = 0; PC.studyTarget = null; }
 
       // ---- Eat / herbs
+      if (In.hit('v') && ECHO.Life) ECHO.Life.mount(game);
       if (In.hit('h')) PC.eat(game);
       if (In.hit('g')) PC.useHerbs(game);
       for (const [id, P0] of Object.entries(ECHO.Gear.POTIONS)) if (In.hit(P0.key)) PC.drink(game, id);
@@ -510,7 +511,8 @@
     eat(game) {
       const pl = game.pl;
       if (pl.hp >= pl.maxHp) return;
-      if (pl.inv.meat > 0) { pl.inv.meat--; pl.hp = Math.min(pl.maxHp, pl.hp + 28); game.ui.toast('You eat roasted meat.', 'info', 2); }
+      if (pl.inv.fish > 0) { pl.inv.fish--; pl.hp = Math.min(pl.maxHp, pl.hp + 24); game.ui.toast('You eat a grilled trout.', 'info', 2); }
+      else if (pl.inv.meat > 0) { pl.inv.meat--; pl.hp = Math.min(pl.maxHp, pl.hp + 28); game.ui.toast('You eat roasted meat.', 'info', 2); }
       else if (pl.inv.food > 0) { pl.inv.food--; pl.hp = Math.min(pl.maxHp, pl.hp + 20); game.ui.toast('You eat some bread.', 'info', 2); }
       else game.ui.toast('You have nothing to eat.', 'warn', 2);
     },

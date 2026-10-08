@@ -189,6 +189,7 @@
       if (ECHO.Realm) ECHO.Realm.dailyTick(world, rng);
       if (ECHO.Holding) ECHO.Holding.dailyTick(world, rng);
       if (ECHO.Explore) ECHO.Explore.dailyTick(world, rng);
+      if (ECHO.Rivals) ECHO.Rivals.dailyTick(world, rng);
       ECHO.Intel.dailyTick(world, rng);
       ECHO.Plights.dailyTick(world, rng);
       ECHO.Civ.dailyTick(world, rng);
