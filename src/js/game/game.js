@@ -138,6 +138,7 @@
       if (ECHO.Dilemmas) ECHO.Dilemmas.update(Game, dt);
       if (ECHO.Stealth) ECHO.Stealth.update(Game, dt);
       if (ECHO.Camp) ECHO.Camp.update(Game, dt);
+      if (ECHO.Fauna) ECHO.Fauna.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -407,6 +408,7 @@
       if (sp === 'hare') { if (r() < 0.75) add('meat', 1); if (r() < 0.4) add('hide', 1); }
       if (sp === 'wolf') { if (r() < 0.8) add('hide', 1); if (r() < 0.55) add('meat', 1); }
       if (sp === 'gnawer' && r() < 0.08) add('gold', 1 + Math.floor(r() * 3));
+      if (sp === 'deer') { add('meat', ent.stag ? 3 : 2); add('hide', 1); }
     },
     dropItem(itemId, x, y) {
       const it = Game.world.items[itemId];

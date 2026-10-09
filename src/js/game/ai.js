@@ -56,6 +56,7 @@
       e.cd = Math.max(0, e.cd - dt);
       e.t += dt;
       if (e.stagger > 0) { e.stagger -= dt; return; }
+      if (e.fauna) return ECHO.Fauna.deer(game, e, dt);
       const speed = e.speed * (1 + (e.traits ? e.traits.speed * 0.4 : 0)) * (game.isNight() && e.species === 'wolf' ? 1.1 : 1);
       if (e.dq && ECHO.Dilemmas && ECHO.Dilemmas.creature(game, e, dt, speed)) return;
       if (e.species === 'hare') return Creature.hare(game, e, dt, speed);
@@ -629,6 +630,7 @@
 
     chatter(game, e, npc, dt) {
       if (e.hidden || e.sayT > 0 || !game.pe) return;
+      if (ECHO.Fauna && ECHO.Fauna.greet(game, e, npc)) return;
       if (U.dist(e.x, e.y, game.pe.x, game.pe.y) > 9) return;
       e.chatT = (e.chatT == null ? 6 + Math.random() * 20 : e.chatT) - dt;
       if (e.chatT > 0) return;

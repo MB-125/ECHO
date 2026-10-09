@@ -434,6 +434,7 @@
           const lost = b.fac && (b.fac.state === 'burned' || b.fac.state === 'ruined');
           if (lost) Object.assign(colors, { wood: '#2a221c', darkwood: '#1c1814', plaster: '#3e3832', roof: '#24201d', canvas: '#3a3632', trunk: '#2a2018', stone: '#4a4640', rock: '#5a5650' });
           if (b.fac) smokes.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, lost, kind: b.type, b });
+          else if (b.type === 'house' || b.type === 'inn' || b.type === 'smithy') smokes.push({ x: b.x + b.w * 0.68, y: b.y + b.h * 0.4, chim: true, kind: b.type, b });
           if (b.type === 'mill' && !lost) {
             // the mill gets a live model so its sails can turn
             const inst = ECHO.Models.instance('mill', { roof: roof[0] });
@@ -902,7 +903,7 @@
       if (e.shape === 'spider' || e.shape === 'slime') inst = R.procMonster(e);
       else if (e.shape === 'rat') inst = ECHO.Models.instance('gnawer');
       else if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) inst = ECHO.Models.instance('person');
-      else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' ? 'stag' : e.species);
+      else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' || e.species === 'deer' ? 'stag' : e.species);
       else if (e.type === 'boss') inst = ECHO.Models.instance(e.boss.kind);
       if (!inst) return null;
       v = { inst, kind, cfgT: 0, dir: e.dir || 0, bob: Math.random() * 6 };
@@ -951,6 +952,15 @@
         else { M.show(inst, 'bandana', lk !== 'chief'); M.show(inst, 'helm', lk === 'chief'); M.show(inst, 'cape', lk === 'chief'); M.show(inst, 'hair', lk === 'chief'); M.show(inst, 'beard', !!e.look.beard); }
         if (dead) for (const m of inst.mats) if (m.emissive) m.emissive.set('#16302a');
         inst.root.scale.setScalar(e.foe && e.foe.elite ? 1.18 : 1);
+        return;
+      }
+      if (e.species === 'deer') {
+        M.recolor(inst, 'stag', e.stag ? '#7a4e2a' : '#8a5a32'); M.recolor(inst, 'cloth2', '#6e4626'); M.recolor(inst, 'white', '#efe4d0'); M.recolor(inst, 'eyeglow', '#1a1410'); M.recolor(inst, 'darkwood', '#3a2a1a');
+        for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false);
+        M.show(inst, 'antlers', !!e.stag);
+        if (e.stag) M.recolor(inst, 'antler', '#d8c8a0');
+        for (const m of inst.mats) { if (m.emissive) m.emissive.set('#000000'); }
+        inst.root.scale.setScalar(e.stag ? 0.52 : 0.44);
         return;
       }
       if (e.species === 'hind') {
@@ -1033,6 +1043,38 @@
       inst.root.scale.setScalar(scale);
     },
     // Boats on the water: yours, the ferry you ride, and ferries waiting at the jetties.
+    // Flocks of small birds: pecking in the grass, then bursting up and away.
+    syncBirds(game, dt) {
+      const fl = ECHO.Fauna && !ECHO.Interior.cur ? ECHO.Fauna.flocks : [];
+      R.birdPool = R.birdPool || [];
+      if (!R.birdMats) R.birdMats = { sparrow: new THREE.MeshStandardMaterial({ color: '#7a5a3a', roughness: 0.9, flatShading: true }), crow: new THREE.MeshStandardMaterial({ color: '#1e1e24', roughness: 0.7, flatShading: true }), gull: new THREE.MeshStandardMaterial({ color: '#ececE6', roughness: 0.8, flatShading: true }), beak: new THREE.MeshStandardMaterial({ color: '#c8a040', roughness: 0.8 }) };
+      const make = () => {
+        const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+        const torso = new THREE.Mesh(new THREE.SphereGeometry(1, 6, 4), R.birdMats.sparrow); torso.scale.set(1.5, 0.85, 0.85); body.add(torso);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.6, 6, 4), R.birdMats.sparrow); head.position.set(1.3, 0.5, 0); body.add(head);
+        const beak = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 4), R.birdMats.beak); beak.rotation.z = -Math.PI / 2; beak.position.set(1.95, 0.45, 0); body.add(beak);
+        const tail = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 0.6), R.birdMats.sparrow); tail.position.set(-1.5, 0.2, 0); tail.rotation.z = 0.25; body.add(tail);
+        const wing = s => { const p = new THREE.Group(); p.position.set(0.1, 0.3, s * 0.55); const w = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.08, 1.6), R.birdMats.sparrow); w.position.z = s * 0.8; p.add(w); body.add(p); return { p, w }; };
+        const wl = wing(-1), wr = wing(1);
+        torso.castShadow = true;
+        R.scene.add(g);
+        return { g, body, parts: [torso, head, tail, wl.w, wr.w], wl: wl.p, wr: wr.p, kind: null };
+      };
+      let n = 0;
+      for (const f of fl) for (const b of f.birds) {
+        let o = R.birdPool[n]; if (!o) { o = make(); R.birdPool.push(o); }
+        if (o.kind !== f.kind) { o.kind = f.kind; for (const m of o.parts) m.material = R.birdMats[f.kind]; o.g.scale.setScalar(f.kind === 'sparrow' ? 0.055 : f.kind === 'crow' ? 0.085 : 0.095); }
+        o.g.visible = true;
+        const flying = f.up && !(b.delay > 0);
+        o.g.position.set(b.x, R.groundH(b.x, b.y) + 0.05 + b.z, b.y);
+        o.g.rotation.y = -b.dir;
+        const fl2 = flying ? Math.sin(b.flap) * 1.1 : 0.08;
+        o.wl.rotation.x = fl2; o.wr.rotation.x = -fl2;
+        o.body.rotation.z = flying ? 0.15 : (b.peck < 0 && Math.sin(R.time * 6 + b.x * 9) > 0.4 ? -0.6 : 0);
+        n++;
+      }
+      for (let i = n; i < R.birdPool.length; i++) R.birdPool[i].g.visible = false;
+    },
     // Your own camp: the fire, a bedroll, and a spit when something's cooking.
     syncCamp(game, dt) {
       const c = ECHO.Camp && ECHO.Camp.fire;
@@ -1377,7 +1419,7 @@
       if (P.tail) P.tail.rotation.y = Math.sin(R.time * 5 + v.bob) * 0.3;
       v.yOff = 0;
       if (e.species === 'hare') v.yOff = Math.abs(Math.sin(ph * 0.5)) * 0.18 * (v.mv || 0);
-      if (e.species === 'hind' && P.neck) { const graze = e.state === 'graze' && Math.sin(R.time * 0.7 + e.id) > 0.3; P.neck.rotation.y = U.lerp(P.neck.rotation.y || 0, graze ? -1.1 : 0, 0.08); }
+      if ((e.species === 'hind' || e.species === 'deer') && P.neck) { const graze = e.state === 'graze' && Math.sin(R.time * 0.7 + e.id) > 0.3; P.neck.rotation.y = U.lerp(P.neck.rotation.y || 0, graze ? -1.1 : 0, 0.08); }
       if (e.species === 'wolf') {
         const crouch = e.state === 'windup' ? 0.12 : 0;
         v.tell = e.state === 'windup' ? 1 : 0;
@@ -1547,6 +1589,7 @@
       if (ECHO.Riders && !ECHO.Interior.cur) for (const h of ECHO.Riders.loose) R.driveHorse(game, R.horseFor('loose:' + h.id, h.breed), dt, h.x, h.y, h.dir, h.v, { ridden: false, rear: h.rearT > 0, snap: true, quiet: true });
       R.syncBoats(game, dt);
       R.syncCamp(game, dt);
+      R.syncBirds(game, dt);
       R.endHorses(); R.frameNo = (R.frameNo || 0) + 1;
       for (const [e, v] of R.views) {
         if (!seen.has(e)) {
@@ -1695,7 +1738,7 @@
         if (n >= pa.count) break;
         if (f.h0 == null) { f.h0 = f.spark ? 0.6 + Math.random() * 0.3 : 0.45 + Math.random() * 0.3; f.vz = f.spark ? 1.5 + Math.random() * 3 : 0.8 + Math.random() * 2.2; }
         let h;
-        if (f.kind === 'smoke') { h = 1.0 + f.t * 0.7; f.x += (f.vx || 0) * dt; f.y += 0; }
+        if (f.kind === 'smoke') { h = (f.sh || 1.0) + f.t * 0.7; f.x += (f.vx || 0) * dt; f.y += 0; }
         else h = Math.max(0.03, f.h0 + f.vz * f.t - 4 * f.t * f.t);
         pa.setXYZ(n, f.x, R.groundH(f.x, f.y) + h, f.y);
         const fade = 1 - f.t / f.life;
@@ -2013,6 +2056,7 @@
         for (const t of Object.values(R.towns)) {
           for (const m of t.sails || []) if (m.inst.parts.sails && m.b.fac.state === 'working') m.inst.parts.sails.rotation.z += dt * 0.9;
           for (const sm of t.smokes || []) {
+            if (sm.chim) { const cr = ECHO.Fauna ? ECHO.Fauna.chimney(game.world, sm.b) : 0; if (cr && Math.random() < dt * cr * 2.5) ECHO.Combat.fx.push({ kind: 'smoke', x: sm.x + (Math.random() - 0.5) * 0.2, y: sm.y, sh: sm.kind === 'inn' ? 3.0 : 2.4, vx: 0.12 + Math.random() * 0.1, vy: 0, t: 0, life: 3.5 + Math.random() * 1.5, size: 2.5 }); continue; }
             const rate = sm.lost && game.world.day - (sm.b.fac.lostDay || 0) < 6 ? 14 : sm.kind === 'mine' && sm.b.fac.state === 'working' ? 0.6 : 0;
             if (rate && Math.random() < dt * rate) ECHO.Combat.fx.push({ kind: 'smoke', x: sm.x + (Math.random() - 0.5) * 1.5, y: sm.y + (Math.random() - 0.5), vx: (Math.random() - 0.3) * 0.4, vy: 0, t: 0, life: 3 + Math.random() * 2, size: 3 });
             if (sm.lost && game.world.day - (sm.b.fac.lostDay || 0) < 2 && Math.random() < dt * 20) ECHO.Combat.fx.push({ kind: 'p', x: sm.x + (Math.random() - 0.5) * 1.6, y: sm.y + (Math.random() - 0.5) * 1.2, vx: 0, vy: -1.2, t: 0, life: 0.6, color: Math.random() < 0.5 ? '#ffb347' : '#ff5a1f', size: 2 });

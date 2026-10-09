@@ -153,7 +153,12 @@
             game.light(b.x + 0.5, b.y + 0.4, era >= 4 ? 7 : 3.2, 0.85, era >= 4 && world.factions[s.faction].tech.path === 'arcane' ? '#bfe8ff' : '#ffd08a');
           }
           if (b.type === 'smithy' && Math.random() < dt * 3) ECHO.Combat.fx.push({ kind: 'smoke', x: b.x + b.w - 0.6, y: b.y - 0.2, vx: 0.2, vy: -0.6, t: 0, life: 2.2, size: 3 });
+          else if (ECHO.Fauna) { const cr = ECHO.Fauna.chimney(world, b); if (cr && Math.random() < dt * cr) ECHO.Combat.fx.push({ kind: 'smoke', x: b.x + b.w * 0.7, y: b.y - 0.1, vx: 0.15, vy: -0.5, t: 0, life: 2.6, size: 2.5 }); }
         }
+      }
+      if (ECHO.Fauna && !ECHO.Interior.cur) for (const f of ECHO.Fauna.flocks) for (const b of f.birds) {
+        if (Math.abs(b.x - cam.x) > halfW + 2 || Math.abs(b.y - cam.y) > halfH + 2) continue;
+        objs.push({ y: b.y + (b.z > 0.3 ? 50 : 0), draw: () => R.bird(game, f, b) });
       }
       const myc = ECHO.Camp && ECHO.Camp.fire;
       if (myc && !ECHO.Interior.cur) {
@@ -441,6 +446,18 @@
       g.fillStyle = '#ffe28a'; g.fillRect(-1, -5, 2, 3);
       R.ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (Math.random() < 0.05) ECHO.Combat.fx.push({ kind: 'smoke', x, y: y - 0.6, vx: 0.1, vy: -0.7, t: 0, life: 2, size: 2 });
+    },
+    bird(game, f, b) {
+      const g = R.art(game, b.x, b.y);
+      const col = f.kind === 'crow' ? '#1e1e22' : f.kind === 'gull' ? '#eeeeea' : '#7a5a3a';
+      const flying = f.up && !(b.delay > 0);
+      if (b.z < 0.4) { g.fillStyle = 'rgba(0,0,0,0.18)'; g.fillRect(-1, 0, 3, 1); }
+      g.translate(0, -b.z * 16);
+      g.fillStyle = col;
+      const fl = Math.cos(b.dir) < 0 ? -1 : 1;
+      if (flying) { const w = Math.sin(b.flap) > 0 ? -2 : 1; g.fillRect(-1, -1, 3, 2); g.fillRect(-3, w - 1, 2, 1); g.fillRect(2, w - 1, 2, 1); }
+      else { const pk = b.peck < 0 && Math.sin(game.time * 6 + b.x * 9) > 0.4 ? 1 : 0; g.fillRect(-1, -2 + pk, 3, 2); g.fillRect(fl > 0 ? 2 : -2, -3 + pk * 2, 1, 1); g.fillStyle = f.kind === 'sparrow' ? '#c8a878' : col; g.fillRect(0, -1 + pk, 1, 1); }
+      R.ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
     bedroll(game, c) {
       const g = R.art(game, c.bx, c.by);

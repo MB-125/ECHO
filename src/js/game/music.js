@@ -374,6 +374,107 @@
       if (o.crickets > 0 && Math.random() < o.crickets * 0.12) M.cricket(now + Math.random() * 0.2);
       // a fire crackles
       if (o.fire > 0.2 && Math.random() < o.fire * 0.3) ECHO.Sfx.noise(now, 0.03, 'highpass', 2500, 4000, 0.7, 0.05 * o.fire);
+      // town life: the murmur of a market, a smith at the anvil, dogs, a cockerel at dawn, the temple bell
+      bed('crowd', noiseBed('bandpass', 620, 1.4), (o.market || 0) * 0.05 * (0.75 + 0.25 * Math.sin(now * 0.9) * Math.sin(now * 0.37)));
+      if (A.crowd) A.crowd.f.frequency.setTargetAtTime(520 + 200 * Math.sin(now * 1.7), now, 0.3);
+      if ((o.market || 0) > 0.15 && Math.random() < o.market * 0.18) M.voices(now + Math.random() * 0.3, o.market);
+      if ((o.anvil || 0) > 0.05 && (M.anvilT = (M.anvilT || 0) - 0.4) <= 0) { M.anvilT = 2.5 + Math.random() * 4; const n = 3 + Math.floor(Math.random() * 4); for (let i = 0; i < n; i++) M.anvil(now + i * (0.62 + Math.random() * 0.06), o.anvil, i === n - 1); }
+      if ((o.dogs || 0) > 0 && Math.random() < o.dogs * 0.02) M.bark(now, o.dogs);
+      if ((o.rooster || 0) > 0 && Math.random() < o.rooster * 0.03) M.rooster(now, o.rooster);
+      if ((o.bell || 0) > 0 && !M.bellRung) { M.bellRung = true; for (let i = 0; i < 3; i++) M.bell(now + i * 2.2, o.bell); }
+      if (!o.bell) M.bellRung = false;
+      // the wild at night: an owl in the trees, frogs by still water, wolves far off
+      if ((o.owl || 0) > 0 && Math.random() < o.owl * 0.025) M.owl(now, o.owl);
+      if ((o.frogs || 0) > 0 && Math.random() < o.frogs * 0.2) M.frog(now + Math.random() * 0.3, o.frogs);
+      if ((o.howl || 0) > 0 && Math.random() < o.howl * 0.008) M.howl(now, o.howl);
+    },
+    // one ambient voice: panned, a little reverb, freed afterwards
+    ambVoice(gain, life, pan) {
+      const c = M.ctx;
+      const g = c.createGain(); g.gain.value = gain;
+      const p = c.createStereoPanner ? c.createStereoPanner() : null;
+      if (p) { p.pan.value = pan == null ? Math.random() * 1.6 - 0.8 : pan; g.connect(p); p.connect(M.ambOut); } else g.connect(M.ambOut);
+      const s = c.createGain(); s.gain.value = 0.5; g.connect(s); s.connect(M.ambWet);
+      setTimeout(() => { try { g.disconnect(); s.disconnect(); if (p) p.disconnect(); } catch (e) { /* gone */ } }, life * 1000 + 500);
+      return g;
+    },
+    anvil(t, lvl, last) {
+      const c = M.ctx, g = M.ambVoice(0.22 * lvl * (last ? 1.2 : 1), 2, 0.3);
+      for (const [r, a] of [[1, 1], [2.76, 0.5], [5.4, 0.25], [8.9, 0.12]]) {
+        const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 880 * r * (last ? 0.94 : 1);
+        const e = c.createGain(); M.env(e, t, 0.002, a, 0, last ? 1.1 : 0.45);
+        o.connect(e); e.connect(g); o.start(t); o.stop(t + 1.3);
+      }
+      const n = c.createBufferSource(); n.buffer = ECHO.Sfx.noiseBuf; const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 3000;
+      const e = c.createGain(); M.env(e, t, 0.001, 0.4, 0, 0.04); n.connect(f); f.connect(e); e.connect(g); n.start(t); n.stop(t + 0.1);
+    },
+    voices(t, lvl) {
+      // a fragment of talk somewhere in the crowd: a few formant-ish syllables
+      const c = M.ctx, g = M.ambVoice(0.05 * lvl, 2);
+      const base = 140 + Math.random() * 110, n = 2 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < n; i++) {
+        const t0 = t + i * (0.13 + Math.random() * 0.08);
+        const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(base * (0.9 + Math.random() * 0.25), t0); o.frequency.linearRampToValueAtTime(base * (0.85 + Math.random() * 0.3), t0 + 0.12);
+        const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 500 + Math.random() * 900; f.Q.value = 3;
+        const e = c.createGain(); M.env(e, t0, 0.02, 0.5, 0.04, 0.07);
+        o.connect(f); f.connect(e); e.connect(g); o.start(t0); o.stop(t0 + 0.2);
+      }
+    },
+    bark(t, lvl) {
+      const c = M.ctx, g = M.ambVoice(0.12 * lvl, 2);
+      const n = 1 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        const t0 = t + i * 0.28;
+        const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(520, t0); o.frequency.exponentialRampToValueAtTime(260, t0 + 0.12);
+        const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 1.5;
+        const e = c.createGain(); M.env(e, t0, 0.008, 0.6, 0.02, 0.1);
+        o.connect(f); f.connect(e); e.connect(g); o.start(t0); o.stop(t0 + 0.2);
+      }
+    },
+    rooster(t, lvl) {
+      const c = M.ctx, g = M.ambVoice(0.08 * lvl, 3);
+      const segs = [[0, 0.18, 700, 900], [0.2, 0.18, 900, 1000], [0.4, 0.75, 1000, 600]];
+      for (const [d, len, f0, f1] of segs) {
+        const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f0, t + d); o.frequency.linearRampToValueAtTime(f1, t + d + len);
+        const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 2;
+        const e = c.createGain(); M.env(e, t + d, 0.02, 0.5, len * 0.6, len * 0.3);
+        o.connect(f); f.connect(e); e.connect(g); o.start(t + d); o.stop(t + d + len + 0.1);
+      }
+    },
+    bell(t, lvl) {
+      const c = M.ctx, g = M.ambVoice(0.12 * lvl, 7, 0);
+      for (const [r, a] of [[0.5, 0.6], [1, 1], [1.19, 0.5], [1.5, 0.35], [2, 0.3], [2.74, 0.15]]) {
+        const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = 330 * r;
+        const e = c.createGain(); M.env(e, t, 0.005, a, 0, 4.5 / Math.sqrt(r));
+        o.connect(e); e.connect(g); o.start(t); o.stop(t + 6);
+      }
+    },
+    owl(t, lvl) {
+      const c = M.ctx, g = M.ambVoice(0.1 * lvl, 3);
+      for (const [d, len] of [[0, 0.32], [0.55, 0.18], [0.8, 0.5]]) {
+        const o = c.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(400, t + d); o.frequency.linearRampToValueAtTime(370, t + d + len);
+        const e = c.createGain(); M.env(e, t + d, 0.05, 0.6, len * 0.5, len * 0.4);
+        o.connect(e); e.connect(g); o.start(t + d); o.stop(t + d + len + 0.2);
+      }
+    },
+    frog(t, lvl) {
+      const c = M.ctx, g = M.ambVoice(0.07 * lvl, 1.5);
+      const f0 = 180 + Math.random() * 120, n = 2 + Math.floor(Math.random() * 2);
+      for (let i = 0; i < n; i++) {
+        const t0 = t + i * 0.09;
+        const o = c.createOscillator(); o.type = 'square'; o.frequency.value = f0;
+        const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900;
+        const e = c.createGain(); M.env(e, t0, 0.005, 0.5, 0.02, 0.04);
+        o.connect(f); f.connect(e); e.connect(g); o.start(t0); o.stop(t0 + 0.1);
+      }
+    },
+    howl(t, lvl) {
+      const c = M.ctx, g = M.ambVoice(0.05 * lvl, 4);
+      const o = c.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(330, t); o.frequency.linearRampToValueAtTime(560, t + 0.7); o.frequency.linearRampToValueAtTime(520, t + 2.0); o.frequency.linearRampToValueAtTime(380, t + 2.8);
+      const lfo = c.createOscillator(); lfo.frequency.value = 5; const lg = c.createGain(); lg.gain.value = 8; lfo.connect(lg); lg.connect(o.frequency);
+      const e = c.createGain(); M.env(e, t, 0.4, 0.6, 1.6, 0.8);
+      o.connect(e); e.connect(g); o.start(t); lfo.start(t); o.stop(t + 3.2); lfo.stop(t + 3.2);
     },
     bird(t) {
       const c = M.ctx, kind = Math.floor(Math.random() * 4);
@@ -449,7 +550,26 @@
         for (const c of world.camps) if (c.alive && Math.abs(c.x - pe.x) < 7 && Math.abs(c.y - pe.y) < 7) fire = Math.max(fire, 0.6);
       } else if (rm.b && (rm.b.type === 'inn' || rm.b.type === 'house' || rm.b.type === 'smithy')) fire = 0.35;
       const dl = ECHO.TIME.daylight(world.minute);
+      // what's near you: a working smithy, the market, still water, deep woods
+      let anvil = 0, market = 0, swamp = 0;
+      const hour = world.minute / 60;
+      if (!rm && s && dl > 0.3) for (const b of s.buildings) {
+        const d = U.dist(b.x + b.w / 2, b.y + b.h / 2, pe.x, pe.y);
+        if (b.type === 'smithy' && hour > 7 && hour < 19) anvil = Math.max(anvil, U.clamp(1 - d / 16, 0, 1));
+        if ((b.type === 'market' || b.type === 'well') && hour > 7 && hour < 18) market = Math.max(market, U.clamp(1 - d / 14, 0, 1) * (b.type === 'well' ? 0.5 : 1));
+      }
+      if (rm && rm.b && rm.b.type === 'smithy') anvil = 0.9;
+      if (!rm) for (let dy = -4; dy <= 4; dy += 2) for (let dx = -4; dx <= 4; dx += 2) if (ECHO.World.tile(world, pe.x + dx, pe.y + dy) === T.SWAMP) swamp++;
+      if (!rm && ECHO.Camp && ECHO.Camp.fire && !ECHO.Camp.fire.out) fire = Math.max(fire, U.clamp(1 - U.dist(pe.x, pe.y, ECHO.Camp.fire.x, ECHO.Camp.fire.y) / 8, 0, 1));
+      const warm = season === 1 || season === 2;
       M.ambience({
+        anvil, market,
+        dogs: !rm && s ? (night ? 0.5 : 0.25) : 0,
+        rooster: !rm && s && hour > 5 && hour < 7.5 ? 0.8 : 0,
+        bell: !rm && s && s.buildings.some(b => b.type === 'temple' || b.type === 'shrine') && Math.floor(world.minute) >= 720 && world.minute < 735 ? 0.7 : 0,
+        owl: !rm && night && !wet && trees >= 4 ? 0.8 : 0,
+        frogs: !rm && night && warm && !wet && (swamp >= 2 || water >= 3) ? 0.8 : 0,
+        howl: !rm && night && !s ? (season === 3 ? 1 : 0.5) : 0,
         wind: rm ? 0 : U.clamp(0.25 + high * 0.05 + (season === 3 ? 0.35 : 0) + (wx.today === 'storm' || wx.today === 'blizzard' ? 0.6 : wet ? 0.2 : 0), 0, 1.2),
         water: rm ? 0 : U.clamp(water / 8, 0, 1),
         fire,

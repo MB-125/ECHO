@@ -573,6 +573,7 @@
         game.ui.toast(ECHO.Boss.readout(e), 'study', 9);
         return;
       }
+      if (e.fauna) return game.ui.toast(`${e.fname}: ${e.stag ? 'the herd\'s stag, crowned with antlers' : 'a hind of the red deer'}. They graze at the edges of the woods and bolt at the first scent of you. Come from downwind, slow and low — and an arrow is the surest way.`, 'study', 7);
       const region = world.regions[e.regionId] || ECHO.World.regionAt(world, e.x, e.y);
       const sp = ECHO.SPECIES[e.species];
       const tr = region && region.eco ? region.eco.traits[e.species] : null;

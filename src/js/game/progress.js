@@ -4,7 +4,7 @@
   const { U } = ECHO;
   const Pw = () => ECHO.Prowess;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const NOXP = new Set(['hare', 'gnawer', 'hind']);
+  const NOXP = new Set(['hare', 'gnawer', 'hind', 'deer']);
 
   const Pg = ECHO.Progress = {
     glows: [], t: 0, target: null, _hud: null, _tgt: null,
@@ -169,6 +169,7 @@
     nameOf(game, e) {
       if (e.type === 'boss' && e.boss) return `${e.boss.name} ${e.boss.title || ''}`.trim();
       if (e.label) return U.cap(e.label);
+      if (e.fauna) return e.fname;
       if (e.foe) return e.foe.name;
       if (e.type === 'person') { const n = game.world.npcs[e.npcId]; return n ? ECHO.People.name(n) : 'Someone'; }
       if (e.type === 'creature') return ECHO.Ecology.speciesName(game.world, game.world.regions[e.regionId], e.species);

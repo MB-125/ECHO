@@ -446,6 +446,24 @@
     creature(g, e, time) {
       const R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
       const sp = e.species;
+      if (sp === 'deer') {
+        // red deer: russet coat, pale rump, the stag with his antlers
+        const walk = e.moving ? Math.sin(e.anim * 14) : 0;
+        g.save(); if (e.flip) g.scale(-1, 1);
+        R('rgba(0,0,0,0.2)', -8, -1, 16, 2);
+        const l = Math.round(walk * 1.5);
+        R('#4a321e', -6, -8 + Math.max(0, l), 2, 8 - Math.max(0, l)); R('#4a321e', -3, -8, 2, 8); R('#4a321e', 3, -8 + Math.max(0, -l), 2, 8 - Math.max(0, -l)); R('#4a321e', 5, -8, 2, 8);
+        R('#8a5a32', -7, -14, 15, 7); R('#6e4626', -6, -14, 11, 2); R('#c8a878', -7, -8, 15, 1); R('#efe4d0', -9, -13, 3, 4);
+        const down = (e.state === 'graze') && Math.sin(time * 0.7 + e.id) > 0.3;
+        if (down) { R('#8a5a32', 7, -12, 3, 3); R('#7a4e2c', 9, -9, 4, 3); R('#1a1410', 11, -9, 1, 1); }
+        else {
+          R('#8a5a32', 6, -19, 3, 7); R('#7a4e2c', 7, -21, 6, 4); R('#1a1410', 11, -20, 1, 1);
+          if (e.stag) { R('#d8c8a0', 6, -27, 1, 6); R('#d8c8a0', 9, -27, 1, 6); R('#d8c8a0', 4, -26, 2, 1); R('#d8c8a0', 10, -25, 2, 1); R('#d8c8a0', 5, -29, 1, 2); R('#d8c8a0', 10, -29, 1, 2); }
+          else { R('#6e4626', 7, -23, 1, 2); R('#6e4626', 9, -23, 1, 2); }
+        }
+        g.restore();
+        return;
+      }
       if (sp === 'hind') {
         // the White Hind: slender, pale, a faint shine about her
         const walk = e.moving ? Math.sin(e.anim * 14) : 0;
