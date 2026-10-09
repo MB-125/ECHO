@@ -54,6 +54,39 @@
       if (h.dist >= 60) { h.dist -= 60; Lf.addBond(game, 1); }
       return h.blown ? 4.2 : Infinity;
     },
+    // The horse picks its own line. It reads the ground a few strides ahead —
+    // more at speed — and leans around trunks, rocks, walls, deep water and
+    // people, keeping as close to where you point it as it can; if there is no
+    // way past, it checks its pace in time instead of running into it.
+    steer(game, x, y, want, v, self) {
+      const world = game.world, look = 1.2 + Math.max(0, v) * 0.5;
+      const probe = { type: 'player', mounted: true };
+      const solid = (px, py) => ECHO.Water ? ECHO.Water.blockedFor(probe, world, px, py) : ECHO.World.isSolid(world, px, py);
+      // at the gallop, foes ahead are ridden down; everyone else is gone around
+      const pe = game.pe, charging = v > 4.5;
+      const people = game.ents.filter(e => e !== self && e !== pe && !e.dead && !e.hidden && !e.isCompanion && e.type !== 'boss' && U.dist(e.x, e.y, x, y) < look + 2 && !(charging && game.hostileTo(pe, e)));
+      const clearFor = a => {
+        const ca = Math.cos(a), sa = Math.sin(a), lx = -sa * 0.34, ly = ca * 0.34;
+        for (let t = 0.45; t <= look; t += 0.3) {
+          const cx = x + ca * t, cy = y + sa * t;
+          if (solid(cx, cy) || solid(cx + lx, cy + ly) || solid(cx - lx, cy - ly)) return t;
+          for (const e of people) if ((e.x - cx) ** 2 + (e.y - cy) ** 2 < (0.42 + (e.r || 0.3)) ** 2) return t;
+        }
+        return look + 1;
+      };
+      const f0 = clearFor(want);
+      if (f0 > look) return { dir: want, free: f0, look, dev: 0 };
+      // keep to the same side as last time, so it doesn't dither between two gaps
+      const prefer = self && self._steerSide ? self._steerSide : 0;
+      let best = { dir: want, free: f0, score: f0, side: 0 };
+      for (const d of [0.2, 0.4, 0.65, 0.9, 1.15]) for (const s of [1, -1]) {
+        const a = want + d * s, f = clearFor(a);
+        const score = Math.min(f, look + 0.5) - d * 0.8 + (s === prefer ? 0.35 : 0);
+        if (f > best.free + 0.25 && score > best.score) best = { dir: a, free: f, score, side: s };
+      }
+      if (self) self._steerSide = best.side || prefer;
+      return { dir: best.dir, free: best.free, look, dev: U.angleDiff(want, best.dir) };
+    },
     accelMul(pl) { const h = Lf.hs(pl); return h ? 1 + (h.bond || 0) / 200 : 1; },
     feed(game) {
       const pl = game.pl, h = Lf.hs(pl), now = game.world.day * 1440 + game.world.minute;
@@ -170,7 +203,9 @@
       if (h.rearT > 0) want = 0;
       h.v += U.clamp(want - h.v, -dt * 7, dt * 4.5);
       if (tx != null) {
-        const a = Math.atan2(ty - h.y, tx - h.x), turn = U.angleDiff(h.dir, a);
+        let a = Math.atan2(ty - h.y, tx - h.x);
+        if (h.v > 0.3 || want > 1) { const S = Lf.steer(game, h.x, h.y, a, Math.max(h.v, 1.5), h); a = S.dir; if (S.free <= S.look) want = Math.min(want, Math.sqrt(Math.max(0, 2 * 7 * (S.free - 0.6)))); }
+        const turn = U.angleDiff(h.dir, a);
         h.dir += U.clamp(turn, -dt * (h.v > 3 ? 3.2 : 6), dt * (h.v > 3 ? 3.2 : 6));
         if (Math.abs(turn) > 1.6 && h.v > 3) h.v -= dt * 6;
       }

@@ -115,11 +115,21 @@
           if (R0.rearT > 0) R0.rearT -= dt;
           // a tired horse can't gallop; a trusting one answers faster
           const cap = ECHO.Life ? ECHO.Life.rideTick(game, R0, dt) : Infinity;
-          const want = len && !rein && !(R0.rearT > 0) ? Math.min(sp, cap) : 0;
-          R0.v += U.clamp(want - R0.v, -dt * (rein || R0.rearT > 0 ? 16 : 9), dt * (R0.v < 2 ? 5 : 3.2) * (ECHO.Life ? ECHO.Life.accelMul(pl) : 1));
-          if (len) {
-            const a = Math.atan2(my, mx), turn = U.angleDiff(R0.dir, a);
-            const rate = R0.v > 5 ? 4 : R0.v > 2.5 ? 6 : 10;
+          let want = len && !rein && !(R0.rearT > 0) ? Math.min(sp, cap) : 0;
+          // where you point it — and where it actually puts its feet
+          let goal = len ? Math.atan2(my, mx) : R0.dir;
+          if (ECHO.Life && (R0.v > 0.4 || want > 0)) {
+            const S = ECHO.Life.steer(game, pe.x, pe.y, goal, Math.max(R0.v, want * 0.5, 1.2), pe);
+            goal = S.dir;
+            // nothing to go round: check the pace in time to stop short of it
+            if (S.free <= S.look) want = Math.min(want, Math.sqrt(Math.max(0, 2 * 9 * (S.free - 0.55))));
+            R0.steering = Math.abs(S.dev) > 0.05 ? S.dev : 0;
+          } else R0.steering = 0;
+          R0.v += U.clamp(want - R0.v, -dt * (rein || R0.rearT > 0 ? 12 : 9), dt * (R0.v < 2 ? 5 : 3.2) * (ECHO.Life ? ECHO.Life.accelMul(pl) : 1));
+          if (len || R0.steering) {
+            const turn = U.angleDiff(R0.dir, goal);
+            // tight at a walk, wide at a gallop, and never a spin on the spot
+            const rate = R0.v > 5 ? 3.6 : R0.v > 2.5 ? 5 : R0.v > 0.8 ? 5.5 : 3.2;
             R0.dir += U.clamp(turn, -dt * rate, dt * rate);
             if (Math.abs(turn) > 2.2 && R0.v > 3) R0.v -= dt * 8;   // hauling round: check the pace first
           }
@@ -133,8 +143,13 @@
               if (ECHO.Water && ECHO.Water.kind(world, ax, ay) === 'deep' && !(R0.balkT > game.time)) { R0.balkT = game.time + 4; R0.rearT = 0.4; ECHO.Sfx.play('snort'); ECHO.Combat.floater(pe.x, pe.y - 1.5, `${pl.horse.name} won't go into deep water`, '#e8d9a0'); }
             }
           }
-          // a sidestep: the horse springs aside
-          if (R0.sideT > 0) { R0.sideT -= dt; ECHO.Ent.move(world, pe, Math.cos(R0.sideDir) * 7 * dt, Math.sin(R0.sideDir) * 7 * dt); }
+          // a sidestep: the horse springs off its outside legs and lands a length aside,
+          // fast in the middle of the leap and easing into the landing
+          if (R0.sideT > 0) {
+            R0.sideT = Math.max(0, R0.sideT - dt);
+            const k = 1 - R0.sideT / 0.34, push = Math.sin(Math.PI * k) * 6.2;
+            ECHO.Ent.move(world, pe, Math.cos(R0.sideDir) * push * dt, Math.sin(R0.sideDir) * push * dt);
+          }
           if (ECHO.Life) ECHO.Life.trample(game, R0, dt);
           R0.peak = Math.max(R0.v, (R0.peak || 0) - dt * 4);  // the momentum a blow carries, a moment after you check
           pe.moving = R0.v > 0.3;
@@ -162,7 +177,7 @@
         PC.dodgeBuf = 0; pl.stamina -= 12;
         const side = len ? Math.atan2(my, mx) : PC.ride.dir + Math.PI / 2;
         const rel = U.angleDiff(PC.ride.dir, side);
-        PC.ride.sideDir = PC.ride.dir + (rel >= 0 ? 1 : -1) * Math.PI / 2; PC.ride.sideT = 0.24;
+        PC.ride.sideSign = rel >= 0 ? 1 : -1; PC.ride.sideDir = PC.ride.dir + PC.ride.sideSign * Math.PI / 2; PC.ride.sideT = 0.34;
         pe.iframes = 0.28; ECHO.Sfx.play('dodge', { pitch: 0.7 }); ECHO.Combat.burst(pe.x, pe.y + 0.2, '#b8a888', 8, 2, 0.4, 2);
         if (game.combatT != null && game.time - game.combatT < 6) ECHO.Tech.record('dodges');
       }

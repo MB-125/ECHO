@@ -1093,7 +1093,8 @@
       const H = R.horseFor('player', pl.horse.breed);
       if (riding) {
         const R0 = ECHO.PlayerCtl.ride;
-        return R.driveHorse(game, H, dt, v.px, v.py, v.dir, pe.rideV != null ? pe.rideV : (v.spd || 0), { ridden: true, reined: (pe.rideV || 0) < 0.3, rear: R0 && R0.rearT > 0 });
+        const side = R0 && R0.sideT > 0 ? R0.sideSign * Math.sin(Math.PI * (1 - R0.sideT / 0.34)) : 0;
+        return R.driveHorse(game, H, dt, v.px, v.py, v.dir, pe.rideV != null ? pe.rideV : (v.spd || 0), { ridden: true, reined: (pe.rideV || 0) < 0.3, rear: R0 && R0.rearT > 0, side });
       }
       const h = pl.horseAt;
       if (H.fx == null || Math.hypot(H.fx - h.x, H.fy - h.y) > 2) { H.fx = h.x; H.fy = h.y; }
@@ -1149,8 +1150,17 @@
       const P = v.inst.parts;
       const moving = (v.mv || 0) > 0.5 && !e.dead;
       const ph = e.anim * 11;
-      const sw = e.dead ? 0 : Math.sin(ph) * 0.65 * (v.mv || 0);
+      // Which way are the feet going compared with the way the body faces? Forward
+      // is a walk, backward a back-step, sideways a side-step (feet open and close
+      // instead of swinging), so guarding or aiming while moving reads properly.
+      let fwd = 1, lat = 0;
+      if (v.vdir != null && (v.mv || 0) > 0.2 && !e.mounted) {
+        const rel = U.angleDiff(e.dir != null ? e.dir : 0, v.vdir);
+        fwd = Math.cos(rel); lat = Math.sin(rel);
+      }
+      const sw = e.dead ? 0 : Math.sin(ph) * 0.65 * (v.mv || 0) * fwd;
       P.legL.rotation.z = sw; P.legR.rotation.z = -sw;
+      v.strafe = e.dead ? 0 : lat * (v.mv || 0);
       let aL = -sw * 0.8, aR = sw * 0.8, aLx = 0, aRx = 0, twist = 0, lean = 0;
       const ease = t => 1 - Math.pow(1 - t, 3);
       if (e.attackT && e.attackDur) {
@@ -1186,7 +1196,12 @@
       P.body.rotation.z = lean * 0.6;
       P.head.rotation.z = e.sayT > 0 ? Math.sin(R.time * 9) * 0.06 : 0;
       v.twist = twist;
-      P.legL.rotation.x = 0; P.legR.rotation.x = 0;
+      // side-step: the leading leg reaches out to the side, the other follows it in
+      const st0 = v.strafe || 0, sp0 = Math.sin(ph);
+      P.legL.rotation.x = Math.abs(st0) > 0.05 ? -st0 * 0.42 * Math.max(0, sp0) : 0;
+      P.legR.rotation.x = Math.abs(st0) > 0.05 ? -st0 * 0.42 * Math.max(0, -sp0) : 0;
+      if (Math.abs(st0) > 0.05 && !e.mounted) P.body.rotation.x = st0 * 0.06;
+      else P.body.rotation.x = 0;
       // in the saddle: legs astride the barrel, hands on the reins, leaning
       // into the pace; rising to the trot, low and still over a gallop
       if (e.mounted && v.horse && !e.dead) {
@@ -1327,6 +1342,7 @@
         if (v.px == null || Math.hypot(e.x - v.px, e.y - v.py) > 1.5 || e === game.pe) { v.px = e.x; v.py = e.y; }
         else { const kp = 1 - Math.exp(-dt * 16); v.px += (e.x - v.px) * kp; v.py += (e.y - v.py) * kp; }
         const spd = dt > 0 ? Math.hypot(e.x - (v.lx == null ? e.x : v.lx), e.y - (v.ly == null ? e.y : v.ly)) / dt : 0;
+        if (spd > 0.3) v.vdir = Math.atan2(e.y - v.ly, e.x - v.lx);
         v.lx = e.x; v.ly = e.y;
         v.spd = v.spd == null ? spd : v.spd + (spd - v.spd) * Math.min(1, dt * 10);
         const wantMv = e.moving || v.spd > 0.35 ? 1 : 0;

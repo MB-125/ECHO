@@ -281,7 +281,9 @@
       H.body.position.y = 0.74 + bd.bob - H.cock * 0.012 - H.graze * 0.01 + rr * 0.3;
       H.body.position.x = -rr * 0.18;
       H.body.rotation.z = bd.pitch - H.graze * 0.03 + rr * 0.72;
-      H.body.rotation.x = H.roll + bd.sway * 0.3;
+      // a sidestep: the body swings over the outside legs, the legs cross under it
+      H.side = lerp(H.side || 0, o.side || 0, 1 - Math.exp(-dt * 18));
+      H.body.rotation.x = H.roll + bd.sway * 0.3 + H.side * 0.2;
       // legs
       for (let i = 0; i < 4; i++) {
         const g = H.legs[i], l = Gait.leg(st, i);
@@ -302,6 +304,8 @@
           if (g.fore) { const paw = Math.sin(H.t * 9 + i * 1.7) * 0.35; g.top.rotation.z = lerp(g.top.rotation.z, 0.5 + paw - 0.72, rr); g.knee.rotation.z = lerp(g.knee.rotation.z, -1.6, rr); g.fet.rotation.z = lerp(g.fet.rotation.z, -0.6, rr); }
           else { g.top.rotation.z = lerp(g.top.rotation.z, -0.72 + 0.25, rr); g.knee.rotation.z = lerp(g.knee.rotation.z, 0.25, rr); g.fet.rotation.z = lerp(g.fet.rotation.z, 0.1, rr); }
         }
+        g.top.rotation.x = Math.abs(H.side) > 0.02 ? -H.side * (i % 2 === 0 ? 0.32 : 0.18) * (g.fore ? 1 : 0.7) : 0;
+        if (Math.abs(H.side) > 0.02) g.knee.rotation.z += (g.fore ? -0.5 : 0.35) * Math.abs(H.side) * (i % 2 === 0 ? 1 : 0.4);
         // keep the hoof flat on the ground through the stance
         g.hoof.rotation.z = -(g.top.rotation.z + g.knee.rotation.z + g.fet.rotation.z + H.body.rotation.z) * (l.stance ? 1 : 0.4);
       }
