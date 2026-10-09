@@ -16,7 +16,8 @@
     // Move with tile collision (axis separated) — circles against solid tiles.
     move(world, e, dx, dy) {
       const r = e.r * 0.85;
-      const solidAt = (x, y) => ECHO.World.isSolid(world, x, y);
+      // shallow water is wadeable by anyone; deep water only by you, on foot
+      const solidAt = ECHO.Water ? (x, y) => ECHO.Water.blockedFor(e, world, x, y) : (x, y) => ECHO.World.isSolid(world, x, y);
       const blocked = (x, y) => solidAt(x - r, y - r) || solidAt(x + r, y - r) || solidAt(x - r, y + r) || solidAt(x + r, y + r);
       let moved = false;
       if (dx) {

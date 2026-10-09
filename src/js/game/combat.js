@@ -75,6 +75,9 @@
     explode(p) {
       const game = G();
       const R = p.radius;
+      // a fireball that bursts on water goes up in steam: weaker, and nothing catches
+      const steam = ECHO.Water && ECHO.Water.quench(p);
+      if (steam) { p = Object.assign({}, p, { dmg: p.dmg * 0.55, power: 0 }); }
       C.burst(p.x, p.y, '#ffb347', 18 + R * 10, 5, 0.6, 3);
       C.burst(p.x, p.y, '#ff5a1f', 12, 3, 0.8, 2);
       C.ring(p.x, p.y, R, 'rgba(255,170,60,0.8)', 0.35);
@@ -90,7 +93,8 @@
         if (e !== game.pe && !game.hostileTo(p.from, e) && !p.backfire) continue;
         const fall = 1 - Math.min(1, d / (R + e.r)) * 0.5;
         C.damage(e, p.dmg * fall, { type: 'fire', from: p.from, angle: Math.atan2(e.y - p.y, e.x - p.x), knock: 0.25 });
-        if (!e.dead) { e.burn = Math.max(e.burn, 2 * p.power); e.burnFrom = p.from; }
+        // nothing burns standing in water, and a soaked body barely catches
+        if (!e.dead && p.power > 0 && !e._inWater) { const wetMul = e === game.pe && game.pl.wetT > 0 ? 0.3 : 1; e.burn = Math.max(e.burn, 2 * p.power * wetMul); e.burnFrom = p.from; }
       }
       for (const l of game.world.lairs) for (const r of l.rocks) if (r.hp > 0 && U.dist(p.x, p.y, r.x + 0.5, r.y + 0.5) < R + 0.6) C.hitRock(l, r, 25);
       // a big enough fire sets wooden workplaces alight
@@ -107,7 +111,8 @@
         const steps = 3;
         for (let s = 0; s < steps && !p.done; s++) {
           p.x += p.vx * dt / steps; p.y += p.vy * dt / steps;
-          if (ECHO.World.isSolid(world, p.x, p.y) && ECHO.World.tile(world, p.x, p.y) !== ECHO.TILE.WATER) {
+          const tt = ECHO.World.tile(world, p.x, p.y);
+          if (ECHO.World.isSolid(world, p.x, p.y) && tt !== ECHO.TILE.WATER && tt !== ECHO.TILE.DEEP) {
             p.done = true;
             if (p.kind === 'fire') C.explode(p);
             else if (p.kind === 'orb') C.burst(p.x, p.y, p.color || '#b48aff', 8, 2, 0.35, 2);
@@ -203,6 +208,8 @@
       // Fire wards and evolved hides
       if (type === 'fire') {
         if (target.gear.fireward) dmg *= 0.35;
+        if (target === game.pe && game.pl.wetT > 0) dmg *= 0.7; // soaked through
+        if (target._inWater) dmg *= 0.75;
         if (target.traits) dmg *= 1 - target.traits.fireRes;
       }
       if (type === 'melee' && target.traits) dmg *= 1 - target.traits.hide * 0.7;
@@ -232,7 +239,7 @@
       if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken() * (ECHO.Gear ? ECHO.Gear.taken(world, game.pl, type) : 1) * (ECHO.Companions ? ECHO.Companions.shield(game) : 1);
       dmg = Math.max(1, Math.round(dmg));
       // Your own fire can hurt you badly, but never below 15% of your life.
-      if (target === game.pe && (from === game.pe || !from)) { const floor = Math.max(1, target.maxHp * 0.15); if (target.hp - dmg < floor) dmg = Math.max(0, Math.floor(target.hp - floor)); }
+      if (target === game.pe && (from === game.pe || (!from && type !== 'drown'))) { const floor = Math.max(1, target.maxHp * 0.15); if (target.hp - dmg < floor) dmg = Math.max(0, Math.floor(target.hp - floor)); }
       if (dmg <= 0) { if (target === game.pe) target.burn = 0; return 0; }
       const wasStaggered = target.stagger > 0;
       target.hp -= dmg;

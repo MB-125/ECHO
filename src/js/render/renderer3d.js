@@ -29,7 +29,7 @@
   function tileColor(t, season, x, y, seed) {
     switch (t) {
       case TILE.DEEP: return '#1a3554';
-      case TILE.WATER: return '#2c5878';
+      case TILE.WATER: return '#56634a';
       case TILE.SAND: return '#d4bd88';
       case TILE.GRASS: return SEASON.grass[season];
       case TILE.FOREST: case TILE.TREE: return SEASON.forest[season];
@@ -121,7 +121,7 @@
     lightN: 8, chunkR: CHUNK_RADIUS,
     applyQuality() {
       const q = R.QUALITY[(ECHO.UI && ECHO.UI.settings.quality) || 'high'] || R.QUALITY.high;
-      R.lightN = q.lights; R.chunkR = q.chunk;
+      R.lightN = q.lights; R.chunkR = q.chunk; R.Q = q;
       if (!R.renderer) return;
       const was = R.renderer.shadowMap.enabled;
       R.renderer.shadowMap.enabled = q.shadows;
@@ -151,7 +151,7 @@
       R.chunks = {};
       for (const g of ['towns', 'sites', 'ents', 'fx', 'room']) R.clear(R.groups[g]);
       R.roomKey = null;
-      if (R.horse) { R.scene.remove(R.horse.root); R.horse = null; } R.views.clear(); R.fxMeshes.clear(); R.projMeshes.clear(); R.lootMeshes.clear();
+      if (R.horses) for (const k of [...R.horses.keys()]) R.dropHorse(k); R.views.clear(); R.fxMeshes.clear(); R.projMeshes.clear(); R.lootMeshes.clear();
       R.towns = {};
       R.buildHeights(world);
       R.buildWater(world);
@@ -195,16 +195,53 @@
       return Math.max(-0.05, U.lerp(U.lerp(a, b, fx), U.lerp(c, d, fx), fy));
     },
 
+    // The real bed under water (groundH keeps the dry ground's floor).
+    rawH(x, y) {
+      if (!R.hc || x >= 9000) return 0;
+      const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+      const a = R.cornerH(ix, iy), b = R.cornerH(ix + 1, iy), c = R.cornerH(ix, iy + 1), d = R.cornerH(ix + 1, iy + 1);
+      return U.lerp(U.lerp(a, b, fx), U.lerp(c, d, fx), fy);
+    },
+    // Where something standing here has its feet: on the river bed when wading.
+    standH(x, y) {
+      if (!R.hc || x >= 9000) return 0;
+      const t = ECHO.World.tile(R.world, x, y);
+      if (t === TILE.WATER || t === TILE.DEEP) return Math.max(-0.62, Math.min(-0.05, R.rawH(x, y)));
+      return R.groundH(x, y);
+    },
     // ---------------------------------------------------------------- water
     buildWater(world) {
       if (R.water) { R.scene.remove(R.water); R.water.geometry.dispose(); }
-      const g = new THREE.PlaneGeometry(world.W + 60, world.H + 60, Math.round((world.W + 60) / 1.5), Math.round((world.H + 60) / 1.5));
-      const m = new THREE.MeshStandardMaterial({ color: C('#2e6a96'), roughness: 0.12, metalness: 0.15, transparent: true, opacity: 0.82, flatShading: true });
+      // depth under every vertex: clear and pale over the shallows, dark over the deeps, foam at the edge
+      const step = R.Q && R.Q.map <= 512 ? 2 : 1;
+      const g = new THREE.PlaneGeometry(world.W + 60, world.H + 60, Math.round((world.W + 60) / step), Math.round((world.H + 60) / step));
+      const pos = g.attributes.position, depth = new Float32Array(pos.count);
+      for (let i = 0; i < pos.count; i++) {
+        const wx = pos.getX(i) + world.W / 2, wy = world.H / 2 - pos.getY(i);
+        const inside = wx >= 0 && wy >= 0 && wx <= world.W && wy <= world.H;
+        depth[i] = inside ? Math.max(0, -0.2 - R.rawH(wx, wy)) : 0.6;
+      }
+      g.setAttribute('aDepth', new THREE.BufferAttribute(depth, 1));
+      const m = new THREE.MeshStandardMaterial({ color: C('#2e6a96'), roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.86, flatShading: true });
       R.waterTime = { value: 0 };
       m.onBeforeCompile = (sh) => {
         sh.uniforms.uTime = R.waterTime;
-        sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>',
-          '#include <begin_vertex>\n transformed.z += sin(position.x * 0.9 + uTime * 1.3) * 0.045 + cos(position.y * 1.1 + uTime * 1.1) * 0.045;');
+        sh.vertexShader = 'uniform float uTime;\nattribute float aDepth;\nvarying float vDepth;\nvarying vec2 vP;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+          '#include <begin_vertex>\n vDepth = aDepth; vP = position.xy;\n float calm = smoothstep(0.0, 0.25, aDepth);\n transformed.z += (sin(position.x * 0.9 + uTime * 1.3) * 0.045 + cos(position.y * 1.1 + uTime * 1.1) * 0.045 + sin((position.x + position.y) * 2.3 + uTime * 2.6) * 0.012) * calm;');
+        sh.fragmentShader = 'uniform float uTime;\nvarying float vDepth;\nvarying vec2 vP;\n' + sh.fragmentShader
+          .replace('#include <color_fragment>', `#include <color_fragment>
+            float dk = smoothstep(0.0, 0.5, vDepth);
+            vec3 shallowC = vec3(0.16, 0.42, 0.46), deepC = vec3(0.04, 0.14, 0.26);
+            diffuseColor.rgb = mix(shallowC, deepC, dk);
+            float foam = (1.0 - smoothstep(0.0, 0.07, vDepth)) * (0.55 + 0.45 * sin(uTime * 1.7 + vP.x * 2.1 + vP.y * 1.7));
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85, 0.92, 0.94), clamp(foam, 0.0, 1.0) * 0.75);
+            diffuseColor.a = mix(0.45, 0.92, dk) + foam * 0.3;`)
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+            // sun on the water: crossing wave trains, so the sparkle never sits in a grid
+            float g1 = sin(dot(vP, vec2(6.3, 2.1)) + uTime * 2.1) * sin(dot(vP, vec2(-1.7, 5.9)) - uTime * 1.6);
+            float g2 = 0.5 + 0.5 * sin(dot(vP, vec2(1.13, -0.71)) + uTime * 0.7) * sin(dot(vP, vec2(0.37, 0.93)) * 1.9 - uTime * 0.5);
+            float glint = pow(max(0.0, g1), 18.0) * g2 * g2;
+            totalEmissiveRadiance += vec3(0.6, 0.66, 0.7) * glint * smoothstep(0.05, 0.3, vDepth) * 0.45;`);
       };
       const w = R.water = new THREE.Mesh(g, m);
       w.rotation.x = -Math.PI / 2;
@@ -1014,7 +1051,7 @@
       H.syaw += U.angleDiff(H.syaw, yaw) * Math.min(1, dt * 10);
       H.root.visible = true;
       const bd = H3.pose(H, dt, spd, H.syaw, o);
-      const gy = R.groundH(x, y), fx = Math.cos(H.syaw), fy = Math.sin(H.syaw);
+      const gy = R.standH(x, y), fx = Math.cos(H.syaw), fy = Math.sin(H.syaw);
       H.root.position.set(x - fx * H.seatX, gy, y - fy * H.seatX);
       H.root.rotation.y = Math.PI - H.syaw;
       H.root.updateMatrixWorld(true);
@@ -1024,9 +1061,12 @@
         const w = new THREE.Vector3();
         for (const i of H.st.hoofDown) {
           const g = H.st.gait;
-          ECHO.Sfx.play('hoof', { vol: (g === 'gallop' ? 0.75 : g === 'canter' ? 0.6 : g === 'trot' ? 0.45 : 0.3) * Math.max(0.2, 1 - near / 16) * (o.quiet ? 0.5 : 1), pitch: (i < 2 ? 1.05 : 0.95) * (o.quiet ? 1.08 : 1) });
+          H.legs[i].hoof.getWorldPosition(w);
+          const wet = ECHO.Water && !ECHO.Interior.cur && ECHO.Water.kind(game.world, w.x, w.z);
+          const vol = (g === 'gallop' ? 0.75 : g === 'canter' ? 0.6 : g === 'trot' ? 0.45 : 0.3) * Math.max(0.2, 1 - near / 16) * (o.quiet ? 0.5 : 1);
+          if (wet) { ECHO.Sfx.play('wade', { vol: vol * 0.8, pitch: i < 2 ? 1.1 : 0.9 }); ECHO.Water.splash(w.x, w.z, g === 'walk' ? 2 : 5, g === 'gallop' ? 1.4 : 0.8); continue; }
+          ECHO.Sfx.play('hoof', { vol, pitch: (i < 2 ? 1.05 : 0.95) * (o.quiet ? 1.08 : 1) });
           if (g !== 'walk' && !ECHO.Interior.cur) {
-            H.legs[i].hoof.getWorldPosition(w);
             const n = g === 'gallop' ? 3 : 2;
             for (let k = 0; k < n; k++) ECHO.Combat.fx.push({ kind: 'p', x: w.x + (Math.random() - 0.5) * 0.2, y: w.z + (Math.random() - 0.5) * 0.2, vx: -fx * 0.8 + (Math.random() - 0.5) * 0.8, vy: -fy * 0.8 + (Math.random() - 0.5) * 0.8, t: 0, life: 0.45 + Math.random() * 0.3, color: 'rgba(190,172,140,0.55)', size: 2 });
           }
@@ -1166,6 +1206,15 @@
         if (hs.rear > 0.05) { P.body.rotation.z = lean + hs.rear * 0.35; }
         P.head.rotation.z = -lean * 0.6;
       }
+      // swimming: stretched out, arms reaching overhead in turn, legs kicking
+      if (e.swimming && !e.dead) {
+        const st = R.time * (e.moving ? 5 : 2.2);
+        P.armL.rotation.z = -Math.PI * 0.5 - Math.sin(st) * 1.3; P.armR.rotation.z = -Math.PI * 0.5 + Math.sin(st) * 1.3;
+        P.armL.rotation.x = 0.35; P.armR.rotation.x = -0.35;
+        P.legL.rotation.z = Math.sin(st * 2) * 0.35; P.legR.rotation.z = -Math.sin(st * 2) * 0.35;
+        P.body.rotation.z = e.moving ? 0.55 : 0.2; P.head.rotation.z = e.moving ? -0.5 : -0.2;
+        P.body.position.y = 0.42;
+      }
       v.inst.root.rotation.z = 0; v.yOff = 0;
       if (e.sleeping) { v.inst.root.rotation.z = Math.PI / 2; v.yOff = e.indoor && e.indoor.pose === 'bed' && !e.indoor.floor ? 0.62 : 0.18; }
       else if (e.yielded || e.role === 'captive') v.yOff = -0.18;
@@ -1297,7 +1346,8 @@
         if (e === game.pe || e.dead || Math.abs(turn) > 0.18 || (v.mv || 0) > 0.5) v.dir += turn * Math.min(1, dt * (e.dead ? 30 : e === game.pe ? 14 : 9));
         root.rotation.y = Math.PI - v.dir + (v.twist || 0);
         v.twist = 0;
-        const gy = R.groundH(v.px, v.py);
+        // on the bed when wading; afloat, head and shoulders out, when swimming
+        const gy = e.swimming ? ECHO.Water.SURFACE - 0.62 + Math.sin(R.time * 3) * 0.02 : R.standH(v.px, v.py);
         let hy = 0;
         if (e === game.pe) { v.horse = R.syncHorse(game, dt, e.mounted ? v : null); if (v.horse && e.mounted) hy = v.horse.seat - gy - 0.4; }
         else if (e.mounted || v.horse) {
@@ -1524,6 +1574,24 @@
       }
       R.parts.geometry.setDrawRange(0, n);
       pa.needsUpdate = true; ca.needsUpdate = true;
+      // Ripples on the water
+      if (ECHO.Water) {
+        if (!R.ripplePool) {
+          R.ripplePool = [];
+          const geo = new THREE.RingGeometry(0.82, 1, 32); geo.rotateX(-Math.PI / 2);
+          for (let i = 0; i < 90; i++) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#e6f4f8', transparent: true, opacity: 0, depthWrite: false })); m.visible = false; m.renderOrder = 3; R.groups.fx.add(m); R.ripplePool.push(m); }
+        }
+        const rs = ECHO.Interior.cur ? [] : ECHO.Water.ripples;
+        for (let i = 0; i < R.ripplePool.length; i++) {
+          const m = R.ripplePool[i], r = rs[i];
+          if (!r) { m.visible = false; continue; }
+          const k = r.t / r.life;
+          m.visible = true;
+          m.position.set(r.x, ECHO.Water.SURFACE + 0.04 + Math.sin(r.x * 0.9 + R.time * 1.3) * 0.02, r.y);
+          m.scale.setScalar(Math.max(0.05, r.size * (0.15 + k * 0.85)));
+          m.material.opacity = 0.55 * (1 - k) * (1 - k);
+        }
+      }
       // Shapes: telegraphs, slashes, rings
       for (const f of fx) {
         if (f.kind !== 'tele' && f.kind !== 'slash' && f.kind !== 'ring') continue;

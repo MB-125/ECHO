@@ -191,6 +191,13 @@
         if (e.burn > 0) game.light(e.x, e.y - 0.4, 2.5, 0.6, '#ff8a2a');
         if (e.mutation === 'glasshorn' && night) game.light(e.x, e.y - 0.5, 2, 0.6, '#cfefff');
       }
+      if (ECHO.Water && !ECHO.Interior.cur) for (const r of ECHO.Water.ripples) if (Math.abs(r.x - cam.x) < halfW + 2 && Math.abs(r.y - cam.y) < halfH + 2) objs.push({ y: r.y - 0.6, draw: () => {
+        const p = R.toScreen(game, r.x, r.y), ctx = R.ctx, k = r.t / r.life;
+        ctx.setTransform(R.Z, 0, 0, R.Z, Math.round(p.x), Math.round(p.y));
+        ctx.strokeStyle = `rgba(230,244,248,${(0.6 * (1 - k) * (1 - k)).toFixed(3)})`; ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.ellipse(0, 0, Math.max(0.5, r.size * 10 * (0.15 + 0.85 * k)), Math.max(0.3, r.size * 5 * (0.15 + 0.85 * k)), 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      } });
       { const pl = game.pl, h = pl && pl.horse && !pl.mounted && pl.horseAt;
         if (h && !ECHO.Interior.cur && Math.abs(h.x - cam.x) < halfW + 3 && Math.abs(h.y - cam.y) < halfH + 3) objs.push({ y: h.y, draw: () => R.freeHorse(game, h) });
         if (ECHO.Riders && !ECHO.Interior.cur) for (const lh of ECHO.Riders.loose) if (Math.abs(lh.x - cam.x) < halfW + 3 && Math.abs(lh.y - cam.y) < halfH + 3) objs.push({ y: lh.y, draw: () => R.freeHorse(game, lh, 'loose' + lh.id, lh.breed) }); }
@@ -532,6 +539,7 @@
       if (e.iframes > 0 && e === game.pe) ctx.globalAlpha = 0.55;
       if (e.type === 'ghost' || e.species === 'hind') { ctx.globalAlpha = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)); if (e.type === 'ghost') ctx.filter = 'grayscale(1) brightness(1.9) sepia(0.3) hue-rotate(170deg)'; }
       if (e.type === 'person' && e.dancing) ctx.translate(0, -Math.abs(Math.sin(game.time * 7 + e.id)) * 2);
+      if (e.swimming) ctx.translate(0, 10 + Math.sin(game.time * 3) * 0.6);
       const mountedHere = (e === game.pe && e.mounted && game.pl.horse) || (e !== game.pe && e.mounted && !e.dead);
       if (mountedHere) {
         const me = e === game.pe;
@@ -568,6 +576,16 @@
       }
       ctx.filter = 'none';
       ctx.globalAlpha = 1;
+      // In the water: the surface hides your legs, or all but your head and shoulders
+      if (e._inWater && !e.dead) {
+        ctx.setTransform(R.Z, 0, 0, R.Z, Math.round(p.x), Math.round(p.y));
+        const deep = e._inWater === 'deep', top = deep ? -2 : -5, w = e.mounted || (e === game.pe && game.pl.mounted) ? 26 : 14;
+        ctx.fillStyle = deep ? 'rgba(26,62,96,0.92)' : 'rgba(52,104,128,0.78)';
+        ctx.fillRect(-w / 2, top, w, (deep ? 13 : 3) - top);
+        ctx.fillStyle = 'rgba(223,242,255,0.75)';
+        const ph = game.time * 4 + e.id;
+        for (let i = 0; i < w; i += 3) ctx.fillRect(-w / 2 + i, top + Math.round(Math.sin(ph + i * 0.7) * 0.6), 2, 1);
+      }
       // Bow draw / flame charge indicator
       if (e === game.pe && (ECHO.PlayerCtl.drawing || ECHO.PlayerCtl.charging)) {
         ctx.setTransform(R.Z, 0, 0, R.Z, Math.round(p.x), Math.round(p.y));

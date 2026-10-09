@@ -126,7 +126,12 @@
           if (R0.v > 0.05) {
             const bx = pe.x, by = pe.y;
             ECHO.Ent.move(world, pe, Math.cos(R0.dir) * R0.v * dt, Math.sin(R0.dir) * R0.v * dt);
-            if (Math.hypot(pe.x - bx, pe.y - by) < R0.v * dt * 0.3) R0.v *= Math.exp(-dt * 6);  // ran into something
+            if (Math.hypot(pe.x - bx, pe.y - by) < R0.v * dt * 0.3) {
+              R0.v *= Math.exp(-dt * 6);  // ran into something
+              // a horse won't swim with you on its back
+              const ax = pe.x + Math.cos(R0.dir) * 0.7, ay = pe.y + Math.sin(R0.dir) * 0.7;
+              if (ECHO.Water && ECHO.Water.kind(world, ax, ay) === 'deep' && !(R0.balkT > game.time)) { R0.balkT = game.time + 4; R0.rearT = 0.4; ECHO.Sfx.play('snort'); ECHO.Combat.floater(pe.x, pe.y - 1.5, `${pl.horse.name} won't go into deep water`, '#e8d9a0'); }
+            }
           }
           // a sidestep: the horse springs aside
           if (R0.sideT > 0) { R0.sideT -= dt; ECHO.Ent.move(world, pe, Math.cos(R0.sideDir) * 7 * dt, Math.sin(R0.sideDir) * 7 * dt); }
@@ -161,7 +166,7 @@
         pe.iframes = 0.28; ECHO.Sfx.play('dodge', { pitch: 0.7 }); ECHO.Combat.burst(pe.x, pe.y + 0.2, '#b8a888', 8, 2, 0.4, 2);
         if (game.combatT != null && game.time - game.combatT < 6) ECHO.Tech.record('dodges');
       }
-      if (!pl.mounted && PC.dodgeBuf > 0 && PC.dodgeT <= 0 && pl.stamina >= 16 && pe.stagger <= 0 && !(pe.attackT > 0.08)) {
+      if (!pl.mounted && !pe.swimming && PC.dodgeBuf > 0 && PC.dodgeT <= 0 && pl.stamina >= 16 && pe.stagger <= 0 && !(pe.attackT > 0.08)) {
         PC.dodgeBuf = 0;
         pl.stamina -= 18;
         if (game.combatT != null && game.time - game.combatT < 6) ECHO.Tech.record('dodges');
@@ -191,7 +196,7 @@
 
       // ---- Melee: a three-strike combo (the third is a spinning finisher),
       // or hold the button for a heavy, guard-breaking blow.
-      const canSwing = () => !game.ui.blocksWorld() && pe.cd <= 0 && pl.stamina >= 4 && PC.dodgeT <= 0 && pe.stagger <= 0 && !PC.drawing && !PC.charging;
+      const canSwing = () => !pe.swimming && !game.ui.blocksWorld() && pe.cd <= 0 && pl.stamina >= 4 && PC.dodgeT <= 0 && pe.stagger <= 0 && !PC.drawing && !PC.charging;
       if (In.mpressed[0] && !game.ui.blocksWorld()) { PC.atkBuf = 0.22; PC.holdT = 0; }
       PC.atkBuf = Math.max(0, (PC.atkBuf || 0) - dt);
       PC.comboT = (PC.comboT || 0) + dt;
@@ -224,7 +229,7 @@
       // ---- Bow (right mouse: hold to draw, release to loose; release just
       // as it reaches full draw for a perfect shot)
       const bow = world.items[pl.bow];
-      if (In.mpressed[2] && !game.ui.blocksWorld() && bow && pl.inv.arrows > 0 && PC.dodgeT <= 0) { PC.drawing = true; PC.draw = 0; PC.fullT = -1; ECHO.Sfx.play('bowDraw'); }
+      if (In.mpressed[2] && !pe.swimming && !game.ui.blocksWorld() && bow && pl.inv.arrows > 0 && PC.dodgeT <= 0) { PC.drawing = true; PC.draw = 0; PC.fullT = -1; ECHO.Sfx.play('bowDraw'); }
       if (PC.drawing) {
         const was = PC.draw;
         PC.draw = Math.min(1, PC.draw + dt / D.drawTime);
@@ -260,7 +265,7 @@
       }
 
       // ---- Flame (Q: hold to overcast)
-      if (In.hit('q') && !game.ui.blocksWorld() && PC.dodgeT <= 0) { PC.charging = true; PC.charge = 0; ECHO.Sfx.play('fireCharge'); }
+      if (In.hit('q') && !pe.swimming && !game.ui.blocksWorld() && PC.dodgeT <= 0) { PC.charging = true; PC.charge = 0; ECHO.Sfx.play('fireCharge'); }
       if (PC.charging) {
         const was = PC.charge;
         PC.charge = Math.min(1.25, PC.charge + dt * 0.9);
@@ -288,7 +293,7 @@
       if (pl.buffs) for (const k in pl.buffs) if (pl.buffs[k] > 0) { pl.buffs[k] -= dt; if (pl.buffs[k] <= 0) { pl.buffs[k] = 0; PC.derivedT = 0; ECHO.Combat.floater(pe.x, pe.y - 1.3, `${ECHO.Gear.POTIONS[k].name} wears off`, '#c8c0b0'); } }
 
       // ---- Regeneration
-      if (!pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1));
+      if (!pe.swimming && !pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (pe.wading ? 0.6 : 1) * (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1));
       if (pe.blocking) pl.stamina = Math.max(0, pl.stamina - 3 * dt * D.blockMul);
       pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40) * dt);
       if (game.time - (game.lastHurtTime || -99) > 8 && !pl.sick) pl.hp = Math.min(pl.maxHp, pl.hp + 0.5 * dt);

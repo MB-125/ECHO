@@ -8,7 +8,7 @@
     FARM: 8, ROAD: 9, SWAMP: 10, SNOW: 11, RUIN: 12, BRIDGE: 13, PLAZA: 14, RUINWALL: 15
   };
   const SOLID_TILES = new Set([TILE.DEEP, TILE.WATER, TILE.TREE, TILE.ROCK, TILE.RUINWALL]);
-  const MOVE_COST = { [TILE.TREE]: 0.7, [TILE.FOREST]: 0.78, [TILE.SWAMP]: 0.6, [TILE.HILL]: 0.82, [TILE.SNOW]: 0.75, [TILE.SAND]: 0.92, [TILE.ROAD]: 1.15, [TILE.BRIDGE]: 1.15, [TILE.PLAZA]: 1.1 };
+  const MOVE_COST = { [TILE.WATER]: 0.5, [TILE.DEEP]: 0.55, [TILE.TREE]: 0.7, [TILE.FOREST]: 0.78, [TILE.SWAMP]: 0.6, [TILE.HILL]: 0.82, [TILE.SNOW]: 0.75, [TILE.SAND]: 0.92, [TILE.ROAD]: 1.15, [TILE.BRIDGE]: 1.15, [TILE.PLAZA]: 1.1 };
 
   // Dimensions belong to each world (old worlds are 200×150; vast ones are larger).
   // The generator works on the active world's size, set by World.use().

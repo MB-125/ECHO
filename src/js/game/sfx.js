@@ -140,6 +140,9 @@
           break;
         }
         case 'whistle': S.tone(t, 0.18, 'sine', 1500, 2300, 0.12 * v, 0.02); S.tone(t + 0.22, 0.32, 'sine', 2300, 1500, 0.12 * v, 0.02); break;
+        case 'splash': S.noise(t, 0.35, 'lowpass', 1800 * r(0.2), 300, 0.8, 0.45 * v, 0.005); S.noise(t + 0.03, 0.25, 'bandpass', 2600 * r(0.2), 1200, 1.2, 0.18 * v, 0.01); S.tone(t, 0.12, 'sine', 160 * r(), 70, 0.12 * v); break;
+        case 'wade': S.noise(t, 0.18, 'bandpass', 900 * r(0.3), 500, 1.4, 0.12 * v, 0.03); break;
+        case 'hiss': S.noise(t, 0.6, 'highpass', 3000, 5000, 0.7, 0.18 * v, 0.02); break;
         case 'step': S.noise(t, 0.05, 'lowpass', 700 * r(0.2), 300, 0.7, 0.05 * v); break;
         case 'door': S.tone(t, 0.35, 'triangle', 140, 110, 0.12 * v, 0.05); S.noise(t + 0.25, 0.12, 'lowpass', 800, 200, 0.7, 0.35 * v); break;
         case 'coin': S.tone(t, 0.12, 'square', 1900, 1900, 0.06 * v); S.tone(t + 0.07, 0.22, 'square', 2530, 2530, 0.06 * v); break;
