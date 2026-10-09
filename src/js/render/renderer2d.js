@@ -191,6 +191,8 @@
         if (e.burn > 0) game.light(e.x, e.y - 0.4, 2.5, 0.6, '#ff8a2a');
         if (e.mutation === 'glasshorn' && night) game.light(e.x, e.y - 0.5, 2, 0.6, '#cfefff');
       }
+      { const pl = game.pl, h = pl && pl.horse && !pl.mounted && pl.horseAt;
+        if (h && !ECHO.Interior.cur && Math.abs(h.x - cam.x) < halfW + 3 && Math.abs(h.y - cam.y) < halfH + 3) objs.push({ y: h.y, draw: () => R.freeHorse(game, h) }); }
       // Festival dressing: the bonfire, lantern poles, the stall, contest targets
       if (ECHO.Fest) for (const L of ECHO.Fest.near(game)) {
         for (const p of L.poles) objs.push({ y: p.y, draw: () => { const g = R.art(game, p.x, p.y); g.fillStyle = '#5a3e26'; g.fillRect(-1, -38, 2, 38); R.ctx.setTransform(1, 0, 0, 1, 0, 0); } });
@@ -498,6 +500,26 @@
       }
       ctx.restore();
     },
+    // One gait state for the 2D horse, stepped once per frame.
+    horseGait(game, v) {
+      const st = R._hg || (R._hg = ECHO.Gait.make());
+      const dt = R._hgT == null ? 0 : Math.max(0, Math.min(0.1, game.time - R._hgT));
+      if (dt > 0) {
+        ECHO.Gait.update(st, v, dt);
+        const h = game.pl.horseAt, far = !game.pl.mounted && h && U.dist(h.x, h.y, game.pe.x, game.pe.y) > 16;
+        if (!far) for (const i of st.hoofDown) ECHO.Sfx.play('hoof', { vol: st.gait === 'gallop' ? 0.6 : 0.35, pitch: i < 2 ? 1.05 : 0.95 });
+      }
+      R._hgT = game.time;
+      return st;
+    },
+    freeHorse(game, h) {
+      const p = R.toScreen(game, h.x, h.y), ctx = R.ctx;
+      ctx.setTransform(R.Z, 0, 0, R.Z, Math.round(p.x), Math.round(p.y));
+      const st = R.horseGait(game, h.v || 0);
+      if (Math.cos(h.dir) < 0) ctx.scale(-1, 1);
+      ECHO.Horse2D.draw(ctx, game.pl.horse.breed, st, game.time, false);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    },
     entity(game, e) {
       const world = game.world;
       const p = R.toScreen(game, e.x, e.y);
@@ -509,16 +531,11 @@
       if (e.type === 'ghost' || e.species === 'hind') { ctx.globalAlpha = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)); if (e.type === 'ghost') ctx.filter = 'grayscale(1) brightness(1.9) sepia(0.3) hue-rotate(170deg)'; }
       if (e.type === 'person' && e.dancing) ctx.translate(0, -Math.abs(Math.sin(game.time * 7 + e.id)) * 2);
       if (e === game.pe && e.mounted && game.pl.horse) {
-        const B = ECHO.Life.BREEDS[game.pl.horse.breed], H = (c, x, y, w, h) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
-        const f = e.flip ? -1 : 1, gait = e.moving ? Math.round(Math.sin(game.time * 16) * 1.5) : 0;
-        ctx.save(); ctx.scale(f, 1);
-        H('rgba(0,0,0,0.25)', -10, -1, 20, 2);
-        H(B.color, -8, -6 + Math.max(0, gait), 2, 6 - Math.max(0, gait)); H(B.color, -5, -6, 2, 6); H(B.color, 4, -6 + Math.max(0, -gait), 2, 6 - Math.max(0, -gait)); H(B.color, 7, -6, 2, 6);
-        H(B.color, -9, -13, 18, 7); H(B.mane, -10, -12, 2, 5);
-        H(B.color, 8, -18, 4, 8); H(B.color, 10, -20, 5, 4); H(B.mane, 7, -19, 2, 6); H('#1a1410', 13, -19, 1, 1);
-        if (B.armored) H('#6a6a72', -6, -13, 12, 3);
+        const hs = R.horseGait(game, e.rideV != null ? e.rideV : (e.moving ? 4 : 0));
+        ctx.save(); if (e.flip) ctx.scale(-1, 1);
+        const r = ECHO.Horse2D.draw(ctx, game.pl.horse.breed, hs, game.time, true);
         ctx.restore();
-        ctx.translate(0, -7);
+        ctx.translate(0, r.seat + 7.5);
       }
       if (e.shape === 'spider' || e.shape === 'slime') R.drawShape(ctx, e, game.time);
       else if (e.shape === 'rat') { ctx.scale(e.scale || 1, e.scale || 1); if (e.elite) ctx.filter = 'sepia(1) hue-rotate(-30deg)'; S.creature(ctx, { ...e, species: 'gnawer' }, game.time); }

@@ -24,6 +24,7 @@
       }
       if (d > s || d >= bd) continue;
       if (d > 2 && !ECHO.Ent.lineOfSight(game.world, e.x, e.y, o.x, o.y)) continue;
+      if (o.isCompanion && o.tauntT > 0) d *= 0.3; // a battle cry draws them
       best = o; bd = d;
     }
     return best;
@@ -478,13 +479,17 @@
         if (e.t > e.windEnd) {
           e.state = 'attack'; e.t = 0;
           if (archer && !e.meleeWind) {
-            ECHO.Combat.shoot(e, e.aimAngle + (Math.random() - 0.5) * 0.12, { kind: e.gear.crossbow ? 'bolt' : 'arrow', speed: e.gear.crossbow ? 17 : 13, dmg: (5 + skill * 0.11 + (e.gear.crossbow ? 4 : 0)) * (e.dmgMul || 1), life: 1.3, type: 'ranged' });
+            ECHO.Combat.shoot(e, e.aimAngle + (Math.random() - 0.5) * 0.12 * (e.aimMul || 1), { kind: e.gear.crossbow ? 'bolt' : 'arrow', speed: e.gear.crossbow ? 17 : 13, dmg: (5 + skill * 0.11 + (e.gear.crossbow ? 4 : 0)) * (e.dmgMul || 1), life: 1.3, type: 'ranged' });
           } else {
             const reach = spear ? 2.1 : 1.25;
-            ECHO.Combat.melee(e, { angle: e.aimAngle, arc: spear ? 0.7 : 1.6, range: reach, dmg: (5 + skill * 0.13 + npc.rank * 3 + (npc.carry ? 4 : 0)) * (e.dmgMul || 1), knock: 0.12 });
-            ECHO.Combat.slash(e.x, e.y - 0.25, e.aimAngle, reach + 0.1, spear ? 0.7 : 1.6, 'rgba(255,200,180,0.7)');
+            // a sellsword's every third blow, once learned, cleaves wide
+            const cleave = e.isCompanion && e.compCls === 'sellsword' && ECHO.Companions && npc.comp && npc.comp.lv >= 8 && (e.swings = (e.swings || 0) + 1) % 3 === 0;
+            const arc = cleave ? 2.7 : spear ? 0.7 : 1.6;
+            ECHO.Combat.melee(e, { angle: e.aimAngle, arc, range: reach + (cleave ? 0.3 : 0), dmg: (5 + skill * 0.13 + npc.rank * 3 + (npc.carry ? 4 : 0)) * (e.dmgMul || 1) * (cleave ? 1.3 : 1), knock: cleave ? 0.3 : 0.12 });
+            ECHO.Combat.slash(e.x, e.y - 0.25, e.aimAngle, reach + 0.1, arc, cleave ? 'rgba(255,230,150,0.85)' : 'rgba(255,200,180,0.7)');
+            if (cleave) ECHO.Combat.floater(e.x, e.y - 1.4, 'Cleave!', '#ffe08a');
           }
-          e.cd = archer && !e.meleeWind ? 1.6 + Math.random() * 0.6 : 1.1 + Math.random() * 0.5 - skill * 0.004;
+          e.cd = (archer && !e.meleeWind ? 1.6 + Math.random() * 0.6 : 1.1 + Math.random() * 0.5 - skill * 0.004) * (e.cdMul || 1);
         }
         return;
       }
@@ -497,7 +502,7 @@
         if (d < want - 1) ECHO.Ent.seek(world, e, e.x - Math.cos(ang) * 2, e.y - Math.sin(ang) * 2, sp * 0.8, dt);
         else if (d > want + 2 || !ECHO.Ent.lineOfSight(world, e.x, e.y, target.x, target.y)) ECHO.Ent.travel(world, e, target.x, target.y, sp, dt);
         else e.moving = false;
-        if (e.cd <= 0 && d < 9) { e.state = 'windup'; e.t = 0; e.windEnd = 0.75; e.aimAngle = ang; e.meleeWind = false; }
+        if (e.cd <= 0 && d < 9 + (e.rangeBonus || 0)) { e.state = 'windup'; e.t = 0; e.windEnd = 0.75; e.aimAngle = ang; e.meleeWind = false; }
         return;
       }
       const reach = spear ? 1.9 : 1.15;

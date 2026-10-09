@@ -30,7 +30,7 @@
         ECHO.UI.toast(`+${r.xp} experience for ${Pg.nameOf(game, e)} (level ${r.level} ${Pw().FOE_RANK[r.rank].name.toLowerCase()})${r.ups.length ? ` — you rise to level ${s.lv}!` : ` — ${Math.floor(s.xp)}/${Pw().need(s.lv)} toward level ${s.lv + 1}`}.`, 'legend', 6);
       }
       for (const u of r.ups) Pg.levelUp(game, u);
-      if (ECHO.Companions) { ECHO.Companions.gain(game, r.xp); ECHO.Companions.event(game, 'kill', e); }
+      if (ECHO.Companions) { ECHO.Companions.gain(game, r.xp, !!(e._killer && e._killer.isCompanion)); ECHO.Companions.event(game, 'kill', e); }
       if (ECHO.Bounty) for (const b of ECHO.Bounty.onKill(game.world, pl, e)) { const ups = Pw().gain(pl, b.xp); ECHO.UI.toast(`Bounty done — ${ECHO.Bounty.text(b)}: a messenger finds you with ${b.gold} crowns (+${b.xp} xp).`, 'legend', 6); for (const u of ups) Pg.levelUp(game, u); }
       // outlaws carry coin, and sometimes something worth taking
       if (e.type === 'person' && !e.foe) {

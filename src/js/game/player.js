@@ -104,16 +104,37 @@
         if (PC.sneaking) sp *= 0.5;
         if (PC.studyT > 0) sp *= 0.3;
         if (pl.stamina < 1 && len) sp *= 0.75;
-        if (len) {
+        if (pl.mounted) {
+          // A horse has weight: it gathers speed through walk, trot and canter
+          // into a gallop, carries on a little when you let go, and turns in arcs.
+          const R0 = PC.ride || (PC.ride = { v: 0, dir: pe.dir });
+          const want = len ? sp : 0;
+          R0.v += U.clamp(want - R0.v, -dt * 9, dt * (R0.v < 2 ? 5 : 3.2));
+          if (len) {
+            const a = Math.atan2(my, mx), turn = U.angleDiff(R0.dir, a);
+            const rate = R0.v > 5 ? 4 : R0.v > 2.5 ? 6 : 10;
+            R0.dir += U.clamp(turn, -dt * rate, dt * rate);
+            if (Math.abs(turn) > 2.2 && R0.v > 3) R0.v -= dt * 8;   // hauling round: check the pace first
+          }
+          if (R0.v > 0.05) {
+            const bx = pe.x, by = pe.y;
+            ECHO.Ent.move(world, pe, Math.cos(R0.dir) * R0.v * dt, Math.sin(R0.dir) * R0.v * dt);
+            if (Math.hypot(pe.x - bx, pe.y - by) < R0.v * dt * 0.3) R0.v *= Math.exp(-dt * 6);  // ran into something
+          }
+          pe.moving = R0.v > 0.3;
+          pe.rideV = R0.v;
+        } else if (len) {
           ECHO.Ent.move(world, pe, mx * sp * dt, my * sp * dt);
           pe.moving = true;
           if (Math.random() < dt * 0.6) Ch().train(pl, 'endurance', 0.03);
         } else pe.moving = false;
       }
+      if (!pl.mounted && PC.ride) PC.ride = null;
       // Face the mouse when fighting, otherwise movement.
       if (pe.attackT > 0) { /* keep the swing's facing */ }
       else if (PC.lock && PC.dodgeT <= 0) pe.dir = aim; // locked on: strafe, always facing the target
       else if (pe.blocking || PC.drawing || PC.charging || PC.heavyHold || pe.cd > 0.1) pe.dir = aim;
+      else if (pl.mounted && PC.ride) pe.dir = PC.ride.dir;
       else if (len) pe.dir = Math.atan2(my, mx);
       pe.flip = Math.cos(pe.dir) < 0;
 

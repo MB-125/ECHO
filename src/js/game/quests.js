@@ -42,7 +42,7 @@
       // a companion close at hand draws some of the blows
       let T = pe, dT = d;
       const comp = game.ents.find(o => o.isCompanion && !o.dead && !o.hidden);
-      if (comp) { const dc = U.dist(e.x, e.y, comp.x, comp.y); if (dc < d - 1.2 && dc < 4) { T = comp; dT = dc; } }
+      if (comp) { const dc = U.dist(e.x, e.y, comp.x, comp.y); if ((dc < d - 1.2 && dc < 4) || (comp.tauntT > 0 && dc < 8)) { T = comp; dT = dc; } }
       const ang = Math.atan2(T.y - e.y, T.x - e.x);
       if (ECHO.Monsters && ECHO.Monsters.tick(game, e, dt, dT, ang)) return;
       const dmul = e.dmgMul || 1;

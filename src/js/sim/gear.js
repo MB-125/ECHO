@@ -156,6 +156,7 @@
       let m = a ? 1 - (a.def || 0) / ((a.def || 0) + 55) : 1;
       if (a && a.affix === 'warding' && (type === 'fire' || type === 'magic')) m *= 0.6;
       if (bf.stone > 0) m *= 0.67;
+      if (pl._cward > 0) m *= 0.7; // a companion's ward
       if (bf.ward > 0 && (type === 'fire' || type === 'magic')) m *= 0.4;
       void now;
       return m;

@@ -84,6 +84,7 @@
       for (const e of game.ents) {
         if (e.dead || e.hidden || e.ghost) continue;
         if (e === p.from && !p.backfire) continue;
+        if (p.from && p.from.isCompanion && (e === game.pe || e.isCompanion)) continue; // a companion's fire spares its friends
         const d = U.dist(p.x, p.y, e.x, e.y);
         if (d > R + e.r) continue;
         if (e !== game.pe && !game.hostileTo(p.from, e) && !p.backfire) continue;
@@ -149,6 +150,8 @@
       if (target.iframes > 0) { if (target === game.pe) { C.floater(target.x, target.y - 0.8, 'dodged', '#9fd3ff'); if (src.from && src.from !== game.pe) ECHO.Tech.onDodgedHit(game); } return 0; }
       const from = src.from;
       if (from && from.hidden && !from.dead) return 0; // nothing unseen can strike
+      // a companion's own skill: dodge, parry, shield
+      if (target.isCompanion && ECHO.Companions) { amount = ECHO.Companions.defend(game, target, amount, src); if (amount <= 0) return 0; }
       const type = src.type;
       let dmg = amount;
       const incoming = src.angle != null ? src.angle + Math.PI : null;
@@ -221,10 +224,11 @@
         if (Math.random() < Math.min(0.35, known * 0.035)) crit = true;
       }
       if (from === game.pe && target !== game.pe && (src.shadowroll || ECHO.Tech.shadowT > 0) && type === 'melee') { crit = true; src.shadowroll = true; ECHO.Tech.shadowT = 0; }
+      if (from && from.isCompanion && !crit && Math.random() < (from.critC || 0)) crit = true;
       if (crit) dmg *= 1.8;
       if (src.stealth) dmg *= from === game.pe ? ECHO.Tech.stealthMul() : 3;
       if (from === game.pe && target !== game.pe) dmg *= ECHO.Tech.dealt(target, src);
-      if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken() * (ECHO.Gear ? ECHO.Gear.taken(world, game.pl, type) : 1);
+      if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken() * (ECHO.Gear ? ECHO.Gear.taken(world, game.pl, type) : 1) * (ECHO.Companions ? ECHO.Companions.shield(game) : 1);
       dmg = Math.max(1, Math.round(dmg));
       // Your own fire can hurt you badly, but never below 15% of your life.
       if (target === game.pe && (from === game.pe || !from)) { const floor = Math.max(1, target.maxHp * 0.15); if (target.hp - dmg < floor) dmg = Math.max(0, Math.floor(target.hp - floor)); }
@@ -278,6 +282,8 @@
         target.aggro = true;
         if (target.type === 'creature' && target.species === 'hare') target.state = 'flee';
       }
+      if (from && from.isCompanion && ECHO.Companions) ECHO.Companions.landed(game, from, target, type, crit);
+      if (ECHO.Companions && (target.isCompanion || target === game.pe)) ECHO.Companions.afterHit(game, target);
       if (target.hp <= 0) C.kill(target, from, type, src);
       else if (target.ai && target.ai.onHurt) target.ai.onHurt(target, from);
       return dmg;
@@ -293,6 +299,7 @@
       target.dead = true;
       target.deathT = 0;
       const byPlayer = from === game.pe || (from && from.isCompanion);
+      target._killer = from || null;
       // Death has weight: a beat of stillness, then the body is thrown.
       const ka = src.angle != null ? src.angle : Math.atan2(target.y - game.pe.y, target.x - game.pe.x);
       target.deathAngle = ka;

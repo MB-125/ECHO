@@ -130,6 +130,16 @@
           S.tone(t, 1.2, 'sawtooth', 75, 45, 0.25 * v, 0.15); S.tone(t, 1.1, 'square', 52, 40, 0.1 * v, 0.2);
           break;
         case 'stomp': S.tone(t, 0.4, 'sine', 70, 28, 0.9 * v); S.noise(t, 0.35, 'lowpass', 500, 60, 0.7, 0.6 * v); break;
+        case 'hoof': S.noise(t, 0.045, 'bandpass', 1300 * r(0.25), 700, 2.2, 0.16 * v, 0.002); S.tone(t, 0.07, 'sine', 170 * r(0.2), 80, 0.2 * v, 0.002); break;
+        case 'snort': S.noise(t, 0.22, 'bandpass', 420 * r(), 180, 1.1, 0.22 * v, 0.02); S.noise(t + 0.24, 0.14, 'bandpass', 380 * r(), 200, 1.2, 0.12 * v, 0.02); break;
+        case 'neigh': {
+          const f = 560 * r(0.15);
+          S.tone(t, 0.22, 'sawtooth', f * 0.8, f * 1.35, 0.07 * v, 0.03);
+          for (let i = 0; i < 9; i++) S.tone(t + 0.2 + i * 0.075, 0.09, 'sawtooth', f * (1.35 - i * 0.07) * (i % 2 ? 1.05 : 0.95), f * (1.3 - i * 0.07), 0.065 * v * (1 - i / 11), 0.01);
+          S.noise(t, 0.9, 'bandpass', 1400, 900, 1.5, 0.04 * v, 0.05);
+          break;
+        }
+        case 'whistle': S.tone(t, 0.18, 'sine', 1500, 2300, 0.12 * v, 0.02); S.tone(t + 0.22, 0.32, 'sine', 2300, 1500, 0.12 * v, 0.02); break;
         case 'step': S.noise(t, 0.05, 'lowpass', 700 * r(0.2), 300, 0.7, 0.05 * v); break;
         case 'door': S.tone(t, 0.35, 'triangle', 140, 110, 0.12 * v, 0.05); S.noise(t + 0.25, 0.12, 'lowpass', 800, 200, 0.7, 0.35 * v); break;
         case 'coin': S.tone(t, 0.12, 'square', 1900, 1900, 0.06 * v); S.tone(t + 0.07, 0.22, 'square', 2530, 2530, 0.06 * v); break;

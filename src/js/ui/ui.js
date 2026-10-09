@@ -422,7 +422,7 @@
           <p class="dim" style="margin-top:10px">Prices move with what is in the stores. Bread here has cost: <span style="display:inline-flex;align-items:flex-end;height:30px;vertical-align:middle">${spark}</span></p>`;
         body.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
           const d = btn.dataset;
-          if (d.horse) { const why = ECHO.Life.buyHorse(pl, d.horse); if (why) UI.toast(why, 'warn', 3); else { s.wealth += ECHO.Life.BREEDS[d.horse].price; UI.toast(`${pl.horse.name} the ${ECHO.Life.BREEDS[d.horse].name.toLowerCase()} is yours. Press V to mount or dismount.`, 'legend', 5); } }
+          if (d.horse) { const why = ECHO.Life.buyHorse(pl, d.horse); if (why) UI.toast(why, 'warn', 3); else { s.wealth += ECHO.Life.BREEDS[d.horse].price; UI.toast(`${pl.horse.name} the ${ECHO.Life.BREEDS[d.horse].name.toLowerCase()} is yours, waiting outside. Press V beside it to ride; from further off, V whistles for it.`, 'legend', 5); } }
           if (d.rod) { if (pl.gold >= 12) { pl.gold -= 12; pl.inv.rod = 1; UI.toast('A fishing rod. Stand by any water and press E to cast; press E again when something bites.', 'info', 5); } }
           if (d.brew) { const why = ECHO.Gear.brew(pl, d.brew); if (why) UI.toast(why, 'warn', 3); else { ECHO.Sfx.play('coin'); UI.toast(`You have a ${ECHO.Gear.POTIONS[d.brew].name.toLowerCase()} made up. Drink it with ${ECHO.Gear.POTIONS[d.brew].key}.`, 'info', 3); } }
           if (d.sellmats) { const r = ECHO.Gear.sellMats(pl, s); if (r.total) { ECHO.Sfx.play('coin'); UI.toast(`Sold ${r.out.join(', ')} for ${r.total} crowns.`, 'info', 4); } }

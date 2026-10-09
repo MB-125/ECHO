@@ -28,18 +28,87 @@
     buyHorse(pl, k) {
       const B = BREEDS[k]; if (!B) return 'No such horse.';
       if (pl.gold < B.price) return `${B.name}: ${B.price} crowns.`;
-      pl.gold -= B.price; pl.horse = { breed: k, name: ['Ash', 'Bramble', 'Clover', 'Dusk', 'Ember', 'Flint', 'Hazel', 'Juniper', 'Mallow', 'Rook', 'Sorrel', 'Thistle'][Math.floor(Math.random() * 12)] };
+      pl.gold -= B.price; pl.horseAt = null; pl.horse = { breed: k, name: ['Ash', 'Bramble', 'Clover', 'Dusk', 'Ember', 'Flint', 'Hazel', 'Juniper', 'Mallow', 'Rook', 'Sorrel', 'Thistle'][Math.floor(Math.random() * 12)] };
       return null;
     },
+    // V: mount when your horse is beside you; otherwise whistle and it comes to you.
     mount(game, on) {
       const pl = game.pl, pe = game.pe;
-      if (!pl.horse) return ECHO.UI.toast('You have no horse. The market sells them.', 'warn', 3);
+      if (!pl.horse) return ECHO.UI.toast('You have no horse. Stables sell them.', 'warn', 3);
       if (on == null) on = !pl.mounted;
       if (on && ECHO.Interior.cur) return ECHO.UI.toast('Not indoors.', 'warn', 2);
+      if (on) {
+        const h = pl.horseAt;
+        if (h && U.dist(h.x, h.y, pe.x, pe.y) > 2.2) return Lf.whistle(game);
+        if (h) { pe.x = h.x; pe.y = h.y; pe.dir = h.dir; }
+        pl.horseAt = null;
+        ECHO.Sfx.play(Math.random() < 0.35 ? 'neigh' : 'snort', { vol: 0.8 });
+      } else {
+        // step down on the near side; the horse stays where it stands
+        const side = pe.dir + Math.PI / 2, inside = ECHO.Interior.cur, at = inside && Lf.lastOut ? Lf.lastOut : pe;
+        pl.horseAt = { x: at.x, y: at.y, dir: at.dir, v: 0 };
+        const nx = pe.x + Math.cos(side) * 0.85, ny = pe.y + Math.sin(side) * 0.85;
+        if (!inside && !ECHO.World.isSolid(game.world, nx, ny)) { pe.x = nx; pe.y = ny; }
+        Lf.ride = null;
+      }
       pl.mounted = on; pe.mounted = on;
       ECHO.PlayerCtl.derivedT = 0;
       if (on) ECHO.Combat.burst(pe.x, pe.y, '#b8a888', 8, 1.5, 0.4, 2);
-      ECHO.Sfx.play(on ? 'dodge' : 'dodge', { pitch: on ? 0.7 : 1.1 });
+      ECHO.Sfx.play('dodge', { pitch: on ? 0.7 : 1.1 });
+    },
+    whistle(game) {
+      const pl = game.pl, pe = game.pe, h = pl.horseAt;
+      ECHO.Sfx.play('whistle');
+      // too far to hear: it finds its own way, and turns up nearby
+      if (!h || U.dist(h.x, h.y, pe.x, pe.y) > 70) {
+        const a = Math.random() * Math.PI * 2;
+        let sp = null;
+        for (let r = 14; r >= 4 && !sp; r -= 2) { const x = pe.x + Math.cos(a) * r, y = pe.y + Math.sin(a) * r; if (!ECHO.World.isSolid(game.world, x, y)) sp = { x, y }; }
+        pl.horseAt = { x: (sp || pe).x, y: (sp || pe).y, dir: a + Math.PI, v: 0 };
+      }
+      pl.horseAt.call = true; pl.horseAt.stuck = 0;
+      ECHO.Combat.floater(pe.x, pe.y - 1.4, `you whistle for ${pl.horse.name}`, '#e8d9a0');
+    },
+    // Your horse when you are not on it: it grazes where you left it, and comes when called.
+    horseTick(game, dt) {
+      const pl = game.pl, pe = game.pe, world = game.world;
+      if (!pl.horse || pl.mounted) return;
+      if (!pl.horseAt) { const a = pe.dir + Math.PI / 2; pl.horseAt = { x: pe.x + Math.cos(a) * 1.2, y: pe.y + Math.sin(a) * 1.2, dir: pe.dir, v: 0 }; }
+      const h = pl.horseAt;
+      if (ECHO.Interior.cur) { h.v = 0; return; }
+      const d = U.dist(h.x, h.y, pe.x, pe.y);
+      let want = 0, tx = null, ty = null;
+      if (h.call) {
+        if (d < 1.6) { h.call = false; if (!(game.combatT != null && game.time - game.combatT < 4)) { Lf.mount(game, true); return; } }
+        else { want = d > 10 ? 8.5 : d > 4 ? 5 : 2; tx = pe.x; ty = pe.y; }
+      } else {
+        // a slow amble now and then, never far from where it was left
+        h.wT = (h.wT == null ? 6 : h.wT) - dt;
+        if (h.wT <= 0) { h.wT = 8 + Math.random() * 14; const a = Math.random() * Math.PI * 2; h.wx = h.x + Math.cos(a) * 1.5; h.wy = h.y + Math.sin(a) * 1.5; }
+        if (h.wx != null && U.dist(h.x, h.y, h.wx, h.wy) > 0.2) { want = 1.1; tx = h.wx; ty = h.wy; } else h.wx = null;
+        // it shies away from a fight
+        const foe = game.ents.find(e => !e.dead && !e.hidden && (e.foe || e.type === 'boss' || (e.type === 'creature' && e.aggro)) && U.dist(e.x, e.y, h.x, h.y) < 3.5);
+        if (foe) { const a = Math.atan2(h.y - foe.y, h.x - foe.x); want = 6; tx = h.x + Math.cos(a) * 3; ty = h.y + Math.sin(a) * 3; if (!h.shied) { h.shied = true; ECHO.Sfx.play('neigh', { vol: 0.5 }); } } else h.shied = false;
+      }
+      // speed up and slow down like an animal with weight, turn in arcs
+      h.v += U.clamp(want - h.v, -dt * 7, dt * 4.5);
+      if (tx != null) {
+        const a = Math.atan2(ty - h.y, tx - h.x), turn = U.angleDiff(h.dir, a);
+        h.dir += U.clamp(turn, -dt * (h.v > 3 ? 3.2 : 6), dt * (h.v > 3 ? 3.2 : 6));
+        if (Math.abs(turn) > 1.6 && h.v > 3) h.v -= dt * 6;
+      }
+      if (h.v > 0.05) {
+        const nx = h.x + Math.cos(h.dir) * h.v * dt, ny = h.y + Math.sin(h.dir) * h.v * dt;
+        if (!ECHO.World.isSolid(world, nx, ny)) { h.x = nx; h.y = ny; h.stuck = 0; }
+        else if (!ECHO.World.isSolid(world, nx, h.y)) h.x = nx;
+        else if (!ECHO.World.isSolid(world, h.x, ny)) h.y = ny;
+        else { h.stuck = (h.stuck || 0) + dt; h.dir += dt * 2; }
+        // hopelessly stuck while called: it finds another way round and turns up beside you
+        if (h.call && h.stuck > 2.5) { const a = pe.dir + Math.PI; h.x = pe.x + Math.cos(a) * 1.4; h.y = pe.y + Math.sin(a) * 1.4; h.stuck = 0; }
+      }
+      // the odd snort, close enough to hear
+      h.sT = (h.sT == null ? 8 : h.sT) - dt;
+      if (h.sT <= 0) { h.sT = 9 + Math.random() * 16; if (d < 12) ECHO.Sfx.play('snort', { vol: Math.max(0.15, 0.6 - d / 24) }); }
     },
     speedMul(pl) { return pl.mounted && pl.horse ? BREEDS[pl.horse.breed].speed : 1; },
     // ------------------------------------------------------------ fishing
@@ -90,6 +159,8 @@
       // riding: attacks and doors put you on your feet
       if (pl.mounted && (ECHO.Interior.cur || pe.attackT > 0 || ECHO.PlayerCtl.drawing || ECHO.PlayerCtl.charging || pe.blocking)) { Lf.mount(game, false); ECHO.Combat.floater(pe.x, pe.y - 1.2, 'you leap from the saddle', '#e8d9a0'); }
       pe.mounted = !!pl.mounted;
+      if (!ECHO.Interior.cur && pl.mounted) Lf.lastOut = { x: pe.x, y: pe.y, dir: pe.dir };
+      Lf.horseTick(game, dt);
       // home comforts
       const world = game.world;
       Lf.t = (Lf.t || 0) - dt;
