@@ -53,7 +53,7 @@
       const d = Math.hypot(dx, dy);
       // Once settled, don't twitch back into motion for a nudge of a few inches.
       if (d < arrive || (!e.moving && d < arrive + 0.45 && e.type !== 'player')) { e.moving = false; return true; }
-      const sp = speed * ECHO.World.speedAt(world, e.x, e.y) * dt;
+      const sp = speed * ECHO.World.speedAt(world, e.x, e.y) * (ECHO.Climate && e.x < 9000 ? ECHO.Climate.moveMul(world, e.x, e.y, e.mounted) : 1) * dt;
       const k = Math.min(1, sp / d);
       const before = { x: e.x, y: e.y };
       Ent.move(world, e, dx * k, dy * k);

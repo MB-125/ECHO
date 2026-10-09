@@ -32,7 +32,7 @@
 
   function sightFor(game, e, base) {
     const night = game.isNight();
-    let s = base;
+    let s = base * (ECHO.Climate ? ECHO.Climate.sightMul(game.world, e.x, e.y) : 1);
     if (night) {
       s *= e.type === 'creature' && e.species === 'wolf' ? 1.25 : 0.55;
       if (e.type === 'person' && (e.gear.torch || ECHO.Intel.has(game.world, e.faction, 'nightwatch'))) s = base * 0.95;

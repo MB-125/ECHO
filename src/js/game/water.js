@@ -20,7 +20,14 @@
     kind(world, x, y) {
       if (x >= 9000) return null;
       const t = ECHO.World.tile(world, Math.floor(x), Math.floor(y));
-      return t === T().DEEP ? 'deep' : t === T().WATER ? 'shallow' : null;
+      const C = ECHO.Climate;
+      if (t === T().DEEP) return C && C.frozen(world, x, y, true) ? null : 'deep';
+      if (t === T().WATER) {
+        if (C && C.frozen(world, x, y, false)) return null;                       // ice underfoot
+        if (C && C.swollen(world, x, y) && C.nearDeep(world, x, y)) return 'deep'; // the ford runs deep after the rain
+        return 'shallow';
+      }
+      return null;
     },
     wet(world, x, y) { return !!Wt.kind(world, x, y); },
     ripple(x, y, size = 1, life = 1.1) { if (Wt.ripples.length < 90) Wt.ripples.push({ x, y, t: 0, life, size }); },
@@ -96,7 +103,7 @@
       if (x >= 9000) return ECHO.World.isSolid(world, x, y);
       const ix = Math.floor(x), iy = Math.floor(y), t = ECHO.World.tile(world, ix, iy);
       if (t === T().WATER) { const ww = world.W || 200; return ix < 0 || iy < 0 || ix >= ww || iy >= (world.H || 150) || world.blocked[iy * ww + ix] === 1; }
-      if (t === T().DEEP && e && e.type === 'player' && !e.mounted) { const ww = world.W || 200; return ix < 0 || iy < 0 || ix >= ww || iy >= (world.H || 150); }
+      if (t === T().DEEP && ((e && e.type === 'player' && !e.mounted) || (ECHO.Climate && ECHO.Climate.frozen(world, x, y, true)))) { const ww = world.W || 200; return ix < 0 || iy < 0 || ix >= ww || iy >= (world.H || 150); }
       return ECHO.World.isSolid(world, x, y);
     },
     // Fire that bursts on the water goes up in steam.

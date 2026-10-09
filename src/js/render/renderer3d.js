@@ -223,25 +223,31 @@
       }
       g.setAttribute('aDepth', new THREE.BufferAttribute(depth, 1));
       const m = new THREE.MeshStandardMaterial({ color: C('#2e6a96'), roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.86, flatShading: true });
-      R.waterTime = { value: 0 };
+      R.waterTime = { value: 0 }; R.waterIce = { value: 0 };
       m.onBeforeCompile = (sh) => {
-        sh.uniforms.uTime = R.waterTime;
-        sh.vertexShader = 'uniform float uTime;\nattribute float aDepth;\nvarying float vDepth;\nvarying vec2 vP;\n' + sh.vertexShader.replace('#include <begin_vertex>',
-          '#include <begin_vertex>\n vDepth = aDepth; vP = position.xy;\n float calm = smoothstep(0.0, 0.25, aDepth);\n transformed.z += (sin(position.x * 0.9 + uTime * 1.3) * 0.045 + cos(position.y * 1.1 + uTime * 1.1) * 0.045 + sin((position.x + position.y) * 2.3 + uTime * 2.6) * 0.012) * calm;');
-        sh.fragmentShader = 'uniform float uTime;\nvarying float vDepth;\nvarying vec2 vP;\n' + sh.fragmentShader
+        sh.uniforms.uTime = R.waterTime; sh.uniforms.uIce = R.waterIce;
+        sh.vertexShader = 'uniform float uTime;\nuniform float uIce;\nattribute float aDepth;\nvarying float vDepth;\nvarying vec2 vP;\n' + sh.vertexShader.replace('#include <begin_vertex>',
+          '#include <begin_vertex>\n vDepth = aDepth; vP = position.xy;\n float calm = smoothstep(0.0, 0.25, aDepth) * (1.0 - min(1.0, uIce));\n transformed.z += (sin(position.x * 0.9 + uTime * 1.3) * 0.045 + cos(position.y * 1.1 + uTime * 1.1) * 0.045 + sin((position.x + position.y) * 2.3 + uTime * 2.6) * 0.012) * calm;');
+        sh.fragmentShader = 'uniform float uTime;\nuniform float uIce;\nvarying float vDepth;\nvarying vec2 vP;\n' + sh.fragmentShader
           .replace('#include <color_fragment>', `#include <color_fragment>
             float dk = smoothstep(0.0, 0.5, vDepth);
             vec3 shallowC = vec3(0.16, 0.42, 0.46), deepC = vec3(0.04, 0.14, 0.26);
             diffuseColor.rgb = mix(shallowC, deepC, dk);
             float foam = (1.0 - smoothstep(0.0, 0.07, vDepth)) * (0.55 + 0.45 * sin(uTime * 1.7 + vP.x * 2.1 + vP.y * 1.7));
             diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85, 0.92, 0.94), clamp(foam, 0.0, 1.0) * 0.75);
-            diffuseColor.a = mix(0.45, 0.92, dk) + foam * 0.3;`)
+            diffuseColor.a = mix(0.45, 0.92, dk) + foam * 0.3;
+            // winter ice: the shallows (or, in a bitter cold, everything) frozen white-blue, with cracks
+            float ice = uIce > 1.5 ? 1.0 : uIce > 0.5 ? 1.0 - smoothstep(0.32, 0.5, vDepth) : 0.0;
+            float brk = smoothstep(0.35, 0.7, sin(vP.x * 0.41 + vP.y * 0.23) * sin(vP.y * 0.37 - vP.x * 0.19) + 0.5);
+            float crack = (smoothstep(0.992, 1.0, abs(sin(vP.x * 2.3 + sin(vP.y * 1.1) * 2.6))) + smoothstep(0.994, 1.0, abs(sin(vP.y * 1.9 + sin(vP.x * 0.9) * 3.1)))) * brk;
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.8, 0.88, 0.93) - crack * 0.12 + 0.03 * sin(vP.x * 0.7 + vP.y * 0.5), ice * 0.9);
+            diffuseColor.a = mix(diffuseColor.a, 0.96, ice);`)
           .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
             // sun on the water: crossing wave trains, so the sparkle never sits in a grid
             float g1 = sin(dot(vP, vec2(6.3, 2.1)) + uTime * 2.1) * sin(dot(vP, vec2(-1.7, 5.9)) - uTime * 1.6);
             float g2 = 0.5 + 0.5 * sin(dot(vP, vec2(1.13, -0.71)) + uTime * 0.7) * sin(dot(vP, vec2(0.37, 0.93)) * 1.9 - uTime * 0.5);
             float glint = pow(max(0.0, g1), 18.0) * g2 * g2;
-            totalEmissiveRadiance += vec3(0.6, 0.66, 0.7) * glint * smoothstep(0.05, 0.3, vDepth) * 0.45;`);
+            totalEmissiveRadiance += vec3(0.6, 0.66, 0.7) * glint * smoothstep(0.05, 0.3, vDepth) * 0.45 * (1.0 - min(1.0, uIce));`);
       };
       const w = R.water = new THREE.Mesh(g, m);
       w.rotation.x = -Math.PI / 2;
@@ -1026,6 +1032,31 @@
       if (e.type === 'player' && e.gearLook) R.dressPlayer(inst, e.gearLook);
       inst.root.scale.setScalar(scale);
     },
+    // Footprints and hoofprints pressed into mud and snow.
+    syncPrints(game) {
+      if (!R.printMesh) {
+        const g = new THREE.CircleGeometry(0.075, 6); g.rotateX(-Math.PI / 2);
+        R.printMesh = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false }), 260);
+        R.printMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(260 * 3), 3);
+        R.printMesh.frustumCulled = false; R.printMesh.renderOrder = 1;
+        R.groups.fx.add(R.printMesh);
+      }
+      const P = ECHO.Climate.prints, M = R.printMesh, o = R._po || (R._po = new THREE.Object3D()), c = new THREE.Color();
+      let n = 0;
+      for (const p of P) {
+        if (n >= 260) break;
+        const fade = Math.min(1, (p.life - p.t) / 8);
+        o.position.set(p.x, R.groundH(p.x, p.y) + 0.012, p.y);
+        o.rotation.set(0, -p.a, 0);
+        o.scale.set(p.hoof ? 1.2 : 1.5, 1, p.hoof ? 1.2 : 0.8);
+        o.scale.multiplyScalar(0.3 + 0.7 * fade);
+        o.updateMatrix(); M.setMatrixAt(n, o.matrix);
+        c.set(p.snow ? '#8f9cab' : '#2c2216'); M.setColorAt(n, c);
+        n++;
+      }
+      M.count = n; M.instanceMatrix.needsUpdate = true; if (M.instanceColor) M.instanceColor.needsUpdate = true;
+      M.visible = n > 0;
+    },
     // Horses: yours (under you, or grazing where you left it) and any your companion rides.
     horseFor(key, breed) {
       R.horses = R.horses || new Map();
@@ -1068,7 +1099,8 @@
           ECHO.Sfx.play('hoof', { vol, pitch: (i < 2 ? 1.05 : 0.95) * (o.quiet ? 1.08 : 1) });
           if (g !== 'walk' && !ECHO.Interior.cur) {
             const n = g === 'gallop' ? 3 : 2;
-            for (let k = 0; k < n; k++) ECHO.Combat.fx.push({ kind: 'p', x: w.x + (Math.random() - 0.5) * 0.2, y: w.z + (Math.random() - 0.5) * 0.2, vx: -fx * 0.8 + (Math.random() - 0.5) * 0.8, vy: -fy * 0.8 + (Math.random() - 0.5) * 0.8, t: 0, life: 0.45 + Math.random() * 0.3, color: 'rgba(190,172,140,0.55)', size: 2 });
+            const muddy = ECHO.Climate && ECHO.Climate.mud(game.world, w.x, w.z) > 0.35;
+            for (let k = 0; k < n; k++) ECHO.Combat.fx.push({ kind: 'p', x: w.x + (Math.random() - 0.5) * 0.2, y: w.z + (Math.random() - 0.5) * 0.2, vx: -fx * 0.8 + (Math.random() - 0.5) * 0.8, vy: -fy * 0.8 + (Math.random() - 0.5) * 0.8, t: 0, life: 0.45 + Math.random() * 0.3, color: muddy ? 'rgba(74,58,38,0.8)' : 'rgba(190,172,140,0.55)', size: 2 });
           }
         }
       }
@@ -1800,7 +1832,7 @@
       const snowing = wx.today === 'snow' || wx.today === 'blizzard' || (season === 3 && wx.today !== 'clear' && wx.today !== 'heat');
       R.snow.visible = snowing;
       const raining = !snowing && (wx.today === 'rain' || wx.today === 'storm');
-      R.rain.visible = raining;
+      R.rain.visible = raining; R._raining = raining;
       if (raining) {
         R.rain.position.set(tgt.x, 0, tgt.z);
         const rpos = R.rain.geometry.attributes.position, fall = dt * (wx.today === 'storm' ? 26 : 18);
@@ -1832,6 +1864,15 @@
       if (!R.world || R.world !== game.world) R.setWorld(game.world);
       R.time += dt;
       R.waterTime.value = R.time;
+      if (ECHO.Climate && game.pe && !ECHO.Interior.cur) {
+        const C = ECHO.Climate, w2 = game.world, px = game.pe.x, py = game.pe.y;
+        R.waterIce.value = C.frozen(w2, px, py, true) ? 2 : C.frozen(w2, px, py, false) ? 1 : 0;
+        // rain darkens and wets the ground
+        const wetK = Math.min(1, C.mud(w2, px, py) * 1.2 + (R._raining ? 0.3 : 0));
+        R._wetK = (R._wetK || 0) + (wetK - (R._wetK || 0)) * Math.min(1, dt * 0.5);
+        R.mat.terrain.color.setScalar(1 - R._wetK * 0.22); R.mat.terrain.roughness = 0.95 - R._wetK * 0.3;
+        R.syncPrints(game);
+      } else if (R.mat && R.mat.terrain) { R.mat.terrain.color.setScalar(1); R.mat.terrain.roughness = 0.95; if (R.waterIce) R.waterIce.value = 0; }
       // camera
       const pe = game.pe;
       let tx = pe ? pe.x : game.cam.x, ty = pe ? pe.y : game.cam.y;

@@ -109,6 +109,22 @@
           ctx.fillRect(Math.round(p.x + ((ph * 8) | 0) * Z), Math.round(p.y + (4 + ECHO.hash2(x, y, 4) * 8 | 0) * Z), 4 * Z, Z);
         }
       }
+      // Winter ice over the water, footprints in mud and snow
+      if (ECHO.Climate && !ECHO.Interior.cur) {
+        const C = ECHO.Climate, iceS = C.frozen(world, game.pe.x, game.pe.y, false), iceD = C.frozen(world, game.pe.x, game.pe.y, true);
+        if (iceS) for (let y = Math.max(0, y0); y < Math.min(world.H, y1); y++) for (let x = Math.max(0, x0); x < Math.min(world.W, x1); x++) {
+          const t = world.tiles[y * world.W + x];
+          if (t !== ECHO.TILE.WATER && !(t === ECHO.TILE.DEEP && iceD)) continue;
+          const p = R.toScreen(game, x, y);
+          ctx.fillStyle = 'rgba(214,232,242,0.82)'; ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(16 * Z), Math.ceil(16 * Z));
+          if (ECHO.hash2(x, y, 9) < 0.3) { ctx.fillStyle = 'rgba(150,175,195,0.6)'; ctx.fillRect(Math.round(p.x + 3 * Z), Math.round(p.y + (5 + ECHO.hash2(x, y, 7) * 6) * Z), 8 * Z, Z); }
+        }
+        for (const pr of C.prints) {
+          const p = R.toScreen(game, pr.x, pr.y);
+          ctx.fillStyle = pr.snow ? `rgba(140,155,170,${(0.6 * Math.min(1, (pr.life - pr.t) / 8)).toFixed(2)})` : `rgba(40,30,20,${(0.5 * Math.min(1, (pr.life - pr.t) / 8)).toFixed(2)})`;
+          ctx.fillRect(Math.round(p.x - Z), Math.round(p.y), Math.ceil(2 * Z), Math.ceil(Z));
+        }
+      }
       // Ground layer: telegraphs, loot, camp ground
       R.drawGround(game);
       // Y-sorted objects

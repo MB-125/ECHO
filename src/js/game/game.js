@@ -132,6 +132,7 @@
       if (ECHO.Life) ECHO.Life.update(Game, dt);
       if (ECHO.Riders) ECHO.Riders.update(Game, dt);
       if (ECHO.Water) ECHO.Water.update(Game, dt);
+      if (ECHO.Climate) ECHO.Climate.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }

@@ -47,7 +47,8 @@
       const h = Lf.hs(game.pl); if (!h) return Infinity;
       const v = R0.v, b = h.bond || 0;
       const drain = v > 5.6 ? 4 : v > 4.4 ? 1.4 : v > 2 ? -2.5 : -6;
-      h.sta = U.clamp(h.sta - drain * dt * (drain > 0 ? 1 - b / 230 : 1), 0, 100);
+      const mud = ECHO.Climate ? ECHO.Climate.mud(game.world, game.pe.x, game.pe.y) : 0;  // mud is hard going
+      h.sta = U.clamp(h.sta - drain * dt * (drain > 0 ? (1 - b / 230) * (1 + mud * 0.7) : 1), 0, 100);
       if (h.sta < 12 && !h.blown) { h.blown = true; ECHO.Combat.floater(game.pe.x, game.pe.y - 1.6, `${h.name} is blown — ease off`, '#e8d9a0'); ECHO.Sfx.play('snort', { vol: 0.8 }); }
       if (h.blown && h.sta > 40) h.blown = false;
       h.dist += v * dt;

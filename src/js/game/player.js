@@ -95,7 +95,7 @@
         ECHO.Ent.move(world, pe, Math.cos(PC.dodgeDir) * sp, Math.sin(PC.dodgeDir) * sp);
         if (Math.random() < 0.6) ECHO.Combat.fx.push({ kind: 'p', x: pe.x, y: pe.y + 0.2, vx: 0, vy: 0, t: 0, life: 0.3, color: 'rgba(200,190,170,0.6)', size: 2 });
       } else if (pe.stagger <= 0) {
-        let sp = D.speed * (ECHO.Life ? ECHO.Life.speedMul(pl) : 1) * ECHO.World.speedAt(world, pe.x, pe.y) * ECHO.Tech.speedMul() * (ECHO.Monsters ? ECHO.Monsters.slowMul() : 1);
+        let sp = D.speed * (ECHO.Life ? ECHO.Life.speedMul(pl) : 1) * ECHO.World.speedAt(world, pe.x, pe.y) * (ECHO.Climate ? ECHO.Climate.moveMul(world, pe.x, pe.y, pl.mounted) : 1) * ECHO.Tech.speedMul() * (ECHO.Monsters ? ECHO.Monsters.slowMul() : 1);
         // on foot, fighting slows you; on horseback the horse keeps going
         const mtd = !!pl.mounted;
         if (pe.blocking) sp *= 0.45;
@@ -114,7 +114,8 @@
           const rein = In.key('Shift') && !game.ui.blocksWorld();
           if (R0.rearT > 0) R0.rearT -= dt;
           // a tired horse can't gallop; a trusting one answers faster
-          const cap = ECHO.Life ? ECHO.Life.rideTick(game, R0, dt) : Infinity;
+          let cap = ECHO.Life ? ECHO.Life.rideTick(game, R0, dt) : Infinity;
+          if (ECHO.Climate && ECHO.Climate.onIce(world, pe.x, pe.y)) cap = Math.min(cap, 3.2);  // it picks its way on the ice
           let want = len && !rein && !(R0.rearT > 0) ? Math.min(sp, cap) : 0;
           // where you point it — and where it actually puts its feet
           let goal = len ? Math.atan2(my, mx) : R0.dir;
@@ -157,11 +158,19 @@
           R0.peak = Math.max(R0.v, (R0.peak || 0) - dt * 4);  // the momentum a blow carries, a moment after you check
           pe.moving = R0.v > 0.3;
           pe.rideV = R0.v;
+        } else if (ECHO.Climate && ECHO.Climate.onIce(world, pe.x, pe.y)) {
+          // on ice your feet don't quite answer: you slide on, and turn slowly
+          const S = PC.slide || (PC.slide = { vx: 0, vy: 0 });
+          const k = Math.min(1, dt * 2.2);
+          S.vx += (mx * sp - S.vx) * k; S.vy += (my * sp - S.vy) * k;
+          ECHO.Ent.move(world, pe, S.vx * dt, S.vy * dt);
+          pe.moving = Math.hypot(S.vx, S.vy) > 0.3;
         } else if (len) {
+          PC.slide = null;
           ECHO.Ent.move(world, pe, mx * sp * dt, my * sp * dt);
           pe.moving = true;
           if (Math.random() < dt * 0.6) Ch().train(pl, 'endurance', 0.03);
-        } else pe.moving = false;
+        } else { pe.moving = false; PC.slide = null; }
       }
       if (!pl.mounted && PC.ride) PC.ride = null;
       // Face the mouse when fighting, otherwise movement.
