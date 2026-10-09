@@ -221,6 +221,15 @@
       } });
       { const pl = game.pl, h = pl && pl.horse && !pl.mounted && pl.horseAt;
         if (h && !ECHO.Interior.cur && Math.abs(h.x - cam.x) < halfW + 3 && Math.abs(h.y - cam.y) < halfH + 3) objs.push({ y: h.y, draw: () => R.freeHorse(game, h) });
+        if (ECHO.Boats && !ECHO.Interior.cur) {
+          const B = ECHO.Boats, drawB = (x, y, kind, dir) => objs.push({ y, draw: () => { const p = R.toScreen(game, x, y), ctx = R.ctx; ctx.setTransform(R.Z, 0, 0, R.Z, Math.round(p.x), Math.round(p.y)); if (Math.cos(dir) < 0) ctx.scale(-1, 1); R.boat2d(ctx, kind, false, game.time); ctx.setTransform(1, 0, 0, 1, 0, 0); } });
+          if (pl && pl.boat && !game.pe.inBoat && Math.abs(pl.boat.x - cam.x) < halfW + 3 && Math.abs(pl.boat.y - cam.y) < halfH + 3) drawB(pl.boat.x, pl.boat.y, 'row', pl.boat.dir || 0);
+          for (const d of B.docks || []) {
+            if (Math.abs(d.water.x - cam.x) > halfW + 4 || Math.abs(d.water.y - cam.y) > halfH + 4) continue;
+            objs.push({ y: d.land.y - 0.4, draw: () => { const a = R.toScreen(game, d.land.x, d.land.y), b = R.toScreen(game, d.water.x, d.water.y), ctx = R.ctx; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.strokeStyle = '#7a5a3a'; ctx.lineWidth = 6 * R.Z; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x + (b.x - a.x) * 0.4, b.y + (b.y - a.y) * 0.4); ctx.stroke(); } });
+            if (d.to.length && !(B.ferry && B.ferry.from === d)) drawB(d.water.x + Math.cos(d.dir) * 0.6, d.water.y + Math.sin(d.dir) * 0.6, 'ferry', d.dir + Math.PI / 2);
+          }
+        }
         if (ECHO.Riders && !ECHO.Interior.cur) for (const lh of ECHO.Riders.loose) if (Math.abs(lh.x - cam.x) < halfW + 3 && Math.abs(lh.y - cam.y) < halfH + 3) objs.push({ y: lh.y, draw: () => R.freeHorse(game, lh, 'loose' + lh.id, lh.breed) }); }
       // Festival dressing: the bonfire, lantern poles, the stall, contest targets
       if (ECHO.Fest) for (const L of ECHO.Fest.near(game)) {
@@ -550,6 +559,22 @@
       ECHO.Horse2D.draw(ctx, breed || game.pl.horse.breed, st, game.time, false);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
+    // A boat, side on: a rowboat with oars dipping, or the broad ferry with its ferryman.
+    boat2d(ctx, kind, rowing, t) {
+      const ferry = kind === 'ferry', L = ferry ? 30 : 20;
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(-L / 2, 1, L, 2);
+      ctx.fillStyle = ferry ? '#6a4a2e' : '#7a5636';
+      ctx.beginPath(); ctx.moveTo(-L / 2 - 2, -5); ctx.lineTo(L / 2 + 2, -5); ctx.lineTo(L / 2 - 2, 1); ctx.lineTo(-L / 2 + 2, 1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#9a7650'; ctx.fillRect(-L / 2, -5, L, 1);
+      ctx.fillStyle = '#3a2818'; ctx.fillRect(-L / 2 + 2, -3, L - 4, 1);
+      if (!ferry) {
+        const a = rowing ? Math.sin(t * 2.2 * Math.PI * 2) * 0.5 : 0.2;
+        ctx.strokeStyle = '#9a7650'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(1, -5); ctx.lineTo(1 + Math.cos(a + 2.2) * 12, -5 + Math.sin(a + 2.2) * 6 + 6); ctx.stroke();
+      } else {
+        ctx.fillStyle = '#5a4a3a'; ctx.fillRect(-L / 2 + 2, -14, 4, 9); ctx.fillStyle = '#e0ac85'; ctx.fillRect(-L / 2 + 2, -17, 4, 3);
+        ctx.strokeStyle = '#9a7650'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-L / 2 + 1, -20); ctx.lineTo(-L / 2 - 6 + Math.sin(t * 1.4) * 2, 2); ctx.stroke();
+      }
+    },
     entity(game, e) {
       const world = game.world;
       const p = R.toScreen(game, e.x, e.y);
@@ -561,6 +586,7 @@
       if (e.type === 'ghost' || e.species === 'hind') { ctx.globalAlpha = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)); if (e.type === 'ghost') ctx.filter = 'grayscale(1) brightness(1.9) sepia(0.3) hue-rotate(170deg)'; }
       if (e.type === 'person' && e.dancing) ctx.translate(0, -Math.abs(Math.sin(game.time * 7 + e.id)) * 2);
       if (e.swimming) ctx.translate(0, 10 + Math.sin(game.time * 3) * 0.6);
+      if (e.inBoat && !e.dead && e.inBoat !== 'passenger') { ctx.save(); if (e.flip) ctx.scale(-1, 1); R.boat2d(ctx, e.inBoat === 'ferry' ? 'ferry' : 'row', e === game.pe && e.rowing, game.time); ctx.restore(); ctx.translate(0, 3); }
       const mountedHere = (e === game.pe && e.mounted && game.pl.horse) || (e !== game.pe && e.mounted && !e.dead);
       if (mountedHere) {
         const me = e === game.pe;

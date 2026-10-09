@@ -147,6 +147,7 @@
       if (!pl.horse) return ECHO.UI.toast('You have no horse. Stables sell them.', 'warn', 3);
       if (on == null) on = !pl.mounted;
       if (on && ECHO.Interior.cur) return ECHO.UI.toast('Not indoors.', 'warn', 2);
+      if (on && game.pe.inBoat) return ECHO.UI.toast('Not from a boat.', 'warn', 2);
       if (on) {
         const h = pl.horseAt;
         if (h && U.dist(h.x, h.y, pe.x, pe.y) > 2.2) return Lf.whistle(game);

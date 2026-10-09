@@ -134,6 +134,7 @@
       if (ECHO.Water) ECHO.Water.update(Game, dt);
       if (ECHO.Climate) ECHO.Climate.update(Game, dt);
       if (ECHO.WildWater) ECHO.WildWater.update(Game, dt);
+      if (ECHO.Boats) ECHO.Boats.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -576,6 +577,7 @@
       if (ECHO.Life) out.push(...ECHO.Life.interactables(Game));
       if (ECHO.Riders) out.push(...ECHO.Riders.interactables(Game));
       if (ECHO.Water) out.push(...ECHO.Water.interactables(Game));
+      if (ECHO.Boats) out.push(...ECHO.Boats.interactables(Game));
       out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game), ...ECHO.Patrol.interactables(Game), ...ECHO.Finds.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;

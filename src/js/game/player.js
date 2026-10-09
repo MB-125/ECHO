@@ -106,7 +106,10 @@
         if (PC.sneaking) sp *= 0.5;
         if (PC.studyT > 0) sp *= 0.3;
         if (pl.stamina < 1 && len) sp *= 0.75;
-        if (pl.mounted) {
+        if (pe.inBoat) {
+          // in a boat: you row (a ferryman rows for you)
+          if (pe.inBoat !== 'ferry' && ECHO.Boats) ECHO.Boats.rowTick(game, mx, my, len, dt);
+        } else if (pl.mounted) {
           // A horse has weight: it gathers speed through walk, trot and canter
           // into a gallop, carries on a little when you let go, and turns in arcs.
           const R0 = PC.ride || (PC.ride = { v: 0, dir: pe.dir });
@@ -177,6 +180,7 @@
       if (pe.attackT > 0) { /* keep the swing's facing */ }
       else if (PC.lock && PC.dodgeT <= 0) pe.dir = aim; // locked on: strafe, always facing the target
       else if (pe.blocking || PC.drawing || PC.charging || PC.heavyHold || pe.cd > 0.1) pe.dir = aim;
+      else if (pe.inBoat) { /* the boat's heading */ }
       else if (pl.mounted && PC.ride) pe.dir = PC.ride.dir;
       else if (len) pe.dir = Math.atan2(my, mx);
       pe.flip = Math.cos(pe.dir) < 0;
@@ -193,7 +197,7 @@
         pe.iframes = 0.28; ECHO.Sfx.play('dodge', { pitch: 0.7 }); ECHO.Combat.burst(pe.x, pe.y + 0.2, '#b8a888', 8, 2, 0.4, 2);
         if (game.combatT != null && game.time - game.combatT < 6) ECHO.Tech.record('dodges');
       }
-      if (!pl.mounted && !pe.swimming && PC.dodgeBuf > 0 && PC.dodgeT <= 0 && pl.stamina >= 16 && pe.stagger <= 0 && !(pe.attackT > 0.08)) {
+      if (!pl.mounted && !pe.swimming && !pe.inBoat && PC.dodgeBuf > 0 && PC.dodgeT <= 0 && pl.stamina >= 16 && pe.stagger <= 0 && !(pe.attackT > 0.08)) {
         PC.dodgeBuf = 0;
         pl.stamina -= 18;
         if (game.combatT != null && game.time - game.combatT < 6) ECHO.Tech.record('dodges');

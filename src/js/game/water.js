@@ -45,6 +45,7 @@
       // everyone in the water: spray, rings, and fire put out
       for (const e of game.ents) {
         if (e.dead || e.hidden || U.dist(e.x, e.y, pe.x, pe.y) > 26) continue;
+        if (e.inBoat) { e._inWater = null; e.swimming = false; continue; }
         const k = Wt.kind(world, e.x, e.y);
         const was = e._inWater;
         e._inWater = k;
@@ -103,6 +104,7 @@
     blockedFor(e, world, x, y) {
       if (x >= 9000) return ECHO.World.isSolid(world, x, y);
       const ix = Math.floor(x), iy = Math.floor(y), t = ECHO.World.tile(world, ix, iy);
+      if (e && e.inBoat) { const ww = world.W || 200; return !(t === T().WATER || t === T().DEEP) || ix < 0 || iy < 0 || ix >= ww || iy >= (world.H || 150); }
       if (t === T().WATER) { const ww = world.W || 200; return ix < 0 || iy < 0 || ix >= ww || iy >= (world.H || 150) || world.blocked[iy * ww + ix] === 1; }
       if (t === T().DEEP && ((e && e.type === 'player' && !e.mounted) || (ECHO.WildWater && ECHO.WildWater.swimmer(e)) || (ECHO.Climate && ECHO.Climate.frozen(world, x, y, true)))) { const ww = world.W || 200; return ix < 0 || iy < 0 || ix >= ww || iy >= (world.H || 150); }
       if (e && e.aquatic) return true;   // drowners can't leave the water
@@ -120,7 +122,7 @@
     // Drinking from clear water.
     interactables(game) {
       const pe = game.pe, pl = game.pl, out = [];
-      if (ECHO.Interior.cur || pl.mounted || pe.swimming) return out;
+      if (ECHO.Interior.cur || pl.mounted || pe.swimming || pe.inBoat) return out;
       let near = false;
       for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1 && !near; dx++) if (Wt.kind(game.world, pe.x + dx * 1.1, pe.y + dy * 1.1)) near = true;
       if (!near) return out;

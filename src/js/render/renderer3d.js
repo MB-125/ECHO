@@ -1032,6 +1032,49 @@
       if (e.type === 'player' && e.gearLook) R.dressPlayer(inst, e.gearLook);
       inst.root.scale.setScalar(scale);
     },
+    // Boats on the water: yours, the ferry you ride, and ferries waiting at the jetties.
+    syncBoats(game, dt) {
+      const Bt = ECHO.Boats, B3 = ECHO.Boat3D;
+      if (!Bt || !B3) return;
+      R.boatMap = R.boatMap || new Map();
+      const seen = new Set();
+      const put = (key, kind, x, y, dir, rowing, speed) => {
+        let b = R.boatMap.get(key);
+        if (!b) { b = B3.build(kind); R.scene.add(b.root); R.boatMap.set(key, b); }
+        seen.add(key);
+        b.root.visible = true;
+        b.root.position.set(x, ECHO.Water.SURFACE - 0.06, y);
+        b.root.rotation.y = Math.PI - dir;
+        B3.pose(b, dt, rowing, speed);
+      };
+      const pe = game.pe, pl = game.pl, out = !ECHO.Interior.cur;
+      if (out && pe) {
+        if (pe.inBoat === 'ferry') put('ferry:ride', 'ferry', pe.x, pe.y, pe.dir, false, 3);
+        else if (pe.inBoat) put('own', 'row', pe.x, pe.y, pe.dir, !!pe.rowing, Bt.row ? Math.hypot(Bt.row.vx, Bt.row.vy) : 0);
+        else if (pl.boat && U.dist(pl.boat.x, pl.boat.y, pe.x, pe.y) < 60) put('own', 'row', pl.boat.x, pl.boat.y, pl.boat.dir || 0, false, 0);
+        for (const d of Bt.docks || []) {
+          if (!d.to.length || U.dist(d.water.x, d.water.y, pe.x, pe.y) > 45) continue;
+          if (Bt.ferry && Bt.ferry.from === d) continue;
+          put('dock:' + d.sid, 'ferry', d.water.x + Math.cos(d.dir) * 0.6, d.water.y + Math.sin(d.dir) * 0.6, d.dir + Math.PI / 2, false, 0);
+        }
+      }
+      for (const [k, b] of R.boatMap) if (!seen.has(k)) { b.root.visible = false; }
+      // jetties
+      if (Bt._key && R._dockKey !== Bt._key) {
+        R._dockKey = Bt._key;
+        if (R.dockGroup) { R.scene.remove(R.dockGroup); R.dockGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+        R.dockGroup = new THREE.Group(); R.scene.add(R.dockGroup);
+        const wood = new THREE.MeshStandardMaterial({ color: '#7a5a3a', roughness: 0.9, flatShading: true }), post = new THREE.MeshStandardMaterial({ color: '#4a3422', roughness: 0.9, flatShading: true });
+        for (const d of Bt.docks) {
+          const g = new THREE.Group(); g.position.set((d.land.x + d.water.x) / 2, 0.02, (d.land.y + d.water.y) / 2); g.rotation.y = -Math.atan2(d.water.y - d.land.y, d.water.x - d.land.x);
+          const deck = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.07, 0.75), wood); deck.position.x = 0.4; deck.castShadow = true; deck.receiveShadow = true; g.add(deck);
+          for (let i = 0; i < 6; i++) { const ln = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.075, 0.76), post); ln.position.set(-0.7 + i * 0.42, 0.001, 0); g.add(ln); }
+          for (const [px, pz] of [[1.5, 0.34], [1.5, -0.34], [0.5, 0.34], [0.5, -0.34]]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.7, 6), post); p.position.set(px, -0.2, pz); p.castShadow = true; g.add(p); }
+          R.dockGroup.add(g);
+        }
+      }
+      if (R.dockGroup) R.dockGroup.visible = !ECHO.Interior.cur;
+    },
     // Footprints and hoofprints pressed into mud and snow.
     syncPrints(game) {
       if (!R.printMesh) {
@@ -1253,6 +1296,14 @@
         if (hs.rear > 0.05) { P.body.rotation.z = lean + hs.rear * 0.35; }
         P.head.rotation.z = -lean * 0.6;
       }
+      // in a boat: sitting on the thwart, pulling at the oars
+      if (e.inBoat && e.inBoat !== 'ferry' && !e.dead) {
+        P.legL.rotation.z = P.legR.rotation.z = -1.45; P.legL.rotation.x = -0.15; P.legR.rotation.x = 0.15;
+        const ph = ((ECHO.Boats && ECHO.Boats.row && ECHO.Boats.row.stroke) || 0) * Math.PI * 2;
+        if (e === game.pe && e.rowing && !(e.attackT > 0)) { P.armL.rotation.z = P.armR.rotation.z = -1.25 + Math.sin(ph) * 0.55; P.body.rotation.z = Math.sin(ph) * 0.3; }
+        else if (!(e.attackT > 0)) { P.armL.rotation.z = P.armR.rotation.z = -0.5; }
+        P.body.position.y = 0.42;
+      }
       // swimming: stretched out, arms reaching overhead in turn, legs kicking
       if (e.swimming && !e.dead && !e.lurker) {
         const st = R.time * (e.moving ? 5 : 2.2);
@@ -1392,11 +1443,11 @@
         const turn = U.angleDiff(v.dir, target);
         // NPCs ignore tiny heading wobbles and turn at a natural pace
         if (e === game.pe || e.dead || Math.abs(turn) > 0.18 || (v.mv || 0) > 0.5) v.dir += turn * Math.min(1, dt * (e.dead ? 30 : e === game.pe ? 14 : 9));
-        root.rotation.y = Math.PI - v.dir + (v.twist || 0);
+        root.rotation.y = Math.PI - v.dir + (v.twist || 0) + (e === game.pe && e.inBoat === true ? Math.PI : 0);  // a rower faces the stern
         v.twist = 0;
         // on the bed when wading; afloat, head and shoulders out, when swimming
         const sink = e.lurker ? 0.78 : (e.type === 'player' || e.type === 'person' || e.humanoid) ? 0.62 : e.type === 'boss' ? 0.8 : 0.5;
-        const gy = e.swimming ? ECHO.Water.SURFACE - sink + Math.sin(R.time * 3 + (e.id || 0)) * 0.02 : R.standH(v.px, v.py);
+        const gy = e.inBoat ? ECHO.Water.SURFACE + (e.inBoat === 'ferry' ? 0.34 : -0.14) + Math.sin(R.time * 1.6) * 0.02 : e.swimming ? ECHO.Water.SURFACE - sink + Math.sin(R.time * 3 + (e.id || 0)) * 0.02 : R.standH(v.px, v.py);
         let hy = 0;
         if (e === game.pe) { v.horse = R.syncHorse(game, dt, e.mounted ? v : null); if (v.horse && e.mounted) hy = v.horse.seat - gy - 0.4; }
         else if (e.mounted || v.horse) {
@@ -1464,6 +1515,7 @@
       }
       // loose horses whose riders fell
       if (ECHO.Riders && !ECHO.Interior.cur) for (const h of ECHO.Riders.loose) R.driveHorse(game, R.horseFor('loose:' + h.id, h.breed), dt, h.x, h.y, h.dir, h.v, { ridden: false, rear: h.rearT > 0, snap: true, quiet: true });
+      R.syncBoats(game, dt);
       R.endHorses(); R.frameNo = (R.frameNo || 0) + 1;
       for (const [e, v] of R.views) {
         if (!seen.has(e)) {
