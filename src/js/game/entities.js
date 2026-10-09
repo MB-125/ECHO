@@ -108,6 +108,8 @@
     // way there at all sets e.navFail so the walker can choose something else.
     travel(world, e, tx, ty, speed, dt) {
       if (e.x >= 9000 || tx >= 9000) return (e.isCompanion || e.foe || e.type === 'creature' || e.type === 'boss') ? Ent.travelIn(world, e, tx, ty, speed, dt) : Ent.seek(world, e, tx, ty, speed, dt, 0.3);
+      // a swimmer goes straight in after a target in the water
+      if (ECHO.Water && ECHO.WildWater && ECHO.WildWater.swimmer(e) && U.dist(e.x, e.y, tx, ty) < 12 && ECHO.Water.kind(world, tx, ty)) return Ent.seek(world, e, tx, ty, speed, dt, 0.3);
       // where can we actually stand near the goal?
       const key = Math.round(tx * 4) + ',' + Math.round(ty * 4);
       if (e._navKey !== key) {

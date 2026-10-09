@@ -1254,7 +1254,7 @@
         P.head.rotation.z = -lean * 0.6;
       }
       // swimming: stretched out, arms reaching overhead in turn, legs kicking
-      if (e.swimming && !e.dead) {
+      if (e.swimming && !e.dead && !e.lurker) {
         const st = R.time * (e.moving ? 5 : 2.2);
         P.armL.rotation.z = -Math.PI * 0.5 - Math.sin(st) * 1.3; P.armR.rotation.z = -Math.PI * 0.5 + Math.sin(st) * 1.3;
         P.armL.rotation.x = 0.35; P.armR.rotation.x = -0.35;
@@ -1395,7 +1395,8 @@
         root.rotation.y = Math.PI - v.dir + (v.twist || 0);
         v.twist = 0;
         // on the bed when wading; afloat, head and shoulders out, when swimming
-        const gy = e.swimming ? ECHO.Water.SURFACE - 0.62 + Math.sin(R.time * 3) * 0.02 : R.standH(v.px, v.py);
+        const sink = e.lurker ? 0.78 : (e.type === 'player' || e.type === 'person' || e.humanoid) ? 0.62 : e.type === 'boss' ? 0.8 : 0.5;
+        const gy = e.swimming ? ECHO.Water.SURFACE - sink + Math.sin(R.time * 3 + (e.id || 0)) * 0.02 : R.standH(v.px, v.py);
         let hy = 0;
         if (e === game.pe) { v.horse = R.syncHorse(game, dt, e.mounted ? v : null); if (v.horse && e.mounted) hy = v.horse.seat - gy - 0.4; }
         else if (e.mounted || v.horse) {
@@ -1639,6 +1640,27 @@
           m.scale.setScalar(Math.max(0.05, r.size * (0.15 + k * 0.85)));
           m.material.opacity = 0.55 * (1 - k) * (1 - k);
         }
+      }
+      // Fish in the shallows
+      if (ECHO.WildWater) {
+        if (!R.fishMesh) {
+          const g = new THREE.BoxGeometry(0.2, 0.035, 0.06);
+          R.fishMesh = new THREE.InstancedMesh(g, new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.4, metalness: 0.3 }), 48);
+          R.fishMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(48 * 3), 3);
+          R.fishMesh.frustumCulled = false; R.groups.fx.add(R.fishMesh);
+        }
+        const F = ECHO.Interior.cur ? [] : ECHO.WildWater.fish, M = R.fishMesh, o = R._fo || (R._fo = new THREE.Object3D()), col = new THREE.Color();
+        let n = 0;
+        for (const f of F) {
+          if (n >= 48) break;
+          o.position.set(f.x, ECHO.Water.SURFACE - 0.09, f.y);
+          o.rotation.set(0, -f.dir + Math.sin(R.time * (6 + f.v * 6) + f.x * 3) * 0.25, 0);
+          o.scale.setScalar(f.size);
+          o.updateMatrix(); M.setMatrixAt(n, o.matrix);
+          col.setHSL(0.52 + f.hue * 0.08, 0.15, 0.32 + f.hue * 0.15); M.setColorAt(n, col);
+          n++;
+        }
+        M.count = n; M.instanceMatrix.needsUpdate = true; if (M.instanceColor) M.instanceColor.needsUpdate = true; M.visible = n > 0;
       }
       // Shapes: telegraphs, slashes, rings
       for (const f of fx) {

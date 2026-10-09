@@ -310,6 +310,7 @@
       mats: 'Monster parts are worth money at any market — and a smith can turn them into better gear (talk to a smith → "Improve your gear").',
       trap: 'A trap! Watch the floor in the passages — plates glow just before they fire. Roll (Space) across them.',
       key: 'The iron door needs a key. One of the monsters on this floor carries it — look for the Keybearer.',
+      drowner: 'Drowners live in deep water. A trail of bubbles gives them away; they rise beside whoever comes into the water, or stands too close to the edge, and sink away when hurt. They cannot follow you onto land.',
       lowhp: 'You are badly hurt. Back off, eat (H) or use herbs (G). Dying to monsters costs a thread of fate.'
     },
     tip(game, k) {

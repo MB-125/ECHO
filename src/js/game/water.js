@@ -48,6 +48,7 @@
         const k = Wt.kind(world, e.x, e.y);
         const was = e._inWater;
         e._inWater = k;
+        if (e !== pe) e.swimming = k === 'deep';
         if (!k) continue;
         if (!was && (e.moving || e === pe)) { Wt.splash(e.x, e.y, e === pe && pl.mounted ? 14 : 8, 1); if (U.dist(e.x, e.y, pe.x, pe.y) < 14) ECHO.Sfx.play('splash', { vol: e === pe ? 0.8 : 0.35 }); }
         if (e.burn > 0) { e.burn = 0; ECHO.Combat.burst(e.x, e.y - 0.3, '#e8eef0', 10, 2, 0.8, 3); ECHO.Sfx.play('hiss', { vol: 0.5 }); ECHO.Combat.floater(e.x, e.y - 1.1, 'the flames hiss out', '#cfe8f0'); }
@@ -103,7 +104,8 @@
       if (x >= 9000) return ECHO.World.isSolid(world, x, y);
       const ix = Math.floor(x), iy = Math.floor(y), t = ECHO.World.tile(world, ix, iy);
       if (t === T().WATER) { const ww = world.W || 200; return ix < 0 || iy < 0 || ix >= ww || iy >= (world.H || 150) || world.blocked[iy * ww + ix] === 1; }
-      if (t === T().DEEP && ((e && e.type === 'player' && !e.mounted) || (ECHO.Climate && ECHO.Climate.frozen(world, x, y, true)))) { const ww = world.W || 200; return ix < 0 || iy < 0 || ix >= ww || iy >= (world.H || 150); }
+      if (t === T().DEEP && ((e && e.type === 'player' && !e.mounted) || (ECHO.WildWater && ECHO.WildWater.swimmer(e)) || (ECHO.Climate && ECHO.Climate.frozen(world, x, y, true)))) { const ww = world.W || 200; return ix < 0 || iy < 0 || ix >= ww || iy >= (world.H || 150); }
+      if (e && e.aquatic) return true;   // drowners can't leave the water
       return ECHO.World.isSolid(world, x, y);
     },
     // Fire that bursts on the water goes up in steam.

@@ -119,6 +119,11 @@
           ctx.fillStyle = 'rgba(214,232,242,0.82)'; ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(16 * Z), Math.ceil(16 * Z));
           if (ECHO.hash2(x, y, 9) < 0.3) { ctx.fillStyle = 'rgba(150,175,195,0.6)'; ctx.fillRect(Math.round(p.x + 3 * Z), Math.round(p.y + (5 + ECHO.hash2(x, y, 7) * 6) * Z), 8 * Z, Z); }
         }
+        if (ECHO.WildWater) for (const f of ECHO.WildWater.fish) {
+          const p = R.toScreen(game, f.x, f.y);
+          ctx.fillStyle = 'rgba(40,60,70,0.55)';
+          ctx.fillRect(Math.round(p.x - 1.5 * Z), Math.round(p.y), Math.ceil(3 * Z), Math.ceil(Z));
+        }
         for (const pr of C.prints) {
           const p = R.toScreen(game, pr.x, pr.y);
           ctx.fillStyle = pr.snow ? `rgba(140,155,170,${(0.6 * Math.min(1, (pr.life - pr.t) / 8)).toFixed(2)})` : `rgba(40,30,20,${(0.5 * Math.min(1, (pr.life - pr.t) / 8)).toFixed(2)})`;
