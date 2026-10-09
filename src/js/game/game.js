@@ -137,6 +137,7 @@
       if (ECHO.Boats) ECHO.Boats.update(Game, dt);
       if (ECHO.Dilemmas) ECHO.Dilemmas.update(Game, dt);
       if (ECHO.Stealth) ECHO.Stealth.update(Game, dt);
+      if (ECHO.Camp) ECHO.Camp.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -231,7 +232,7 @@
       }
       // cold and storms wear on you out in the open
       const wx = ECHO.Weather && !ECHO.Interior.cur ? ECHO.Weather.here(world, pl.x, pl.y) : null;
-      if (wx && (wx.today === 'blizzard' || (wx.harsh && Game.isNight())) && !s && pl.stamina > 20) pl.stamina -= 2 * sec;
+      if (!ECHO.Camp && wx && (wx.today === 'blizzard' || (wx.harsh && Game.isNight())) && !s && pl.stamina > 20) pl.stamina -= 2 * sec;
     },
     hitStop(t) { Game.freezeT = Math.min(0.2, Math.max(Game.freezeT, t)); },
     slowMo(t, scale) { Game.slowT = t; Game.slowScale = scale; },
@@ -584,6 +585,7 @@
       if (ECHO.Boats) out.push(...ECHO.Boats.interactables(Game));
       if (ECHO.Dilemmas) out.push(...ECHO.Dilemmas.interactables(Game));
       if (ECHO.Stealth) out.push(...ECHO.Stealth.interactables(Game));
+      if (ECHO.Camp) out.push(...ECHO.Camp.interactables(Game));
       out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game), ...ECHO.Patrol.interactables(Game), ...ECHO.Finds.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;

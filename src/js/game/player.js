@@ -319,12 +319,13 @@
       // ---- Eat / herbs
       if (In.hit('v') && ECHO.Life) ECHO.Life.mount(game);
       if (In.hit('h')) PC.eat(game);
+      if (In.hit('b') && ECHO.Camp) ECHO.Camp.make(game);
       if (In.hit('g')) PC.useHerbs(game);
       for (const [id, P0] of Object.entries(ECHO.Gear.POTIONS)) if (In.hit(P0.key)) PC.drink(game, id);
       if (pl.buffs) for (const k in pl.buffs) if (pl.buffs[k] > 0) { pl.buffs[k] -= dt; if (pl.buffs[k] <= 0) { pl.buffs[k] = 0; PC.derivedT = 0; ECHO.Combat.floater(pe.x, pe.y - 1.3, `${ECHO.Gear.POTIONS[k].name} wears off`, '#c8c0b0'); } }
 
       // ---- Regeneration
-      if (!pe.swimming && !pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (pe.wading ? 0.6 : 1) * (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1));
+      if (!pe.swimming && !pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (pe.wading ? 0.6 : 1) * (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1) * (ECHO.Camp ? ECHO.Camp.regenMul(pl) : 1));
       if (pe.blocking) pl.stamina = Math.max(0, pl.stamina - 3 * dt * D.blockMul);
       pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40) * dt);
       if (game.time - (game.lastHurtTime || -99) > 8 && !pl.sick) pl.hp = Math.min(pl.maxHp, pl.hp + 0.5 * dt);
@@ -600,6 +601,7 @@
     },
 
     eat(game) {
+      if (ECHO.Camp) return ECHO.Camp.eatBest(game);
       const pl = game.pl;
       if (pl.hp >= pl.maxHp) return;
       if (pl.inv.fish > 0) { pl.inv.fish--; pl.hp = Math.min(pl.maxHp, pl.hp + 24); game.ui.toast('You eat a grilled trout.', 'info', 2); }

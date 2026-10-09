@@ -1033,6 +1033,36 @@
       inst.root.scale.setScalar(scale);
     },
     // Boats on the water: yours, the ferry you ride, and ferries waiting at the jetties.
+    // Your own camp: the fire, a bedroll, and a spit when something's cooking.
+    syncCamp(game, dt) {
+      const c = ECHO.Camp && ECHO.Camp.fire;
+      const show = c && !ECHO.Interior.cur;
+      if (R.campObj && (!show || R.campObj.c !== c)) { R.scene.remove(R.campObj.g); R.campObj = null; }
+      if (!show) return;
+      if (!R.campObj) {
+        const g = new THREE.Group(), flames = [];
+        R.addStatic(g, 'campfire', c.x, c.y, null, 0, 0.8, flames);
+        const mat = (col) => new THREE.MeshStandardMaterial({ color: col, roughness: 0.95, flatShading: true });
+        const gy = R.groundH(c.bx, c.by);
+        const roll = new THREE.Group(); roll.position.set(c.bx, gy, c.by); roll.rotation.y = c.rot + Math.PI / 2; g.add(roll);
+        const blanket = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.09, 0.68), mat('#6a3e30')); blanket.position.y = 0.045; blanket.receiveShadow = true; blanket.castShadow = true; roll.add(blanket);
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.095, 0.7), mat('#c8a860')); stripe.position.set(0.35, 0.046, 0); roll.add(stripe);
+        const pillow = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.62, 8), mat('#8a7a5a')); pillow.rotation.x = Math.PI / 2; pillow.position.set(-0.78, 0.13, 0); pillow.castShadow = true; roll.add(pillow);
+        // a spit over the fire on two forked sticks
+        const fy = R.groundH(c.x, c.y), wood = mat('#4a3020');
+        const spit = new THREE.Group(); spit.position.set(c.x, fy, c.y); g.add(spit);
+        for (const s of [-1, 1]) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.75, 5), wood); st.position.set(s * 0.42, 0.37, 0); st.rotation.z = s * 0.08; spit.add(st); }
+        const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.0, 5), wood); bar.rotation.z = Math.PI / 2; bar.position.y = 0.7; spit.add(bar);
+        const meat = new THREE.Mesh(new THREE.SphereGeometry(0.12, 7, 5), mat('#8a4a2a')); meat.scale.set(1.5, 0.9, 0.9); meat.position.y = 0.68; spit.add(meat);
+        R.scene.add(g);
+        R.campObj = { g, c, flames, meat };
+      }
+      const o = R.campObj;
+      for (const f of o.flames) { f.visible = !c.out; f.scale.y = 1 + Math.sin(R.time * 13 + 1.7) * 0.18; f.scale.x = 1 + Math.sin(R.time * 9) * 0.06; }
+      if (c.cookT > 0) c.cookT -= dt;
+      o.meat.visible = c.cookT > 0;
+      o.meat.rotation.x += dt * 1.5;
+    },
     syncBoats(game, dt) {
       const Bt = ECHO.Boats, B3 = ECHO.Boat3D;
       if (!Bt || !B3) return;
@@ -1516,6 +1546,7 @@
       // loose horses whose riders fell
       if (ECHO.Riders && !ECHO.Interior.cur) for (const h of ECHO.Riders.loose) R.driveHorse(game, R.horseFor('loose:' + h.id, h.breed), dt, h.x, h.y, h.dir, h.v, { ridden: false, rear: h.rearT > 0, snap: true, quiet: true });
       R.syncBoats(game, dt);
+      R.syncCamp(game, dt);
       R.endHorses(); R.frameNo = (R.frameNo || 0) + 1;
       for (const [e, v] of R.views) {
         if (!seen.has(e)) {

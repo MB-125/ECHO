@@ -155,6 +155,11 @@
           if (b.type === 'smithy' && Math.random() < dt * 3) ECHO.Combat.fx.push({ kind: 'smoke', x: b.x + b.w - 0.6, y: b.y - 0.2, vx: 0.2, vy: -0.6, t: 0, life: 2.2, size: 3 });
         }
       }
+      const myc = ECHO.Camp && ECHO.Camp.fire;
+      if (myc && !ECHO.Interior.cur) {
+        objs.push({ y: myc.by, draw: () => R.bedroll(game, myc) });
+        objs.push({ y: myc.y + 0.3, draw: () => myc.out ? R.campRuin(game, { x: myc.x, y: myc.y }) : R.campfire(game, myc.x, myc.y) });
+      }
       for (const c of world.camps) {
         if (Math.abs(c.x - cam.x) > halfW + 6 || Math.abs(c.y - cam.y) > halfH + 6) continue;
         if (!c.alive && !c.captives.length) { objs.push({ y: c.y, draw: () => R.campRuin(game, c) }); continue; }
@@ -436,6 +441,14 @@
       g.fillStyle = '#ffe28a'; g.fillRect(-1, -5, 2, 3);
       R.ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (Math.random() < 0.05) ECHO.Combat.fx.push({ kind: 'smoke', x, y: y - 0.6, vx: 0.1, vy: -0.7, t: 0, life: 2, size: 2 });
+    },
+    bedroll(game, c) {
+      const g = R.art(game, c.bx, c.by);
+      g.rotate(-c.rot + Math.PI / 2);
+      g.fillStyle = '#6a3e30'; g.fillRect(-12, -5, 24, 10);
+      g.fillStyle = '#c8a860'; g.fillRect(3, -5, 2, 10);
+      g.fillStyle = '#8a7a5a'; g.fillRect(-13, -4, 4, 8);
+      R.ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
     campRuin(game, c) {
       const g = R.art(game, c.x, c.y);
