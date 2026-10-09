@@ -91,6 +91,7 @@
         if (foe) { const a = Math.atan2(h.y - foe.y, h.x - foe.x); want = 6; tx = h.x + Math.cos(a) * 3; ty = h.y + Math.sin(a) * 3; if (!h.shied) { h.shied = true; ECHO.Sfx.play('neigh', { vol: 0.5 }); } } else h.shied = false;
       }
       // speed up and slow down like an animal with weight, turn in arcs
+      if (h.rearT > 0) want = 0;
       h.v += U.clamp(want - h.v, -dt * 7, dt * 4.5);
       if (tx != null) {
         const a = Math.atan2(ty - h.y, tx - h.x), turn = U.angleDiff(h.dir, a);
@@ -109,6 +110,48 @@
       // the odd snort, close enough to hear
       h.sT = (h.sT == null ? 8 : h.sT) - dt;
       if (h.sT <= 0) { h.sT = 9 + Math.random() * 16; if (d < 12) ECHO.Sfx.play('snort', { vol: Math.max(0.15, 0.6 - d / 24) }); }
+    },
+    // Riding down whatever stands in the way at a gallop.
+    trample(game, R0, dt) {
+      const pe = game.pe, pl = game.pl;
+      if (R0.v < 5) return;
+      const B = BREEDS[pl.horse.breed], heavy = B.armored ? 1.5 : 1;
+      for (const e of game.ents) {
+        if (e.dead || e.hidden || e === pe || e.isCompanion || !game.hostileTo(pe, e)) continue;
+        if (e.type === 'boss' || e.boss2 || (e.foe && e.foe.boss) || e.maxHp > 220 * heavy) continue;
+        if ((e._trampleT || 0) > game.time) continue;
+        const d = U.dist(e.x, e.y, pe.x, pe.y);
+        if (d > 1.0 + e.r) continue;
+        const a = Math.atan2(e.y - pe.y, e.x - pe.x);
+        if (Math.abs(U.angleDiff(R0.dir, a)) > 1.1) continue;
+        e._trampleT = game.time + 1.2;
+        ECHO.Combat.damage(e, (8 + R0.v * 2.2) * heavy * (ECHO.Prowess ? ECHO.Prowess.dmgMult(pl) : 1), { type: 'melee', from: pe, angle: a, knock: 0.9, stagger: 0.7, heavy: true });
+        ECHO.Combat.floater(e.x, e.y - 1.1, 'trampled', '#e8d9a0');
+        ECHO.Combat.burst(e.x, e.y, '#b8a888', 10, 3, 0.5, 2);
+        R0.v *= B.armored ? 0.9 : 0.75;
+        game.shake(0.15);
+      }
+    },
+    // A hit taken in the saddle: barding turns some aside, a nervous horse may
+    // rear, and a heavy enough blow throws you off.
+    hitInSaddle(game, from, dmg) {
+      const pl = game.pl, pe = game.pe, R0 = ECHO.PlayerCtl.ride;
+      if (!pl.mounted || !pl.horse) return dmg;
+      const B = BREEDS[pl.horse.breed];
+      if (B.armored) dmg *= 0.8;
+      const heavy = dmg > pl.maxHp * 0.2 || (from && (from.type === 'boss' || from.boss2));
+      if (heavy && Math.random() < (B.armored ? 0.2 : 0.5)) { Lf.unseat(game, from); return dmg; }
+      if (R0 && pl.horse.breed === 'courser' && Math.random() < 0.2) { R0.rearT = 0.7; ECHO.Sfx.play('neigh', { vol: 0.6 }); ECHO.Combat.floater(pe.x, pe.y - 1.6, `${pl.horse.name} rears!`, '#e8d9a0'); }
+      return dmg;
+    },
+    unseat(game, from) {
+      const pl = game.pl, pe = game.pe;
+      Lf.mount(game, false);
+      pe.stagger = 0.6;
+      ECHO.Combat.floater(pe.x, pe.y - 1.4, 'thrown from the saddle!', '#ff9a7a', true);
+      ECHO.Sfx.play('neigh'); game.shake(0.3);
+      const h = pl.horseAt;
+      if (h) { h.rearT = 1; const a = from ? Math.atan2(h.y - from.y, h.x - from.x) : Math.random() * 6.28; h.dir = a; h.v = 6; h.wx = h.x + Math.cos(a) * 6; h.wy = h.y + Math.sin(a) * 6; h.wT = 4; }
     },
     speedMul(pl) { return pl.mounted && pl.horse ? BREEDS[pl.horse.breed].speed : 1; },
     // ------------------------------------------------------------ fishing
@@ -156,8 +199,9 @@
           if (Math.random() < dt * 2) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + Math.cos(pe.dir) * 1.6, y: pe.y + Math.sin(pe.dir) * 1.6, vx: 0, vy: -0.3, t: 0, life: 0.5, color: '#dff2ff', size: 2 });
         }
       }
-      // riding: attacks and doors put you on your feet
-      if (pl.mounted && (ECHO.Interior.cur || pe.attackT > 0 || ECHO.PlayerCtl.drawing || ECHO.PlayerCtl.charging || pe.blocking)) { Lf.mount(game, false); ECHO.Combat.floater(pe.x, pe.y - 1.2, 'you leap from the saddle', '#e8d9a0'); }
+      // riding: you fight from the saddle now; only a doorway puts you on your feet
+      if (pl.mounted && ECHO.Interior.cur) { Lf.mount(game, false); ECHO.Combat.floater(pe.x, pe.y - 1.2, 'you leap from the saddle', '#e8d9a0'); }
+      if (pl.horseAt && pl.horseAt.rearT > 0) pl.horseAt.rearT -= dt;
       pe.mounted = !!pl.mounted;
       if (!ECHO.Interior.cur && pl.mounted) Lf.lastOut = { x: pe.x, y: pe.y, dir: pe.dir };
       Lf.horseTick(game, dt);

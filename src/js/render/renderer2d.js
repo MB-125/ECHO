@@ -501,15 +501,16 @@
       ctx.restore();
     },
     // One gait state for the 2D horse, stepped once per frame.
-    horseGait(game, v) {
-      const st = R._hg || (R._hg = ECHO.Gait.make());
-      const dt = R._hgT == null ? 0 : Math.max(0, Math.min(0.1, game.time - R._hgT));
+    horseGait(game, v, key = 'player') {
+      const G = R._hg || (R._hg = {}), T = R._hgT || (R._hgT = {});
+      const st = G[key] || (G[key] = ECHO.Gait.make());
+      const dt = T[key] == null ? 0 : Math.max(0, Math.min(0.1, game.time - T[key]));
       if (dt > 0) {
         ECHO.Gait.update(st, v, dt);
         const h = game.pl.horseAt, far = !game.pl.mounted && h && U.dist(h.x, h.y, game.pe.x, game.pe.y) > 16;
-        if (!far) for (const i of st.hoofDown) ECHO.Sfx.play('hoof', { vol: st.gait === 'gallop' ? 0.6 : 0.35, pitch: i < 2 ? 1.05 : 0.95 });
+        if (!far) for (const i of st.hoofDown) ECHO.Sfx.play('hoof', { vol: (st.gait === 'gallop' ? 0.6 : 0.35) * (key === 'player' ? 1 : 0.5), pitch: i < 2 ? 1.05 : 0.95 });
       }
-      R._hgT = game.time;
+      T[key] = game.time;
       return st;
     },
     freeHorse(game, h) {
@@ -530,10 +531,14 @@
       if (e.iframes > 0 && e === game.pe) ctx.globalAlpha = 0.55;
       if (e.type === 'ghost' || e.species === 'hind') { ctx.globalAlpha = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)); if (e.type === 'ghost') ctx.filter = 'grayscale(1) brightness(1.9) sepia(0.3) hue-rotate(170deg)'; }
       if (e.type === 'person' && e.dancing) ctx.translate(0, -Math.abs(Math.sin(game.time * 7 + e.id)) * 2);
-      if (e === game.pe && e.mounted && game.pl.horse) {
-        const hs = R.horseGait(game, e.rideV != null ? e.rideV : (e.moving ? 4 : 0));
+      const mountedHere = (e === game.pe && e.mounted && game.pl.horse) || (e.isCompanion && e.mounted && !e.dead);
+      if (mountedHere) {
+        const me = e === game.pe;
+        let v2 = me ? (e.rideV != null ? e.rideV : (e.moving ? 4 : 0)) : 0;
+        if (!me) { const k = R._cv || (R._cv = {}); const c = k[e.id] || (k[e.id] = { x: e.x, y: e.y, t: game.time, v: 0 }); const dt2 = game.time - c.t; if (dt2 > 0.03) { c.v += (Math.hypot(e.x - c.x, e.y - c.y) / dt2 - c.v) * 0.5; c.x = e.x; c.y = e.y; c.t = game.time; } v2 = c.v; }
+        const hs = R.horseGait(game, v2, me ? 'player' : 'c' + e.id);
         ctx.save(); if (e.flip) ctx.scale(-1, 1);
-        const r = ECHO.Horse2D.draw(ctx, game.pl.horse.breed, hs, game.time, true);
+        const r = ECHO.Horse2D.draw(ctx, me ? game.pl.horse.breed : (e.horseBreed || 'pony'), hs, game.time, true);
         ctx.restore();
         ctx.translate(0, r.seat + 7.5);
       }

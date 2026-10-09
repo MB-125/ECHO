@@ -669,6 +669,9 @@
       if (!pe) return;
       const d = U.dist(e.x, e.y, pe.x, pe.y);
       if (d > 18) { e.x = pe.x - 1; e.y = pe.y + 0.5; }
+      // When you ride, they ride: their own horse, kept up with yours. A fight close by
+      // puts them on their feet.
+      if (ECHO.Companions && ECHO.Companions.ride(game, e, npc, dt, target, d)) return;
       if (ECHO.Companions && ECHO.Companions.act(game, e, npc, dt, target)) return;
       if (target && U.dist(target.x, target.y, pe.x, pe.y) < 10) return Person.fight(game, e, npc, dt, target);
       if (d > 2.4) ECHO.Ent.travel(game.world, e, pe.x - Math.cos(pe.dir) * 1.2, pe.y - Math.sin(pe.dir) * 1.2, e.speed * (d > 6 ? 1.2 : 0.9), dt);

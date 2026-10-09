@@ -56,7 +56,7 @@
   const R = ECHO.Renderer3D = {
     world: null, renderer: null, scene: null, camera: null, overlay: null, octx: null, dpr: 1, cw: 0, ch: 0,
     chunks: {}, views: new Map(), fxMeshes: new Map(), projMeshes: new Map(), lootMeshes: new Map(),
-    camDist: 15, zoomExtra: 0, time: 0, sitesT: 0,
+    camDist: 15, zoomExtra: 0, time: 0, sitesT: 0, frameNo: 0,
 
     supported() {
       try {
@@ -989,27 +989,31 @@
       if (e.type === 'player' && e.gearLook) R.dressPlayer(inst, e.gearLook);
       inst.root.scale.setScalar(scale);
     },
-    // Your horse: under you while you ride, grazing where you left it otherwise.
-    // Returns where the saddle is this frame so the rider sits in it.
-    syncHorse(game, dt, v) {
-      const pl = game.pl, pe = game.pe, H3 = ECHO.Horse3D;
-      const riding = pe && pe.mounted && pl.horse && !ECHO.Interior.cur && v;
-      const free = !riding && pl.horse && pl.horseAt && !ECHO.Interior.cur;
-      const hide = () => { if (R.horse) { R.horse.root.visible = false; for (const m of R.horse.reins) m.visible = false; } return null; };
-      if (!riding && !free) return hide();
-      if (!R.horse || R.horse.breed !== pl.horse.breed) {
-        if (R.horse) { R.scene.remove(R.horse.root); for (const m of R.horse.reins) R.scene.remove(m); for (const m of R.horse.mats) m.dispose(); }
-        R.horse = H3.build(pl.horse.breed, ECHO.Life.BREEDS[pl.horse.breed]);
-        R.scene.add(R.horse.root); for (const m of R.horse.reins) R.scene.add(m);
+    // Horses: yours (under you, or grazing where you left it) and any your companion rides.
+    horseFor(key, breed) {
+      R.horses = R.horses || new Map();
+      let H = R.horses.get(key);
+      if (!H || H.breed !== breed) {
+        if (H) R.dropHorse(key);
+        H = ECHO.Horse3D.build(breed, ECHO.Life.BREEDS[breed]);
+        R.scene.add(H.root); for (const m of H.reins) R.scene.add(m);
+        R.horses.set(key, H);
       }
-      const H = R.horse;
-      let x, y, yaw, spd;
-      if (riding) { x = v.px; y = v.py; yaw = v.dir; spd = pe.rideV != null ? pe.rideV : (v.spd || 0); }
-      else { const h = pl.horseAt; x = h.x; y = h.y; yaw = h.dir; spd = h.v || 0; if (H.fx == null || Math.hypot(H.fx - x, H.fy - y) > 2) { H.fx = x; H.fy = y; } H.fx += (x - H.fx) * Math.min(1, dt * 14); H.fy += (y - H.fy) * Math.min(1, dt * 14); x = H.fx; y = H.fy; }
-      if (H.syaw == null || !riding) H.syaw = yaw;
+      H.seen = R.frameNo;
+      return H;
+    },
+    dropHorse(key) {
+      const H = R.horses && R.horses.get(key); if (!H) return;
+      R.scene.remove(H.root); for (const m of H.reins) R.scene.remove(m); for (const m of H.mats) m.dispose();
+      R.horses.delete(key);
+    },
+    // Pose and place one horse; returns where its saddle is so a rider can sit in it.
+    driveHorse(game, H, dt, x, y, yaw, spd, o) {
+      const pe = game.pe, H3 = ECHO.Horse3D;
+      if (H.syaw == null || o.snap) H.syaw = yaw;
       H.syaw += U.angleDiff(H.syaw, yaw) * Math.min(1, dt * 10);
       H.root.visible = true;
-      const bd = H3.pose(H, dt, spd, H.syaw, { ridden: !!riding, reined: riding && spd < 0.3 });
+      const bd = H3.pose(H, dt, spd, H.syaw, o);
       const gy = R.groundH(x, y), fx = Math.cos(H.syaw), fy = Math.sin(H.syaw);
       H.root.position.set(x - fx * H.seatX, gy, y - fy * H.seatX);
       H.root.rotation.y = Math.PI - H.syaw;
@@ -1020,7 +1024,7 @@
         const w = new THREE.Vector3();
         for (const i of H.st.hoofDown) {
           const g = H.st.gait;
-          ECHO.Sfx.play('hoof', { vol: (g === 'gallop' ? 0.75 : g === 'canter' ? 0.6 : g === 'trot' ? 0.45 : 0.3) * Math.max(0.2, 1 - near / 16), pitch: i < 2 ? 1.05 : 0.95 });
+          ECHO.Sfx.play('hoof', { vol: (g === 'gallop' ? 0.75 : g === 'canter' ? 0.6 : g === 'trot' ? 0.45 : 0.3) * Math.max(0.2, 1 - near / 16) * (o.quiet ? 0.5 : 1), pitch: (i < 2 ? 1.05 : 0.95) * (o.quiet ? 1.08 : 1) });
           if (g !== 'walk' && !ECHO.Interior.cur) {
             H.legs[i].hoof.getWorldPosition(w);
             const n = g === 'gallop' ? 3 : 2;
@@ -1034,11 +1038,33 @@
       const seat = b.y + 0.07;
       for (let k = 0; k < 2; k++) {
         (k ? H.bitR : H.bitL).getWorldPosition(a);
-        const hand = riding ? { x: b.x + fx * 0.3 + sd.x * (k ? -0.07 : 0.07), y: seat + 0.32, z: b.z + fy * 0.3 + sd.z * (k ? -0.07 : 0.07) }
+        const hand = o.ridden ? { x: b.x + fx * 0.3 + sd.x * (k ? -0.07 : 0.07), y: seat + 0.32, z: b.z + fy * 0.3 + sd.z * (k ? -0.07 : 0.07) }
           : { x: b.x + fx * 0.17 * H.L.size + sd.x * (k ? -0.06 : 0.06), y: seat + 0.06, z: b.z + fy * 0.17 * H.L.size + sd.z * (k ? -0.06 : 0.06) };
         H3.strap(H.reins[k], a, hand); H.reins[k].visible = true;
       }
-      return { seat, gait: H.st.gait, phase: H.st.phase, pitch: bd.pitch, bob: bd.bob };
+      return { seat, sx: b.x, sz: b.z, gait: H.st.gait, phase: H.st.phase, pitch: H.body.rotation.z, bob: bd.bob, rear: H.rear || 0 };
+    },
+    // Your own horse.
+    syncHorse(game, dt, v) {
+      const pl = game.pl, pe = game.pe;
+      const riding = pe && pe.mounted && pl.horse && !ECHO.Interior.cur && v;
+      const free = !riding && pl.horse && pl.horseAt && !ECHO.Interior.cur;
+      if (!riding && !free) return null;
+      const H = R.horseFor('player', pl.horse.breed);
+      if (riding) {
+        const R0 = ECHO.PlayerCtl.ride;
+        return R.driveHorse(game, H, dt, v.px, v.py, v.dir, pe.rideV != null ? pe.rideV : (v.spd || 0), { ridden: true, reined: (pe.rideV || 0) < 0.3, rear: R0 && R0.rearT > 0 });
+      }
+      const h = pl.horseAt;
+      if (H.fx == null || Math.hypot(H.fx - h.x, H.fy - h.y) > 2) { H.fx = h.x; H.fy = h.y; }
+      H.fx += (h.x - H.fx) * Math.min(1, dt * 14); H.fy += (h.y - H.fy) * Math.min(1, dt * 14);
+      R.driveHorse(game, H, dt, H.fx, H.fy, h.dir, h.v || 0, { ridden: false, rear: h.rearT > 0, snap: true });
+      return null;
+    },
+    // Hide any horse nobody used this frame.
+    endHorses() {
+      if (!R.horses) return;
+      for (const [k, H] of R.horses) if (H.seen !== R.frameNo) { H.root.visible = false; for (const m of H.reins) m.visible = false; if (R.frameNo - H.seen > 600) R.dropHorse(k); }
     },
     // The player's gear, as it looks: finer metal, gems and glow as it is upgraded.
     dressPlayer(inst, G) {
@@ -1131,8 +1157,13 @@
         P.body.rotation.z = lean - hs.pitch * 0.6;
         P.body.position.y = 0.42 + (g === 'trot' ? Math.max(0, Math.sin(ph * 2)) * 0.05 : g === 'gallop' ? -hs.bob * 0.5 : 0);
         const rein = Math.sin(ph) * (g === 'canter' || g === 'gallop' ? 0.12 : 0.03);
-        P.armL.rotation.z = P.armR.rotation.z = -0.95 - lean * 0.4 + rein;
-        P.armL.rotation.x = 0.28; P.armR.rotation.x = -0.28;
+        const PC = e === game.pe ? ECHO.PlayerCtl : {};
+        const busy = (e.attackT > 0) || PC.drawing || PC.charging || PC.heavyHold || e.state === 'windup' || e.state === 'attack';
+        P.armL.rotation.z = -0.95 - lean * 0.4 + rein; P.armL.rotation.x = 0.28;
+        if (!busy) { P.armR.rotation.z = -0.95 - lean * 0.4 + rein; P.armR.rotation.x = -0.28; }
+        if (PC.drawing || PC.charging) { P.armL.rotation.z = -1.5; P.armL.rotation.x = 0; }
+        // rearing: lean into the neck and hold on
+        if (hs.rear > 0.05) { P.body.rotation.z = lean + hs.rear * 0.35; }
         P.head.rotation.z = -lean * 0.6;
       }
       v.inst.root.rotation.z = 0; v.yOff = 0;
@@ -1269,7 +1300,11 @@
         const gy = R.groundH(v.px, v.py);
         let hy = 0;
         if (e === game.pe) { v.horse = R.syncHorse(game, dt, e.mounted ? v : null); if (v.horse && e.mounted) hy = v.horse.seat - gy - 0.4; }
-        root.position.set(v.px, gy + (v.yOff || 0) + hy, v.py);
+        else if (e.isCompanion) {
+          v.horse = e.mounted && !ECHO.Interior.cur && !e.dead ? R.driveHorse(game, R.horseFor('comp:' + e.npcId, e.horseBreed || 'pony'), dt, v.px, v.py, v.dir, v.spd || 0, { ridden: true, quiet: true }) : null;
+          if (v.horse) hy = v.horse.seat - gy - 0.4;
+        }
+        root.position.set(v.horse && e.mounted ? v.horse.sx : v.px, gy + (v.yOff || 0) + hy, v.horse && e.mounted ? v.horse.sz : v.py);
         // hurt: squash and recoil
         const base = v.baseScale || (v.baseScale = root.scale.x);
         const hk = e.hurtT > 0 && !e.dead ? e.hurtT / 0.18 : 0;
@@ -1328,6 +1363,7 @@
           if (ghost !== v.ghost) { v.ghost = ghost; for (const m of v.inst.mats) { m.transparent = ghost < 1; m.opacity = ghost; } }
         }
       }
+      R.endHorses(); R.frameNo = (R.frameNo || 0) + 1;
       for (const [e, v] of R.views) {
         if (!seen.has(e)) {
           R.groups.ents.remove(v.inst.root);

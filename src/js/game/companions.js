@@ -275,6 +275,33 @@
       }
       return false;
     },
+    // Riding alongside you. Returns true when riding took this frame.
+    ride(game, e, npc, dt, target, d) {
+      const pe = game.pe, pl = game.pl;
+      const fightNear = target && U.dist(target.x, target.y, pe.x, pe.y) < 9;
+      const want = !!(pl.mounted && !ECHO.Interior.cur && !fightNear && e.hp > e.maxHp * 0.3);
+      e.horseBreed = { sellsword: 'courser', hunter: 'pony', mender: 'pony' }[C.st(npc).cls] || 'pony';
+      if (want !== !!e.mounted) {
+        e.mountT = (e.mountT || 0) + dt;
+        // a beat after you, as a real rider would — but at once if a fight breaks out
+        if (e.mountT > (want ? 0.6 : fightNear ? 0 : 0.4)) {
+          e.mounted = want; e.mountT = 0;
+          ECHO.Combat.burst(e.x, e.y, '#b8a888', 8, 1.5, 0.4, 2);
+          if (want && Math.random() < 0.15) { e.say = ['Ride on!', 'Right behind you.', 'Easy, girl… easy.'][Math.floor(Math.random() * 3)]; e.sayT = 2; }
+          if (!want && fightNear) { e.say = 'Off the horse — here they come!'; e.sayT = 1.8; }
+        }
+      } else e.mountT = 0;
+      if (!e.mounted) return false;
+      // ride at your shoulder, a length behind
+      const rv = pe.rideV || 0, side = (e.id % 2 ? 1 : -1);
+      const fx = Math.cos(pe.dir), fy = Math.sin(pe.dir);
+      const tx = pe.x - fx * 1.6 + -fy * side * 1.1, ty = pe.y - fy * 1.6 + fx * side * 1.1;
+      const dd = U.dist(e.x, e.y, tx, ty);
+      const sp = dd > 5 ? Math.max(6, rv * 1.2 + 1.5) : dd > 1 ? Math.max(2.5, rv * 1.05 + dd * 0.6) : rv;
+      if (dd > 0.4 && sp > 0.2) ECHO.Ent.travel(game.world, e, tx, ty, sp, dt); else { e.moving = false; if (rv < 0.3) e.dir = pe.dir; }
+      e.hidden = false;
+      return true;
+    },
     // ---- hooks from combat
     // A blow aimed at a companion: dodged, turned aside, or taken.
     defend(game, e, amount, src) {

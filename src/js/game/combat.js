@@ -228,6 +228,7 @@
       if (crit) dmg *= 1.8;
       if (src.stealth) dmg *= from === game.pe ? ECHO.Tech.stealthMul() : 3;
       if (from === game.pe && target !== game.pe) dmg *= ECHO.Tech.dealt(target, src);
+      if (target === game.pe && from !== game.pe && game.pl.mounted && ECHO.Life) dmg = ECHO.Life.hitInSaddle(game, from, dmg);
       if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken() * (ECHO.Gear ? ECHO.Gear.taken(world, game.pl, type) : 1) * (ECHO.Companions ? ECHO.Companions.shield(game) : 1);
       dmg = Math.max(1, Math.round(dmg));
       // Your own fire can hurt you badly, but never below 15% of your life.

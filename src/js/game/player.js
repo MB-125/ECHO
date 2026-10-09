@@ -84,7 +84,7 @@
       const len = Math.hypot(mx, my);
       if (len) { mx /= len; my /= len; }
 
-      pe.blocking = In.key('Shift') && pl.stamina > 4 && PC.dodgeT <= 0 && !PC.drawing && !(pe.attackT > 0);
+      pe.blocking = !pl.mounted && In.key('Shift') && pl.stamina > 4 && PC.dodgeT <= 0 && !PC.drawing && !(pe.attackT > 0);
       if (In.hit('Shift')) game.blockStart = game.time;
 
       if (PC.dodgeT > 0) {
@@ -96,11 +96,13 @@
         if (Math.random() < 0.6) ECHO.Combat.fx.push({ kind: 'p', x: pe.x, y: pe.y + 0.2, vx: 0, vy: 0, t: 0, life: 0.3, color: 'rgba(200,190,170,0.6)', size: 2 });
       } else if (pe.stagger <= 0) {
         let sp = D.speed * (ECHO.Life ? ECHO.Life.speedMul(pl) : 1) * ECHO.World.speedAt(world, pe.x, pe.y) * ECHO.Tech.speedMul() * (ECHO.Monsters ? ECHO.Monsters.slowMul() : 1);
+        // on foot, fighting slows you; on horseback the horse keeps going
+        const mtd = !!pl.mounted;
         if (pe.blocking) sp *= 0.45;
-        if (PC.drawing) sp *= 0.55;
-        if (PC.charging) sp *= 0.6;
-        if (PC.heavyHold) sp *= 0.55;
-        if (pe.attackT > 0) sp *= 0.5;
+        if (PC.drawing) sp *= mtd ? 0.85 : 0.55;
+        if (PC.charging) sp *= mtd ? 0.8 : 0.6;
+        if (PC.heavyHold && !mtd) sp *= 0.55;
+        if (pe.attackT > 0 && !mtd) sp *= 0.5;
         if (PC.sneaking) sp *= 0.5;
         if (PC.studyT > 0) sp *= 0.3;
         if (pl.stamina < 1 && len) sp *= 0.75;
@@ -108,8 +110,11 @@
           // A horse has weight: it gathers speed through walk, trot and canter
           // into a gallop, carries on a little when you let go, and turns in arcs.
           const R0 = PC.ride || (PC.ride = { v: 0, dir: pe.dir });
-          const want = len ? sp : 0;
-          R0.v += U.clamp(want - R0.v, -dt * 9, dt * (R0.v < 2 ? 5 : 3.2));
+          // Shift reins in hard; a rearing horse goes nowhere
+          const rein = In.key('Shift') && !game.ui.blocksWorld();
+          if (R0.rearT > 0) R0.rearT -= dt;
+          const want = len && !rein && !(R0.rearT > 0) ? sp : 0;
+          R0.v += U.clamp(want - R0.v, -dt * (rein || R0.rearT > 0 ? 16 : 9), dt * (R0.v < 2 ? 5 : 3.2));
           if (len) {
             const a = Math.atan2(my, mx), turn = U.angleDiff(R0.dir, a);
             const rate = R0.v > 5 ? 4 : R0.v > 2.5 ? 6 : 10;
@@ -121,6 +126,10 @@
             ECHO.Ent.move(world, pe, Math.cos(R0.dir) * R0.v * dt, Math.sin(R0.dir) * R0.v * dt);
             if (Math.hypot(pe.x - bx, pe.y - by) < R0.v * dt * 0.3) R0.v *= Math.exp(-dt * 6);  // ran into something
           }
+          // a sidestep: the horse springs aside
+          if (R0.sideT > 0) { R0.sideT -= dt; ECHO.Ent.move(world, pe, Math.cos(R0.sideDir) * 7 * dt, Math.sin(R0.sideDir) * 7 * dt); }
+          if (ECHO.Life) ECHO.Life.trample(game, R0, dt);
+          R0.peak = Math.max(R0.v, (R0.peak || 0) - dt * 4);  // the momentum a blow carries, a moment after you check
           pe.moving = R0.v > 0.3;
           pe.rideV = R0.v;
         } else if (len) {
@@ -141,7 +150,16 @@
       // ---- Dodge (a roll; Echo Step turns it into a blink)
       if (In.hit(' ')) PC.dodgeBuf = 0.18;
       PC.dodgeBuf = Math.max(0, (PC.dodgeBuf || 0) - dt);
-      if (PC.dodgeBuf > 0 && PC.dodgeT <= 0 && pl.stamina >= 16 && pe.stagger <= 0 && !(pe.attackT > 0.08)) {
+      if (pl.mounted && PC.ride && PC.dodgeBuf > 0 && pl.stamina >= 12 && !(PC.ride.sideT > 0) && pe.stagger <= 0) {
+        // on horseback, Space springs the horse aside
+        PC.dodgeBuf = 0; pl.stamina -= 12;
+        const side = len ? Math.atan2(my, mx) : PC.ride.dir + Math.PI / 2;
+        const rel = U.angleDiff(PC.ride.dir, side);
+        PC.ride.sideDir = PC.ride.dir + (rel >= 0 ? 1 : -1) * Math.PI / 2; PC.ride.sideT = 0.24;
+        pe.iframes = 0.28; ECHO.Sfx.play('dodge', { pitch: 0.7 }); ECHO.Combat.burst(pe.x, pe.y + 0.2, '#b8a888', 8, 2, 0.4, 2);
+        if (game.combatT != null && game.time - game.combatT < 6) ECHO.Tech.record('dodges');
+      }
+      if (!pl.mounted && PC.dodgeBuf > 0 && PC.dodgeT <= 0 && pl.stamina >= 16 && pe.stagger <= 0 && !(pe.attackT > 0.08)) {
         PC.dodgeBuf = 0;
         pl.stamina -= 18;
         if (game.combatT != null && game.time - game.combatT < 6) ECHO.Tech.record('dodges');
@@ -216,7 +234,8 @@
             pl.inv.arrows--;
             const perfect = PC.fullT >= 0 && PC.fullT < 0.2;
             const power = 0.35 + 0.65 * PC.draw;
-            const spread = perfect ? 0 : (1 - PC.draw) * 0.12;
+            // loosing from a moving horse is harder, unless the shot is perfect
+            const spread = perfect ? 0 : (1 - PC.draw) * 0.12 + (pl.mounted && PC.ride ? Math.min(1, PC.ride.v / 8) * 0.14 * (1 - pl.skills.archery / 120) : 0);
             const target = PC.assist(game, aim, 9, 0.18);
             const a2 = target ? Math.atan2(target.y - pe.y, target.x - pe.x) : aim;
             const p = ECHO.Combat.shoot(pe, a2 + (Math.random() - 0.5) * spread, { kind: 'arrow', speed: (11 + 9 * PC.draw) * (perfect ? 1.25 : 1), dmg: D.bowDmg * power * (perfect ? 1.35 : 1), life: 1.2, type: 'ranged' });
@@ -371,11 +390,22 @@
         if (WCn === ECHO.Gear.WCLASS.axe && kind === 'finisher') SPEC.dmg *= 1.15;
       }
       if (riposte) { SPEC.stagger = Math.max(SPEC.stagger, 0.7); SPEC.guardbreak = true; }
+      // From the saddle: a longer reach, a sweeping cut, and the horse's speed behind
+      // every blow. A heavy blow at the gallop is a charge.
+      const rideV = pl.mounted && PC.ride ? Math.max(PC.ride.v, PC.ride.peak || 0) : 0, mounted = !!pl.mounted;
+      let charge = false;
+      if (mounted) {
+        const ride = Math.min(1, rideV / 7);
+        SPEC.range += 0.5; SPEC.dmg *= 1 + 0.6 * ride; SPEC.knock += 0.4 * ride;
+        if (kind === 'finisher' || kind === 'whirlwind') SPEC.arc = 2.6;
+        if (kind === 'heavy' && rideV > 4.5) { charge = true; SPEC.dmg *= 1.25; SPEC.arc = 1.1; SPEC.range += 0.6; SPEC.knock = 1.3; SPEC.stagger = Math.max(SPEC.stagger, 1.2); SPEC.guardbreak = true; }
+      }
       // lock on to the foe you are facing, and step into the blow
-      const tgt = PC.assist(game, aim, D.meleeRange + 1.6, 0.33);
+      // in the saddle you steer with one hand: the blow finds the foe beside or ahead of you
+      const tgt = PC.assist(game, aim, D.meleeRange + 1.6 + (mounted ? 0.5 : 0), mounted ? 1.3 : 0.33) || (mounted && PC.ride ? PC.assist(game, PC.ride.dir, D.meleeRange + 2.1, 1.1) : null);
       if (tgt) aim = Math.atan2(tgt.y - pe.y, tgt.x - pe.x);
       const gap = tgt ? U.dist(tgt.x, tgt.y, pe.x, pe.y) - tgt.r - pe.r : 1;
-      PC.lungeDir = aim; PC.lungeT = lunge ? 0.18 : 0.1; PC.lungeSpd = lunge ? 15 : kind === 'heavy' ? 7 : U.clamp(gap * 9, 1.5, 6);
+      PC.lungeDir = aim; PC.lungeT = mounted ? 0 : lunge ? 0.18 : 0.1; PC.lungeSpd = lunge ? 15 : kind === 'heavy' ? 7 : U.clamp(gap * 9, 1.5, 6);
       if (lunge) { PC.rollEndT = null; ECHO.Combat.floater(pe.x, pe.y - 1.2, 'lunge', '#ffe8c0'); }
       if (riposte) ECHO.Combat.sparks(pe.x + Math.cos(aim) * 0.6, pe.y - 0.3 + Math.sin(aim) * 0.6, aim, '#fff6c8', 14, 7);
       pe.dir = aim; pe.flip = Math.cos(aim) < 0;
@@ -392,6 +422,7 @@
       }
       ECHO.Sfx.play(SPEC.sfx, { pitch: kind === 'combo' ? (PC.combo === 1 ? 1.15 : 1) : 1 });
       const hits = ECHO.Combat.melee(pe, { angle: aim, arc: SPEC.arc, range: D.meleeRange + SPEC.range, dmg: D.meleeDmg * SPEC.dmg * (0.9 + Math.random() * 0.2), knock: SPEC.knock, stealth, stagger: SPEC.stagger, guardbreak: SPEC.guardbreak, heavy: kind !== 'combo', rocks: kind === 'heavy' || kind === 'whirlwind', riposte, finisher: kind === 'finisher' || kind === 'whirlwind' });
+      if (mounted && hits.length) { if (charge) { ECHO.Combat.floater(pe.x, pe.y - 1.5, 'Charge!', '#ffe08a', true); game.shake(0.3); } else if (rideV > 5) ECHO.Combat.floater(pe.x, pe.y - 1.3, 'ride-by', '#ffe8c0'); }
       if (hits.length && (kind === 'finisher' || kind === 'whirlwind')) Tc.record('finishers');
       const col = weapon && weapon.legend ? 'rgba(255,230,160,0.95)' : kind === 'heavy' ? 'rgba(255,240,200,0.95)' : 'rgba(255,255,255,0.85)';
       ECHO.Combat.slash(pe.x, pe.y, aim, D.meleeRange + SPEC.range + 0.2, Math.min(SPEC.arc, Math.PI * 1.95), riposte ? 'rgba(255,240,170,0.98)' : col, kind === 'whirlwind' ? 'finisher' : kind === 'bash' ? 'combo' : kind);

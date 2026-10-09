@@ -275,8 +275,12 @@
       H.graze = lerp(H.graze, H.grazing ? 1 : 0, 1 - Math.exp(-dt * 2));
       H.cock = lerp(H.cock, idle && st.still > 2.5 ? 1 : 0, 1 - Math.exp(-dt * 3));
 
-      H.body.position.y = 0.74 + bd.bob - H.cock * 0.012 - H.graze * 0.01;
-      H.body.rotation.z = bd.pitch - H.graze * 0.03;
+      // rearing: up on the hind legs, forelegs pawing the air
+      H.rear = lerp(H.rear || 0, o.rear ? 1 : 0, 1 - Math.exp(-dt * (o.rear ? 9 : 4)));
+      const rr = H.rear;
+      H.body.position.y = 0.74 + bd.bob - H.cock * 0.012 - H.graze * 0.01 + rr * 0.3;
+      H.body.position.x = -rr * 0.18;
+      H.body.rotation.z = bd.pitch - H.graze * 0.03 + rr * 0.72;
       H.body.rotation.x = H.roll + bd.sway * 0.3;
       // legs
       for (let i = 0; i < 4; i++) {
@@ -294,6 +298,10 @@
           g.knee.rotation.z = g.rest.k + hf;
           g.fet.rotation.z = g.rest.f - flex * 0.7 - l.heel;
         }
+        if (rr > 0.01) {
+          if (g.fore) { const paw = Math.sin(H.t * 9 + i * 1.7) * 0.35; g.top.rotation.z = lerp(g.top.rotation.z, 0.5 + paw - 0.72, rr); g.knee.rotation.z = lerp(g.knee.rotation.z, -1.6, rr); g.fet.rotation.z = lerp(g.fet.rotation.z, -0.6, rr); }
+          else { g.top.rotation.z = lerp(g.top.rotation.z, -0.72 + 0.25, rr); g.knee.rotation.z = lerp(g.knee.rotation.z, 0.25, rr); g.fet.rotation.z = lerp(g.fet.rotation.z, 0.1, rr); }
+        }
         // keep the hoof flat on the ground through the stance
         g.hoof.rotation.z = -(g.top.rotation.z + g.knee.rotation.z + g.fet.rotation.z + H.body.rotation.z) * (l.stance ? 1 : 0.4);
       }
@@ -301,7 +309,7 @@
       // neck and head
       const look = clamp(-H.yawRate * 0.12, -0.35, 0.35);
       const gallopReach = st.gait === 'gallop' ? 0.18 : st.gait === 'canter' ? 0.1 : 0;
-      H.neck.rotation.z = -0.62 - gallopReach + bd.neck - bd.pitch * 0.8 - H.graze * 1.05;
+      H.neck.rotation.z = -0.62 - gallopReach + bd.neck - bd.pitch * 0.8 - H.graze * 1.05 - rr * 0.35;
       H.neck.rotation.y = look;
       H.head.rotation.z = -1.55 + gallopReach * 0.6 + bd.neck * 0.4 - H.graze * 0.35 + (o.reined ? -0.12 : 0);
       // mane streams back with speed and ripples
