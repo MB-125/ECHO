@@ -126,10 +126,13 @@
             R0.steering = Math.abs(S.dev) > 0.05 ? S.dev : 0;
           } else R0.steering = 0;
           R0.v += U.clamp(want - R0.v, -dt * (rein || R0.rearT > 0 ? 12 : 9), dt * (R0.v < 2 ? 5 : 3.2) * (ECHO.Life ? ECHO.Life.accelMul(pl) : 1));
-          if (len || R0.steering) {
+          // With the reins pulled in, the horse holds its line and stops; it doesn't
+          // swing its body round to face wherever you press.
+          if ((len && !rein) || (R0.steering && !rein)) {
             const turn = U.angleDiff(R0.dir, goal);
-            // tight at a walk, wide at a gallop, and never a spin on the spot
-            const rate = R0.v > 5 ? 3.6 : R0.v > 2.5 ? 5 : R0.v > 0.8 ? 5.5 : 3.2;
+            // tight at a walk, wide at a gallop; from a standstill it walks on as it
+            // turns, in an arc, rather than pivoting on the spot
+            const rate = R0.v > 5 ? 3.6 : R0.v > 2.5 ? 5 : 1.1 + R0.v * 1.8;
             R0.dir += U.clamp(turn, -dt * rate, dt * rate);
             if (Math.abs(turn) > 2.2 && R0.v > 3) R0.v -= dt * 8;   // hauling round: check the pace first
           }

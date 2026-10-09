@@ -669,13 +669,19 @@
       const pe = game.pe;
       if (!pe) return;
       const d = U.dist(e.x, e.y, pe.x, pe.y);
-      if (d > 18) { e.x = pe.x - 1; e.y = pe.y + 0.5; }
+      // left far behind, or wedged for a few seconds: they find their own way and turn up behind you
+      e._lagT = d > 4 && !target && (e.stuck || 0) > 0.3 ? (e._lagT || 0) + dt : 0;
+      if (d > 18 || e._lagT > 2.5) {
+        const a = pe.dir + Math.PI;
+        const sp = ECHO.Ent.freeSpot(game.world, pe.x + Math.cos(a) * 1.2, pe.y + Math.sin(a) * 1.2, 4) || { x: pe.x, y: pe.y };
+        e.x = sp.x; e.y = sp.y; e._lagT = 0; e.stuck = 0; e.ipath = null; e.path = null;
+      }
       // When you ride, they ride: their own horse, kept up with yours. A fight close by
       // puts them on their feet.
       if (ECHO.Companions && ECHO.Companions.ride(game, e, npc, dt, target, d)) return;
       if (ECHO.Companions && ECHO.Companions.act(game, e, npc, dt, target)) return;
       if (target && U.dist(target.x, target.y, pe.x, pe.y) < 10) return Person.fight(game, e, npc, dt, target);
-      if (d > 2.4) ECHO.Ent.travel(game.world, e, pe.x - Math.cos(pe.dir) * 1.2, pe.y - Math.sin(pe.dir) * 1.2, e.speed * (d > 6 ? 1.2 : 0.9), dt);
+      if (d > 2.4) { const bx = pe.x - Math.cos(pe.dir) * 1.2, by = pe.y - Math.sin(pe.dir) * 1.2; const ok = !ECHO.World.isSolid(game.world, bx, by); ECHO.Ent.travel(game.world, e, ok ? bx : pe.x, ok ? by : pe.y, e.speed * (d > 6 ? 1.2 : 0.9), dt); }
       else e.moving = false;
       e.hidden = false;
     }

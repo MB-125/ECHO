@@ -107,7 +107,7 @@
     // ground, a blocked straight line falls back to a path, and a goal with no
     // way there at all sets e.navFail so the walker can choose something else.
     travel(world, e, tx, ty, speed, dt) {
-      if (e.x >= 9000 || tx >= 9000) return Ent.seek(world, e, tx, ty, speed, dt, 0.3);
+      if (e.x >= 9000 || tx >= 9000) return (e.isCompanion || e.foe || e.type === 'creature' || e.type === 'boss') ? Ent.travelIn(world, e, tx, ty, speed, dt) : Ent.seek(world, e, tx, ty, speed, dt, 0.3);
       // where can we actually stand near the goal?
       const key = Math.round(tx * 4) + ',' + Math.round(ty * 4);
       if (e._navKey !== key) {
@@ -168,6 +168,34 @@
       const r = Ent.seek(world, e, tx, ty, speed, dt, 0.35);
       if ((e.stuck || 0) > 1.2) { e.navFail = true; e.moving = false; }
       return r;
+    },
+    // Finding the way inside a room or a dungeon floor: rooms and corridors, round
+    // corners and through doorways, instead of walking straight into the wall.
+    travelIn(world, e, tx, ty, speed, dt) {
+      const c = ECHO.Interior && ECHO.Interior.cur;
+      if (!c || e.x < 9000 || tx < 9000) return Ent.seek(world, e, tx, ty, speed, dt, 0.3);
+      const B = ECHO.Interior.BASE, W = c.W, H = c.H;
+      const d = U.dist(e.x, e.y, tx, ty);
+      if (d < 0.4) { e.moving = false; e.ipath = null; return true; }
+      if (Ent.clearLine(world, e.x, e.y, tx, ty, e.r * 0.9)) { e.ipath = null; return Ent.seek(world, e, tx, ty, speed, dt, 0.35); }
+      const gk = (tx | 0) + ',' + (ty | 0);
+      e.ipathT = (e.ipathT || 0) - dt;
+      if ((!e.ipath || e.ipathGoal !== gk || (e.stuck || 0) > 0.5) && e.ipathT <= 0) {
+        e.ipathT = 0.5; e.ipathGoal = gk; e.stuck = 0;
+        const goal = Ent.freeSpot(world, tx, ty, 3) || { x: tx, y: ty };
+        const open = (x, y) => x >= 0 && y >= 0 && x < W && y < H && c.blocked[y * W + x] !== 1;
+        const cost = (x, y, i) => (c.blocked[i] === 1 ? Infinity : (open(x + 1, y) && open(x - 1, y) && open(x, y + 1) && open(x, y - 1) ? 1 : 1.6));
+        const p = ECHO.World.findPath({ W, H }, e.x - B, e.y, goal.x - B, goal.y, cost, 6000);
+        e.ipath = p ? p.slice(1).map(i => ({ x: (i % W) + B + 0.5, y: ((i / W) | 0) + 0.5 })) : null;
+      }
+      if (e.ipath && e.ipath.length) {
+        while (e.ipath.length > 1 && Ent.clearLine(world, e.x, e.y, e.ipath[1].x, e.ipath[1].y, e.r * 0.9)) e.ipath.shift();
+        const n = e.ipath[0];
+        if (Ent.seek(world, e, n.x, n.y, speed, dt, 0.3)) e.ipath.shift();
+        e.moving = true;
+        return false;
+      }
+      return Ent.seek(world, e, tx, ty, speed, dt, 0.35);
     },
     separate(ents, dt) {
       // Soft separation between bodies.

@@ -193,7 +193,7 @@
         game.pe.x = L.inside.x; game.pe.y = L.inside.y;
         game.pe.dir = -Math.PI / 2;
         game.ents = game.ents.filter(e => e === game.pe || e.isCompanion);
-        for (const e of game.ents) if (e.isCompanion) { e.x = L.inside.x - 1; e.y = L.inside.y; }
+        for (const e of game.ents) if (e.isCompanion) { const sp = ECHO.Ent.freeSpot(game.world, L.inside.x - 0.8, L.inside.y - 0.6, 4) || L.inside; e.x = sp.x; e.y = sp.y; e.ipath = null; e.path = null; e.stuck = 0; }
         ECHO.Combat.reset();
         game.loot = [];
         I.occupantsKey = null;
@@ -221,7 +221,7 @@
         game.pe.x = L.outside.x; game.pe.y = L.outside.y;
         game.pe.dir = Math.PI / 2;
         game.ents = game.ents.filter(e => e === game.pe || e.isCompanion);
-        for (const e of game.ents) if (e.isCompanion) { e.x = L.outside.x - 1; e.y = L.outside.y; }
+        for (const e of game.ents) if (e.isCompanion) { const sp = ECHO.Ent.freeSpot(game.world, L.outside.x - 1, L.outside.y + 0.5, 4) || L.outside; e.x = sp.x; e.y = sp.y; e.ipath = null; e.path = null; e.stuck = 0; }
         ECHO.Combat.reset();
         game.loot = [];
         game.checkPlace();
