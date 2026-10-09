@@ -113,8 +113,10 @@
           // Shift reins in hard; a rearing horse goes nowhere
           const rein = In.key('Shift') && !game.ui.blocksWorld();
           if (R0.rearT > 0) R0.rearT -= dt;
-          const want = len && !rein && !(R0.rearT > 0) ? sp : 0;
-          R0.v += U.clamp(want - R0.v, -dt * (rein || R0.rearT > 0 ? 16 : 9), dt * (R0.v < 2 ? 5 : 3.2));
+          // a tired horse can't gallop; a trusting one answers faster
+          const cap = ECHO.Life ? ECHO.Life.rideTick(game, R0, dt) : Infinity;
+          const want = len && !rein && !(R0.rearT > 0) ? Math.min(sp, cap) : 0;
+          R0.v += U.clamp(want - R0.v, -dt * (rein || R0.rearT > 0 ? 16 : 9), dt * (R0.v < 2 ? 5 : 3.2) * (ECHO.Life ? ECHO.Life.accelMul(pl) : 1));
           if (len) {
             const a = Math.atan2(my, mx), turn = U.angleDiff(R0.dir, a);
             const rate = R0.v > 5 ? 4 : R0.v > 2.5 ? 6 : 10;

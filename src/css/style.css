@@ -290,6 +290,10 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 #hud-comp { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 12px; color: #9fe0c8; text-shadow: 0 1px 0 #000; }
 #hud-comp .cb { position: relative; width: 80px; height: 5px; background: rgba(0,0,0,0.6); }
 #hud-comp .cb i { position: absolute; left: 0; top: 0; bottom: 0; background: #6ac8a0; }
+#hud-horse { display: flex; align-items: center; gap: 8px; margin-top: 3px; font-size: 12px; color: #e8d9a0; text-shadow: 0 1px 0 #000; }
+#hud-horse .hb { position: relative; width: 80px; height: 4px; background: rgba(0,0,0,0.6); }
+#hud-horse .hb i { position: absolute; left: 0; top: 0; bottom: 0; background: #c8b070; }
+#hud-horse.blown .hb i { background: #c86a4a; }
 #hud-comp .cx { position: relative; width: 50px; height: 3px; background: rgba(0,0,0,0.6); }
 #hud-comp .cx i { position: absolute; left: 0; top: 0; bottom: 0; background: #b48aff; }
 .comp-card .cbar { display: inline-block; position: relative; width: 120px; height: 6px; background: rgba(0,0,0,0.45); border-radius: 3px; overflow: hidden; vertical-align: middle; }

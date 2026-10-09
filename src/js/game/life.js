@@ -22,8 +22,84 @@
     { k: 'boot', p: 0.05, w: 'an old boot' }
   ];
 
+  // How far a horse trusts you, and what that trust is worth.
+  const BOND = [
+    { min: 0, name: 'Wary', desc: 'It tolerates you. It tires quickly and spooks easily.' },
+    { min: 25, name: 'Steady', desc: 'It knows your voice. Steadier under you, slower to tire.' },
+    { min: 50, name: 'Trusted', desc: 'It trusts you: quicker off the mark, harder to throw you, rarely rears.' },
+    { min: 75, name: 'Bonded', desc: 'One mind between you. It comes faster, tires slowest, and fights for you when you are on foot beside it.' }
+  ];
   const Lf = ECHO.Life = {
-    BREEDS, FURNISH, fish: null,
+    BREEDS, FURNISH, BOND, fish: null,
+    // ------------------------------------------------------------ the horse's own state
+    hs(pl) { const h = pl.horse; if (!h) return null; if (h.bond == null) h.bond = 8; if (h.sta == null) h.sta = 100; if (h.dist == null) h.dist = 0; return h; },
+    bondTier(h) { let t = BOND[0]; for (const b of BOND) if ((h.bond || 0) >= b.min) t = b; return t; },
+    addBond(game, n, why) {
+      const h = Lf.hs(game.pl); if (!h) return;
+      const before = Lf.bondTier(h);
+      h.bond = Math.min(100, (h.bond || 0) + n);
+      const after = Lf.bondTier(h);
+      if (after !== before) { ECHO.UI.banner(`${h.name} — ${after.name}`, after.desc, true); ECHO.UI.toast(`${h.name} trusts you more: ${after.name.toLowerCase()}. ${after.desc}`, 'legend', 6); }
+      else if (why) ECHO.Combat.floater(game.pe.x, game.pe.y - 1.6, `${h.name} ♥ ${why}`, '#f0b8c8');
+    },
+    // The ride, each frame: tiring at the gallop, recovering at the walk, trust built mile by mile.
+    rideTick(game, R0, dt) {
+      const h = Lf.hs(game.pl); if (!h) return Infinity;
+      const v = R0.v, b = h.bond || 0;
+      const drain = v > 5.6 ? 4 : v > 4.4 ? 1.4 : v > 2 ? -2.5 : -6;
+      h.sta = U.clamp(h.sta - drain * dt * (drain > 0 ? 1 - b / 230 : 1), 0, 100);
+      if (h.sta < 12 && !h.blown) { h.blown = true; ECHO.Combat.floater(game.pe.x, game.pe.y - 1.6, `${h.name} is blown — ease off`, '#e8d9a0'); ECHO.Sfx.play('snort', { vol: 0.8 }); }
+      if (h.blown && h.sta > 40) h.blown = false;
+      h.dist += v * dt;
+      if (h.dist >= 60) { h.dist -= 60; Lf.addBond(game, 1); }
+      return h.blown ? 4.2 : Infinity;
+    },
+    accelMul(pl) { const h = Lf.hs(pl); return h ? 1 + (h.bond || 0) / 200 : 1; },
+    feed(game) {
+      const pl = game.pl, h = Lf.hs(pl), now = game.world.day * 1440 + game.world.minute;
+      if (!(pl.inv.food > 0)) return ECHO.UI.toast('You have nothing it would eat. Markets sell food.', 'warn', 3);
+      if (h.fedAt != null && now - h.fedAt < 60) return ECHO.UI.toast(`${h.name} has just eaten.`, 'info', 2);
+      pl.inv.food--; h.fedAt = now; h.sta = Math.min(100, h.sta + 45); h.blown = false;
+      ECHO.Sfx.play('snort', { vol: 0.6 }); Lf.addBond(game, 2, 'munches happily');
+    },
+    groom(game) {
+      const pl = game.pl, h = Lf.hs(pl), w = game.world;
+      if (h.groomed === w.day) return ECHO.UI.toast(`${h.name} is already gleaming.`, 'info', 2);
+      h.groomed = w.day; h.sta = Math.min(100, h.sta + 15);
+      const a = pl.horseAt; for (let i = 0; i < 14; i++) ECHO.Combat.fx.push({ kind: 'p', x: a.x + (Math.random() - 0.5) * 1.2, y: a.y - Math.random() * 0.6, vx: 0, vy: -0.4, t: 0, life: 0.8, color: '#e8d9a0', size: 2 });
+      Lf.addBond(game, 5, 'leans into the brush');
+    },
+    // A bonded horse beside you on foot fights for you.
+    defend(game, dt) {
+      const pl = game.pl, pe = game.pe, h = pl.horseAt, H = Lf.hs(pl);
+      if (!h || !H || (H.bond || 0) < 75 || ECHO.Interior.cur) return;
+      h.kickT = (h.kickT || 0) - dt;
+      if (h.kickT > 0 || U.dist(h.x, h.y, pe.x, pe.y) > 5) return;
+      const foe = game.ents.find(e => !e.dead && !e.hidden && e !== pe && game.hostileTo(pe, e) && e.type !== 'boss' && U.dist(e.x, e.y, h.x, h.y) < 1.7);
+      if (!foe) return;
+      h.kickT = 3.5; h.rearT = 0.6; h.dir = Math.atan2(foe.y - h.y, foe.x - h.x);
+      ECHO.Sfx.play('neigh', { vol: 0.7 });
+      ECHO.Combat.damage(foe, 14 + (ECHO.Prowess ? ECHO.Prowess.level(pl) * 2 : 0), { type: 'melee', from: pe, angle: h.dir, knock: 0.9, stagger: 0.8, heavy: true });
+      ECHO.Combat.floater(foe.x, foe.y - 1.2, `${H.name} strikes out!`, '#f0b8c8', true);
+    },
+    hud(game) {
+      const el = document.getElementById('hud-horse'); if (!el) return;
+      const pl = game.pl, h = pl.mounted && Lf.hs(pl);
+      const key = h ? `${h.name}|${Math.round(h.sta / 4)}|${h.blown}|${Lf.bondTier(h).name}` : '';
+      if (Lf._hud === key) return; Lf._hud = key;
+      el.className = h && h.blown ? 'blown' : '';
+      el.innerHTML = h ? `<span>🐎 ${h.name} · ${Lf.bondTier(h).name.toLowerCase()}</span><span class="hb" title="Wind: gallop drains it, walking restores it"><i style="width:${Math.round(h.sta)}%"></i></span>${h.blown ? '<b>blown</b>' : ''}` : '';
+    },
+    card(world, pl) {
+      const h = Lf.hs(pl);
+      if (!h) return '';
+      const B = BREEDS[h.breed], T = Lf.bondTier(h), next = BOND.find(b => b.min > (h.bond || 0));
+      const bar = (v, col) => `<span style="display:inline-block;width:120px;height:6px;background:rgba(0,0,0,.45);border-radius:3px;overflow:hidden;vertical-align:middle"><i style="display:block;height:100%;width:${Math.round(v)}%;background:${col}"></i></span>`;
+      return `<h3 class="gold">Your horse</h3><div class="card"><h4>🐎 ${h.name} <span class="dim">· ${B.name.toLowerCase()}</span></h4><div class="dim">${B.desc}</div>
+        <div class="row" style="gap:10px;font-size:13px"><span style="width:70px">Trust</span>${bar(h.bond, '#f0b8c8')}<b>${T.name}</b></div>
+        <div class="row" style="gap:10px;font-size:13px"><span style="width:70px">Wind</span>${bar(h.sta, '#9fe0c8')}<span>${h.blown ? 'blown' : Math.round(h.sta) + '%'}</span></div>
+        <div class="dim" style="font-size:12.5px">${T.desc}${next ? ` Next: ${next.name} at ${next.min}.` : ''} Trust grows with every mile ridden together, with food from your pack, a daily grooming, and fights survived in the saddle.</div></div>`;
+    },
     // ------------------------------------------------------------ horses
     buyHorse(pl, k) {
       const B = BREEDS[k]; if (!B) return 'No such horse.';
@@ -80,7 +156,7 @@
       let want = 0, tx = null, ty = null;
       if (h.call) {
         if (d < 1.6) { h.call = false; if (!(game.combatT != null && game.time - game.combatT < 4)) { Lf.mount(game, true); return; } }
-        else { want = d > 10 ? 8.5 : d > 4 ? 5 : 2; tx = pe.x; ty = pe.y; }
+        else { want = (d > 10 ? 8.5 : d > 4 ? 5 : 2) * ((Lf.hs(pl).bond || 0) >= 75 ? 1.15 : 1); tx = pe.x; ty = pe.y; }
       } else {
         // a slow amble now and then, never far from where it was left
         h.wT = (h.wT == null ? 6 : h.wT) - dt;
@@ -140,8 +216,9 @@
       const B = BREEDS[pl.horse.breed];
       if (B.armored) dmg *= 0.8;
       const heavy = dmg > pl.maxHp * 0.2 || (from && (from.type === 'boss' || from.boss2));
-      if (heavy && Math.random() < (B.armored ? 0.2 : 0.5)) { Lf.unseat(game, from); return dmg; }
-      if (R0 && pl.horse.breed === 'courser' && Math.random() < 0.2) { R0.rearT = 0.7; ECHO.Sfx.play('neigh', { vol: 0.6 }); ECHO.Combat.floater(pe.x, pe.y - 1.6, `${pl.horse.name} rears!`, '#e8d9a0'); }
+      const trust = 1 - ((Lf.hs(pl).bond || 0) / 140);
+      if (heavy && Math.random() < (B.armored ? 0.2 : 0.5) * trust) { Lf.unseat(game, from); return dmg; }
+      if (R0 && pl.horse.breed === 'courser' && Math.random() < 0.2 * (1 - (Lf.hs(pl).bond || 0) / 100)) { R0.rearT = 0.7; ECHO.Sfx.play('neigh', { vol: 0.6 }); ECHO.Combat.floater(pe.x, pe.y - 1.6, `${pl.horse.name} rears!`, '#e8d9a0'); }
       return dmg;
     },
     unseat(game, from) {
@@ -163,6 +240,13 @@
     },
     interactables(game) {
       const pl = game.pl, out = [];
+      const h = pl && pl.horse && !pl.mounted && pl.horseAt;
+      if (h && !ECHO.Interior.cur && U.dist(h.x, h.y, game.pe.x, game.pe.y) < 2.2) {
+        const H = Lf.hs(pl), d = U.dist(h.x, h.y, game.pe.x, game.pe.y);
+        out.push({ kind: 'act', label: `Ride ${H.name} (V)`, d: d - 0.01, act: () => Lf.mount(game, true) });
+        out.push({ kind: 'act', label: `Feed ${H.name}`, d: d + 0.01, act: () => Lf.feed(game) });
+        if (H.groomed !== game.world.day) out.push({ kind: 'act', label: `Groom ${H.name}`, d: d + 0.02, act: () => Lf.groom(game) });
+      }
       if (!pl || !pl.inv.rod || pl.mounted) return out;
       if (Lf.fish) { out.push({ kind: 'act', label: Lf.fish.bite > 0 ? 'Reel in!' : 'Stop fishing', d: 0, act: () => Lf.reel(game) }); return out; }
       if (Lf.nearWater(game) && !(game.combatT != null && game.time - game.combatT < 5)) out.push({ kind: 'act', label: 'Cast a line', d: 1.5, act: () => Lf.cast(game) });
@@ -205,6 +289,9 @@
       pe.mounted = !!pl.mounted;
       if (!ECHO.Interior.cur && pl.mounted) Lf.lastOut = { x: pe.x, y: pe.y, dir: pe.dir };
       Lf.horseTick(game, dt);
+      Lf.hud(game);
+      Lf.defend(game, dt);
+      if (pl.horse && !pl.mounted) { const H = Lf.hs(pl); H.sta = Math.min(100, H.sta + dt * 4); if (H.blown && H.sta > 40) H.blown = false; }
       // home comforts
       const world = game.world;
       Lf.t = (Lf.t || 0) - dt;

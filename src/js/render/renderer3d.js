@@ -1300,8 +1300,8 @@
         const gy = R.groundH(v.px, v.py);
         let hy = 0;
         if (e === game.pe) { v.horse = R.syncHorse(game, dt, e.mounted ? v : null); if (v.horse && e.mounted) hy = v.horse.seat - gy - 0.4; }
-        else if (e.isCompanion) {
-          v.horse = e.mounted && !ECHO.Interior.cur && !e.dead ? R.driveHorse(game, R.horseFor('comp:' + e.npcId, e.horseBreed || 'pony'), dt, v.px, v.py, v.dir, v.spd || 0, { ridden: true, quiet: true }) : null;
+        else if (e.mounted || v.horse) {
+          v.horse = e.mounted && !ECHO.Interior.cur && !e.dead ? R.driveHorse(game, R.horseFor('ent:' + (e.npcId || e.id), e.horseBreed || 'pony'), dt, v.px, v.py, v.dir, v.spd || 0, { ridden: true, quiet: true }) : null;
           if (v.horse) hy = v.horse.seat - gy - 0.4;
         }
         root.position.set(v.horse && e.mounted ? v.horse.sx : v.px, gy + (v.yOff || 0) + hy, v.horse && e.mounted ? v.horse.sz : v.py);
@@ -1363,6 +1363,8 @@
           if (ghost !== v.ghost) { v.ghost = ghost; for (const m of v.inst.mats) { m.transparent = ghost < 1; m.opacity = ghost; } }
         }
       }
+      // loose horses whose riders fell
+      if (ECHO.Riders && !ECHO.Interior.cur) for (const h of ECHO.Riders.loose) R.driveHorse(game, R.horseFor('loose:' + h.id, h.breed), dt, h.x, h.y, h.dir, h.v, { ridden: false, rear: h.rearT > 0, snap: true, quiet: true });
       R.endHorses(); R.frameNo = (R.frameNo || 0) + 1;
       for (const [e, v] of R.views) {
         if (!seen.has(e)) {

@@ -322,6 +322,7 @@
       if (target && target !== e.target && fighter) Person.alertFriends(game, e, target);
       e.target = target;
 
+      if (e.rider && ECHO.Riders && ECHO.Riders.think(game, e, npc, dt, target)) return;
       if (e.role === 'companion') return Person.companion(game, e, npc, dt, target);
       if (target) {
         if (!fighter || (ECHO.People.has(npc, 'cowardly') && e.hp < e.maxHp * 0.5) || npc.prof === 'child') return Person.flee(game, e, target, dt);

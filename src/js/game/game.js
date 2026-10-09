@@ -20,7 +20,7 @@
       Game.ents = []; Game.loot = [];
       ECHO.Interior.cur = null;
       if (Game.pl.x >= 9000 || !isFinite(Game.pl.x)) { const h = ECHO.Sim.settlement(world, Game.pl.homeId) || world.settlements[0]; Game.pl.x = h.x + 0.5; Game.pl.y = h.y + 2.5; }
-      ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset();
+      ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset(); if (ECHO.Riders) ECHO.Riders.reset();
       if (ECHO.Wonders) ECHO.Wonders.state(world);
       if (ECHO.Marvels) ECHO.Marvels.reset();
       if (ECHO.Fest) ECHO.Fest.reset();
@@ -130,6 +130,7 @@
       if (ECHO.Tutorial) ECHO.Tutorial.update(Game, dt);
       if (ECHO.Saga) ECHO.Saga.update(Game, dt);
       if (ECHO.Life) ECHO.Life.update(Game, dt);
+      if (ECHO.Riders) ECHO.Riders.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -570,6 +571,7 @@
       if (world.rift && near(world.rift.x + 0.5, world.rift.y + 0.5, 2.4)) out.push({ kind: 'rift', label: 'Look into the Rift', d: 0.5 });
       for (const c of world.camps) if (c.captives.length && near(c.x + 2.5, c.y - 1.2, 1.6)) { /* captives handled as entities */ }
       if (ECHO.Life) out.push(...ECHO.Life.interactables(Game));
+      if (ECHO.Riders) out.push(...ECHO.Riders.interactables(Game));
       out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game), ...ECHO.Patrol.interactables(Game), ...ECHO.Finds.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;

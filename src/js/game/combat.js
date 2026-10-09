@@ -285,6 +285,7 @@
       }
       if (from && from.isCompanion && ECHO.Companions) ECHO.Companions.landed(game, from, target, type, crit);
       if (ECHO.Companions && (target.isCompanion || target === game.pe)) ECHO.Companions.afterHit(game, target);
+      if (target.rider && target.hp > 0 && ECHO.Riders) ECHO.Riders.onHit(game, target, src);
       if (target.hp <= 0) C.kill(target, from, type, src);
       else if (target.ai && target.ai.onHurt) target.ai.onHurt(target, from);
       return dmg;
@@ -296,6 +297,7 @@
       const world = game.world;
       if (target.dead) return;
       if (target === game.pe) { target.hp = 0; game.playerDefeated(from); return; }
+      if (target.mounted && ECHO.Riders) ECHO.Riders.fell(game, target);
       target._xpOk = ECHO.Progress && ECHO.Progress.counts(game, target);
       target.dead = true;
       target.deathT = 0;

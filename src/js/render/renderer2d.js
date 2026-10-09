@@ -192,7 +192,8 @@
         if (e.mutation === 'glasshorn' && night) game.light(e.x, e.y - 0.5, 2, 0.6, '#cfefff');
       }
       { const pl = game.pl, h = pl && pl.horse && !pl.mounted && pl.horseAt;
-        if (h && !ECHO.Interior.cur && Math.abs(h.x - cam.x) < halfW + 3 && Math.abs(h.y - cam.y) < halfH + 3) objs.push({ y: h.y, draw: () => R.freeHorse(game, h) }); }
+        if (h && !ECHO.Interior.cur && Math.abs(h.x - cam.x) < halfW + 3 && Math.abs(h.y - cam.y) < halfH + 3) objs.push({ y: h.y, draw: () => R.freeHorse(game, h) });
+        if (ECHO.Riders && !ECHO.Interior.cur) for (const lh of ECHO.Riders.loose) if (Math.abs(lh.x - cam.x) < halfW + 3 && Math.abs(lh.y - cam.y) < halfH + 3) objs.push({ y: lh.y, draw: () => R.freeHorse(game, lh, 'loose' + lh.id, lh.breed) }); }
       // Festival dressing: the bonfire, lantern poles, the stall, contest targets
       if (ECHO.Fest) for (const L of ECHO.Fest.near(game)) {
         for (const p of L.poles) objs.push({ y: p.y, draw: () => { const g = R.art(game, p.x, p.y); g.fillStyle = '#5a3e26'; g.fillRect(-1, -38, 2, 38); R.ctx.setTransform(1, 0, 0, 1, 0, 0); } });
@@ -513,12 +514,12 @@
       T[key] = game.time;
       return st;
     },
-    freeHorse(game, h) {
+    freeHorse(game, h, key = 'player', breed) {
       const p = R.toScreen(game, h.x, h.y), ctx = R.ctx;
       ctx.setTransform(R.Z, 0, 0, R.Z, Math.round(p.x), Math.round(p.y));
-      const st = R.horseGait(game, h.v || 0);
+      const st = R.horseGait(game, h.v || 0, key);
       if (Math.cos(h.dir) < 0) ctx.scale(-1, 1);
-      ECHO.Horse2D.draw(ctx, game.pl.horse.breed, st, game.time, false);
+      ECHO.Horse2D.draw(ctx, breed || game.pl.horse.breed, st, game.time, false);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
     entity(game, e) {
@@ -531,7 +532,7 @@
       if (e.iframes > 0 && e === game.pe) ctx.globalAlpha = 0.55;
       if (e.type === 'ghost' || e.species === 'hind') { ctx.globalAlpha = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)); if (e.type === 'ghost') ctx.filter = 'grayscale(1) brightness(1.9) sepia(0.3) hue-rotate(170deg)'; }
       if (e.type === 'person' && e.dancing) ctx.translate(0, -Math.abs(Math.sin(game.time * 7 + e.id)) * 2);
-      const mountedHere = (e === game.pe && e.mounted && game.pl.horse) || (e.isCompanion && e.mounted && !e.dead);
+      const mountedHere = (e === game.pe && e.mounted && game.pl.horse) || (e !== game.pe && e.mounted && !e.dead);
       if (mountedHere) {
         const me = e === game.pe;
         let v2 = me ? (e.rideV != null ? e.rideV : (e.moving ? 4 : 0)) : 0;
