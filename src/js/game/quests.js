@@ -31,6 +31,7 @@
     },
     updateFoe(game, e, dt) {
       if (e.lurker && ECHO.WildWater && ECHO.WildWater.lurk(game, e, dt)) return;
+      if (e.event && ECHO.Events && (ECHO.Events.foeThink(game, e, dt) || ECHO.Events.foeSiege(game, e, dt))) return;
       const F = e.foe, world = game.world, pe = game.pe;
       e.cd = Math.max(0, (e.cd || 0) - dt); e.t += dt;
       if (e.stagger > 0) { e.stagger -= dt; e.state = 'stagger'; return; }

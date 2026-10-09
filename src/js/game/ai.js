@@ -302,7 +302,7 @@
       if (npc.sick && !e._sickSlow) { e._sickSlow = true; e.speed *= 0.6; }
 
       // Sleeping outlaws (unless they have learned to keep watch)
-      if (e.role === 'bandit' && game.isNight() && !ECHO.Intel.has(world, 'ashfang', 'nightwatch') && !e.aggro && e.state !== 'chase' && e.state !== 'attack' && !e.isGuardPost) {
+      if (e.role === 'bandit' && !e.siege && game.isNight() && !ECHO.Intel.has(world, 'ashfang', 'nightwatch') && !e.aggro && e.state !== 'chase' && e.state !== 'attack' && !e.isGuardPost) {
         e.sleeping = true; e.moving = false;
         return;
       }
@@ -332,6 +332,7 @@
 
       if (e.rider && ECHO.Riders && ECHO.Riders.think(game, e, npc, dt, target)) return;
       if (e.dq && ECHO.Dilemmas && ECHO.Dilemmas.think(game, e, npc, dt, target)) return;
+      if (e.siege && ECHO.Events && ECHO.Events.siegeThink(game, e, npc, dt, target)) return;
       if (e.role === 'companion') return Person.companion(game, e, npc, dt, target);
       if (target) {
         if (!fighter || (ECHO.People.has(npc, 'cowardly') && e.hp < e.maxHp * 0.5) || npc.prof === 'child') return Person.flee(game, e, target, dt);

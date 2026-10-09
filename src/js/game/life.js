@@ -289,7 +289,7 @@
       if (Lf.nearWater(game) && !(game.combatT != null && game.time - game.combatT < 5)) out.push({ kind: 'act', label: 'Cast a line', d: 1.5, act: () => Lf.cast(game) });
       return out;
     },
-    cast(game) { Lf.fish = { t: 0, at: 2 + Math.random() * 5, bite: 0, x: game.pe.x, y: game.pe.y }; ECHO.Combat.floater(game.pe.x, game.pe.y - 1.2, 'you cast your line…', '#bfe8ff'); },
+    cast(game) { Lf.fish = { t: 0, at: (2 + Math.random() * 5) * (ECHO.Events && ECHO.Events.salmonRun(game.world) ? 0.4 : 1), bite: 0, x: game.pe.x, y: game.pe.y }; ECHO.Combat.floater(game.pe.x, game.pe.y - 1.2, 'you cast your line…', '#bfe8ff'); },
     reel(game) {
       const F = Lf.fish; Lf.fish = null;
       const pl = game.pl, pe = game.pe;
@@ -297,6 +297,7 @@
       const night = game.isNight();
       let r = Math.random(), c = CATCH[0];
       for (const x of CATCH) { if (x.night && !night) continue; r -= x.p; if (r <= 0) { c = x; break; } }
+      if (ECHO.Events && ECHO.Events.salmonRun(game.world) && c.k !== 'moonfish') c = Math.random() < 0.2 ? { k: 'goldsalmon', w: 'a golden salmon, glittering' } : { k: 'fish', w: 'a fat salmon' };
       pl.stats = pl.stats || {}; pl.stats.fish = (pl.stats.fish || 0) + 1;
       if (c.k === 'boot') return ECHO.UI.toast('You land… an old boot. The fish are laughing at you.', 'info', 3);
       if (c.k === 'bottle') { const g = 20 + Math.floor(Math.random() * 50); pl.gold += g; return ECHO.UI.toast(`A sealed bottle! Inside, a note in a hand you don't know, and ${g} crowns rolled in oilcloth.`, 'legend', 5); }

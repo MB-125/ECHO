@@ -326,6 +326,7 @@
       const night = game.isNight();
       const region = ECHO.World.regionAt(world, target.x, target.y);
       if (target.marvel) { ECHO.Marvels.onKill(target, from); return; }
+      if (target.event && ECHO.Events && target.type !== 'boss') ECHO.Events.onKill(target, from);
       if (target.humanoid) { C.burst(target.x, target.y, target.foe && (target.foe.look === 'wight' || target.foe.look === 'king') ? '#9fe8c8' : '#7a1d24', 12, 3, 0.6, 2); ECHO.Quests.onKill(target, from); return; }
       if (target.questId || target.delve) ECHO.Quests.onKill(target, from);
       if (target.fauna) {
@@ -347,7 +348,7 @@
         } else ECHO.Ecology.recordKill(world, region, sp, null, ECHO.Spawner.unitsPerKill(sp) * 0.5);
         return;
       }
-      if (target.type === 'boss') { ECHO.Boss.defeated(target, from); return; }
+      if (target.type === 'boss') { if (target.event && ECHO.Events) ECHO.Events.onKill(target, from); ECHO.Boss.defeated(target, from); return; }
       if (target.type === 'person') {
         const npc = world.npcs[target.npcId];
         C.burst(target.x, target.y, '#7a1d24', 14, 3, 0.7, 2);

@@ -25,7 +25,7 @@
       for (const e of game.ents) {
         if (e === pe || e.isCompanion || e.dead) continue;
         const d = U.dist(e.x, e.y, pe.x, pe.y);
-        const far = e.type === 'creature' ? 30 : e.type === 'boss' ? 30 : 44;
+        const far = e.event || e.siege || e.dragon ? 95 : e.type === 'creature' ? 30 : e.type === 'boss' ? 30 : 44;
         if (d > far || e.despawnSoon) { e.dead = true; e.vanish = true; if (e.type === 'boss') game.ui.bossBar(null); }
       }
       if (ECHO.Interior.cur) { ECHO.Interior.update(game, 0.5); S.companion(game); return; }

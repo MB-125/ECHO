@@ -958,7 +958,7 @@
         M.recolor(inst, 'stag', e.stag ? '#7a4e2a' : '#8a5a32'); M.recolor(inst, 'cloth2', '#6e4626'); M.recolor(inst, 'white', '#efe4d0'); M.recolor(inst, 'eyeglow', '#1a1410'); M.recolor(inst, 'darkwood', '#3a2a1a');
         for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false);
         M.show(inst, 'antlers', !!e.stag);
-        if (e.stag) M.recolor(inst, 'antler', '#d8c8a0');
+        if (e.white) { M.recolor(inst, 'stag', '#a8784a'); M.recolor(inst, 'darkwood', '#f4f0e0'); }
         for (const m of inst.mats) { if (m.emissive) m.emissive.set('#000000'); }
         inst.root.scale.setScalar(e.stag ? 0.52 : 0.44);
         return;
@@ -972,12 +972,12 @@
       }
       if (e.type === 'creature') {
         const base = { wolf: 'fur', gnawer: 'rat', hare: 'hare' }[e.species];
-        const tint = e.mutation === 'mirrorback' ? '#b8c4d4' : e.mutation === 'emberfur' ? '#a8502a' : e.strain === 'Ashen' ? '#8e8e8a' : e.strain === 'Ironhide' ? '#5a4632' : null;
+        const tint = e.winter ? '#eef2f8' : e.mutation === 'mirrorback' ? '#b8c4d4' : e.mutation === 'emberfur' ? '#a8502a' : e.strain === 'Ashen' ? '#8e8e8a' : e.strain === 'Ironhide' ? '#5a4632' : null;
         if (tint) M.recolor(inst, base, tint);
         if (e.mutation === 'paleshade') for (const m of inst.mats) { m.transparent = true; m.opacity = 0.5; }
         M.show(inst, 'horn', e.mutation === 'glasshorn');
         inst.root.scale.setScalar((e.species === 'wolf' ? 1.05 : 1.15) * (e.scale || 1));
-        if (e.beast || e.scale > 1.2) M.recolor(inst, base, '#2e2a30');
+        if ((e.beast || e.scale > 1.2) && !e.winter) M.recolor(inst, base, '#2e2a30');
         return;
       }
       if (e.type === 'boss') {
@@ -986,6 +986,12 @@
         M.show(inst, 'armorFire', a.fire > 0.05);
         M.show(inst, 'armorRanged', a.ranged > 0.05);
         inst.root.scale.setScalar(1.05);
+        if (e.dragon) {
+          for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false);
+          if (e.boss.color) M.recolor(inst, 'drake', e.boss.color);
+          if (e.boss.belly) M.recolor(inst, 'drakebelly', e.boss.belly);
+          inst.root.scale.setScalar(1.8);
+        }
         return;
       }
       // People
@@ -1043,6 +1049,28 @@
       inst.root.scale.setScalar(scale);
     },
     // Boats on the water: yours, the ferry you ride, and ferries waiting at the jetties.
+    // A dragon's shadow sweeping across the ground.
+    syncFly(game) {
+      const f = ECHO.Events && ECHO.Events.fly;
+      if (!f || ECHO.Interior.cur) { if (R.flyMesh) R.flyMesh.visible = false; return; }
+      if (!R.flyMesh) {
+        const s = new THREE.Shape();
+        const P = [[3.2, 0], [2.2, 0.5], [1.0, 0.7], [0.4, 1.4], [-0.4, 3.4], [-1.2, 6.8], [-1.6, 5.2], [-2.2, 4.6], [-2.4, 3.2], [-3.0, 2.6], [-2.4, 1.2], [-2.6, 0.5], [-5.0, 0.25]];
+        s.moveTo(P[0][0], P[0][1]);
+        for (let i = 1; i < P.length; i++) s.lineTo(P[i][0], P[i][1]);
+        for (let i = P.length - 1; i >= 0; i--) s.lineTo(P[i][0], -P[i][1]);
+        const geo = new THREE.ShapeGeometry(s); geo.rotateX(-Math.PI / 2);
+        R.flyMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.38, depthWrite: false }));
+        R.flyMesh.renderOrder = 2; R.scene.add(R.flyMesh);
+      }
+      const m = R.flyMesh;
+      m.visible = true;
+      m.position.set(f.x, R.groundH(f.x, f.y) + 0.25, f.y);
+      m.rotation.y = -Math.atan2(f.dy, f.dx);
+      const flap = 1 + Math.sin(f.t * 4.5) * 0.12;
+      m.scale.set(1.2, 1, 1.2 * flap);
+      m.material.opacity = 0.38 * Math.min(1, f.t, f.dur - f.t);
+    },
     // Flocks of small birds: pecking in the grass, then bursting up and away.
     syncBirds(game, dt) {
       const fl = ECHO.Fauna && !ECHO.Interior.cur ? ECHO.Fauna.flocks : [];
@@ -1590,6 +1618,7 @@
       R.syncBoats(game, dt);
       R.syncCamp(game, dt);
       R.syncBirds(game, dt);
+      R.syncFly(game);
       R.endHorses(); R.frameNo = (R.frameNo || 0) + 1;
       for (const [e, v] of R.views) {
         if (!seen.has(e)) {

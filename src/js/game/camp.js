@@ -73,7 +73,8 @@
         else if (wx.today === 'storm' || wx.today === 'rain' || wx.today === 'snow') c += 0.12;
       }
       if ((pl.wetT > 0 || pe._inWater) && (c > 0.1 || season === 3)) { c += 0.4; why.push('soaked'); }
-      if (pl.armor && game.world.items[pl.armor]) c -= 0.12;   // a layer helps
+      const arm = pl.armor && game.world.items[pl.armor];
+      if (arm) c -= arm.craft === 'winter' ? 0.55 : 0.12;   // a layer helps; the Winter Wolf's fur most of all
       return { cold: Math.max(0, c), why };
     },
     // Heat around you: your fire, a hearth indoors, the shelter of town.

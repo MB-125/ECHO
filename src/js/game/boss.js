@@ -238,7 +238,7 @@
       const sh = e.shape;
       e.state = 'strike'; e.t = 0; e.lastStrike = game.time;
       e.cd = 0.9 + Math.random() * 0.6;
-      const dmg = k.dmg * sh.dmg * (1 + b.memory.encounters * 0.04);
+      const dmg = k.dmg * sh.dmg * (1 + b.memory.encounters * 0.04) * (b.dmgMul || 1);
       const hitTest = (s, x, y) => {
         if (s.shape === 'circle') {
           const cx = s.cx != null ? s.cx : e.x, cy = s.cy != null ? s.cy : e.y;
@@ -289,7 +289,7 @@
       for (const r of e.lair.rocks) if (r.hp > 0 && U.dist(e.x, e.y, r.x + 0.5, r.y + 0.5) < 1.5) ECHO.Combat.hitRock(e.lair, r, 999);
       if (!e.chargeHit && U.dist(e.x, e.y, pe.x, pe.y) < e.r + pe.r + 0.3) {
         e.chargeHit = true;
-        ECHO.Combat.damage(pe, KIND[e.boss.kind].dmg * 1.3, { type: 'melee', from: e, angle: e.aim, knock: 0.6 });
+        ECHO.Combat.damage(pe, KIND[e.boss.kind].dmg * 1.3 * (e.boss.dmgMul || 1), { type: 'melee', from: e, angle: e.aim, knock: 0.6 });
       }
       const stopped = U.dist(before.x, before.y, e.x, e.y) < sp * 0.3;
       if (e.t > 0.75 || stopped) { e.state = 'recover'; e.t = stopped ? -0.4 : 0; if (stopped) { e.stagger = 0.5; ECHO.Combat.floater(e.x, e.y - 2, 'stunned', '#ffe08a'); } }
@@ -327,6 +327,7 @@
       const rng = ECHO.Sim.rngFor(world);
       e.dead = true; e.vanish = true;
       game.ui.bossBar(null);
+      if (e.dragon && ECHO.Events) ECHO.Events.dragonFled(game, e);
       b.fleeCount = (b.fleeCount || 0) + 1;
       b.absentUntil = world.day + rng.int(5, 9);
       // Adapt to what hurt it most this time.

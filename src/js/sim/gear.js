@@ -28,6 +28,11 @@
     heartstone: { name: 'heartstones', value: 60, tier: 5, color: '#ff4a6a' },
     greathide: { name: 'great beast hide', value: 55, tier: 5, color: '#c87a3a' },
     greatfang: { name: 'great beast fangs', value: 70, tier: 5, color: '#fff0c8' },
+    giantheart: { name: 'giant\'s heart', value: 220, tier: 5, color: '#c84a4a' },
+    dragonscale: { name: 'dragon scales', value: 90, tier: 5, color: '#c8402a' },
+    winterpelt: { name: 'Winter Wolf\'s pelt', value: 75, tier: 5, color: '#f0f4ff' },
+    whiteantler: { name: 'white antlers', value: 110, tier: 5, color: '#f4f0e0' },
+    goldsalmon: { name: 'golden salmon', value: 45, tier: 0, color: '#ffc84a' },
     fish: { name: 'trout', value: 3, tier: 0, color: '#9ab8c8' },
     silverfin: { name: 'silverfin', value: 12, tier: 0, color: '#d8e8f0' },
     moonfish: { name: 'moonfish', value: 40, tier: 0, color: '#f0f4ff' }
@@ -66,7 +71,9 @@
     { id: 'troll', name: 'Troll-hide brigandine', def: 15, gold: 120, mats: { trollhide: 4, bonedust: 4 }, desc: 'It closes over small cuts as if it were still alive.', affix: 'vigor' },
     { id: 'grave', name: 'Grave-iron hauberk', def: 20, gold: 220, mats: { grave: 3, sigil: 3 }, desc: 'Black iron from the tombs. Spells slide off it.', affix: 'warding' },
     { id: 'beast', name: 'Beastlord\'s mantle', def: 24, gold: 260, mats: { greathide: 2, greatfang: 1 }, desc: 'Cut from the hide of a great beast. Wolves go quiet when you pass.', affix: 'vigor' },
-    { id: 'golem', name: 'Golemplate', def: 26, gold: 360, mats: { core: 3, tusk: 2 }, desc: 'Plates of living stone.', affix: 'thorns' }
+    { id: 'golem', name: 'Golemplate', def: 26, gold: 360, mats: { core: 3, tusk: 2 }, desc: 'Plates of living stone.', affix: 'thorns' },
+    { id: 'winter', name: 'Winterwolf cloak', def: 14, gold: 120, mats: { winterpelt: 1, hide: 3 }, desc: 'White fur from the Winter Wolf. The cold barely touches you.', affix: 'vigor' },
+    { id: 'dragon', name: 'Dragonscale mail', def: 32, gold: 500, mats: { dragonscale: 3, heartstone: 1 }, desc: 'Scales from a dragon\'s flank. Fire runs off it like water.', affix: 'warding' }
   ];
 
   // Kinds of melee weapon: each with its own feel.

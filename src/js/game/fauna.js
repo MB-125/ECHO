@@ -98,7 +98,8 @@
       if (herd.length) return;
       const dl = ECHO.TIME.daylight(world.minute);
       if (dl < 0.1 && Math.random() < 0.7) return;      // mostly at dusk, dawn and by day
-      if (Math.random() > 0.35) return;
+      const big = ECHO.Events && ECHO.Events.greatHerd(world);
+      if (Math.random() > (big ? 0.9 : 0.35)) return;
       for (let k = 0; k < 10; k++) {
         const a = Math.random() * Math.PI * 2, r = 20 + Math.random() * 7;
         const x = pe.x + Math.cos(a) * r, y = pe.y + Math.sin(a) * r;
@@ -106,14 +107,16 @@
         if (t !== T.GRASS && t !== T.FOREST) continue;
         if (ECHO.World.isSolid(world, x, y) || ECHO.World.settlementAt(world, x, y, 18)) continue;
         if (!F.nearTrees(world, x, y)) continue;
-        const n = 3 + Math.floor(Math.random() * 3);
+        const n = big ? 10 + Math.floor(Math.random() * 7) : 3 + Math.floor(Math.random() * 3);
         const id = 'herd' + Math.floor(Math.random() * 1e6);
         for (let i = 0; i < n; i++) {
           const sp = ECHO.Ent.freeSpot(world, x + (Math.random() - 0.5) * 3, y + (Math.random() - 0.5) * 3, 2);
           if (!sp) continue;
-          const stag = i === 0;
-          const e = ECHO.Ent.make({ type: 'creature', species: 'deer', fauna: true, stag, herd: id, fname: stag ? 'Red stag' : 'Red deer', x: sp.x, y: sp.y, r: 0.4, hp: stag ? 42 : 30, maxHp: stag ? 42 : 30, speed: 6.4, faction: 'wild', state: 'graze', home: { x, y }, label: null });
+          const stag = i === 0 || (big && i < 3);
+          const white = big && i === 0 && Math.random() < 0.6;
+          const e = ECHO.Ent.make({ type: 'creature', species: 'deer', fauna: true, stag, white, herd: id, fname: white ? 'White-antlered stag' : stag ? 'Red stag' : 'Red deer', x: sp.x, y: sp.y, r: 0.4, hp: stag ? 42 : 30, maxHp: stag ? 42 : 30, speed: 6.4, faction: 'wild', state: 'graze', home: { x, y }, label: null });
           e.dir = Math.random() * 6.28;
+          if (white) { e.hp = e.maxHp = 70; e.speed = 7; }
           game.addEnt(e);
         }
         return;

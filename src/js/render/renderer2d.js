@@ -160,6 +160,8 @@
         if (Math.abs(b.x - cam.x) > halfW + 2 || Math.abs(b.y - cam.y) > halfH + 2) continue;
         objs.push({ y: b.y + (b.z > 0.3 ? 50 : 0), draw: () => R.bird(game, f, b) });
       }
+      const fly = ECHO.Events && ECHO.Events.fly;
+      if (fly && !ECHO.Interior.cur) objs.push({ y: 1e9, draw: () => R.dragonShadow(game, fly) });
       const myc = ECHO.Camp && ECHO.Camp.fire;
       if (myc && !ECHO.Interior.cur) {
         objs.push({ y: myc.by, draw: () => R.bedroll(game, myc) });
@@ -446,6 +448,21 @@
       g.fillStyle = '#ffe28a'; g.fillRect(-1, -5, 2, 3);
       R.ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (Math.random() < 0.05) ECHO.Combat.fx.push({ kind: 'smoke', x, y: y - 0.6, vx: 0.1, vy: -0.7, t: 0, life: 2, size: 2 });
+    },
+    dragonShadow(game, f) {
+      const g = R.art(game, f.x, f.y);
+      g.rotate(Math.atan2(f.dy, f.dx));
+      const flap = 1 + Math.sin(f.t * 4.5) * 0.12;
+      g.scale(1.3 * 16, 1.3 * 16 * flap);
+      g.globalAlpha = 0.35 * Math.min(1, f.t, f.dur - f.t);
+      g.fillStyle = '#000';
+      const P = [[3.2, 0], [2.2, 0.5], [1.0, 0.7], [0.4, 1.4], [-0.4, 3.4], [-1.2, 6.8], [-1.6, 5.2], [-2.2, 4.6], [-2.4, 3.2], [-3.0, 2.6], [-2.4, 1.2], [-2.6, 0.5], [-5.0, 0.25]];
+      g.beginPath(); g.moveTo(P[0][0], P[0][1]);
+      for (let i = 1; i < P.length; i++) g.lineTo(P[i][0], P[i][1]);
+      for (let i = P.length - 1; i >= 0; i--) g.lineTo(P[i][0], -P[i][1]);
+      g.fill();
+      g.globalAlpha = 1;
+      R.ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
     bird(game, f, b) {
       const g = R.art(game, b.x, b.y);
