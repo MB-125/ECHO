@@ -37,9 +37,16 @@
       if (e.state === 'stagger') e.state = 'chase';
       const d = U.dist(e.x, e.y, pe.x, pe.y);
       const hostile = !pe.dead && !game.pl.capture && !game.defeating;
-      const sees = hostile && (d < (e.indoor ? 14 : 9) || e.aggro) && (d < 3 || ECHO.Ent.lineOfSight(world, e.x, e.y, pe.x, pe.y));
+      const range = e.indoor ? 14 : 9;
+      const sees = hostile && (e.aggro || !ECHO.Stealth ? (d < range || e.aggro) && (d < 3 || ECHO.Ent.lineOfSight(world, e.x, e.y, pe.x, pe.y)) : d < range * 1.8 && ECHO.Stealth.perceive(game, e, d, range));
       if (sees && !e.aggro) { e.aggro = true; for (const o of game.ents) if (o !== e && o.foe && !o.aggro && !o.dead && o.floor === e.floor && U.dist(o.x, o.y, e.x, e.y) < (e.ab && e.ab.pack ? 12 : 7)) o.aggro = true; }
-      if (!e.aggro || !hostile || d > 22) { e.state = 'idle'; e.moving = false; if (Math.random() < dt * 0.2) e.dir = Math.random() * Math.PI * 2; return; }
+      if (!e.aggro || !hostile || d > 22) {
+        e.state = 'idle'; e.moving = false;
+        // something moved over there: go and look
+        if (e.sus > 0.6 && e.lookAt && game.time - e.lookAt.t < 6 && U.dist(e.x, e.y, e.lookAt.x, e.lookAt.y) > 1.5) ECHO.Ent.seek(world, e, e.lookAt.x, e.lookAt.y, e.speed * 0.35, dt);
+        else if (!(e.sus > 0.2) && Math.random() < dt * 0.2) e.dir = Math.random() * Math.PI * 2;
+        return;
+      }
       // a companion close at hand draws some of the blows
       let T = pe, dT = d;
       const comp = game.ents.find(o => o.isCompanion && !o.dead && !o.hidden);
@@ -197,7 +204,7 @@
       if (!site.keys[depth] && (site.floorsDone || {})[depth] && !site.doors[depth]) { const r = G.rooms.find(x => x !== far && x !== ent) || ent; f('chest', r.mx, r.my, { solid: false, scale: 0.5, action: 'delvekey', label: 'Pick up the iron key', colors: { metal: '#ffd84a' } }); }
       // a cache somewhere on each floor, and a treasure room in a dead end
       if (!last) { const r = G.rooms.filter(x => x !== far && x !== ent)[rng.int(0, Math.max(0, G.rooms.length - 3))] || ent; f('chest', r.x1 - 1.5, r.y0 + 1.3, { scale: 0.8, action: 'delvecache', label: (site.caches || {})[depth] ? 'An empty cache' : 'Open the cache' }); }
-      if (G.treasure) { const r = G.treasure; f('chest', r.mx - 0.8, r.y0 + 1.4, { action: 'delvetreasure', label: site.treasure[depth] ? 'An empty strongbox' : 'Open the strongbox', colors: { metal: '#c8d0e0' } }); f('candles', r.mx + 1, r.y0 + 1.2, { solid: false, light: { r: 4, a: 1, color: '#ffe08a', h: 1 } }); L.treasureRoom = r; }
+      if (G.treasure) { const r = G.treasure; f('chest', r.mx - 0.8, r.y0 + 1.4, { action: 'delvetreasure', label: site.treasure[depth] ? 'An empty strongbox' : (site.picked || {})[depth] ? 'Open the strongbox' : 'Pick the strongbox lock', colors: { metal: '#c8d0e0' } }); f('candles', r.mx + 1, r.y0 + 1.2, { solid: false, light: { r: 4, a: 1, color: '#ffe08a', h: 1 } }); L.treasureRoom = r; }
       // traps in the passages
       const ctiles = ECHO.DGen.corridorTiles(G).filter(t => !G.gap.some(g => g.x === t.x && g.y === t.y) && Math.abs(t.x - G.doorX) + Math.abs(t.y - (H - 2)) > 5);
       const nTrap = Math.min(ctiles.length, 2 + depth * 2 + (small ? -1 : 0));
@@ -297,9 +304,13 @@
       }
       if (it.action === 'delvedoor') {
         site.keys = site.keys || {}; site.doors = site.doors || {};
+        if (!site.keys[L.depth] && pl.inv.lockpick > 0 && ECHO.Lockpick) {
+          // no key: a deep lock, but it can be picked
+          return ECHO.Lockpick.open({ pins: 4, speed: 1.15, title: 'The iron door — a deep lock', onDone: ok => { if (ok) { site.keys[L.depth] = true; Q.use(game, it); } } });
+        }
         if (!site.keys[L.depth]) {
           const bearer = game.ents.find(e => e.keybearer && !e.dead);
-          return UI().toast(bearer ? `Locked. ${U.cap(bearer.label)} carries the key — find it and take it.` : 'Locked. The key must be somewhere on this floor.', 'warn', 4);
+          return UI().toast(bearer ? `Locked. ${U.cap(bearer.label)} carries the key — find it and take it.` : 'Locked. The key must be somewhere on this floor.' + (ECHO.Lockpick ? ' (Or pick it — markets sell lockpicks.)' : ''), 'warn', 4);
         }
         site.doors[L.depth] = true;
         for (const d of L.furn.filter(x => x.tag === 'door')) { L.blocked[Math.floor(d.y) * L.W + Math.floor(d.x)] = 0; }
@@ -318,8 +329,15 @@
       if (it.action === 'delvetreasure') {
         site.treasure = site.treasure || {};
         if (site.treasure[L.depth]) return UI().toast('The strongbox is empty.', 'info', 2);
-        const near = game.ents.filter(e => e.delve === site.id && !e.dead && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6).length;
-        if (near) return UI().toast('Not with its guards still standing.', 'warn', 2);
+        // its guards only stop you if they know you're here
+        const near = game.ents.filter(e => e.delve === site.id && !e.dead && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6 && (e.aggro || (e.sus || 0) > 0.5 || !ECHO.PlayerCtl.sneaking)).length;
+        if (near) return UI().toast(ECHO.Stealth ? 'Not with its guards watching. (Crouch, and come at it unseen.)' : 'Not with its guards still standing.', 'warn', 3);
+        site.picked = site.picked || {};
+        if (!site.picked[L.depth] && ECHO.Lockpick) {
+          if (!(pl.inv.lockpick > 0)) return UI().toast('The strongbox is locked. You have no lockpicks — markets sell them.', 'warn', 3);
+          const lvl0 = X().level(world, site);
+          return ECHO.Lockpick.open({ pins: lvl0 >= 4 ? 4 : 3, title: 'The strongbox lock', onDone: ok => { if (ok) { site.picked[L.depth] = true; Q.use(game, it); } } });
+        }
         site.treasure[L.depth] = true; it.label = 'An empty strongbox';
         const lvl = X().level(world, site) + Math.floor((L.depth || 0) / 2);
         const gold = Math.round((40 + Math.random() * 60) * (1 + 0.35 * (lvl - 1))); pl.gold += gold;

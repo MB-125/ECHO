@@ -84,8 +84,9 @@
       if (ECHO.Sfx) ECHO.Sfx.play('explode', { pitch: 1.2 - Math.min(0.5, R * 0.1) });
       if (U.dist(p.x, p.y, game.pe.x, game.pe.y) < 12) game.shake(Math.min(0.4, 0.12 + R * 0.06));
       game.light(p.x, p.y, R * 3 + 1, 0.9, '#ff9a3c', 0.25);
+      if (ECHO.Dilemmas) ECHO.Dilemmas.fireAt(p.x, p.y);
       for (const e of game.ents) {
-        if (e.dead || e.hidden || e.ghost) continue;
+        if (e.dead || e.hidden || e.ghost || e.dqScared) continue;
         if (e === p.from && !p.backfire) continue;
         if (p.from && p.from.isCompanion && (e === game.pe || e.isCompanion)) continue; // a companion's fire spares its friends
         const d = U.dist(p.x, p.y, e.x, e.y);
@@ -285,7 +286,7 @@
       }
       // Being hit makes non-hostile people angry at the player.
       if (from === game.pe && (target.role === 'guard' || target.role === 'soldier')) game.lastHitGuard = game.time;
-      if (from === game.pe && target.type === 'person' && target.hp > 0 && !game.hostileTo(target, game.pe) && !(target.criminal && !target.yielded)) game.crime(target, 'assault', type === 'ranged' ? 'arrow' : /fire|flame|burn|spell/.test(type || '') ? 'fire' : 'blade');
+      if (from === game.pe && target.type === 'person' && target.hp > 0 && !game.hostileTo(target, game.pe) && !(target.criminal && !target.yielded) && !target.dqFoe) game.crime(target, 'assault', type === 'ranged' ? 'arrow' : /fire|flame|burn|spell/.test(type || '') ? 'fire' : 'blade');
       if (from === game.pe && target.type !== 'player') {
         target.aggro = true;
         if (target.type === 'creature' && target.species === 'hare') target.state = 'flee';

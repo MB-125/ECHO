@@ -45,7 +45,7 @@
         x: spawn.x, y: spawn.y, hp: 100, maxHp: 100, stamina: 100, maxSta: 100, mana: 60, maxMana: 60, gold: 25,
         skills: { blade: 5, archery: 5, flame: 2, ward: 4, study: 3, shadow: 2, tongue: 4, endurance: 4 },
         behave: { aggression: 0, caution: 0, reckless: 0, mercy: 0, cruelty: 0, betrayal: 0, protect: 0, curiosity: 0, night: 0 },
-        fate: 3, renown: 0, deeds: [], kills: {}, known: [], studied: {}, inv: { food: 3, herbs: 2, arrows: 24, ore: 0, timber: 0, arms: 0, meat: 0, hide: 0 },
+        fate: 3, renown: 0, deeds: [], kills: {}, known: [], studied: {}, inv: { food: 3, herbs: 2, arrows: 24, lockpick: 2, ore: 0, timber: 0, arms: 0, meat: 0, hide: 0 },
         items: [sword.id, bow.id], weapon: sword.id, bow: bow.id, spells: [], companion: null, capture: null, accepted: [], houseId: house ? house.id : null,
         legacyOf: world.legends.length ? world.legends[world.legends.length - 1].charId : null, mana_overcast: 0, captures: 0
       };

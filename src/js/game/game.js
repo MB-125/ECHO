@@ -90,7 +90,7 @@
       const before = world.day;
       ECHO.Sim.advance(world, dt * Game.minPerSec());
       if (world.day !== before) Game.onNewDay();
-      Game.pl.lanternOn = Game.isNight();
+      Game.pl.lanternOn = Game.isNight() && !(ECHO.PlayerCtl.sneaking && !Game.pe.mounted);   // crouched, you hood the lantern
       // Player
       ECHO.PlayerCtl.update(Game, dt);
       if (ECHO.Monsters) ECHO.Monsters.tickPlayer(Game, dt);
@@ -135,6 +135,8 @@
       if (ECHO.Climate) ECHO.Climate.update(Game, dt);
       if (ECHO.WildWater) ECHO.WildWater.update(Game, dt);
       if (ECHO.Boats) ECHO.Boats.update(Game, dt);
+      if (ECHO.Dilemmas) ECHO.Dilemmas.update(Game, dt);
+      if (ECHO.Stealth) ECHO.Stealth.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -245,6 +247,7 @@
     },
     shake(a) { Game.shakeT = 0.25; Game.shakeA = Math.max(Game.shakeA * (Game.shakeT > 0 ? 1 : 0), a); },
     noise(x, y, r) {
+      if (ECHO.Stealth) ECHO.Stealth.loud(Game, x, y, r * 1.3);
       for (const e of Game.ents) {
         if (e.type !== 'person' || e.dead || !e.sleeping) continue;
         if (U.dist(x, y, e.x, e.y) < r * (1 - Game.pl.skills.shadow / 200)) { e.sleeping = false; e.aggro = true; e.target = Game.pe; }
@@ -530,6 +533,7 @@
       }
       if (ECHO.Interior.cur) {
         out.push(...ECHO.Interior.interactables(Game));
+        if (ECHO.Stealth) out.push(...ECHO.Stealth.interactables(Game));
         for (const l of Game.loot) if (l.kind === 'item' && near(l.x, l.y, 1.3)) out.push({ kind: 'item', loot: l, label: `Take ${world.items[l.itemId] ? world.items[l.itemId].name : 'item'}`, d: U.dist(l.x, l.y, pe.x, pe.y) });
         out.sort((a, b) => a.d - b.d);
         return out;
@@ -578,6 +582,8 @@
       if (ECHO.Riders) out.push(...ECHO.Riders.interactables(Game));
       if (ECHO.Water) out.push(...ECHO.Water.interactables(Game));
       if (ECHO.Boats) out.push(...ECHO.Boats.interactables(Game));
+      if (ECHO.Dilemmas) out.push(...ECHO.Dilemmas.interactables(Game));
+      if (ECHO.Stealth) out.push(...ECHO.Stealth.interactables(Game));
       out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game), ...ECHO.Patrol.interactables(Game), ...ECHO.Finds.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;

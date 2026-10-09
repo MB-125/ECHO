@@ -17,6 +17,12 @@
       if (o.type === 'creature' && o.species === 'hare') continue;
       let d = U.dist(e.x, e.y, o.x, o.y);
       let s = sight;
+      // you: suspicion has to build before they really see you
+      if (o === game.pe && ECHO.Stealth && !e.aggro) {
+        if (d > s * 1.8 || d >= bd) continue;
+        if (!ECHO.Stealth.perceive(game, e, d, s)) continue;
+        best = o; bd = d; continue;
+      }
       if (o === game.pe) {
         if (game.pe.sneaking) s *= 0.55;
         s *= 1 - game.pl.skills.shadow / 260;
@@ -51,6 +57,7 @@
       e.t += dt;
       if (e.stagger > 0) { e.stagger -= dt; return; }
       const speed = e.speed * (1 + (e.traits ? e.traits.speed * 0.4 : 0)) * (game.isNight() && e.species === 'wolf' ? 1.1 : 1);
+      if (e.dq && ECHO.Dilemmas && ECHO.Dilemmas.creature(game, e, dt, speed)) return;
       if (e.species === 'hare') return Creature.hare(game, e, dt, speed);
       const target = (e.target && !e.target.dead && U.dist(e.x, e.y, e.target.x, e.target.y) < 14) ? e.target : findTarget(game, e, sightFor(game, e, sp.sight) * (e.aggro ? 1.6 : 1));
       e.target = target;
@@ -323,6 +330,7 @@
       e.target = target;
 
       if (e.rider && ECHO.Riders && ECHO.Riders.think(game, e, npc, dt, target)) return;
+      if (e.dq && ECHO.Dilemmas && ECHO.Dilemmas.think(game, e, npc, dt, target)) return;
       if (e.role === 'companion') return Person.companion(game, e, npc, dt, target);
       if (target) {
         if (!fighter || (ECHO.People.has(npc, 'cowardly') && e.hp < e.maxHp * 0.5) || npc.prof === 'child') return Person.flee(game, e, target, dt);

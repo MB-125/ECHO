@@ -313,3 +313,29 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 #hud-tut .tt-t { margin: 4px 0 2px; font-size: 16px; color: #f0e2c8; font-family: var(--serif); }
 #hud-tut .tt-x { color: #d8ccb0; line-height: 1.35; }
 #hud-tut b { color: #ffe8a8; }
+/* stealth */
+#hud-stealth { display: flex; align-items: center; gap: 7px; margin-top: 3px; font-size: 12px; color: #cfc4e8; text-shadow: 0 1px 0 #000; }
+#hud-stealth:empty { display: none; }
+#hud-stealth .eye { font-size: 15px; line-height: 1; }
+#hud-stealth .hb { position: relative; width: 60px; height: 4px; background: rgba(0,0,0,0.6); }
+#hud-stealth .hb i { position: absolute; left: 0; top: 0; bottom: 0; background: #9a8ac8; }
+#hud-stealth .hb.sus i { background: #e8b84a; }
+#hud-stealth.hid .eye { color: #6a6a8a; } #hud-stealth.hid .sw { color: #a8a0c8; }
+#hud-stealth.dim .eye { color: #9a90c0; }
+#hud-stealth.open .eye { color: #f0e8d0; }
+#hud-stealth.sus .eye, #hud-stealth.sus .sw { color: #ffc84a; }
+#hud-stealth.seen .eye, #hud-stealth.seen .sw { color: #ff6a4a; font-weight: bold; }
+#hud-stealth .dim { color: #8a84a8; font-size: 11px; }
+#lockpick { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(8,6,12,0.55); }
+#lockpick.hidden { display: none; }
+#lockpick .lp-inner { width: min(460px, calc(100vw - 32px)); background: #1a1612; border: 1px solid #6a5a3a; border-radius: 6px; padding: 16px 18px; color: #e8dcc0; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+#lockpick h3 { margin: 0 0 10px; font-family: var(--serif); color: #f0d890; }
+#lockpick .lp-pins { display: flex; flex-direction: column; gap: 8px; }
+#lockpick .lp-pin { position: relative; height: 16px; background: #2a241c; border: 1px solid #4a3e2a; border-radius: 3px; overflow: hidden; }
+#lockpick .lp-pin.set { background: #3a4a2a; border-color: #7a9a5a; }
+#lockpick .lp-pin.set .lp-spot { background: #8ac85a; }
+#lockpick .lp-spot { position: absolute; top: 0; bottom: 0; background: rgba(255,214,120,0.35); border-left: 1px solid #ffd878; border-right: 1px solid #ffd878; }
+#lockpick .lp-pin.cur .lp-spot { background: rgba(255,224,140,0.6); }
+#lockpick .lp-pick { position: absolute; top: -2px; bottom: -2px; width: 3px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px #fff; }
+#lockpick .lp-help { margin-top: 10px; font-size: 13px; color: #b8ac90; }
+#lockpick .lp-picks { margin-top: 4px; font-size: 12px; color: #d8c890; }
