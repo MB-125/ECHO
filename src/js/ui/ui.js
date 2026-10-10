@@ -379,6 +379,7 @@
       if (ECHO.Tutorial) ECHO.Tutorial.flag('market');
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const body = UI.openPanel(`Market of ${s.name}`, '', 'market');
+      if (ECHO.Courier) ECHO.Courier.note(world, pl, s);
       if (ECHO.Minds.refuses(world, s, pl)) { body.innerHTML = `<p class="prose">The stallholders turn their backs on you. "We don't trade with your kind here. Go on — before someone calls the guard."</p>`; return; }
       const render = () => {
         const hist = s.priceHistory.slice(-20);
@@ -643,6 +644,7 @@
       body.innerHTML = `<p class="prose">${keeper ? `<b>${esc(P().name(keeper))}</b> pours you something warm. "${esc(ECHO.Dialogue.ambient(world, keeper, null) || 'What\'ll it be?')}"` : 'The common room is warm and loud.'}</p>
         <div class="list">
           <div class="card"><h4>A bed for the night — ${room} crowns</h4><div class="dim">Sleep until morning. Wake whole.</div><div class="row"><button data-a="night" ${pl.gold < room ? 'disabled' : ''}>Sleep</button></div></div>
+          <div class="card"><h4>A game of knucklebones</h4><div class="dim">There's always someone at the corner table with a cup of bones and a few crowns to lose.</div><div class="row"><button data-a="dice">Sit down to play</button></div></div>
           <div class="card"><h4>A hot meal — 2 crowns</h4><div class="dim">Bread for the road.</div><div class="row"><button data-a="meal" ${pl.gold < 2 ? 'disabled' : ''}>Buy (adds 2 food)</button></div></div>
           <div class="card"><h4>Stay a week — ${week} crowns</h4><div class="dim">Seven days of rest. The world will not wait for you.</div><div class="row"><button data-a="week" ${pl.gold < week ? 'disabled' : ''}>Stay</button></div></div>
           <div class="card"><h4>Stay the season — ${season} crowns</h4><div class="dim">Fifteen days. Kingdoms may rise and fall.</div><div class="row"><button data-a="season" ${pl.gold < season ? 'disabled' : ''}>Stay</button></div></div>
@@ -657,6 +659,7 @@
       body.querySelectorAll('button[data-a]').forEach(b => b.addEventListener('click', () => {
         const a = b.dataset.a;
         if (a === 'meal') { pl.gold -= 2; pl.inv.food += 2; UI.closePanel(); return; }
+        if (a === 'dice') { UI.closePanel(); if (ECHO.Pet) ECHO.Pet.dice(game, s); return; }
         UI.closePanel();
         if (a === 'night') { pl.gold -= room; UI.sleepUntilMorning(s); }
         if (a === 'week' || a === 'season') {
@@ -978,9 +981,10 @@
     openBoard(s, tab0) {
       const game = ECHO.Game, world = game.world, pl = game.pl;
       let tab = tab0 || 'pleas';
+      if (ECHO.Courier) ECHO.Courier.deliver(game, s);
       const body = UI.openPanel(`Notice board — ${s.name}`, '', 'board');
       const render = () => {
-        const tabs = [['pleas', 'Pleas'], ['requests', 'Requests'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['affairs', 'Town affairs']];
+        const tabs = [['pleas', 'Pleas'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['affairs', 'Town affairs']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'pleas') html += '<p class="dim">Pleas, bounties and warnings, nailed up by people who will not wait forever.</p><div class="list" id="pl"></div>';
         else if (tab === 'law') {
@@ -994,6 +998,7 @@
           const trials = world.chronicle.filter(e => e.kind === 'crime' && e.sid === s.id && /tried|hanged|banished|stocks/.test(e.text)).slice(-6).reverse();
           if (trials.length) html += `<h4 class="ware-h">Recent judgements</h4>${trials.map(e => `<div class="card"><span class="dim">${T.fmtDate(e.d)}</span> — ${esc(e.text)}</div>`).join('')}`;
         } else if (tab === 'requests') html += ECHO.Dilemmas ? ECHO.Dilemmas.boardHtml(world, s, pl) : '';
+        else if (tab === 'post') html += ECHO.Courier ? ECHO.Courier.boardHtml(world, s, pl) : '';
         else if (tab === 'watch') html += UI.watchHtml(s);
         else if (tab === 'bounty') {
           const B = ECHO.Bounty, today = B.forTown(world, s), mine = B.mine(pl);
@@ -1023,6 +1028,7 @@
           for (const p of world.plights) if (p.status === 'open' && p.kind === 'apex' && p.playerDone && !p.claimable) { p.claimable = true; UI.fillPlights(body.querySelector('#pl'), s); }
         }
         if (tab === 'deeds') UI.bindDeeds(body, s, render);
+        if (tab === 'post') body.querySelectorAll('button[data-post]').forEach(b => b.addEventListener('click', () => { const why = ECHO.Courier.accept(game, s, b.dataset.post); if (why) UI.toast(why, 'warn', 3); else UI.toast('Into your bag it goes. The line at the top of the screen points the way.', 'info', 3); render(); }));
         if (tab === 'requests') body.querySelectorAll('button[data-dq]').forEach(b => b.addEventListener('click', () => { const q = ECHO.Dilemmas.st(world).list.find(x => x.id === b.dataset.dq); if (q) { ECHO.Dilemmas.accept(game, q); UI.toast(`You take the request. ${q.who} will be waiting.`, 'info', 3); } render(); }));
         if (tab === 'bounty') body.querySelectorAll('button[data-bounty]').forEach(b => b.addEventListener('click', () => { const bt = ECHO.Bounty.forTown(world, s).find(x => x.id === b.dataset.bounty); const why = ECHO.Bounty.accept(world, pl, bt); if (why) UI.toast(why, 'warn', 3); else UI.toast('You tear the bounty from the board.', 'info', 2); render(); }));
         if (tab === 'watch') body.querySelectorAll('button[data-case]').forEach(b => b.addEventListener('click', () => { pl.investigating = b.dataset.case; UI.toast('You take down the notice. (Added to your journal.)', 'info', 3); render(); }));
@@ -1174,6 +1180,7 @@
       let tab = 'chron', filter = 'all', page = 0;
       const render = () => {
         const tabs = [['chron', 'The Chronicle'], ['realm', 'The Realm'], ['legends', 'Legends'], ['tongue', 'The Old Tongue'], ['research', 'Patronage']];
+        if (ECHO.Sketch && (pl.sketches || []).length) tabs.push(['sketch', 'Sell sketches']);
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'chron') {
           const kinds = ['all', 'war', 'politics', 'economy', 'crime', 'nature', 'era', 'legacy', 'player', 'intel', 'mystery', 'life', 'death', 'plight'];
@@ -1210,6 +1217,8 @@
           html += `<p class="prose">The ruins speak <b>${esc(lang.name)}</b>, a tongue no one has spoken in an age. You know ${known.length} of its words.</p>
             <div class="tablet" style="font-size:18px">${known.map(w => `<span class="w k">${esc(w)}</span> = <span class="w u">${ECHO.Mysteries.runes(world, w)}</span>`).join(' · ') || '<span class="dim">Nothing yet.</span>'}</div>
             <p>A scholar will puzzle out one word from the tablets you have studied, for <b class="gold">${lang.scholarCost}</b> crowns.</p><button data-tr="1" ${pl.gold < lang.scholarCost ? 'disabled' : ''}>Pay the scholar</button>`;
+        } else if (tab === 'sketch') {
+          html += ECHO.Sketch.archiveHtml(pl) || '<p class="dim">The archive has a copy of everything in your sketchbook. Draw something new.</p>';
         } else if (tab === 'research') {
           const f = world.factions[s.faction];
           const next = ECHO.Civ.THRESH[f.tech.era + 1];
@@ -1232,6 +1241,7 @@
         }
         body.innerHTML = html;
         body.querySelectorAll('button[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; page = 0; render(); }));
+        if (tab === 'sketch' && ECHO.Sketch) ECHO.Sketch.bindArchive(body, render);
         body.querySelectorAll('button[data-f]').forEach(b => b.addEventListener('click', () => { filter = b.dataset.f; page = 0; render(); }));
         body.querySelectorAll('button[data-p]').forEach(b => b.addEventListener('click', () => { page += +b.dataset.p; render(); body.scrollTop = 0; }));
         const tr = body.querySelector('button[data-tr]');

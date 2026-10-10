@@ -263,7 +263,7 @@
       prospect: 'Buy a pan at a market, wade into a shallow river and press E to pan. Swirl the gravel away when the glint is in the notch.',
       bard: 'Buy a lute at a market. Play in a town square or an inn (E near the well or the inn\'s hearth, or the P key), hitting the notes in time.',
       courier: 'The Deliveries tab on any notice board: parcels and letters for other towns. Deliver to that town\'s innkeeper before the day they\'re due.',
-      artist: 'Buy a sketchbook at a market. Stand near a landmark, a wonder, a dungeon mouth or a creature and press K\'s Sketch button — or E at the place — to draw it. Scholars at the archives buy sketches.'
+      artist: 'Buy a sketchbook at a market. Near a landmark, a dungeon mouth, a town seen from outside, or a creature, press E to sit and draw it — and keep still. Scholars at any archive buy a fair copy of each.'
     },
     // ------------------------------------------------------------ each frame
     interactables(game) {

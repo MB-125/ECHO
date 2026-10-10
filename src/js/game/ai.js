@@ -56,6 +56,7 @@
       e.cd = Math.max(0, e.cd - dt);
       e.t += dt;
       if (e.stagger > 0) { e.stagger -= dt; return; }
+      if (e.pet) return ECHO.Pet.think(game, e, dt);
       if (e.fauna) return ECHO.Fauna.deer(game, e, dt);
       const speed = e.speed * (1 + (e.traits ? e.traits.speed * 0.4 : 0)) * (game.isNight() && e.species === 'wolf' ? 1.1 : 1);
       if (e.dq && ECHO.Dilemmas && ECHO.Dilemmas.creature(game, e, dt, speed)) return;

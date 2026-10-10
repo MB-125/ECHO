@@ -903,7 +903,7 @@
       if (e.shape === 'spider' || e.shape === 'slime') inst = R.procMonster(e);
       else if (e.shape === 'rat') inst = ECHO.Models.instance('gnawer');
       else if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) inst = ECHO.Models.instance('person');
-      else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' || e.species === 'deer' ? 'stag' : e.species);
+      else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' || e.species === 'deer' ? 'stag' : e.species === 'dog' ? 'wolf' : e.species);
       else if (e.type === 'boss') inst = ECHO.Models.instance(e.boss.kind);
       if (!inst) return null;
       v = { inst, kind, cfgT: 0, dir: e.dir || 0, bob: Math.random() * 6 };
@@ -971,7 +971,8 @@
         return;
       }
       if (e.type === 'creature') {
-        const base = { wolf: 'fur', gnawer: 'rat', hare: 'hare' }[e.species];
+        const base = { wolf: 'fur', dog: 'fur', gnawer: 'rat', hare: 'hare' }[e.species];
+        if (e.species === 'dog') { M.recolor(inst, 'fur', e.coat || '#8a5a32'); M.recolor(inst, 'eyeglow', '#1a1410'); for (const m of inst.mats) if (m.emissive) m.emissive.set('#000000'); M.show(inst, 'horn', false); inst.root.scale.setScalar(0.66); return; }
         const tint = e.winter ? '#eef2f8' : e.mutation === 'mirrorback' ? '#b8c4d4' : e.mutation === 'emberfur' ? '#a8502a' : e.strain === 'Ashen' ? '#8e8e8a' : e.strain === 'Ironhide' ? '#5a4632' : null;
         if (tint) M.recolor(inst, base, tint);
         if (e.mutation === 'paleshade') for (const m of inst.mats) { m.transparent = true; m.opacity = 0.5; }

@@ -29,6 +29,7 @@
     [/house|property/i, 'In any town, use the notice board → Property & business to buy a house, fields, or a share of a mill, mine, smithy or inn.'],
     [/standing in a town/i, 'Help a town and it remembers: do its pleas, work for its watch, sell it food when it is hungry.'],
     [/village|charter|people living|people in your lands|projects/i, 'Buy a royal charter at a capital\'s keep, clear the land, and name your village. Then build it up from its square: houses, fields, walls; invite settlers.'],
+    [/peace|peaceful|without fight|not fight|forag|cook|pan|gold|lute|music|sketch|deliver|post|dog|dice/i, 'You never have to fight. Forage in the woods (E at bushes, mushrooms, nests), cook at a campfire (B) or an inn, pan rivers for gold, play a lute for coin (P in a town square or inn), carry the post (Deliveries on any notice board), sketch places and creatures for the archives, adopt a stray dog, or play knucklebones at an inn. All of it pays and earns experience — see Crafts & pastimes in your journal (Tab).'],
     [/crowns|worth/i, 'Money: sell monster parts and gear at any market, open dungeon chests and caches, collect bounties, work a shift in town, or buy into a business.'],
     [/lend/i, 'People in trouble sometimes ask for a loan when you talk to them.'],
     [/old tongue|words|ruins|echoes|archive|vault/i, 'Ruins hold tablets in the old tongue — visit them and read (E). The archives in capitals keep what you learn. On clear nights, wisps lead to the Echoes.'],

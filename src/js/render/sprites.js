@@ -480,7 +480,8 @@
         return;
       }
       const walk = e.moving ? Math.sin(e.anim * 16) : 0;
-      let base = ECHO.SPECIES[sp].color;
+      let base = sp === 'dog' ? (e.coat || '#8a5a32') : ECHO.SPECIES[sp].color;
+      if (sp === 'dog') g.scale(0.72, 0.72);
       if (e.strain && S.STRAIN_TINT[e.strain]) base = mix(base, S.STRAIN_TINT[e.strain], 0.65);
       if (e.mutation === 'mirrorback') base = '#b8c4d4';
       if (e.winter) base = '#e8eef4';

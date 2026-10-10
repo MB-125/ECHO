@@ -270,6 +270,7 @@
     // Who fights whom.
     hostileTo(a, b) {
       if (!a || !b || a === b || a.dead || b.dead) return false;
+      if (a.pet || b.pet) return false;
       const pl = Game.pl;
       const side = e => (e.type === 'player' || e.isCompanion) ? 'player' : e.type === 'boss' ? 'beast' : e.type === 'creature' ? (e.species === 'hare' || e.species === 'hind' ? 'prey' : 'beast') : 'person';
       const sa = side(a), sb = side(b);
