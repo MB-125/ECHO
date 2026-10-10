@@ -292,7 +292,7 @@
       if (from === game.pe && target.type === 'person' && target.hp > 0 && !game.hostileTo(target, game.pe) && !(target.criminal && !target.yielded) && !target.dqFoe) game.crime(target, 'assault', type === 'ranged' ? 'arrow' : /fire|flame|burn|spell/.test(type || '') ? 'fire' : 'blade');
       if (from === game.pe && target.type !== 'player') {
         target.aggro = true;
-        if (target.type === 'creature' && target.species === 'hare') target.state = 'flee';
+        if (target.type === 'creature' && target.species === 'hare') { target.state = 'flee'; target.fleeFrom = { x: from.x, y: from.y }; target.calmT = 3; }
       }
       if (from && from.isCompanion && ECHO.Companions) ECHO.Companions.landed(game, from, target, type, crit);
       if (ECHO.Companions && (target.isCompanion || target === game.pe)) ECHO.Companions.afterHit(game, target);

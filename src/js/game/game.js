@@ -100,11 +100,19 @@
       // Others
       for (const e of Game.ents) {
         if (e === Game.pe || e.dead) continue;
-        if (e.marvel) ECHO.Marvels.updateEnt(Game, e, dt);
-        else if (e.humanoid) ECHO.Quests.updateFoe(Game, e, dt);
-        else if (e.type === 'creature') ECHO.AI.Creature.update(Game, e, dt);
-        else if (e.type === 'person') ECHO.AI.Person.update(Game, e, dt);
-        else if (e.type === 'boss') ECHO.Boss.update(Game, e, dt);
+        try {
+          if (e.marvel) ECHO.Marvels.updateEnt(Game, e, dt);
+          else if (e.humanoid) ECHO.Quests.updateFoe(Game, e, dt);
+          else if (e.type === 'creature') ECHO.AI.Creature.update(Game, e, dt);
+          else if (e.type === 'person') ECHO.AI.Person.update(Game, e, dt);
+          else if (e.type === 'boss') ECHO.Boss.update(Game, e, dt);
+        } catch (err) {
+          // One confused creature must never freeze the world: report it once,
+          // and if it keeps failing, quietly take it out of the scene.
+          e._errs = (e._errs || 0) + 1;
+          if (!Game._aiErrSeen) { Game._aiErrSeen = true; console.error('ECHO: an entity update failed (the game carries on):', e.type, e.species || e.role || '', err); }
+          if (e._errs > 30 && e.type !== 'boss' && !e.isCompanion) { e.dead = true; e.vanish = true; }
+        }
         e.hurtT = Math.max(0, e.hurtT - dt);
         e.anim += dt * (e.moving ? 1 : 0.3);
         if (e.attackT) e.attackT = Math.max(0, e.attackT - dt);

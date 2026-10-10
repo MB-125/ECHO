@@ -101,6 +101,7 @@
       const threat = game.ents.find(o => !o.dead && !o.hidden && (o === game.pe || o.type === 'person' || (o.type === 'creature' && (o.species === 'wolf' || (o.species === 'fox' && o.state !== 'stalk')))) && U.dist(o.x, o.y, e.x, e.y) < (o === game.pe && game.pe.sneaking ? 2.5 : 5));
       if (threat || e.state === 'flee') {
         if (threat) { e.fleeFrom = { x: threat.x, y: threat.y }; e.calmT = 3; }
+        if (!e.fleeFrom) e.fleeFrom = game.pe ? { x: game.pe.x, y: game.pe.y } : { x: e.x - 1, y: e.y };   // hit from afar: run from where it came
         e.state = 'flee';
         const a = Math.atan2(e.y - e.fleeFrom.y, e.x - e.fleeFrom.x) + Math.sin(e.t * 2.2) * 0.35;
         ECHO.Ent.seek(game.world, e, e.x + Math.cos(a) * 2, e.y + Math.sin(a) * 2, speed, dt, 0.1);
