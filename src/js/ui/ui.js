@@ -74,7 +74,7 @@
       const hon = pl.honor || (ECHO.Ambition && ECHO.Ambition.honor(pl));
       set('#hud-title', hon ? `${hon} · ${ECHO.Character.title(pl)}` : ECHO.Character.title(pl));
       $('#hud-left .hp .fill').style.transform = `scaleX(${U.clamp(pl.hp / pl.maxHp, 0, 1)})`;
-      set('#hud-left .hp span', Math.ceil(pl.hp) + ' / ' + Math.round(pl.maxHp));
+      set('#hud-left .hp span', U.fmt(Math.ceil(pl.hp)) + ' / ' + U.fmt(pl.maxHp));
       $('#hud-left .sta .fill').style.transform = `scaleX(${U.clamp(pl.stamina / pl.maxSta, 0, 1)})`;
       $('#hud-left .mana .fill').style.transform = `scaleX(${U.clamp(pl.mana / pl.maxMana, 0, 1)})`;
       set('#hud-fate', 'Fate ' + '◆'.repeat(Math.max(0, pl.fate)) + '◇'.repeat(Math.max(0, 3 - pl.fate)));
@@ -587,7 +587,7 @@
       const pow = Pw.power(world, pl);
       return `<h3 class="gold">Prowess</h3><div class="prowess-card"><div style="text-align:center;min-width:86px"><div class="big" style="color:${R.color}">Lv ${L}</div><div style="color:${R.color}">${esc(R.title)}</div></div>
         <div style="flex:1"><div class="xp"><i style="width:${L >= Pw.MAX ? 100 : Math.round(st.xp / need * 100)}%"></i></div>
-        <div class="dim" style="font-size:13px">${L >= Pw.MAX ? 'You have reached the height of your strength.' : `${Math.floor(st.xp)} / ${need} experience to level ${L + 1}`}${nx ? ` · ${esc(nx.title)} at level ${nx.lv}` : ''}</div>
+        <div class="dim" style="font-size:13px">${L >= Pw.MAX ? 'You have reached the height of your strength.' : `${U.fmt(Math.floor(st.xp))} / ${U.fmt(need)} experience to level ${L + 1}`}${nx ? ` · ${esc(nx.title)} at level ${nx.lv}` : ''}</div>
         <div style="font-size:13px;margin-top:4px">Power <b class="gold">${pow.total}</b> · sword <b>${pow.melee}</b> a blow · bow <b>${pow.bow}</b> a shot · armour <b>${pow.def}</b></div>
         <div class="dim" style="font-size:12px">From your level: +${Math.round((Pw.dmgMult(pl) - 1) * 100)}% damage, +${Pw.hpBonus(pl)} life, +${Pw.staBonus(pl)} stamina. Strongest foe beaten: ${st.best ? 'level ' + st.best : 'none yet'}.</div>
         <div class="rank-ladder" style="margin-top:4px">${Pw.RANKS.map(r => `<span style="color:${L >= r.lv ? r.color : '#5a5248'}">${L >= r.lv ? '◆' : '◇'} ${esc(r.title)}</span>`).join('')}</div>

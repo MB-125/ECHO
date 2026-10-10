@@ -1020,7 +1020,7 @@
     drawLabels(game) {
       const ctx = R.ctx, world = game.world;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      const fs = Math.round(11 * R.dpr * Math.max(1, R.Z / 3));
+      const fs = Math.round(13 * R.dpr * Math.max(1, R.Z / 3));
       ctx.font = `${fs}px "Pixelify Sans", monospace`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       const mouse = game.screenToWorld(ECHO.Input.mx, ECHO.Input.my);
@@ -1036,14 +1036,22 @@
         ctx.fillStyle = '#f2d47a'; ctx.fillText(t1, p.x, p.y - fs - 6 * R.dpr);
         ctx.fillStyle = '#e8dcc0'; ctx.fillText(info.sub, p.x, p.y - 4 * R.dpr);
       }
-      const text = (t, x, y, col, bg) => {
+      const placed = [];
+      // avoid: keep this text clear of the other labels and numbers already drawn this frame
+      const text = (t, x, y, col, bg, avoid) => {
         const w = ctx.measureText(t).width;
-        if (bg) { ctx.fillStyle = bg; ctx.fillRect(x - w / 2 - 4 * R.dpr, y - fs - 3 * R.dpr, w + 8 * R.dpr, fs + 5 * R.dpr); }
-        ctx.lineWidth = 3 * R.dpr; ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.strokeText(t, x, y);
+        if (avoid) {
+          const hh = parseInt(ctx.font, 10) || fs;
+          y = Math.max(y, hh + 92 * R.dpr);
+          for (let k = 0; k < 8; k++) { const hit = placed.find(r => x - w / 2 - 4 < r[2] && x + w / 2 + 4 > r[0] && y - hh - 2 < r[3] && y + 2 > r[1]); if (!hit) break; y = hit[1] - 3 * R.dpr; }
+          placed.push([x - w / 2, y - hh, x + w / 2, y]);
+        }
+        if (bg) { ctx.fillStyle = bg; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x - w / 2 - 6 * R.dpr, y - fs - 4 * R.dpr, w + 12 * R.dpr, fs + 7 * R.dpr, 5 * R.dpr); else ctx.rect(x - w / 2 - 6 * R.dpr, y - fs - 4 * R.dpr, w + 12 * R.dpr, fs + 7 * R.dpr); ctx.fill(); }
+        ctx.lineJoin = 'round'; ctx.lineWidth = 4 * R.dpr; ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.strokeText(t, x, y);
         ctx.fillStyle = col; ctx.fillText(t, x, y);
       };
-      if (ECHO.Progress) for (const ll of ECHO.Progress.lootLabels(game)) { if (!R.onScreen(game, ll.x, ll.y)) continue; const p = R.toScreen(game, ll.x, ll.y); text(ll.text, p.x, p.y - 8 * R.Z, ll.color); }
-      if (ECHO.Progress) for (const sl of ECHO.Progress.siteLabels(game)) { if (!R.onScreen(game, sl.x, sl.y)) continue; const p = R.toScreen(game, sl.x, sl.y); ctx.globalAlpha = sl.a; text(sl.text, p.x, p.y - 30 * R.Z, sl.color); ctx.globalAlpha = 1; }
+      if (ECHO.Progress) for (const ll of ECHO.Progress.lootLabels(game)) { if (!R.onScreen(game, ll.x, ll.y)) continue; const p = R.toScreen(game, ll.x, ll.y); text(ll.text, p.x, p.y - 8 * R.Z, ll.color, null, true); }
+      if (ECHO.Progress) for (const sl of ECHO.Progress.siteLabels(game)) { if (!R.onScreen(game, sl.x, sl.y)) continue; const p = R.toScreen(game, sl.x, sl.y); ctx.globalAlpha = sl.a; text(sl.text, p.x, p.y - 30 * R.Z, sl.color, 'rgba(14,10,8,0.66)', true); ctx.globalAlpha = 1; }
       for (const e of game.ents) {
         if (e.dead || e.hidden || e === game.pe) continue;
         if (!R.onScreen(game, e.x, e.y)) continue;
@@ -1057,7 +1065,7 @@
           ctx.fillStyle = '#2a2420'; ctx.fillText(e.say, p.x, top - 5 * R.dpr);
           continue;
         }
-        if (e.type === 'boss') { const lb = ECHO.Progress ? ECHO.Progress.label(game, e) : { text: e.label, color: '#ffcf8a' }; text(lb.text, p.x, top, lb.color); continue; }
+        if (e.type === 'boss') { const lb = ECHO.Progress ? ECHO.Progress.label(game, e) : { text: e.label, color: '#ffcf8a' }; text(lb.text, p.x, top, lb.color, 'rgba(14,10,8,0.66)', true); continue; }
         if (e.marvel) { if (e.label && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6) text(e.label, p.x, top, '#bfe8ff'); continue; }
         if (e.yielded) { text('yields — [E] to spare', p.x, top, '#9fe0c8'); continue; }
         if (e.sleeping && hover) { text('asleep', p.x, top, '#9fb7d8'); continue; }
@@ -1065,7 +1073,7 @@
         if (foeish) {
           if (hover || e === ECHO.PlayerCtl.lock || e.boss2 || e.beast || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 9) {
             const lb = ECHO.Progress.label(game, e);
-            text(lb.text, p.x, top, lb.color);
+            text(lb.text, p.x, top, lb.color, 'rgba(14,10,8,0.66)', true);
             if (e.hp < e.maxHp && e.type === 'creature') { const bw = 44 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, top + 4 * R.dpr, bw, bh); ctx.fillStyle = e.boss2 ? '#ffcf5a' : '#e05a4a'; ctx.fillRect(p.x - bw / 2, top + 4 * R.dpr, bw * Math.max(0, e.hp / e.maxHp), bh); }
           }
           continue;
@@ -1083,7 +1091,7 @@
           }
         } else if (e.type === 'creature' && e.lvl && !e.dead) {
           if (hover || e.label || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 8) {
-            text(`${e.label || e.foe.name} · lv ${e.lvl}`, p.x, top, e.boss2 ? '#ffcf5a' : e.elite ? '#ff9a7a' : '#ffb0a0');
+            text(`${e.label || e.foe.name} · Lv ${e.lvl}`, p.x, top, e.boss2 ? '#ffcf5a' : e.elite ? '#ff9a7a' : '#ffb0a0', 'rgba(14,10,8,0.66)', true);
             if (e.hp < e.maxHp) { const bw = 44 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, top + 4 * R.dpr, bw, bh); ctx.fillStyle = e.boss2 ? '#ffcf5a' : '#e05a4a'; ctx.fillRect(p.x - bw / 2, top + 4 * R.dpr, bw * Math.max(0, e.hp / e.maxHp), bh); }
           }
         } else if (e.type === 'creature' && e.label && !e.marvel) {
@@ -1098,9 +1106,9 @@
         if (!R.onScreen(game, f.x, f.y)) continue;
         const p = R.toScreen(game, f.x, f.y);
         ctx.globalAlpha = Math.max(0, 1 - f.t / f.life);
-        if (f.big) ctx.font = `${Math.round(fs * 1.35)}px "Pixelify Sans", monospace`;
-        text(f.text, p.x, p.y, f.color);
-        if (f.big) ctx.font = `${fs}px "Pixelify Sans", monospace`;
+        ctx.font = `${Math.round(fs * (f.big ? 1.6 : 1.25))}px "Pixelify Sans", monospace`;
+        text(f.text, p.x, p.y, f.color, null, true);
+        ctx.font = `${fs}px "Pixelify Sans", monospace`;
         ctx.globalAlpha = 1;
       }
       if (ECHO.Marvels && !ECHO.Interior.cur) { ECHO.Marvels.drawSky(ctx, game, R.cw, R.ch); ECHO.Marvels.drawHints(ctx, game, (x, y) => R.toScreen(game, x, y), R.cw, R.ch); }

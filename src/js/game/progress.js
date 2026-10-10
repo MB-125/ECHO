@@ -144,7 +144,7 @@
       Pg._hud = key;
       const el = document.getElementById('hud-rank');
       if (!el) return;
-      el.innerHTML = `<span class="rk" style="color:${R.color}">Lv ${L} · ${R.title}</span><span class="xp"><i style="width:${Math.round(frac * 100)}%"></i></span><span class="xpn">${L >= Pw().MAX ? 'max' : `${Math.floor(s.xp)}/${need} xp`}</span>`;
+      el.innerHTML = `<span class="rk" style="color:${R.color}">Lv ${L} · ${R.title}</span><span class="xp"><i style="width:${Math.round(frac * 100)}%"></i></span><span class="xpn">${L >= Pw().MAX ? 'max' : `${U.short(Math.floor(s.xp))}/${U.short(need)} xp`}</span>`;
     },
     targetHud(game) {
       const el = document.getElementById('hud-target');
@@ -163,7 +163,7 @@
       el.innerHTML = `<div class="tn"><b>${esc(name)}</b></div>
         <div class="tl"><span style="color:${D.color}">Lv ${L}</span> · <span style="color:${RK.color}">${RK.name}</span> · <span style="color:${D.color}">${'☠'.repeat(D.skulls)}${D.skulls ? ' ' : ''}${D.word}</span></div>
         <div class="tb"><i style="width:${Math.max(0, Math.round(e.hp / e.maxHp * 100))}%;background:${D.color}"></i></div>
-        <div class="td">${gap > 0 ? `${gap} level${gap > 1 ? 's' : ''} above you` : gap < 0 ? `${-gap} level${gap < -1 ? 's' : ''} below you` : 'your equal'} · worth ~${Pw().xpFor(pl, e)} xp</div>
+        <div class="td"><b>${U.fmt(Math.max(0, Math.ceil(e.hp)))} / ${U.fmt(e.maxHp)}</b> life · ${gap > 0 ? `${gap} level${gap > 1 ? 's' : ''} above you` : gap < 0 ? `${-gap} level${gap < -1 ? 's' : ''} below you` : 'your equal'} · worth ~${U.fmt(Pw().xpFor(pl, e))} xp</div>
         ${known ? `<div class="tw">Weak: ${esc(def.weak)}</div>` : def ? '<div class="tw dim">Kill one to learn its weakness (J → bestiary)</div>' : ''}`;
     },
     nameOf(game, e) {

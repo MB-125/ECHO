@@ -10,7 +10,11 @@
     reset() { C.proj = []; C.fx = []; C.floaters = []; },
 
     floater(x, y, text, color = '#fff', big) {
-      C.floaters.push({ x, y, text, color, t: 0, life: big ? 1.6 : 1.0, big });
+      // long numbers shortened (6.5k), and floaters that pop up together stacked, never on top of each other
+      text = String(text).replace(/\d{4,}/g, m => ECHO.U.short(+m));
+      let n = 0;
+      for (const f of C.floaters) if (f.t < 0.45 && Math.abs(f.x - x) < 1.2 && Math.abs((f.y0 != null ? f.y0 : f.y) - y) < 0.9) n++;
+      C.floaters.push({ x: x + (n % 2 ? 0.35 : n ? -0.35 : 0) * Math.min(1, n), y: y - n * 0.42, text, color, t: 0, life: big ? 1.6 : 1.1, big });
     },
     burst(x, y, color, n = 8, speed = 3, life = 0.5, size = 2) {
       for (let i = 0; i < n; i++) {

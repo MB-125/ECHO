@@ -86,6 +86,9 @@
     angle: (ax, ay, bx, by) => Math.atan2(by - ay, bx - ax),
     angleDiff: (a, b) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; },
     cap: s => s ? s[0].toUpperCase() + s.slice(1) : s,
+    // Numbers people can read at a glance: 12,345 in panels, 12.3k on the battlefield.
+    fmt: n => Math.round(n).toLocaleString('en-US'),
+    short: n => { const a = Math.abs(n), s = n < 0 ? '-' : ''; if (a < 1000) return s + Math.round(a); if (a < 10000) return s + (a / 1000).toFixed(1).replace(/\.0$/, '') + 'k'; if (a < 1e6) return s + Math.round(a / 1000) + 'k'; return s + (a / 1e6).toFixed(1).replace(/\.0$/, '') + 'M'; },
     round1: v => Math.round(v * 10) / 10,
     sum: arr => arr.reduce((a, b) => a + b, 0),
     plural: (n, w, p) => n + ' ' + (n === 1 ? w : (p || w + 's')),
