@@ -85,7 +85,7 @@
       // in front of them sees more than behind; a crouched step behind them is barely heard
       const front = facing < 1.2 ? 1.4 : facing < 2.0 ? 0.6 : quiet ? 0.045 : 0.15;
       const rate = d < eff ? (0.25 + (1 - d / eff) * 3.5) * front : 0.15 * front;
-      e.sus += rate * dt * (e.sleeping ? 0.15 : 1);
+      e.sus += rate * dt * (e.sleeping ? 0.15 : 1) * (e.watchful && now - e.watchful < 120 ? 1.5 : 1) * (e.search ? 1.6 : 1);
       if (e.sus > 0.3 && !e.susShown) { e.susShown = true; e.say = '?'; e.sayT = 1.2; }
       if (e.sus > 0.5) {
         if (!e.susLook) { e.susLook = true; if (ECHO.Sfx && d < 12) ECHO.Sfx.play('hiss', { pitch: 1.6, vol: 0.25 }); }

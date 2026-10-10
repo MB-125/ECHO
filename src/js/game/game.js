@@ -142,6 +142,8 @@
       if (ECHO.Events) ECHO.Events.update(Game, dt);
       if (ECHO.Pastimes) ECHO.Pastimes.update(Game, dt);
       if (ECHO.Home) ECHO.Home.tick(Game, dt);
+      if (ECHO.Tactics) ECHO.Tactics.update(Game, dt);
+      if (ECHO.Senses) ECHO.Senses.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -253,6 +255,7 @@
     shake(a) { Game.shakeT = 0.25; Game.shakeA = Math.max(Game.shakeA * (Game.shakeT > 0 ? 1 : 0), a); },
     noise(x, y, r) {
       if (ECHO.Stealth) ECHO.Stealth.loud(Game, x, y, r * 1.3);
+      if (ECHO.Senses) ECHO.Senses.noise(Game, x, y, r * 2, { kind: 'fight', by: Game.pe });
       for (const e of Game.ents) {
         if (e.type !== 'person' || e.dead || !e.sleeping) continue;
         if (U.dist(x, y, e.x, e.y) < r * (1 - Game.pl.skills.shadow / 200)) { e.sleeping = false; e.aggro = true; e.target = Game.pe; }

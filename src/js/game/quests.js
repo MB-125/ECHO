@@ -40,9 +40,17 @@
       const hostile = !pe.dead && !game.pl.capture && !game.defeating;
       const range = e.indoor ? 14 : 9;
       const sees = hostile && (e.aggro || !ECHO.Stealth ? (d < range || e.aggro) && (d < 3 || ECHO.Ent.lineOfSight(world, e.x, e.y, pe.x, pe.y)) : d < range * 1.8 && ECHO.Stealth.perceive(game, e, d, range));
-      if (sees && !e.aggro) { e.aggro = true; for (const o of game.ents) if (o !== e && o.foe && !o.aggro && !o.dead && o.floor === e.floor && U.dist(o.x, o.y, e.x, e.y) < (e.ab && e.ab.pack ? 12 : 7)) o.aggro = true; }
+      // lose sight of you long enough (hidden, or far) and they have to search
+      if (e.aggro && !e.giant && !e.boss2 && !e.event && hostile && ECHO.Senses) {
+        const los = d < 3 || ECHO.Ent.lineOfSight(world, e.x, e.y, pe.x, pe.y);
+        if (los && d < 16) e.lastSeen = { x: pe.x, y: pe.y, t: game.time };
+        else if (e.lastSeen && game.time - e.lastSeen.t > (ECHO.PlayerCtl.sneaking ? 3 : 7)) { e.aggro = false; e.sus = 0.4; ECHO.Senses.lost(game, e, e.lastSeen.x, e.lastSeen.y); e.lastSeen = null; return; }
+      }
+      if (sees && !e.aggro) { e.search = null; e.aggro = true; for (const o of game.ents) if (o !== e && o.foe && !o.aggro && !o.dead && o.floor === e.floor && U.dist(o.x, o.y, e.x, e.y) < (e.ab && e.ab.pack ? 12 : 7)) o.aggro = true; if (ECHO.Tactics && !e.giant) ECHO.Tactics.shout(game, e, pe); }
+      if (e.rout && ECHO.Tactics) { ECHO.Tactics.flee(game, e, dt); return; }
       if (!e.aggro || !hostile || d > 22) {
         e.state = 'idle'; e.moving = false;
+        if (e.search && ECHO.Senses && ECHO.Senses.search(game, e, dt)) return;
         // something moved over there: go and look
         if (e.sus > 0.6 && e.lookAt && game.time - e.lookAt.t < 6 && U.dist(e.x, e.y, e.lookAt.x, e.lookAt.y) > 1.5) ECHO.Ent.seek(world, e, e.lookAt.x, e.lookAt.y, e.speed * 0.35, dt);
         else if (!(e.sus > 0.2) && Math.random() < dt * 0.2) e.dir = Math.random() * Math.PI * 2;
@@ -53,6 +61,7 @@
       const comp = game.ents.find(o => o.isCompanion && !o.dead && !o.hidden);
       if (comp) { const dc = U.dist(e.x, e.y, comp.x, comp.y); if ((dc < d - 1.2 && dc < 4) || (comp.tauntT > 0 && dc < 8)) { T = comp; dT = dc; } }
       const ang = Math.atan2(T.y - e.y, T.x - e.x);
+      e.target = T;
       if (ECHO.Monsters && ECHO.Monsters.tick(game, e, dt, dT, ang)) return;
       const dmul = e.dmgMul || 1;
       // the elites call for help once, when hurt
@@ -85,11 +94,16 @@
           e.state = 'chase';
           e.shooter = (e.gear.bow || (e.ab && e.ab.ranged)) && dT > 3;
           const want = e.shooter ? 6 : F.reach + 0.3;
+          if (ECHO.Tactics && !e.boss2 && !e.giant && ECHO.Tactics.move(game, e, T, dT, ang, e.speed, dt, { reach: F.reach, archer: e.shooter || ((e.gear.bow || (e.ab && e.ab.ranged)) && dT < 3.2), want: 6 })) {
+            if (e.shooter && e.cd <= 0 && dT < 9 && dT >= 3.2 && !e.blockedShot) { e.state = 'windup'; e.t = 0; e.aim = ang; e.windEnd = 0.7; }
+            return;
+          }
           if (dT > want) ECHO.Ent.travel(world, e, T.x, T.y, e.speed, dt);
           else if (e.shooter && dT < 4) ECHO.Ent.seek(world, e, e.x - Math.cos(ang) * 2, e.y - Math.sin(ang) * 2, e.speed * 0.8, dt);
           else e.moving = false;
           e.dir = ang; e.flip = Math.cos(ang) < 0;
-          if (e.cd <= 0 && dT < (e.shooter ? 9 : want + 0.4)) {
+          if (e.cd <= 0 && dT < (e.shooter ? 9 : want + 0.4) && (e.shooter || !ECHO.Tactics || e.boss2 || ECHO.Tactics.mayStrike(e))) {
+            if (ECHO.Tactics && !e.shooter) ECHO.Tactics.struck(game, e);
             e.state = 'windup'; e.t = 0; e.aim = ang; e.windEnd = e.shooter ? 0.7 : F.wind;
             if (!e.shooter) ECHO.Combat.telegraph({ x: e.x, y: e.y - 0.1, angle: ang, len: F.reach + 0.3, arc: F.elite ? 2.2 : 1.6, life: e.windEnd, shape: 'cone', color: 'rgba(255,90,70,0.22)', follow: e });
             if (F.look === 'wight' && Math.random() < 0.3) { e.say = ['…', 'Leave…', 'Not yours…', 'Sleep…'][Math.floor(Math.random() * 4)]; e.sayT = 1.5; }

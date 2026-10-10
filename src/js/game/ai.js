@@ -57,14 +57,26 @@
       e.t += dt;
       if (e.stagger > 0) { e.stagger -= dt; return; }
       if (e.pet) return ECHO.Pet.think(game, e, dt);
+      if (e.rout && ECHO.Tactics) return ECHO.Tactics.flee(game, e, dt);
       if (e.fauna) return ECHO.Fauna.deer(game, e, dt);
       const speed = e.speed * (1 + (e.traits ? e.traits.speed * 0.4 : 0)) * (game.isNight() && e.species === 'wolf' ? 1.1 : 1);
       if (e.dq && ECHO.Dilemmas && ECHO.Dilemmas.creature(game, e, dt, speed)) return;
       if (e.species === 'hare') return Creature.hare(game, e, dt, speed);
-      const target = (e.target && !e.target.dead && U.dist(e.x, e.y, e.target.x, e.target.y) < 14) ? e.target : findTarget(game, e, sightFor(game, e, sp.sight) * (e.aggro ? 1.6 : 1));
+      let target = (e.target && !e.target.dead && !e.target.hidden && U.dist(e.x, e.y, e.target.x, e.target.y) < 14) ? e.target : null;
+      // lose sight of you for a few heartbeats and it's down to the nose
+      if (target === game.pe && U.dist(e.x, e.y, target.x, target.y) > 2 && !ECHO.Ent.lineOfSight(world, e.x, e.y, target.x, target.y)) {
+        if ((e.blindT = (e.blindT || 0) + dt) > 2.5) { target = null; e.blindT = 0; e.scanT = 2; }
+      } else e.blindT = 0;
+      if (!target && (e.scanT = (e.scanT || 0) - dt) <= 0) { e.scanT = 0.2; target = findTarget(game, e, sightFor(game, e, sp.sight) * (e.aggro ? 1.6 : 1)); }
       e.target = target;
       if (e.species === 'gnawer') return Creature.gnawer(game, e, dt, speed, target);
-      if (e.species === 'wolf') return Creature.wolf(game, e, dt, speed, target);
+      if (e.species === 'wolf') {
+        // a wolf that has your scent follows it after it loses sight of you
+        if (target === game.pe) e.scentT = game.time;
+        else if (!target && ECHO.Senses && ECHO.Senses.scent(game, e, dt, speed)) return;
+        if (!target && e.search && ECHO.Senses && ECHO.Senses.search(game, e, dt)) return;
+        return Creature.wolf(game, e, dt, speed, target);
+      }
     },
     wander(game, e, dt, speed) {
       if (!e.wt || e.t > e.wt) {
@@ -153,11 +165,16 @@
           // Stalk: circle at a distance, then commit.
           e.circleDir = e.circleDir || (Math.random() < 0.5 ? 1 : -1);
           const want = 2.4;
-          const tx = target.x - Math.cos(ang + e.circleDir * 0.6) * want, ty = target.y - Math.sin(ang + e.circleDir * 0.6) * want;
+          let tx = target.x - Math.cos(ang + e.circleDir * 0.6) * want, ty = target.y - Math.sin(ang + e.circleDir * 0.6) * want;
+          // a pack spreads round its prey; the ones without a turn hang back on the far side
+          if (e.slotA != null && (e.squadN || 1) >= 2) { const r = e.token ? want : want + 1.4; tx = target.x + Math.cos(e.slotA) * r; ty = target.y + Math.sin(e.slotA) * r; }
           if ((e.stuck || 0) > 0.4 || d > 7) ECHO.Ent.travel(world, e, target.x, target.y, speed, dt);
           else ECHO.Ent.seek(world, e, tx, ty, speed * (d > 6 ? 1 : 0.75), dt, 0.3);
           e.state = 'stalk';
-          if (d < 3.4 && e.cd <= 0 && Math.random() < dt * 2.2 && ECHO.Ent.lineOfSight(world, e.x, e.y, target.x, target.y)) {
+          // and bites from behind, if it can
+          const behind = target.dir == null ? 0 : Math.abs(Math.atan2(Math.sin(Math.atan2(e.y - target.y, e.x - target.x) - target.dir), Math.cos(Math.atan2(e.y - target.y, e.x - target.x) - target.dir)));
+          if (d < 3.4 && e.cd <= 0 && (!ECHO.Tactics || ECHO.Tactics.mayStrike(e)) && Math.random() < dt * (behind > 2 ? 4 : 2.2) && ECHO.Ent.lineOfSight(world, e.x, e.y, target.x, target.y)) {
+            if (ECHO.Tactics) ECHO.Tactics.struck(game, e);
             e.state = 'windup'; e.t = 0; e.windEnd = 0.38 - (pack > 2 ? 0.08 : 0);
             if (ECHO.Sfx && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 10) ECHO.Sfx.play('growl', { pitch: e.mutation ? 0.8 : 1, vol: 0.8 });
             e.lungeAngle = Math.atan2(target.y - e.y, target.x - e.x);
@@ -308,10 +325,23 @@
         return;
       }
       e.sleeping = false;
+      if (e.rout && ECHO.Tactics) return ECHO.Tactics.flee(game, e, dt);
 
       const fighter = e.role === 'bandit' || e.role === 'guard' || e.role === 'soldier' || e.role === 'companion' || (npc.prof === 'wanderer');
       const sight = sightFor(game, e, e.role === 'villager' ? 6 : 8.5) * (e.aggro ? 1.5 : 1);
       let target = e.target && !e.target.dead && !e.target.hidden && U.dist(e.x, e.y, e.target.x, e.target.y) < 16 && game.hostileTo(e, e.target) ? e.target : null;
+      // Out of sight is out of reach: break line of sight (or melt into cover
+      // while crouched, far enough off) and after a moment they lose you.
+      if (target === game.pe && !e.indoor && fighter) {
+        const dd = U.dist(e.x, e.y, target.x, target.y);
+        const los = dd < 1.6 || ECHO.Ent.lineOfSight(game.world, e.x, e.y, target.x, target.y);
+        const vis = ECHO.Stealth ? ECHO.Stealth.vis(game) : 1;
+        const hid = ECHO.PlayerCtl.sneaking && vis < 0.45 && dd > 2.5 + vis * 9;
+        if (!los || hid) {
+          e.blindT = (e.blindT || 0) + dt;
+          if (e.blindT > (hid ? 1.2 : 2.2)) { target = null; e.blindT = 0; e.scanT = 1.2; }
+        } else { e.blindT = 0; e.lastSeen = { x: target.x, y: target.y, t: game.time }; }
+      }
       if (!target && (e.scanT = (e.scanT || 0) - dt) <= 0) { e.scanT = 0.25; target = findTarget(game, e, sight); }
       // People inside a building (out of sight) can't fight from in there:
       // fighters step out of the door to face you; everyone else stays put.
@@ -330,8 +360,11 @@
       }
       // A mind of their own: grudges, fear, gratitude, admiration.
       if (!e.indoor && Person.mindful(game, e, npc, dt, target, fighter)) return;
-      if (target && target !== e.target && fighter) Person.alertFriends(game, e, target);
+      if (target && target !== e.target && fighter) { Person.alertFriends(game, e, target); if (ECHO.Tactics && (e.role === 'guard' || e.role === 'soldier' || e.role === 'bandit')) ECHO.Tactics.shout(game, e, target); }
       e.target = target;
+      // remember where they last were; lose them, and go looking
+      if (target === game.pe) { if (!e.blindT) e.lastSeen = { x: target.x, y: target.y, t: game.time }; e.search = null; }
+      else if (!target && fighter && ECHO.Senses && e.lastSeen && game.time - e.lastSeen.t < 4 && !e.search && !e.indoor && game.hostileTo(e, game.pe)) { ECHO.Senses.lost(game, e, e.lastSeen.x, e.lastSeen.y); e.lastSeen = null; }
 
       if (e.rider && ECHO.Riders && ECHO.Riders.think(game, e, npc, dt, target)) return;
       if (e.dq && ECHO.Dilemmas && ECHO.Dilemmas.think(game, e, npc, dt, target)) return;
@@ -362,6 +395,7 @@
         return Person.fight(game, e, npc, dt, target);
       }
       if (e.state === 'chase' || e.state === 'attack' || e.state === 'flee') e.state = 'idle';
+      if (e.search && !e.indoor && ECHO.Senses && ECHO.Senses.search(game, e, dt)) return;
       // Peaceful routine
       if (e.indoor) return Person.indoorIdle(game, e, npc, dt);
       if (e.role === 'traveler' || e.role === 'soldier') return Person.followJourney(game, e, dt);
@@ -535,6 +569,10 @@
       if (e.state === 'attack') { if (e.t > 0.2) { e.state = 'chase'; } return; }
       e.state = 'chase';
       const sp = e.speed * (e.role === 'soldier' || e.role === 'guard' ? 1.05 : 1);
+      if (!e.isCompanion && ECHO.Tactics && ECHO.Tactics.move(game, e, target, d, ang, sp, dt, { reach: spear ? 1.9 : 1.15, archer: archer && d > 2.6, want: 5.5 })) {
+        if (archer && d > 2.6 && e.cd <= 0 && d < 9 && !e.blockedShot && d >= 3.2) { e.state = 'windup'; e.t = 0; e.windEnd = 0.75; e.aimAngle = ang; e.meleeWind = false; }
+        return;
+      }
       if (archer && d > 2.6) {
         // Keep distance and shoot
         const want = 5.5;
@@ -550,7 +588,8 @@
         ECHO.Ent.travel(world, e, target.x, target.y, sp, dt);
       } else {
         e.moving = false;
-        if (e.cd <= 0) {
+        if (e.cd <= 0 && (e.isCompanion || !ECHO.Tactics || ECHO.Tactics.mayStrike(e))) {
+          if (ECHO.Tactics && !e.isCompanion) ECHO.Tactics.struck(game, e);
           e.state = 'windup'; e.t = 0; e.windEnd = 0.38 - skill * 0.0012; e.aimAngle = ang; e.meleeWind = true;
           if (target === game.pe && ECHO.Sfx) ECHO.Sfx.play('swing', { pitch: 0.7, vol: 0.35 });
           ECHO.Combat.telegraph({ x: e.x, y: e.y - 0.1, angle: ang, len: reach + 0.3, arc: spear ? 0.7 : 1.6, life: e.windEnd, shape: 'cone', color: 'rgba(255,90,70,0.22)' });
