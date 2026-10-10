@@ -323,6 +323,8 @@
         } else {
           e.target = null;
           if (e.shelterT > 0) { e.shelterT -= dt; e.moving = false; return; } // waiting out the danger indoors
+          // don't come back out while the danger is still on the doorstep
+          if (e.sheltered) { if (game.ents.some(o => !o.dead && !o.hidden && o !== e && U.dist(o.x, o.y, e.x, e.y) < 13 && game.hostileTo(e, o) && Person.scary(o))) { e.shelterT = 6; return; } e.sheltered = false; }
           Person.routine(game, e, npc, dt); return;
         }
       }
@@ -342,6 +344,8 @@
         return;
       }
       if (e.role === 'companion') return Person.companion(game, e, npc, dt, target);
+      // ordinary folk don't run indoors from crop vermin and rabbits
+      if (target && !fighter && !Person.scary(target)) { target = null; e.target = null; }
       if (target) {
         if (!fighter || (ECHO.People.has(npc, 'cowardly') && e.hp < e.maxHp * 0.5) || npc.prof === 'child') return Person.flee(game, e, target, dt);
         // Yield when beaten (not everyone will)
@@ -376,12 +380,27 @@
       }
     },
 
+    // worth running from: beasts, monsters, outlaws, and anyone actually coming at you
+    scary(t) {
+      if (!t || t.dead) return false;
+      if (t.type === 'creature' && !t.humanoid) return t.species === 'wolf' || !!t.winter;
+      if (t.type === 'player') return true;
+      return true;
+    },
     indoorIdle(game, e, npc, dt) {
       const h = e.indoor;
+      const L = ECHO.Interior.cur;
+      if (e.leaving && L) {
+        // out through the door (first stepping up from the seat, which sits inside the furniture)
+        if (!e.leftSeat) { e.leftSeat = true; if (!ECHO.Ent.fits(game.world, e.x, e.y)) { const sp = ECHO.Ent.freeSpot(game.world, e.x, e.y, 2); if (sp) { e.x = sp.x; e.y = sp.y; } } }
+        if (U.dist(e.x, e.y, L.inside.x, L.inside.y) > 0.6) { ECHO.Ent.travelIn ? ECHO.Ent.travelIn(game.world, e, L.inside.x, L.inside.y, e.speed * 0.6, dt) : ECHO.Ent.seek(game.world, e, L.inside.x, L.inside.y, e.speed * 0.6, dt, 0.2); return; }
+        e.dead = true; e.vanish = true; e.byDoor = true; ECHO.Sfx.play('door', { vol: 0.35 }); return;
+      }
       const d = U.dist(e.x, e.y, h.x, h.y);
       // Seats and beds sit inside furniture: settle straight into them once close.
-      if (d > 0.35 && h.pose !== 'stand' && d < 1.6) { e.x = h.x; e.y = h.y; }
-      else if (d > 0.35) { e.seated = false; ECHO.Ent.seek(game.world, e, h.x, h.y, e.speed * 0.5, dt, 0.25); return; }
+      if (d > 0.35 && ((h.pose !== 'stand' && d < 1.6) || (d < 2.4 && !ECHO.Ent.fits(game.world, h.x, h.y)))) { e.x = h.x; e.y = h.y; }
+      else if (d > 0.35) { e.seated = false; e.sleeping = false; if (ECHO.Ent.travelIn && d > 1.2) ECHO.Ent.travelIn(game.world, e, h.x, h.y, e.speed * 0.5, dt); else ECHO.Ent.seek(game.world, e, h.x, h.y, e.speed * 0.5, dt, 0.25); return; }
+      e.sleeping = h.pose === 'bed';
       e.moving = false;
       e.seated = h.pose === 'sit';
       const pe = game.pe;
@@ -391,6 +410,7 @@
     },
 
     flee(game, e, threat, dt) {
+      e._lastThreat = threat;
       e.state = 'flee';
       const world = game.world;
       // Townsfolk run for the nearest house and bar the door; others just run.
@@ -411,7 +431,7 @@
           const safe = ECHO.Ent.travel(world, e, e.fleeDoor.x, e.fleeDoor.y, e.speed * 1.3, dt);
           if (e.navFail) { e.navFail = false; e.fleeDoor = 'none'; return; }   // that door's cut off: just run
           if (safe) {
-            e.hidden = true; e.shelterT = 12 + Math.random() * 10; e.fleeDoor = null; e.goal = null; e.target = null; e.state = 'idle';
+            e.hidden = true; e.sheltered = true; e.shelterT = 12 + Math.random() * 10; e.fleeDoor = null; e.goal = null; e.target = null; e.state = 'idle';
           }
           if (e.sayT <= 0 && Math.random() < dt * 0.6) { e.say = threat.type === 'creature' || threat.type === 'boss' ? 'Get inside! Get inside!' : threat.type === 'player' ? 'Stay away from me!' : 'Help! Guards!'; e.sayT = 1.6; }
           return;
@@ -544,9 +564,13 @@
       if (e.schedT <= 0 || !e.goal) {
         e.schedT = 6 + Math.random() * 6;
         const g = Sched.target(game, e, npc, world.minute, e._salt || 0);
-        // a new reason to go somewhere: forget yesterday's dead ends
-        if (!e.goal || !g || g.why !== e.goal.why || U.dist(g.x, g.y, e.goal.x, e.goal.y) > 2) e._fails = 0;
-        e.goal = g;
+        // already indoors, and still meant to be in the same place: stay in (don't step out and back in)
+        const stay = e.hidden && e.goal && e.goal.inside && g && g.inside && U.dist(g.x, g.y, e.goal.x, e.goal.y) < 2.5;
+        if (!stay) {
+          // a new reason to go somewhere: forget yesterday's dead ends
+          if (!e.goal || !g || g.why !== e.goal.why || U.dist(g.x, g.y, e.goal.x, e.goal.y) > 2) e._fails = 0;
+          e.goal = g;
+        }
       }
       if (!e.goal) return;
       // Can't get there (walled off, blocked, no way round)? Don't shove at it —
@@ -581,8 +605,8 @@
         e.moving = false; e._fails = 0;
         if (e.goal.inside) e.hidden = true;
         else Person.settle(game, e, npc, dt);
-        // Fidget at the goal
-        if (Math.random() < dt * 0.08) e.goal = { x: e.goal.x + (Math.random() - 0.5) * 2.5, y: e.goal.y + (Math.random() - 0.5) * 1.6, inside: e.goal.inside, why: e.goal.why, face: e.goal.face };
+        // Fidget at the goal (not when they've gone indoors: that made them pop in and out of doors)
+        if (!e.goal.inside && Math.random() < dt * 0.08) e.goal = { x: e.goal.x + (Math.random() - 0.5) * 2.5, y: e.goal.y + (Math.random() - 0.5) * 1.6, inside: e.goal.inside, why: e.goal.why, face: e.goal.face };
       } else e.hidden = false;
       // A word now and then about why they're hurrying.
       if (!arrived && e.goal.why && e.sayT <= 0 && game.pe && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 7 && Math.random() < dt * 0.04) {

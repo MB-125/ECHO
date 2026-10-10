@@ -82,8 +82,13 @@
           f('chair', 7.5, 3.8, { solid: false });
           f('chest', 7.4, 1.6, { action: legendHouse ? 'heirloom' : mine ? 'ownchest' : 'cupboard', label: legendHouse ? 'Open the old chest' : mine ? 'Open your chest' : 'Search the cupboard' });
           f('rug', 4.4, 4.3, { solid: false });
-          f('candles', 7.6, 5.4, { solid: false, light: { r: 3.5, a: 0.8, color: '#ffc070', h: 1.2 } });
+          f('candles', 8.0, 2.8, { solid: false, light: { r: 3.5, a: 0.8, color: '#ffc070', h: 1.2 } });
+          // most homes keep a few books
+          if (mine || ECHO.hashStr(b.id + 'shelf') % 10 < 6) f('shelf', 6.6, 5.6, { w: 2, h: 1, action: 'books', label: 'Browse the bookshelf' });
           const fu = mine && b.furnish || {};
+          // your sketches, framed on the walls
+          if (fu.gallery) { const sk = (pl.sketches || []).filter(x => x.img).slice(-4); [[1.04, 2.2, Math.PI / 2], [1.04, 4.0, Math.PI / 2], [7.96, 3.0, -Math.PI / 2], [7.96, 4.6, -Math.PI / 2]].forEach(([fx, fy, rot], i) => { if (!sk[i]) return; const it = f('frame', fx, fy, { solid: false, w: 0.2, h: 0.9, rot, label: sk[i].name }); it.img = sk[i].img; }); }
+          if (mine && pl.pet && pl.pet.stay === 'home') f('rug', 5.7, 2.3, { solid: false, scale: 0.45, colors: { banner: '#7a3a2a' } });
           if (fu.shrine) f('altar', 6.4, 1.4, { w: 1, h: 1, scale: 0.55, light: { r: 3, a: 0.7, color: '#ffcf70', h: 1 } });
           if (fu.trophies) f('rack', 2.2, 5.6, { w: 2, h: 1, colors: { wood: '#5a3e26' } });
           if (fu.garden) f('crop', 5.6, 5.6, { solid: false, scale: 0.6 });
@@ -188,6 +193,9 @@
       ECHO.Sfx.play('door');
       ECHO.UI.fadeOut(() => {
         const L = I.layout(game, b, s);
+        // the street goes on without you: keep everyone outside where they are, to put back when you come out
+        if (!I.cur) I.stash = { ents: game.ents.filter(e => e !== game.pe && !e.isCompanion && !e.dead && !e.vanish), loot: game.loot, t: game.world.day * 1440 + game.world.minute, x: game.pe.x, y: game.pe.y };
+        game.noFadeUntil = game.time + 0.6;
         I.cur = L;
         game.pl.x = L.outside.x; game.pl.y = L.outside.y;
         game.pe.x = L.inside.x; game.pe.y = L.inside.y;
@@ -224,6 +232,14 @@
         for (const e of game.ents) if (e.isCompanion) { const sp = ECHO.Ent.freeSpot(game.world, L.outside.x - 1, L.outside.y + 0.5, 4) || L.outside; e.x = sp.x; e.y = sp.y; e.ipath = null; e.path = null; e.stuck = 0; }
         ECHO.Combat.reset();
         game.loot = [];
+        // the people you left in the street are still there
+        const st = I.stash; I.stash = null;
+        const now = game.world.day * 1440 + game.world.minute;
+        if (st && now - st.t < 180 && U.dist(st.x, st.y, game.pe.x, game.pe.y) < 12) {
+          for (const e of st.ents) if (!e.dead && !e.vanish && !(e.npcId && game.ents.some(o => o.npcId === e.npcId))) { e.path = null; e.ipath = null; e.stuck = 0; game.ents.push(e); }
+          game.loot = st.loot || [];
+        }
+        game.noFadeUntil = game.time + 0.6;
         game.checkPlace();
       };
       if (silent) return finish();
@@ -257,8 +273,12 @@
       switch (L.type) {
         case 'house': {
           const home = I.householdHere(game);
+          // at mealtimes the family is home and round the table, someone at the hearth
+          const meal = ECHO.Home && ECHO.Home.meal(world);
+          let cook = false;
           for (const n of home) {
             if (night) out.push({ n, tag: n.prof === 'guard' ? 'any' : 'bed', pose: n.prof === 'guard' ? 'stand' : 'bed' });
+            else if (meal && n.prof !== 'guard') { out.push({ n, tag: !cook && P().age(world, n) >= 18 ? 'any' : 'seat' }); cook = true; }
             else if (n.prof === 'child' || n.prof === 'elder' || (ECHO.hashStr(n.id + seed) % 3 === 0)) out.push({ n, tag: 'any' });
           }
           break;
@@ -305,8 +325,8 @@
       const want = I.wantOccupants(game);
       I.cachedWant = want;
       const wantIds = new Set(want.map(o => o.n.id));
-      // People who should no longer be here walk out (vanish at the door).
-      for (const e of game.ents) if (e.npcId && e.indoor && !wantIds.has(e.npcId) && !e.target) { e.dead = true; e.vanish = true; }
+      // People who should no longer be here walk out, and are gone through the door.
+      for (const e of game.ents) if (e.npcId && e.indoor && !wantIds.has(e.npcId) && !e.target && !e.leaving) { e.leaving = true; e.seated = false; e.sleeping = false; if (force) { e.dead = true; e.vanish = true; } }
       const used = new Set(game.ents.filter(e => e.indoor && !e.dead).map(e => e.indoor.spot));
       for (const o of want) {
         if (present.has(o.n.id)) continue;
@@ -318,14 +338,17 @@
         else { x = BASE + 2 + Math.random() * (L.W - 4); y = 2 + Math.random() * (L.H - 4); }
         const floorBed = pose === 'bed' && (!sp || sp.tag !== 'bed'); // more sleepers than beds: a blanket on the floor
         const role = o.n.prof === 'guard' ? 'guard' : 'villager';
-        const e = ECHO.Spawner.makePerson(game, o.n, x, y, role);
+        // newcomers come in through the door (unless they were already here when you arrived)
+        const arrive = !force && !(pose === 'bed');
+        const e = ECHO.Spawner.makePerson(game, o.n, arrive ? L.inside.x : x, arrive ? L.inside.y - 0.3 : y, role);
         e.indoor = { x, y, dir: floorBed ? 0 : dir, pose, spot: sp, floor: floorBed };
         e.dir = dir;
         e.sleeping = pose === 'bed';
         e.seated = pose === 'sit';
         e.homeSid = L.s.id;
         e.noSlide = true;
-        if (pose === 'stand' || floorBed) game.addEnt(e); else game.ents.push(e); // seats and beds sit inside furniture
+        if (arrive) { e.sleeping = false; e.seated = false; game.ents.push(e); }
+        else if (pose === 'stand' || floorBed) game.addEnt(e); else game.ents.push(e); // seats and beds sit inside furniture
       }
     },
 
@@ -342,6 +365,7 @@
         if (dd < 1.1) out.push({ kind: 'furn', furn: it, label: it.label || it.action, d: dd });
       }
       if (d(L.inside.x, L.inside.y + 0.5) < 1.6) out.push({ kind: 'leave', label: 'Leave', d: 0.3 });
+      if (ECHO.Home) out.push(...ECHO.Home.interactables(game));
       return out;
     },
     use(game, it) {
@@ -359,6 +383,7 @@
           if (I.isMine(b, pl) || (b.legend && pl.legacyOf === b.legend)) return UI.sleepUntilMorning(s, I.isMine(b, pl) ? b : null);
           return UI.toast('This is not your bed.', 'info', 2);
         case 'cupboard': return I.steal(game);
+        case 'books': return ECHO.Home ? ECHO.Home.books(game, it) : null;
         default: return ECHO.Quests.use(game, it);
       }
     },

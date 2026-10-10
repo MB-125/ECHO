@@ -71,6 +71,11 @@
         return;
       }
       // your dog
+      if (e.homeDog) {
+        e.moving = false; e.sleeping = d > 4;
+        if (d < 3 && Math.random() < dt * 0.4) { e.say = '*thump thump*'; e.sayT = 1; e.dir = Math.atan2(pe.y - e.y, pe.x - e.x); e.flip = Math.cos(e.dir) < 0; }
+        return;
+      }
       if (pl.pet.stay) { e.moving = false; if (d > 32) { e.dead = true; e.vanish = true; } else if (d < 6 && Math.random() < dt * 0.3) { e.say = '*thump thump*'; e.sayT = 1; } return; }
       if (d > 28) { const sp = ECHO.Ent.freeSpot(world, pe.x - 1, pe.y + 1, 3); if (sp) { e.x = sp.x; e.y = sp.y; } }
       // trouble: growl and stay back
@@ -106,7 +111,7 @@
     },
     interactables(game) {
       const pe = game.pe, pl = game.pl, out = [];
-      if (pe.mounted || ECHO.Interior.cur) return out;
+      if (pe.mounted) return out;
       for (const e of game.ents) {
         if (!e.pet || e.dead || U.dist(e.x, e.y, pe.x, pe.y) > 1.8) continue;
         if (e.mine) out.push({ kind: 'act', label: `${pl.pet.name}`, d: 0.8, act: () => D.menu(game, e) });
@@ -136,7 +141,8 @@
       const home = ECHO.Life && ECHO.Life.home ? ECHO.Life.home(game.world, pl) : null;
       ECHO.UI.modal({ title: n, html: `<p>${esc(n)} looks up at you, tail going.</p>`, choices: [
         { label: `Scratch ${n} behind the ears`, onPick: () => { e.say = '♥'; e.sayT = 1.5; } },
-        { label: pl.pet.stay ? 'Come on, then!' : 'Stay here', sub: pl.pet.stay ? 'back to your heel' : 'waits here until you come back', onPick: () => { pl.pet.stay = pl.pet.stay ? null : 'here'; pl.pet.at = pl.pet.stay ? { x: e.x, y: e.y } : null; game.ui.toast(pl.pet.stay ? `${n} lies down to wait.` : `${n} bounds after you.`, 'info', 2); } },
+        ...(home && !pl.pet.stay && !ECHO.Interior.cur ? [{ label: 'Go home and wait by the fire', sub: `${home.s.name}: you'll find ${n} there`, onPick: () => { pl.pet.stay = 'home'; pl.pet.at = null; e.dead = true; e.vanish = true; game.ui.toast(`${n} trots off toward home.`, 'info', 3); } }] : []),
+        { label: pl.pet.stay ? 'Come on, then!' : 'Stay here', sub: pl.pet.stay ? 'back to your heel' : 'waits here until you come back', onPick: () => { e.homeDog = false; e.sleeping = false; pl.pet.stay = pl.pet.stay ? null : 'here'; pl.pet.at = pl.pet.stay ? { x: e.x, y: e.y } : null; game.ui.toast(pl.pet.stay ? `${n} lies down to wait.` : `${n} bounds after you.`, 'info', 2); } },
         { label: 'Leave it', onPick: () => {} }
       ] });
       void home;

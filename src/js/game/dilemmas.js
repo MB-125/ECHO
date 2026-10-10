@@ -166,7 +166,7 @@
     choose(game, q) {
       const pl = game.pl, s = game.world.settlements.find(t => t.id === q.sid);
       const tongue = pl.skills.tongue || 0, rep = (s && s.rep && s.rep[pl.charId]) || 0;
-      const talk = Math.round(U.clamp(0.3 + tongue / 110 + rep / 250, 0.1, 0.95) * 100);
+      const talk = Math.round(U.clamp(0.3 + tongue / 110 + rep / 250 + (pl.merryT > 0 ? 0.1 : 0), 0.1, 0.95) * 100);
       const C = [];
       const fight = (label, sub) => C.push({ label, sub, onPick: () => D.startFight(game, q) });
       if (q.kind === 'debt') {

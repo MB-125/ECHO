@@ -73,7 +73,20 @@
       return canvas;
     },
 
+    // fade in and out instead of popping (newcomers, folk going through doors)
+    fadeDraw(game, e) {
+      R.alpha = R.alpha || new WeakMap();
+      const quiet = (game.noFadeUntil && game.time < game.noFadeUntil) || (R.frames || 0) < 5;
+      let a = R.alpha.get(e);
+      if (a == null) a = quiet || e === game.pe ? 1 : 0;
+      a = e === game.pe || e.dead ? 1 : Math.max(0, Math.min(1, a + (e.hidden ? -1 : 1) * (R.dt || 0.016) * 3.2));
+      R.alpha.set(e, a);
+      if (a <= 0.01) return null;
+      if (a >= 0.99) return () => R.entity(game, e);
+      return () => { const c = R.ctx, ga = c.globalAlpha; c.globalAlpha = ga * a; R.entity(game, e); R.ctx.globalAlpha = ga; };
+    },
     draw(game, dt) {
+      R.dt = dt; R.frames = (R.frames || 0) + 1;
       const ctx = R.ctx, world = game.world;
       const Z = R.Z;
       R._cam = R.camOffset(game);
@@ -221,9 +234,10 @@
         game.light(world.rift.x + 0.5, world.rift.y, 6, 0.9, '#b48aff');
       }
       for (const e of game.ents) {
-        if (e.hidden) continue;
         if (Math.abs(e.x - cam.x) > halfW + 3 || Math.abs(e.y - cam.y) > halfH + 3) continue;
-        objs.push({ y: e.y, draw: () => R.entity(game, e) });
+        const fd = R.fadeDraw(game, e);
+        if (!fd) continue;
+        objs.push({ y: e.y, draw: fd });
         if (e.gear && e.gear.torch && !e.dead) game.light(e.x, e.y - 0.6, 4, 0.8, '#ffb060');
         if (e.burn > 0) game.light(e.x, e.y - 0.4, 2.5, 0.6, '#ff8a2a');
         if (e.mutation === 'glasshorn' && night) game.light(e.x, e.y - 0.5, 2, 0.6, '#cfefff');
@@ -329,6 +343,12 @@
       }
       const objs = [];
       for (const f of L.furn) objs.push({ y: f.y + f.h / 2, draw: () => {
+        if (f.model === 'frame') {
+          const p = R.toScreen(game, B + f.x - 0.3, f.y - 0.45), w = 0.6 * TS * Z, h = 0.9 * TS * Z;
+          ctx.fillStyle = '#4a3020'; ctx.fillRect(Math.round(p.x), Math.round(p.y), w, h);
+          if (f.img) { R.imgs = R.imgs || {}; let im = R.imgs[f.img.length + f.label]; if (!im) { im = new Image(); im.src = f.img; R.imgs[f.img.length + f.label] = im; } if (im.complete) ctx.drawImage(im, Math.round(p.x + 2 * Z), Math.round(p.y + 2 * Z), w - 4 * Z, h - 4 * Z); }
+          return;
+        }
         const p = R.toScreen(game, B + f.x - f.w / 2 * f.scale, f.y - f.h / 2 * f.scale);
         const w = f.w * TS * Z * f.scale * 0.92, h = f.h * TS * Z * f.scale * 0.92;
         ctx.fillStyle = (f.colors && f.colors.banner && f.model !== 'throne') ? f.colors.banner : (R.FURN_COL[f.model] || '#6a4a2c');
@@ -337,7 +357,7 @@
         if (f.model === 'stairs') { ctx.fillStyle = '#5a5660'; for (let i = 0; i < 4; i++) ctx.fillRect(Math.round(p.x + 2 * Z), Math.round(p.y + (f.action === 'delveup' ? i : 3 - i) * h / 4), w - 4 * Z, Math.max(1, h / 10)); }
         if (f.light) game.light(B + f.x, f.y, f.light.r * 0.6, 0.5, f.light.color);
       } });
-      for (const e of game.ents) if (!e.hidden) objs.push({ y: e.y, draw: () => R.entity(game, e) });
+      for (const e of game.ents) { const d = R.fadeDraw(game, e); if (d) objs.push({ y: e.y, draw: d }); }
       objs.sort((a, b) => a.y - b.y);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       for (const o of objs) o.draw();

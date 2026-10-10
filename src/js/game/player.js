@@ -81,8 +81,10 @@
       if (In.key('d') || In.key('ArrowRight')) mx += 1;
       PC.sneaking = In.key('Control') || In.key('c');
       pe.sneaking = PC.sneaking;
-      const len = Math.hypot(mx, my);
+      let len = Math.hypot(mx, my);
       if (len) { mx /= len; my /= len; }
+      // sitting: any step gets you up; until then you stay put
+      if (pe.seated) { if (len && ECHO.Home) ECHO.Home.stand(game); else { mx = 0; my = 0; len = 0; } }
 
       pe.blocking = !pl.mounted && In.key('Shift') && pl.stamina > 4 && PC.dodgeT <= 0 && !PC.drawing && !(pe.attackT > 0);
       if (In.hit('Shift')) game.blockStart = game.time;

@@ -141,6 +141,7 @@
       if (ECHO.Fauna) ECHO.Fauna.update(Game, dt);
       if (ECHO.Events) ECHO.Events.update(Game, dt);
       if (ECHO.Pastimes) ECHO.Pastimes.update(Game, dt);
+      if (ECHO.Home) ECHO.Home.tick(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }

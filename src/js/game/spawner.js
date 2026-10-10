@@ -13,7 +13,7 @@
   const S = ECHO.Spawner = {
     timer: 0,
     unitsPerKill(sp) { return 1 / (DENSITY[sp] * 2.2); },
-    reset() { S.timer = 0; },
+    reset() { S.timer = 0; S.popd = {}; },
 
     update(game, dt) {
       S.timer -= dt;
@@ -132,14 +132,30 @@
           if (spot) { x = spot.x; y = spot.y; }
           let tries = 0;
           while (!ECHO.Ent.fits(world, x, y) && tries++ < 20) { x = s.x + (Math.random() - 0.5) * 6; y = s.y + (Math.random() - 0.5) * 6; }
+          // Someone new turning up in plain view comes out of a door rather than out of thin air.
+          let fromDoor = false;
+          if (S.popd[s.id] && !(goal && goal.inside) && U.dist(x, y, pe.x, pe.y) < 26) {
+            let best = null, bd = 16;
+            for (const b of s.buildings) {
+              if (b.type !== 'house' && b.type !== 'inn' && b.type !== 'smithy' && b.type !== 'shrine' && b.type !== 'temple' && b.type !== 'archive') continue;
+              const dr = ECHO.AI.Sched.door(b), dd = U.dist(dr.x, dr.y, x, y);
+              if (dd < bd && U.dist(dr.x, dr.y, pe.x, pe.y) > 3 && ECHO.Ent.fits(world, dr.x, dr.y)) { bd = dd; best = dr; }
+            }
+            if (best) { x = best.x; y = best.y; fromDoor = true; }
+          }
           const e = S.makePerson(game, npc, x, y, npc.prof === 'guard' ? 'guard' : 'villager');
           e.homeSid = s.id;
           if (goal && goal.inside) { e.hidden = true; e.goal = goal; }
-          game.addEnt(e);
+          else if (fromDoor && goal) e.goal = goal;
+          if (fromDoor) game.ents.push(e); else game.addEnt(e);
           count++;
         }
+        S.popd[s.id] = true;
       }
+      // a town you've left behind will be peopled afresh next time
+      for (const k in S.popd) { const t = world.settlements.find(x => x.id === k); if (!t || U.dist(t.x, t.y, pe.x, pe.y) > 46) delete S.popd[k]; }
     },
+    popd: {},
     priority(n) {
       const p = { ruler: 9, reeve: 8, innkeeper: 8, merchant: 7, smith: 7, scholar: 6, priest: 6, guard: 5, inventor: 6, wanderer: 5 }[n.prof] || 1;
       return p + (n.carry ? 5 : 0) + (n.namedAfter ? 3 : 0) + Math.random();

@@ -799,6 +799,15 @@
       const stoneMat = R._stairMat || (R._stairMat = new THREE.MeshStandardMaterial({ color: C('#4a4650'), roughness: 0.95 }));
       const voidMat = R._voidMat || (R._voidMat = new THREE.MeshBasicMaterial({ color: '#020203' }));
       for (const f of L.furn) {
+        if (f.model === 'frame') {
+          // one of your sketches, framed on the wall
+          const fr = new THREE.Group(); fr.position.set(B + f.x, 1.55, f.y); fr.rotation.y = f.rot || 0;
+          const wood = R._frameMat || (R._frameMat = new THREE.MeshStandardMaterial({ color: C('#4a3020'), roughness: 0.7 }));
+          const back = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.62, 0.05), wood); back.userData.own = true; fr.add(back);
+          if (f.img) { const tex = new THREE.TextureLoader().load(f.img); const pic = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.5), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.9 })); pic.position.z = 0.03; pic.userData.own = true; fr.add(pic); }
+          g.add(fr);
+          continue;
+        }
         if (f.model === 'door') {
           const dm = R._doorMat || (R._doorMat = new THREE.MeshStandardMaterial({ color: C('#3a3a42'), roughness: 0.5, metalness: 0.6 }));
           const d = new THREE.Mesh(new THREE.BoxGeometry(1, 1.8, 1), dm); d.position.set(B + f.x, 0.9, f.y); d.castShadow = true; d.userData.own = true; g.add(d);
@@ -1543,8 +1552,15 @@
         if (!v) continue;
         seen.add(e);
         const root = v.inst.root;
-        root.visible = !e.hidden;
-        if (e.hidden) continue;
+        // people and creatures fade in and out rather than popping: newcomers,
+        // folk stepping in and out of doors
+        const special = e === game.pe || e.dead || e.type === 'ghost' || e.species === 'hind' || e.mutation === 'paleshade' || e.lurker;
+        if (v.alpha == null) v.alpha = special || (game.noFadeUntil && game.time < game.noFadeUntil) || (R.frameNo || 0) < 5 ? 1 : 0;
+        if (special) v.alpha = 1;
+        else v.alpha = U.clamp(v.alpha + (e.hidden ? -1 : 1) * dt * 3.2, 0, 1);
+        root.visible = v.alpha > 0.01;
+        if (!special) R.fadeView(v, v.alpha);
+        if (!root.visible) continue;
         v.cfgT -= dt;
         if (v.cfgT <= 0) { v.cfgT = 1; R.configure(game, e, v); v.baseScale = root.scale.x; }
         // Smooth what the eye sees: position eases toward the simulation,
@@ -1650,11 +1666,22 @@
       R.endHorses(); R.frameNo = (R.frameNo || 0) + 1;
       for (const [e, v] of R.views) {
         if (!seen.has(e)) {
+          R.views.delete(e);
+          // someone who just left our sight (not killed): let them fade, not blink out
+          if (!e.dead && v.inst.root.visible && (v.alpha || 0) > 0.05 && !ECHO.Interior.cur === !(e.x >= 9000) && !(game.noFadeUntil && game.time < game.noFadeUntil)) { (R.fading = R.fading || []).push(v); continue; }
           R.groups.ents.remove(v.inst.root);
           for (const m of v.inst.mats) m.dispose();
-          R.views.delete(e);
         }
       }
+      if (R.fading && R.fading.length) R.fading = R.fading.filter(v => {
+        v.alpha -= dt * 3.2;
+        if (v.alpha <= 0) { R.groups.ents.remove(v.inst.root); for (const m of v.inst.mats) m.dispose(); return false; }
+        R.fadeView(v, v.alpha); return true;
+      });
+    },
+    fadeView(v, a) {
+      if (a < 0.995) { for (const m of v.inst.mats) { m.transparent = true; m.opacity = a; } v.faded = true; }
+      else if (v.faded) { for (const m of v.inst.mats) { m.transparent = false; m.opacity = 1; } v.faded = false; }
     },
 
     // ---------------------------------------------------------------- effects
