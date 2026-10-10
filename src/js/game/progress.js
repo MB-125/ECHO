@@ -144,7 +144,8 @@
       Pg._hud = key;
       const el = document.getElementById('hud-rank');
       if (!el) return;
-      el.innerHTML = `<span class="rk" style="color:${R.color}">Lv ${L} · ${R.title}</span><span class="xp"><i style="width:${Math.round(frac * 100)}%"></i></span><span class="xpn">${L >= Pw().MAX ? 'max' : `${U.short(Math.floor(s.xp))}/${U.short(need)} xp`}</span>`;
+      // a badge with your level in big figures, then your rank and how far to the next level
+      el.innerHTML = `<span class="lvb" style="border-color:${R.color};box-shadow:0 0 8px ${R.color}55" title="Your level"><small>LEVEL</small><b>${L}</b></span><span class="rkc"><span class="rk" style="color:${R.color}">${R.title}</span><span class="xprow"><span class="xp"><i style="width:${Math.round(frac * 100)}%"></i></span><span class="xpn">${L >= Pw().MAX ? 'max level' : `${U.short(Math.floor(s.xp))} / ${U.short(need)} xp`}</span></span></span>`;
     },
     targetHud(game) {
       const el = document.getElementById('hud-target');
