@@ -187,6 +187,13 @@ Leave your horse and it waits where you left it, grazing, flicking its ears and 
 - **Run a business:** stock the shop and travellers buy from it while you're away. Send a caravan between two towns for a share of the profit, and hire guards, because the roads are not safe.
 - **Grow a village:** once the homestead is big enough, families ask to settle. A royal charter (200 crowns) founds a real village nearby, with a cart track to your gate, a reeve, and you as its warden.
 
+**The land goes on.** The map no longer ends at the sea. Stand on the island's last shore with open water ahead, or walk near the edge of any land found since, and a new band of country appears on that side. Each band has:
+- its own hills, forests, lakes, rivers and named regions; the far north is colder and snowier, the far south drier;
+- villages of the nearest kingdom, with families, trades, a market, an inn and a reeve, and roads back to the old towns;
+- a great beast in its lair, ruins, barrows, dens, deep dungeons, an uncharted wonder, hidden caches, rare herbs, caves, wrecks, stone circles and a hermit or two.
+
+On your first crossing a sandbar rises across the strait so you can walk over. The old world keeps living alongside the new land: people travel between them, and the chronicle records what is found. A world can grow up to 1200 tiles on a side.
+
 **A director for pacing.** The game keeps track of how hard things have been recently. Tension rises while you fight and when you take damage, and drops while you travel and rest (faster in towns). After a hard fight you get time to recover: no new wolf packs, night raids or big events for a while. When you're nearly dead, enemies attack one at a time, nobody calls for reinforcements, and hits do slightly less damage. When things have been quiet for too long, something happens: a wolf pack follows you at a distance and howls, raiders appear on the road at night, or someone injured by the road calls for help. Usually they really need it; sometimes it's a trap.
 
 ## Play

@@ -16,6 +16,22 @@
     return u8;
   }
 
+  function rle(u8) {
+    const out = [];
+    for (let i = 0; i < u8.length;) {
+      const v = u8[i]; let n = 1;
+      while (n < 255 && i + n < u8.length && u8[i + n] === v) n++;
+      out.push(n, v); i += n;
+    }
+    return new Uint8Array(out);
+  }
+  function unrle(b, n) {
+    const out = new Uint8Array(n);
+    let o = 0;
+    for (let i = 0; i + 1 < b.length && o < n; i += 2) { out.fill(b[i + 1], o, Math.min(n, o + b[i])); o += b[i]; }
+    return out;
+  }
+
   const S = ECHO.Save = {
     serialize(world) {
       const out = {};
@@ -25,12 +41,13 @@
         if (k === 'blocked') continue;
         out[k] = world[k];
       }
-      out.tiles = toB64(world.tiles);
+      // grown worlds get big: long runs of the same ground pack small
+      out.tiles = world.frontier ? 'rle:' + toB64(rle(world.tiles)) : toB64(world.tiles);
       return JSON.stringify(out);
     },
     deserialize(json) {
       const w = JSON.parse(json);
-      w.tiles = fromB64(w.tiles);
+      w.tiles = typeof w.tiles === 'string' && w.tiles.startsWith('rle:') ? unrle(fromB64(w.tiles.slice(4)), w.W * w.H) : fromB64(w.tiles);
       w.journeys = w.journeys || [];
       w.news = w.news || [];
       // saves made before the flags were kept: don't place the wild a second time

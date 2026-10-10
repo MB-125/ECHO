@@ -44,20 +44,24 @@
           for (const nb of ECHO.World.regionNeighbors(world, lr)) nb.breed = Math.max(nb.breed, 1.35);
         }
       }
-      for (const r of world.regions) {
-        if (r.land < 0.15) { r.eco = null; continue; }
-        const K = E.capacity(r);
-        const apex = E.apexPressure(world, r);
-        r.eco = {
-          gnawer: K.gnawer * (apex > 0 ? 0.12 : 0.3) * rng.range(0.85, 1.15),
-          hare: K.hare * rng.range(0.4, 0.7),
-          wolf: Math.max(2, K.wolf * rng.range(0.35, 0.6)),
-          traits: { gnawer: traitsInit(), hare: traitsInit(), wolf: traitsInit() },
-          pressure: { gnawer: { melee: 0, ranged: 0, fire: 0 }, hare: { melee: 0, ranged: 0, fire: 0 }, wolf: { melee: 0, ranged: 0, fire: 0 } },
-          crop: 1, wolfDanger: 0
-        };
-      }
+      for (const r of world.regions) E.initRegion(world, r, rng, true);
       for (const r of world.regions) if (r.eco) r.eco.crop = E.cropFactor(world, r);
+    },
+    // A region's wildlife at its beginning (also for new land found past the old edges).
+    initRegion(world, r, rng, bare) {
+      if (r.breed == null) r.breed = 1;
+      if (r.land < 0.15) { r.eco = null; return; }
+      const K = E.capacity(r);
+      const apex = E.apexPressure(world, r);
+      r.eco = {
+        gnawer: K.gnawer * (apex > 0 ? 0.12 : 0.3) * rng.range(0.85, 1.15),
+        hare: K.hare * rng.range(0.4, 0.7),
+        wolf: Math.max(2, K.wolf * rng.range(0.35, 0.6)),
+        traits: { gnawer: traitsInit(), hare: traitsInit(), wolf: traitsInit() },
+        pressure: { gnawer: { melee: 0, ranged: 0, fire: 0 }, hare: { melee: 0, ranged: 0, fire: 0 }, wolf: { melee: 0, ranged: 0, fire: 0 } },
+        crop: 1, wolfDanger: 0
+      };
+      if (!bare) r.eco.crop = E.cropFactor(world, r);
     },
     // A great beast hunts its lair's region and the fields of its village.
     huntRegions(world, l) {

@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -568,6 +568,38 @@ function main() {
     const R = ECHO.Rivals.list(B);
     check('rival adventurers go down into the dungeons too', R.length >= 4 && R.some(r => r.cleared > 0 || !r.alive) && B.chronicle.some(e => R.some(r => e.text.includes(r.name))), R.map(r => `${r.name}:${r.lv}/${r.cleared}${r.alive ? '' : '†'}`).join(' '));
     check('the standings include you', ECHO.Rivals.board(B, pl).some(r => r.you));
+  }
+
+  console.log('\nThe land goes on');
+  {
+    const B = ECHO.generateWorld({ seed: 2468, name: 'Frontierworld' });
+    const s0 = B.settlements[0];
+    const pl = B.player = { charId: 'c-f', first: 'Ada', last: 'Reed', alive: true, items: [], inv: {}, gold: 0, skills: {}, renown: 0, x: s0.x + 0.5, y: s0.y + 2.5, explored: new Array(Math.ceil(B.W / 4) * Math.ceil(B.H / 4)).fill(0), tmaps: [{ x: 50, y: 60 }] };
+    pl.explored[Math.floor(s0.y / 4) * Math.ceil(B.W / 4) + Math.floor(s0.x / 4)] = 1;
+    const W0 = B.W, H0 = B.H, n0 = B.settlements.length, npc0 = Object.keys(B.npcs).length, road0 = B.roads[0].path.slice(0, 5);
+    const roadTile = i => B.tiles[i] === ECHO.TILE.ROAD || B.tiles[i] === ECHO.TILE.BRIDGE || B.tiles[i] === ECHO.TILE.PLAZA;
+    const before = { sx: s0.x, px: pl.x, py: pl.y, reg: ECHO.World.regionAt(B, s0.x, s0.y).name, t: B.tiles[s0.y * W0 + s0.x] };
+    const infos = [];
+    for (const side of ['w', 'n', 'e', 's']) infos.push(ECHO.Frontier.expand(B, side, { from: { x: pl.x, y: pl.y } }));
+    const F = B.frontier;
+    check('the map grows on every side', B.W === W0 + 160 && B.H === H0 + 152 && infos.every(i => i && i.regions.length), `${W0}x${H0} → ${B.W}x${B.H}`);
+    check('what was there moved with the map, ground and all', s0.x === before.sx + 80 && pl.x === before.px + 80 && pl.y === before.py + 76 && B.tiles[s0.y * B.W + s0.x] === before.t && ECHO.World.regionAt(B, s0.x, s0.y).name === before.reg && pl.tmaps[0].x === 130);
+    check('roads still run over road', B.roads.every(r => r.path.filter(roadTile).length >= r.path.length * 0.8) && B.roads[0].path[0] === road0[0] + 80 + 76 * B.W - Math.floor(road0[0] / W0) * (W0 - B.W));
+    check('the fog you lifted stays lifted', pl.explored.length === Math.ceil(B.W / 4) * Math.ceil(B.H / 4) && pl.explored[Math.floor(s0.y / 4) * Math.ceil(B.W / 4) + Math.floor(s0.x / 4)] === 1);
+    const fresh = B.settlements.filter(s => s.frontier);
+    check('new villages with their own people', fresh.length >= 4 && fresh.every(s => s.residents.length >= 18 && s.buildings.some(b => b.type === 'inn')) && Object.keys(B.npcs).length > npc0 + 80, fresh.map(s => `${s.name}:${s.residents.length}`).join(' '));
+    check('...joined to the old roads', fresh.every(s => B.roads.some(r => r.b === s.id || r.a === s.id)) && B.settlements.length === n0 + fresh.length);
+    const regs = B.regions.filter(r => r.frontier);
+    check('new regions, beasts, ruins, delves, wonders and secrets', regs.length >= 8 && regs.every(r => ECHO.World.regionAt(B, (r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2) === r) && B.lairs.some(l => fresh.some(s => s.id === l.villageId)) && (B.sites || []).filter(s => s.x < 80 || s.y < 76 || s.x > W0 + 80 || s.y > H0 + 76).length >= 6, `${regs.length} regions, ${B.lairs.length} lairs, ${B.sites.length} sites`);
+    let land = 0, n = 0;
+    for (let y = 2; y < B.H; y += 4) for (let x = 2; x < 78; x += 4) { n++; const t = B.tiles[y * B.W + x]; if (t !== ECHO.TILE.DEEP && t !== ECHO.TILE.WATER) land++; }
+    check('the new country is mostly land', land / n > 0.6, `${Math.round(land / n * 100)}% land in the west`);
+    const json = ECHO.Save.serialize(B), B2 = ECHO.Save.deserialize(json);
+    check('a grown world saves and loads', B2.W === B.W && B2.tiles.length === B.W * B.H && B2.tiles.every((t, i) => t === B.tiles[i]) && B2.frontier.sides.e === 1, `${Math.round(json.length / 1024)} KB`);
+    let ok = true;
+    try { for (let d = 0; d < 40; d++) ECHO.Sim.dailyTick(B2, true); } catch (e) { ok = false; console.log(e); }
+    check('...and goes on living', ok && B2.settlements.filter(s => s.frontier).every(s => s.residents.length > 10), `day ${B2.day}`);
+    check('travel reaches the new villages', B2.journeys.some(j => fresh.some(s => s.id === j.to || s.id === j.from)) || B2.chronicle.some(e => fresh.some(s => e.text.includes(s.name))));
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

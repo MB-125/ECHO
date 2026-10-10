@@ -161,6 +161,7 @@
       if (ECHO.Jobs) ECHO.Jobs.update(Game, dt);
       if (ECHO.Secrets) ECHO.Secrets.update(Game, dt);
       if (ECHO.Homestead) ECHO.Homestead.update(Game, dt);
+      if (ECHO.Frontier) ECHO.Frontier.tick(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }

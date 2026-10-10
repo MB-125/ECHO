@@ -29,6 +29,7 @@
       World.W = W; World.H = H; World.REGION_COLS = REGION_COLS; World.REGION_ROWS = REGION_ROWS;
     },
     scale(world) { return world.size === 'vast' ? 2 : 1; },
+    gen(world) { return SIZES[world.size] || SIZES.standard; },
     idx: (x, y) => y * W + x,
     inBounds: (x, y) => x >= 0 && y >= 0 && x < W && y < H,
     tile(world, x, y) {
@@ -58,12 +59,43 @@
     },
     speedAt(world, x, y) { return MOVE_COST[World.tile(world, x, y)] || 1; },
     regionAt(world, x, y) {
+      if (world.frontier) return World.regionGrid(world, x, y);
       const RC = world.RC || 5, RR = world.RR || 4;
       const rx = U.clamp(Math.floor(x / ((world.W || 200) / RC)), 0, RC - 1);
       const ry = U.clamp(Math.floor(y / ((world.H || 150) / RR)), 0, RR - 1);
       return world.regions[ry * RC + rx];
     },
+    // Once the land has grown past its first edges, regions are rectangles of
+    // any size: look them up through a coarse grid built from their bounds.
+    regionGrid(world, x, y) {
+      const S = 4, cw = Math.ceil(world.W / S), ch = Math.ceil(world.H / S);
+      let G = world._rgrid;
+      if (!G || G.cw !== cw || G.ch !== ch || G.n !== world.regions.length) {
+        G = world._rgrid = { cw, ch, n: world.regions.length, ids: new Int32Array(cw * ch).fill(-1) };
+        for (const r of world.regions) {
+          const x0 = Math.max(0, Math.floor(r.x0 / S)), x1 = Math.min(cw, Math.ceil(r.x1 / S)), y0 = Math.max(0, Math.floor(r.y0 / S)), y1 = Math.min(ch, Math.ceil(r.y1 / S));
+          for (let gy = y0; gy < y1; gy++) for (let gx = x0; gx < x1; gx++) {
+            const cx = gx * S + S / 2, cy = gy * S + S / 2;
+            if (cx >= r.x0 && cx < r.x1 && cy >= r.y0 && cy < r.y1) G.ids[gy * cw + gx] = r.id;
+            else if (G.ids[gy * cw + gx] < 0) G.ids[gy * cw + gx] = r.id;
+          }
+        }
+      }
+      const gx = U.clamp(Math.floor(x / S), 0, cw - 1), gy = U.clamp(Math.floor(y / S), 0, ch - 1);
+      const id = G.ids[gy * cw + gx];
+      return world.regions[id >= 0 ? id : 0];
+    },
     regionNeighbors(world, region) {
+      if (world.frontier) {
+        const nb = world._rnb || (world._rnb = {});
+        if (nb._n !== world.regions.length) { for (const k of Object.keys(nb)) delete nb[k]; nb._n = world.regions.length; }
+        if (!nb[region.id]) {
+          const touch = (a, b) => (Math.abs(a.x1 - b.x0) < 0.6 || Math.abs(b.x1 - a.x0) < 0.6) && a.y0 < b.y1 - 1 && b.y0 < a.y1 - 1 ||
+            (Math.abs(a.y1 - b.y0) < 0.6 || Math.abs(b.y1 - a.y0) < 0.6) && a.x0 < b.x1 - 1 && b.x0 < a.x1 - 1;
+          nb[region.id] = world.regions.filter(r => r !== region && touch(region, r)).map(r => r.id);
+        }
+        return nb[region.id].map(id => world.regions[id]);
+      }
       const out = [];
       const RC = world.RC || 5, RR = world.RR || 4;
       const rx = region.id % RC, ry = Math.floor(region.id / RC);
@@ -409,8 +441,8 @@
     };
   }
   // Lay a road between two settlements (used at creation, and when a new village is founded).
-  function connectRoad(world, a, b) {
-    const path = World.findPath(world, a.x, a.y + 1, b.x, b.y + 1, roadCost(world), 120000);
+  function connectRoad(world, a, b, maxIter = 120000) {
+    const path = World.findPath(world, a.x, a.y + 1, b.x, b.y + 1, roadCost(world), maxIter);
     if (!path) return null;
     for (const p of path) {
       const t = world.tiles[p];
@@ -472,6 +504,7 @@
     { kind: 'wyrm', title: 'the Thornback', base: ['Hollowcoil', 'Rotfang', 'the Grey Widow', 'Saltgrave'] },
     { kind: 'stag', title: 'the Antlered Dread', base: ['Mournhorn', 'Ninebranch', 'Ashantler', 'the Pale Hart'] }
   ];
+  World.APEX_KINDS = APEX_KINDS;
 
   function placeLairs(world, rng, comp, main) {
     world.lairs = [];

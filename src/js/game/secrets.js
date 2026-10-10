@@ -58,28 +58,35 @@
       const rng = new ECHO.RNG(ECHO.hashStr('secrets:' + world.seed));
       const W = world.W || 200, H = world.H || 150;
       const S = world.secrets = { v: 1, list: [], seq: 0 };
+      const scale = W * H / 30000;
+      Sc.placeIn(world, rng, { x0: 0, y0: 0, x1: W, y1: H }, { cave: Math.round(10 * scale), shrine: Math.min(SAINTS.length, Math.round(8 * scale)), wreck: Math.round(10 * scale), circle: Math.round(4 * scale), hut: Math.round(5 * scale) });
+      return S;
+    },
+    // Scatter secrets over a stretch of land (the whole world, or new land past the old edges).
+    placeIn(world, rng, R, counts, hermits) {
+      const S = world.secrets;
+      const first = S.list.length;
       const free = (x, y, r = 2) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (ECHO.World.isSolid(world, x + dx, y + dy)) return false; return !(ECHO.Water && ECHO.Water.kind(world, x, y)); };
       const farFromAll = (x, y) => !ECHO.World.settlementAt(world, x, y, 14) && !S.list.some(o => U.dist(o.x, o.y, x, y) < 9) && !ECHO.Explore.sites(world).some(o => U.dist(o.x, o.y, x, y) < 6);
       const tile = (x, y) => ECHO.World.tile(world, Math.floor(x), Math.floor(y));
       const nearWater = (x, y) => { for (let k = 0; k < 8; k++) { const a = k * 0.785; if (ECHO.Water && ECHO.Water.kind(world, x + Math.cos(a) * 2, y + Math.sin(a) * 2)) return true; } return false; };
       const place = (kind, want, n, extra) => {
         for (let i = 0, made = 0; i < n * 60 && made < n; i++) {
-          const x = 6 + rng.next() * (W - 12), y = 6 + rng.next() * (H - 12);
+          const x = R.x0 + 6 + rng.next() * (R.x1 - R.x0 - 12), y = R.y0 + 6 + rng.next() * (R.y1 - R.y0 - 12);
           if (!free(x, y) || !farFromAll(x, y) || !want(x, y)) continue;
           const o = { id: 'sc' + (++S.seq), kind, x: Math.floor(x) + 0.5, y: Math.floor(y) + 0.5, found: false, done: false };
           if (extra) extra(o, made);
           S.list.push(o); made++;
         }
       };
-      const scale = W * H / 30000;
-      place('cave', (x, y) => tile(x, y) === T.HILL || (tile(x, y) === T.FOREST && rng.next() < 0.3), Math.round(10 * scale), o => { o.what = ['den', 'smugglers', 'paintings', 'bats', 'spring'][rng.int(0, 4)]; });
-      place('shrine', (x, y) => tile(x, y) === T.GRASS || tile(x, y) === T.ROAD || tile(x, y) === T.HILL, Math.min(SAINTS.length, Math.round(8 * scale)), (o, i) => { o.saint = i % SAINTS.length; });
-      place('wreck', (x, y) => tile(x, y) === T.ROAD || (tile(x, y) === T.SAND && nearWater(x, y)), Math.round(10 * scale), o => { o.boat = tile(o.x, o.y) === T.SAND; });
-      place('circle', (x, y) => tile(x, y) === T.GRASS || tile(x, y) === T.HILL, Math.round(4 * scale), o => { const v = VERSES[rng.int(0, VERSES.length - 1)]; o.verse = v[0]; o.order = v[1]; o.step = 0; });
-      place('hut', (x, y) => tile(x, y) === T.FOREST || tile(x, y) === T.HILL || tile(x, y) === T.SWAMP, Math.round(5 * scale), (o, i) => { o.gift = ['riddle', 'teach', 'map', 'lore'][i % 4]; });
+      if (counts.cave) place('cave', (x, y) => tile(x, y) === T.HILL || (tile(x, y) === T.FOREST && rng.next() < 0.3), counts.cave, o => { o.what = ['den', 'smugglers', 'paintings', 'bats', 'spring'][rng.int(0, 4)]; });
+      if (counts.shrine) place('shrine', (x, y) => tile(x, y) === T.GRASS || tile(x, y) === T.ROAD || tile(x, y) === T.HILL, counts.shrine, (o, i) => { o.saint = i % SAINTS.length; });
+      if (counts.wreck) place('wreck', (x, y) => tile(x, y) === T.ROAD || (tile(x, y) === T.SAND && nearWater(x, y)), counts.wreck, o => { o.boat = tile(o.x, o.y) === T.SAND; });
+      if (counts.circle) place('circle', (x, y) => tile(x, y) === T.GRASS || tile(x, y) === T.HILL, counts.circle, o => { const v = VERSES[rng.int(0, VERSES.length - 1)]; o.verse = v[0]; o.order = v[1]; o.step = 0; });
+      if (counts.hut) place('hut', (x, y) => tile(x, y) === T.FOREST || tile(x, y) === T.HILL || tile(x, y) === T.SWAMP, counts.hut, (o, i) => { o.gift = ['riddle', 'teach', 'map', 'lore'][i % 4]; });
       // the hermits themselves: real people of the world, who chose to live apart
-      const cands = Object.values(world.npcs).filter(n => n.status === 'alive' && !n.title && !n.rival && !n.spouse && ['elder', 'wanderer', 'herbalist', 'hunter', 'priest'].includes(n.prof) && n.loc && P().age(world, n) > 40);
-      for (const o of S.list.filter(o => o.kind === 'hut')) {
+      const cands = Object.values(world.npcs).filter(n => n.status === 'alive' && !n.title && !n.rival && !n.spouse && ['elder', 'wanderer', 'herbalist', 'hunter', 'priest'].includes(n.prof) && n.loc && P().age(world, n) > 40 && (!hermits || hermits.includes(n.loc)));
+      for (const o of S.list.slice(first).filter(o => o.kind === 'hut')) {
         const n = cands.splice(rng.int(0, Math.max(0, cands.length - 1)), 1)[0];
         if (!n) { o.empty = true; continue; }
         o.npc = n.id; n.hermit = o.id; n.loc = null; n.journey = 'hermit';

@@ -133,7 +133,7 @@
       const caps = world.settlements.filter(s => s.kind !== 'village');
       const d = caps.length ? Math.min(...caps.map(s => U.dist(s.x, s.y, site.x, site.y))) : 40;
       const def = DELVES[site.kind] || {};
-      site.level = U.clamp(1 + Math.floor(d / ((world.W || 200) * 0.13)) + (def.lvl || 0), 1, 6);
+      site.level = U.clamp(1 + Math.floor(d / (((world.frontier && world.frontier.W0) || world.W || 200) * 0.13)) + (def.lvl || 0), 1, 6);
       return site.level;
     },
     floors(site) { return (DELVES[site.kind] || {}).floors || 1; },

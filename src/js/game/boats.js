@@ -17,7 +17,7 @@
     _key: null, ferry: null,
     // ------------------------------------------------------------ the water's shape
     prepare(world) {
-      const key = world.seed + '|' + (world._tileEpoch || 0);
+      const key = world.seed + '|' + (world._tileEpoch || 0) + '|' + world.W + 'x' + world.H;
       if (B._key === key) return;
       B._key = key;
       const W = world.W || 200, H = world.H || 150, N = W * H, tiles = world.tiles;

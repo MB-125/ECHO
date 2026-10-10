@@ -213,7 +213,8 @@
     buildWater(world) {
       if (R.water) { R.scene.remove(R.water); R.water.geometry.dispose(); }
       // depth under every vertex: clear and pale over the shallows, dark over the deeps, foam at the edge
-      const step = R.Q && R.Q.map <= 512 ? 2 : 1;
+      const big = (world.W + 60) * (world.H + 60);
+      const step = (R.Q && R.Q.map <= 512 ? 2 : 1) * (big > 700000 ? 4 : big > 220000 ? 2 : 1);
       const g = new THREE.PlaneGeometry(world.W + 60, world.H + 60, Math.round((world.W + 60) / step), Math.round((world.H + 60) / step));
       const pos = g.attributes.position, depth = new Float32Array(pos.count);
       for (let i = 0; i < pos.count; i++) {
