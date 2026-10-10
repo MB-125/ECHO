@@ -49,7 +49,7 @@
       const w = world.items[pl.weapon], a = pl.armor && world.items[pl.armor];
       const dmg = w ? w.dmg : 10, def = a ? a.def || 0 : 0;
       const lv = ECHO.Prowess ? ECHO.Prowess.level(pl) : 1;
-      return U.clamp(Math.round(lv + Math.max(0, dmg - 16) / 8 + def / 15), 1, 15);
+      return U.clamp(Math.round(lv + Math.max(0, dmg - 16 - lv * 3.7) / 8 + Math.max(0, def - 4.6 * lv) / 15), 1, 150);
     },
     dungeons(world) { return X().sites(world).filter(s => s.cat === 'delve'); },
     // The dungeon worth going to next: known, not cleared, near your strength, not far.
