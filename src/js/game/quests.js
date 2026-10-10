@@ -108,7 +108,7 @@
           else if (e.shooter && dT < 4) ECHO.Ent.seek(world, e, e.x - Math.cos(ang) * 2, e.y - Math.sin(ang) * 2, e.speed * 0.8, dt);
           else e.moving = false;
           e.dir = ang; e.flip = Math.cos(ang) < 0;
-          if (e.cd <= 0 && dT < (e.shooter ? 9 : want + 0.4) && (punish || e.shooter || !ECHO.Tactics || e.boss2 || ECHO.Tactics.mayStrike(e))) {
+          if (e.cd <= 0 && dT < (e.shooter ? 9 : F.reach + (T.r || 0.33) + 0.3) && (punish || e.shooter || !ECHO.Tactics || e.boss2 || ECHO.Tactics.mayStrike(e))) {
             if (ECHO.Tactics && !e.shooter) ECHO.Tactics.struck(game, e);
             e.state = 'windup'; e.t = 0; e.aim = ang; e.windEnd = e.shooter ? 0.7 : F.wind;
             const plan = !e.shooter && T === pe && ECHO.Wits ? ECHO.Wits.plan(game, e, dT) : null;

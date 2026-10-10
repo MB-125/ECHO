@@ -39,6 +39,23 @@
     melee(att, o) {
       const game = G();
       const hits = [];
+      // A foe's blow carries it in: if what it swung at is standing just out of
+      // reach (it stopped a step short, or was nudged back during the wind-up),
+      // the attacker closes the gap as it strikes. Someone moving away still escapes.
+      if (att !== game.pe && !att.mounted && !o.noLunge) {
+        let tg = null, td = Infinity;
+        for (const e of game.ents) {
+          if (e === att || e.dead || e.hidden || e.ghost || !game.hostileTo(att, e)) continue;
+          const d = U.dist(att.x, att.y, e.x, e.y);
+          if (d < td && Math.abs(U.angleDiff(o.angle, Math.atan2(e.y - att.y, e.x - att.x))) < o.arc / 2 + 0.35) { td = d; tg = e; }
+        }
+        const short = tg ? td - (o.range + tg.r) : 0;
+        if (tg && short > -0.02 && short < 0.75 && !(tg.moving && tg === game.pe && !tg.attackT)) {
+          const step = short + 0.12, a = Math.atan2(tg.y - att.y, tg.x - att.x);
+          ECHO.Ent.move(game.world, att, Math.cos(a) * step, Math.sin(a) * step);
+          o = { ...o, angle: a };
+        }
+      }
       for (const e of game.ents) {
         if (e === att || e.dead || e.hidden || e.ghost) continue;
         if (!o.all && !(att === game.pe ? game.canPlayerHit(e) : game.hostileTo(att, e))) continue;
