@@ -480,8 +480,9 @@
         return;
       }
       const walk = e.moving ? Math.sin(e.anim * 16) : 0;
-      let base = sp === 'dog' ? (e.coat || '#8a5a32') : ECHO.SPECIES[sp].color;
+      let base = sp === 'dog' || sp === 'fox' ? (e.coat || (sp === 'fox' ? '#c0642a' : '#8a5a32')) : ECHO.SPECIES[sp].color;
       if (sp === 'dog') g.scale(0.72, 0.72);
+      if (sp === 'fox') g.scale(0.55, 0.55);
       if (e.strain && S.STRAIN_TINT[e.strain]) base = mix(base, S.STRAIN_TINT[e.strain], 0.65);
       if (e.mutation === 'mirrorback') base = '#b8c4d4';
       if (e.winter) base = '#e8eef4';
@@ -506,7 +507,7 @@
         for (let i = -3; i < 2; i += 2) R(dark, i, -9, 1, 2);
         R('#f0ece0', -5, -5, 2, 2);
         if (e.mutation === 'glasshorn') { R('#d8f4ff', 3, -15, 1, 3); }
-      } else if (sp === 'wolf') {
+      } else if (sp === 'wolf' || sp === 'dog' || sp === 'fox') {
         R('rgba(0,0,0,0.3)', -8, -1, 16, 2);
         R(base, -7, -9, 12, 6); R(light, -6, -9, 9, 2); R(dark, -7, -4, 12, 1);
         R(base, 4, -11, 5, 5); R(base, 8, -9, 3, 2); R('#1a1010', 10, -9, 1, 1);

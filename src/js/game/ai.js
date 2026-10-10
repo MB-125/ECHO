@@ -60,6 +60,7 @@
       if (e.pet) return ECHO.Pet.think(game, e, dt);
       if (e.rout && ECHO.Tactics) return ECHO.Tactics.flee(game, e, dt);
       if (e.fauna) return ECHO.Fauna.deer(game, e, dt);
+      if (e.species === 'fox' && ECHO.Wild) return ECHO.Wild.fox(game, e, dt);
       const speed = e.speed * (1 + (e.traits ? e.traits.speed * 0.4 : 0)) * (game.isNight() && e.species === 'wolf' ? 1.1 : 1);
       if (e.dq && ECHO.Dilemmas && ECHO.Dilemmas.creature(game, e, dt, speed)) return;
       if (e.species === 'hare') return Creature.hare(game, e, dt, speed);
@@ -69,6 +70,8 @@
         if ((e.blindT = (e.blindT || 0) + dt) > 2.5) { target = null; e.blindT = 0; e.scanT = 2; }
       } else e.blindT = 0;
       if (!target && (e.scanT = (e.scanT || 0) - dt) <= 0) { e.scanT = 0.2; target = findTarget(game, e, sightFor(game, e, sp.sight) * (e.aggro ? 1.6 : 1)); }
+      // a wolf with a full belly lets you pass
+      if (target === game.pe && e.species === 'wolf' && ECHO.Wild && ECHO.Wild.lazy(game, e) && U.dist(e.x, e.y, target.x, target.y) > 3.5) target = null;
       e.target = target;
       if (e.species === 'gnawer') return Creature.gnawer(game, e, dt, speed, target);
       if (e.species === 'wolf') {
@@ -76,6 +79,8 @@
         if (target === game.pe) e.scentT = game.time;
         else if (!target && ECHO.Senses && ECHO.Senses.scent(game, e, dt, speed)) return;
         if (!target && e.search && ECHO.Senses && ECHO.Senses.search(game, e, dt)) return;
+        // on the hunt: deer, hares, and feeding at the kill
+        if (!target && e.hunt && ECHO.Wild && ECHO.Wild.hunt(game, e, dt, speed)) return;
         return Creature.wolf(game, e, dt, speed, target);
       }
     },
@@ -92,7 +97,7 @@
       else e.moving = false;
     },
     hare(game, e, dt, speed) {
-      const threat = game.ents.find(o => !o.dead && !o.hidden && (o === game.pe || o.type === 'person' || (o.type === 'creature' && o.species === 'wolf')) && U.dist(o.x, o.y, e.x, e.y) < (o === game.pe && game.pe.sneaking ? 2.5 : 5));
+      const threat = game.ents.find(o => !o.dead && !o.hidden && (o === game.pe || o.type === 'person' || (o.type === 'creature' && (o.species === 'wolf' || (o.species === 'fox' && o.state !== 'stalk')))) && U.dist(o.x, o.y, e.x, e.y) < (o === game.pe && game.pe.sneaking ? 2.5 : 5));
       if (threat || e.state === 'flee') {
         if (threat) { e.fleeFrom = { x: threat.x, y: threat.y }; e.calmT = 3; }
         e.state = 'flee';

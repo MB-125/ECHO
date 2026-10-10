@@ -189,7 +189,9 @@
       if (ECHO.Interior.cur) { h.v = 0; return; }
       const d = U.dist(h.x, h.y, pe.x, pe.y);
       let want = 0, tx = null, ty = null;
-      if (h.call) {
+      const Bo = ECHO.Wild && ECHO.Wild.horse(game, h, dt);
+      if (Bo) { want = Bo.want; tx = Bo.tx; ty = Bo.ty; }
+      else if (h.call) {
         if (d < 1.6) { h.call = false; if (!(game.combatT != null && game.time - game.combatT < 4)) { Lf.mount(game, true); return; } }
         else { want = (d > 10 ? 8.5 : d > 4 ? 5 : 2) * ((Lf.hs(pl).bond || 0) >= 75 ? 1.15 : 1); tx = pe.x; ty = pe.y; }
       } else {

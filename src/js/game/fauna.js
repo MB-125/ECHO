@@ -150,9 +150,12 @@
           if (e.walk && e.goal && U.dist(e.x, e.y, e.goal.x, e.goal.y) > 0.4) ECHO.Ent.seek(world, e, e.goal.x, e.goal.y, 0.7, dt, 0.2);
         }
       } else if (e.state === 'flee') {
-        const a = Math.atan2(e.y - e.from.y, e.x - e.from.x) + Math.sin(e.t * 1.7 + e.id) * 0.25;
-        ECHO.Ent.seek(world, e, e.x + Math.cos(a) * 3, e.y + Math.sin(a) * 3, e.speed, dt, 0.1);
-        if (e.t > 7 && d > 26) { e.dead = true; e.vanish = true; }
+        const hw = game.ents.find(o => o.hunt && o.hunt.prey === e && !o.dead);
+        if (hw) e.from = { x: hw.x, y: hw.y };
+        const a = Math.atan2(e.y - e.from.y, e.x - e.from.x) + Math.sin(e.t * 1.7 + e.id) * (hw ? 0.6 : 0.25);
+        // run down: jinking, and tiring
+        ECHO.Ent.seek(world, e, e.x + Math.cos(a) * 3, e.y + Math.sin(a) * 3, e.speed * (hw ? Math.max(0.62, 0.85 - e.t * 0.02) : 1), dt, 0.1);
+        if (e.t > 7 && d > 26 && !hw) { e.dead = true; e.vanish = true; }
       }
     },
     panic(game, herd, from) {

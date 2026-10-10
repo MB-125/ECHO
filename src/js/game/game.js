@@ -148,6 +148,7 @@
       if (ECHO.Town) ECHO.Town.update(Game, dt);
       if (ECHO.Callers) ECHO.Callers.update(Game, dt);
       if (ECHO.Comrade) ECHO.Comrade.update(Game, dt);
+      if (ECHO.Wild) ECHO.Wild.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -280,7 +281,7 @@
       if (!a || !b || a === b || a.dead || b.dead) return false;
       if (a.pet || b.pet) return false;
       const pl = Game.pl;
-      const side = e => (e.type === 'player' || e.isCompanion) ? 'player' : e.type === 'boss' ? 'beast' : e.type === 'creature' ? (e.species === 'hare' || e.species === 'hind' ? 'prey' : 'beast') : 'person';
+      const side = e => (e.type === 'player' || e.isCompanion) ? 'player' : e.type === 'boss' ? 'beast' : e.type === 'creature' ? (e.species === 'hare' || e.species === 'hind' || e.species === 'fox' ? 'prey' : 'beast') : 'person';
       const sa = side(a), sb = side(b);
       if (sa === 'prey' || sb === 'prey') return sa === 'player' || sb === 'player' ? false : (sa === 'beast' || sb === 'beast') && false;
       if (sa === 'player' && sb === 'player') return false;
@@ -418,6 +419,7 @@
       const add = (kind, qty) => Game.loot.push({ x: ent.x + (r() - 0.5) * 0.6, y: ent.y + (r() - 0.5) * 0.6, kind, qty });
       if (sp === 'hare') { if (r() < 0.75) add('meat', 1); if (r() < 0.4) add('hide', 1); }
       if (sp === 'wolf') { if (r() < 0.8) add('hide', 1); if (r() < 0.55) add('meat', 1); }
+      if (sp === 'fox' && r() < 0.6) add('hide', 1);
       if (sp === 'gnawer' && r() < 0.08) add('gold', 1 + Math.floor(r() * 3));
       if (sp === 'deer') { add('meat', ent.stag ? 3 : 2); add('hide', 1); if (ent.white) add('whiteantler', 1); }
       if (ent.winter) { add('winterpelt', 1); add('meat', 3); }

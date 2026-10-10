@@ -912,7 +912,7 @@
       if (e.shape === 'spider' || e.shape === 'slime') inst = R.procMonster(e);
       else if (e.shape === 'rat') inst = ECHO.Models.instance('gnawer');
       else if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) inst = ECHO.Models.instance('person');
-      else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' || e.species === 'deer' ? 'stag' : e.species === 'dog' ? 'wolf' : e.species);
+      else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' || e.species === 'deer' ? 'stag' : e.species === 'dog' || e.species === 'fox' ? 'wolf' : e.species);
       else if (e.type === 'boss') inst = ECHO.Models.instance(e.boss.kind);
       if (!inst) return null;
       v = { inst, kind, cfgT: 0, dir: e.dir || 0, bob: Math.random() * 6 };
@@ -981,6 +981,7 @@
       }
       if (e.type === 'creature') {
         const base = { wolf: 'fur', dog: 'fur', gnawer: 'rat', hare: 'hare' }[e.species];
+        if (e.species === 'fox') { M.recolor(inst, 'fur', e.coat || '#c0642a'); M.recolor(inst, 'eyeglow', '#1a1410'); for (const m of inst.mats) if (m.emissive) m.emissive.set('#000000'); M.show(inst, 'horn', false); inst.root.scale.setScalar(0.5); return; }
         if (e.species === 'dog') { M.recolor(inst, 'fur', e.coat || '#8a5a32'); M.recolor(inst, 'eyeglow', '#1a1410'); for (const m of inst.mats) if (m.emissive) m.emissive.set('#000000'); M.show(inst, 'horn', false); inst.root.scale.setScalar(0.66); return; }
         const tint = e.winter ? '#eef2f8' : e.mutation === 'mirrorback' ? '#b8c4d4' : e.mutation === 'emberfur' ? '#a8502a' : e.strain === 'Ashen' ? '#8e8e8a' : e.strain === 'Ironhide' ? '#5a4632' : null;
         if (tint) M.recolor(inst, base, tint);
@@ -1512,11 +1513,12 @@
       v.yOff = 0;
       if (e.species === 'hare') v.yOff = Math.abs(Math.sin(ph * 0.5)) * 0.18 * (v.mv || 0);
       if ((e.species === 'hind' || e.species === 'deer') && P.neck) { const graze = e.state === 'graze' && Math.sin(R.time * 0.7 + e.id) > 0.3; P.neck.rotation.y = U.lerp(P.neck.rotation.y || 0, graze ? -1.1 : 0, 0.08); }
-      if (e.species === 'wolf') {
-        const crouch = e.state === 'windup' ? 0.12 : 0;
+      if (e.species === 'wolf' || e.species === 'fox') {
+        // crouched to stalk; head down to feed, tugging at the kill
+        const crouch = e.state === 'windup' ? 0.12 : e.state === 'stalk' && !e.target ? 0.09 : e.state === 'feed' ? 0.05 : 0;
         v.tell = e.state === 'windup' ? 1 : 0;
         P.body.position.y = 0.42 - crouch + Math.abs(Math.sin(ph)) * 0.03 * (v.mv || 0);
-        P.head.rotation.z = e.state === 'lunge' ? 0.3 : e.state === 'windup' ? -0.15 : 0;
+        P.head.rotation.z = e.state === 'lunge' ? 0.3 : e.state === 'windup' ? -0.15 : e.state === 'feed' ? -0.65 + Math.sin(R.time * 5 + e.id) * 0.12 : e.state === 'stalk' && !e.target ? -0.25 : 0;
       }
     },
     // Spiders and slimes are built here rather than in Blender.
