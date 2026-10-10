@@ -341,8 +341,17 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 #lockpick .lp-pin.set .lp-spot { background: #8ac85a; }
 #lockpick .lp-spot { position: absolute; top: 0; bottom: 0; background: rgba(255,214,120,0.35); border-left: 1px solid #ffd878; border-right: 1px solid #ffd878; }
 #lockpick .lp-pin.cur .lp-spot { background: rgba(255,224,140,0.6); }
-#lockpick .lp-pick { position: absolute; top: -2px; bottom: -2px; width: 3px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px #fff; }
-#lockpick .lp-help { margin-top: 10px; font-size: 13px; color: #b8ac90; }
+#lockpick .lp-pick { position: absolute; top: -2px; bottom: -2px; width: 4px; margin-left: -2px; background: #fff; box-shadow: 0 0 6px #fff; will-change: left; }
+#lockpick .lp-pin { height: 22px; }
+#lockpick .lp-pin.cur { border-color: #c8a85a; }
+#lockpick .lp-pin.cur.ok { animation: lpok 0.35s ease-out; }
+#lockpick .lp-pin.cur.miss { animation: lpmiss 0.35s ease-out; }
+@keyframes lpok { from { background: #5a7a3a; } to { background: #2a241c; } }
+@keyframes lpmiss { 0% { background: #7a2a22; transform: translateX(-3px); } 50% { transform: translateX(3px); } 100% { background: #2a241c; transform: none; } }
+#lockpick .lp-msg { min-height: 18px; margin-top: 8px; font-size: 13px; }
+#lockpick .lp-msg.bad { color: #ff9a7a; }
+#lockpick .lp-msg.good { color: #a8e07a; }
+#lockpick .lp-help { margin-top: 6px; font-size: 13px; color: #b8ac90; }
 #lockpick .lp-picks { margin-top: 4px; font-size: 12px; color: #d8c890; }
 /* body: cold and hunger */
 #hud-body { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 3px; font-size: 12px; text-shadow: 0 1px 0 #000; }

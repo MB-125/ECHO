@@ -195,7 +195,10 @@
   // A row of pins; a pick sweeps back and forth across each one, and you set
   // it (E, Space or click) while the pick is over the sweet spot. Miss and the
   // pick may snap; the deeper the lock, the faster the sweep and the smaller
-  // the spot.
+  // the spot. Judged fairly: a press counts where the pick was when you saw it
+  // (the last 80 ms), the notch's own edges count, and no notch is
+  // ever narrower than a tenth of a second of sweep.
+  const GRACE = 0.08, EDGE = 0.012, MIN_WINDOW = 0.1;
   const LP = ECHO.Lockpick = {
     st: null,
     open(o) {
@@ -203,59 +206,94 @@
       if (!(pl.inv.lockpick > 0)) return ECHO.UI.toast('Locked. You have no lockpicks — markets sell them.', 'warn', 3);
       const shadow = pl.skills.shadow || 0;
       const pins = o.pins || 3;
-      const st = LP.st = { pins, at: 0, x: 0, dir: 1, speed: (o.speed || 1) * (0.9 + pins * 0.12), spots: [], width: U.clamp(0.2 - pins * 0.02 + shadow / 900, 0.08, 0.3), done: o.onDone, title: o.title || 'A lock', broke: 0 };
-      for (let i = 0; i < pins; i++) st.spots.push(0.15 + Math.random() * (0.7 - st.width));
+      const speed = (o.speed || 1) * (0.9 + pins * 0.12);
+      const width = Math.max(U.clamp(0.2 - pins * 0.02 + shadow / 900, 0.08, 0.3), Math.min(0.3, speed * MIN_WINDOW));
+      const st = LP.st = { pins, at: 0, x: 0, dir: 1, speed, spots: [], width, done: o.onDone, title: o.title || 'A lock', broke: 0, hist: [], msg: '', msgT: 0, flash: null };
+      for (let i = 0; i < pins; i++) st.spots.push(0.12 + Math.random() * (0.76 - st.width));
       ECHO.UI.modalOpen = true; ECHO.Input.clear();
       let el = document.getElementById('lockpick');
       if (!el) { el = document.createElement('div'); el.id = 'lockpick'; document.body.appendChild(el); }
       el.className = '';
-      el.innerHTML = `<div class="lp-inner"><h3>${o.title || 'Pick the lock'}</h3><div class="lp-pins"></div><div class="lp-help">Set each pin when the pick is in the bright notch — <b>E</b>, <b>Space</b> or click. <b>Esc</b> to give up.</div><div class="lp-picks"></div></div>`;
-      el.onclick = () => LP.press();
-      LP.key = ev => { if (!LP.st) return; if (ev.key === 'e' || ev.key === 'E' || ev.key === ' ') { ev.preventDefault(); ev.stopImmediatePropagation(); LP.press(); } if (ev.key === 'Escape') { ev.preventDefault(); ev.stopImmediatePropagation(); LP.close(false, true); } };
+      el.innerHTML = `<div class="lp-inner"><h3>${o.title || 'Pick the lock'}</h3><div class="lp-pins"></div><div class="lp-msg"></div><div class="lp-help">Set each pin when the pick is inside the bright notch — <b>E</b>, <b>Space</b> or click. <b>Esc</b> to give up.</div><div class="lp-picks"></div></div>`;
+      el.onclick = null;
+      el.onpointerdown = ev => { ev.preventDefault(); LP.press(ev.timeStamp); };
+      LP.key = ev => { if (!LP.st) return; if (ev.key === 'e' || ev.key === 'E' || ev.key === ' ') { ev.preventDefault(); ev.stopImmediatePropagation(); if (!ev.repeat) LP.press(ev.timeStamp); } if (ev.key === 'Escape') { ev.preventDefault(); ev.stopImmediatePropagation(); LP.close(false, true); } };
       window.addEventListener('keydown', LP.key, true);
       LP.last = performance.now();
-      LP.draw();
-      const loop = () => { if (!LP.st) return; const now = performance.now(); LP.step(Math.min(0.05, (now - LP.last) / 1000)); LP.last = now; LP.draw(); LP.raf = requestAnimationFrame(loop); };
+      LP.render();
+      const loop = () => { if (!LP.st) return; const now = performance.now(); LP.step(Math.min(0.05, (now - LP.last) / 1000), now); LP.last = now; LP.draw(); LP.raf = requestAnimationFrame(loop); };
       LP.raf = requestAnimationFrame(loop);
     },
-    step(dt) {
+    step(dt, now) {
       const st = LP.st; if (!st) return;
       st.x += st.dir * st.speed * dt;
-      if (st.x > 1) { st.x = 1; st.dir = -1; } if (st.x < 0) { st.x = 0; st.dir = 1; }
+      if (st.x > 1) { st.x = 2 - st.x; st.dir = -1; } if (st.x < 0) { st.x = -st.x; st.dir = 1; }
+      // where the pick has been lately, so a press is judged against what was on screen
+      st.hist.push([now || performance.now(), st.x]);
+      while (st.hist.length && st.hist[0][0] < (now || performance.now()) - 250) st.hist.shift();
+      if (st.msgT > 0) st.msgT -= dt;
     },
-    press() {
+    // Was the pick inside the notch at any moment from GRACE before the press to the press itself?
+    inNotch(st, t) {
+      const s0 = st.spots[st.at] - EDGE, s1 = st.spots[st.at] + st.width + EDGE;
+      const pts = st.hist.filter(h => h[0] >= t - GRACE * 1000 && h[0] <= t + 20);
+      pts.push([t, st.x]);
+      for (let k = 0; k < pts.length; k++) {
+        const x = pts[k][1];
+        if (x >= s0 && x <= s1) return true;
+        // the pick swept across the notch between two frames
+        if (k && Math.min(x, pts[k - 1][1]) <= s0 && Math.max(x, pts[k - 1][1]) >= s1) return true;
+      }
+      return false;
+    },
+    press(evT) {
       const st = LP.st, game = ECHO.Game, pl = game.pl; if (!st) return;
-      const s0 = st.spots[st.at];
-      if (st.x >= s0 && st.x <= s0 + st.width) {
-        st.at++; if (ECHO.Sfx) ECHO.Sfx.play('hit', { pitch: 2.2, vol: 0.25 });
+      // keyboard and pointer event times share performance.now()'s clock
+      const ref = st.hist.length ? st.hist[st.hist.length - 1][0] : performance.now();
+      const t = typeof evT === 'number' && evT > 0 && Math.abs(evT - ref) < 500 ? evT : ref;
+      if (LP.inNotch(st, t)) {
+        st.at++; st.flash = 'ok'; st.msg = st.at >= st.pins ? '' : `Pin ${st.at} set.`; st.msgT = 1;
+        if (ECHO.Sfx) ECHO.Sfx.play('hit', { pitch: 2.2, vol: 0.25 });
         if (st.at >= st.pins) return LP.close(true);
       } else {
+        const s0 = st.spots[st.at], mid = s0 + st.width / 2;
+        const early = st.dir > 0 ? st.x < mid : st.x > mid;
+        st.flash = 'miss'; st.msg = early ? 'Too early — wait for the pick to reach the notch.' : 'Too late — the pick had already passed the notch.'; st.msgT = 1.6;
         if (ECHO.Sfx) ECHO.Sfx.play('hit', { pitch: 0.6, vol: 0.3 });
-        if (st.at > 0 && Math.random() < 0.5) st.at--;               // a pin drops back
+        if (st.at > 0 && Math.random() < 0.5) { st.at--; st.msg += ' A pin drops back.'; }
         if (Math.random() < 0.45 - (pl.skills.shadow || 0) / 300) {   // the pick snaps
-          pl.inv.lockpick--; st.broke++;
+          pl.inv.lockpick--; st.broke++; st.msg += ' Your pick snaps!';
           if (ECHO.Stealth) ECHO.Stealth.loud(game, game.pe.x, game.pe.y, 3.5);
           if (pl.inv.lockpick <= 0) { ECHO.UI.toast('Your last pick snaps in the lock.', 'warn', 3); return LP.close(false); }
         }
       }
-      LP.draw();
+      LP.render();
     },
     close(ok, quit) {
       const st = LP.st; LP.st = null;
       cancelAnimationFrame(LP.raf);
       window.removeEventListener('keydown', LP.key, true);
-      const el = document.getElementById('lockpick'); if (el) el.className = 'hidden';
+      const el = document.getElementById('lockpick'); if (el) { el.className = 'hidden'; el.onpointerdown = null; }
       ECHO.UI.modalOpen = false; ECHO.Input.clear();
       const pl = ECHO.Game.pl;
       if (ok) { ECHO.Character.train(pl, 'shadow', 0.6); pl.locksPicked = (pl.locksPicked || 0) + 1; if (ECHO.Sfx) ECHO.Sfx.play('door', { pitch: 1.4 }); }
       else if (st && st.broke && !quit) ECHO.UI.toast(`${st.broke} pick${st.broke > 1 ? 's' : ''} broken.`, 'info', 2);
       if (st && st.done) st.done(!!ok);
     },
-    draw() {
+    // The pins are built when something changes; each frame only the pick moves.
+    render() {
       const st = LP.st, el = document.getElementById('lockpick'); if (!st || !el) return;
       const pins = el.querySelector('.lp-pins');
-      pins.innerHTML = st.spots.map((s, i) => `<div class="lp-pin ${i < st.at ? 'set' : i === st.at ? 'cur' : ''}"><div class="lp-spot" style="left:${s * 100}%;width:${st.width * 100}%"></div>${i === st.at ? `<div class="lp-pick" style="left:${st.x * 100}%"></div>` : ''}</div>`).join('');
-      el.querySelector('.lp-picks').textContent = `Lockpicks: ${ECHO.Game.pl.inv.lockpick || 0}`;
+      pins.innerHTML = st.spots.map((s, i) => `<div class="lp-pin ${i < st.at ? 'set' : i === st.at ? 'cur' + (st.flash ? ' ' + st.flash : '') : ''}"><div class="lp-spot" style="left:${s * 100}%;width:${st.width * 100}%"></div>${i === st.at ? '<div class="lp-pick"></div>' : ''}</div>`).join('');
+      LP.pickEl = pins.querySelector('.lp-pick');
+      el.querySelector('.lp-picks').textContent = `Lockpicks: ${ECHO.Game.pl.inv.lockpick || 0} · pin ${Math.min(st.at + 1, st.pins)} of ${st.pins}`;
+      const m = el.querySelector('.lp-msg'); m.textContent = st.msg; m.className = 'lp-msg' + (st.flash === 'miss' ? ' bad' : ' good');
+      st.flash = null;
+    },
+    draw() {
+      const st = LP.st; if (!st) return;
+      if (LP.pickEl) LP.pickEl.style.left = (st.x * 100) + '%';
+      if (st.msgT <= 0 && st.msg) { st.msg = ''; const el = document.getElementById('lockpick'); const m = el && el.querySelector('.lp-msg'); if (m) m.textContent = ''; }
     }
   };
 })();
