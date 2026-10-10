@@ -28,6 +28,7 @@
     trackedGoal(world, pl, id) {
       if (id === 'story') return ECHO.Saga ? ECHO.Saga.tracked(world, pl) : null;
       if (id.startsWith('job:')) return ECHO.Jobs ? ECHO.Jobs.tracked(ECHO.Game, id) : null;
+      if (id.startsWith('tmap:')) return ECHO.Secrets ? ECHO.Secrets.trackedMap(ECHO.Game, id) : null;
       if (id.startsWith('mark:')) {
         const [, x, y, ...nm] = id.split(':'), mx = +x, my = +y;
         if (U.dist(mx, my, pl.x, pl.y) < 3) { if (UI() && UI().toast) UI().toast(`You have reached ${nm.join(':')}.`, 'info', 3); return null; }

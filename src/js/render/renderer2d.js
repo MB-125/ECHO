@@ -38,6 +38,18 @@
       if (game.shakeT > 0) { sx = (Math.random() - 0.5) * game.shakeA * 0.6; sy = (Math.random() - 0.5) * game.shakeA * 0.6; }
       return { x: game.cam.x + sx, y: game.cam.y + sy };
     },
+    // caves, shrines, wrecks, stone circles, huts — a few strokes each
+    secret(game, o) {
+      const ctx = R.ctx, p = R.toScreen(game, o.x, o.y), u = TS * R.Z / 16;
+      const rect = (c, x, y, w, h) => { ctx.fillStyle = c; ctx.fillRect(p.x + x * u, p.y + y * u, w * u, h * u); };
+      ctx.save();
+      if (o.kind === 'cave') { rect('rgba(0,0,0,0.25)', -22, 2, 44, 6); rect('#6e6a64', -20, -22, 40, 26); rect('#8a857c', -16, -24, 26, 6); rect('#121010', -8, -10, 16, 14); rect('#5a6a3a', -14, -25, 20, 3); }
+      else if (o.kind === 'shrine') { rect('rgba(0,0,0,0.25)', -8, 2, 16, 4); rect('#9a948a', -6, -6, 12, 8); rect('#9a948a', -4, -20, 8, 14); rect('#4e3e2c', -7, -24, 14, 4); rect('#121010', -2, -16, 4, 4); }
+      else if (o.kind === 'wreck') { rect('rgba(0,0,0,0.25)', -18, 2, 36, 5); rect('#8a6a48', -16, -8, 30, 10); rect('#6a4a30', -16, -9, 30, 2); rect('#6a4a30', 8, -2, 8, 8); if (!o.boat) { rect('#b8a47a', -20, -2, 6, 5); rect('#b8a47a', -12, 0, 6, 5); } }
+      else if (o.kind === 'circle') { for (const [dx, dy] of [[0, -38], [38, 0], [0, 38], [-38, 0]]) { rect('rgba(0,0,0,0.25)', dx - 5, dy + 2, 10, 4); rect('#9a948a', dx - 4, dy - 22, 8, 24); rect('#b8b2a8', dx - 4, dy - 22, 8, 3); } rect('#9a948a', (o.done ? 14 : 0) - 9, -4, 18, 8); if (o.done) rect('#121010', -6, -3, 12, 6); }
+      else if (o.kind === 'hut') { rect('rgba(0,0,0,0.25)', -20, 2, 40, 6); rect('#8a6a48', -17, -18, 34, 20); rect('#4e3e2c', -20, -30, 40, 13); rect('#121010', 2, -12, 7, 14); rect('#9a948a', -12, -36, 5, 8); }
+      ctx.restore();
+    },
     // a burnt-out house: soot over walls and roof, the beams showing through
     scorch(game, b) {
       const ctx = R.ctx, a = R.toScreen(game, b.x, b.y - 1.6), c = R.toScreen(game, b.x + b.w, b.y + b.h);
@@ -178,6 +190,10 @@
           if (b.type === 'smithy' && Math.random() < dt * 3) ECHO.Combat.fx.push({ kind: 'smoke', x: b.x + b.w - 0.6, y: b.y - 0.2, vx: 0.2, vy: -0.6, t: 0, life: 2.2, size: 3 });
           else if (ECHO.Fauna) { const cr = ECHO.Fauna.chimney(world, b); if (cr && Math.random() < dt * cr) ECHO.Combat.fx.push({ kind: 'smoke', x: b.x + b.w * 0.7, y: b.y - 0.1, vx: 0.15, vy: -0.5, t: 0, life: 2.6, size: 2.5 }); }
         }
+      }
+      if (ECHO.Secrets && world.secrets && !ECHO.Interior.cur) for (const o of world.secrets.list) {
+        if (Math.abs(o.x - cam.x) > halfW + 3 || Math.abs(o.y - cam.y) > halfH + 3) continue;
+        objs.push({ y: o.y + 0.5, draw: () => R.secret(game, o) });
       }
       if (ECHO.Fauna && !ECHO.Interior.cur) for (const f of ECHO.Fauna.flocks) for (const b of f.birds) {
         if (Math.abs(b.x - cam.x) > halfW + 2 || Math.abs(b.y - cam.y) > halfH + 2) continue;
@@ -902,7 +918,7 @@
     },
     // Wisps, fireflies, lanterns, fallen stars: soft lights drawn over the dark.
     drawGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : [], ECHO.Jobs ? ECHO.Jobs.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : [], ECHO.Jobs ? ECHO.Jobs.glows : [], ECHO.Secrets ? ECHO.Secrets.glows : []);
       if (!list.length) return;
       const ctx = R.ctx;
       ctx.setTransform(1, 0, 0, 1, 0, 0);

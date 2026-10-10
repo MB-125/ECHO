@@ -171,6 +171,15 @@ Leave your horse and it waits where you left it, grazing, flicking its ears and 
 
 **Always something to do.** Ask anyone in any town "Need a hand?" and most people have work, based on their trade and what's going on in their life. Farmers want gnawers cleared, a goat led home or sheaves brought in. Smiths need ore. Hunters want a named wolf killed. Elders lose keepsakes in the reeds by the river. Children lose kittens in the woods. Priests want the lamp at a wayside shrine relit. Scholars want rubbings of old stones. Innkeepers need fish. Merchants pay for an escort to the next town, and the road may not be safe. Some people want letters carried to relatives far away. People think of new work every couple of days, so it never runs out. A gold mark over someone's head means they have work for you, and a green mark means a job is ready to hand in. The notice board's *Odd jobs* tab lists who in town is asking. The journal's *Nearby* page lists everything worth doing around you, nearest first, and can point you to any of it.
 
+**Secrets in the wilds.** Dozens of small places are spread across every world:
+- **Caves:** a wolf den with the wolves at home, a smugglers' stash, ancient paintings (scholars pay for copies), a storm of bats, or a cold spring that heals.
+- **Wayside shrines:** each belongs to a saint with a story. Pray for a blessing, and visit them all to complete a pilgrimage that leaves you stronger.
+- **Wrecks:** overturned carts and stove-in boats hold goods, and sometimes a letter the dead never sent, which becomes a job to deliver.
+- **Stone circles:** a riddle-verse on the centre stone tells you the order to touch the stones in, and solving it opens a hidden hollow.
+- **Hermits:** they live in huts far from anywhere. One asks riddles, one teaches a skill for herbs, one trades a treasure map for a hot meal, and one tells you where hidden things are.
+- **Treasure maps:** they describe a place ("an X among the trees, about 30 paces west of Wickford"). Find it, dig, and the chest may hold gear, star-iron, or another map.
+- **Rare creatures:** now and then a golden hare or a great grey elk appears.
+
 **A director for pacing.** The game keeps track of how hard things have been recently. Tension rises while you fight and when you take damage, and drops while you travel and rest (faster in towns). After a hard fight you get time to recover: no new wolf packs, night raids or big events for a while. When you're nearly dead, enemies attack one at a time, nobody calls for reinforcements, and hits do slightly less damage. When things have been quiet for too long, something happens: a wolf pack follows you at a distance and howls, raiders appear on the road at night, or someone injured by the road calls for help. Usually they really need it; sometimes it's a trap.
 
 ## Play

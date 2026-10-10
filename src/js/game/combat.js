@@ -313,6 +313,7 @@
       target.dead = true;
       target.deathT = 0;
       if (target.jobId && ECHO.Jobs) ECHO.Jobs.onKill(game, target, from);
+      if (target.rare && ECHO.Secrets && (from === game.pe || (from && from.isCompanion))) ECHO.Secrets.onRareKill(game, target);
       if (target.escort && ECHO.Jobs && target.escort.status === 'active') ECHO.Jobs.fail(game, target.escort, `${target.escort.giverName} was killed on the road`);
       const byPlayer = from === game.pe || (from && from.isCompanion);
       target._killer = from || null;

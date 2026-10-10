@@ -970,7 +970,8 @@
         if (e.goat) { M.recolor(inst, 'stag', '#e4ddd0'); M.recolor(inst, 'cloth2', '#c8c0b0'); M.recolor(inst, 'darkwood', '#8a8070'); inst.root.scale.setScalar(0.34); return; }
         if (e.white) { M.recolor(inst, 'stag', '#a8784a'); M.recolor(inst, 'darkwood', '#f4f0e0'); }
         for (const m of inst.mats) { if (m.emissive) m.emissive.set('#000000'); }
-        inst.root.scale.setScalar(e.stag ? 0.52 : 0.44);
+        if (e.elk) { M.recolor(inst, 'stag', '#7a7872'); M.recolor(inst, 'cloth2', '#5e5c58'); M.recolor(inst, 'darkwood', '#c8c0b0'); }
+        inst.root.scale.setScalar((e.stag ? 0.52 : 0.44) * (e.scale || 1));
         return;
       }
       if (e.species === 'hind') {
@@ -984,7 +985,7 @@
         const base = { wolf: 'fur', dog: 'fur', gnawer: 'rat', hare: 'hare' }[e.species];
         if (e.species === 'fox') { M.recolor(inst, 'fur', e.coat || '#c0642a'); M.recolor(inst, 'eyeglow', '#1a1410'); for (const m of inst.mats) if (m.emissive) m.emissive.set('#000000'); M.show(inst, 'horn', false); inst.root.scale.setScalar(0.5); return; }
         if (e.species === 'dog') { M.recolor(inst, 'fur', e.coat || '#8a5a32'); M.recolor(inst, 'eyeglow', '#1a1410'); for (const m of inst.mats) if (m.emissive) m.emissive.set('#000000'); M.show(inst, 'horn', false); inst.root.scale.setScalar(0.66 * (e.small || 1)); return; }
-        const tint = e.winter ? '#eef2f8' : e.mutation === 'mirrorback' ? '#b8c4d4' : e.mutation === 'emberfur' ? '#a8502a' : e.strain === 'Ashen' ? '#8e8e8a' : e.strain === 'Ironhide' ? '#5a4632' : null;
+        const tint = e.rare === 'golden' ? '#e8c040' : e.winter ? '#eef2f8' : e.mutation === 'mirrorback' ? '#b8c4d4' : e.mutation === 'emberfur' ? '#a8502a' : e.strain === 'Ashen' ? '#8e8e8a' : e.strain === 'Ironhide' ? '#5a4632' : null;
         if (tint) M.recolor(inst, base, tint);
         if (e.mutation === 'paleshade') for (const m of inst.mats) { m.transparent = true; m.opacity = 0.5; }
         M.show(inst, 'horn', e.mutation === 'glasshorn');
@@ -1817,8 +1818,64 @@
         m.visible = h > 0.03;
       }
     },
+    // Caves, wayside shrines, wrecks, stone circles and hermits' huts.
+    updateSecrets(game, room) {
+      const Sc = ECHO.Secrets, world = game.world, pe = game.pe;
+      if (!Sc || !world.secrets) return;
+      if (!R.secretGroup) {
+        R.secretGroup = new THREE.Group(); R.scene.add(R.secretGroup); R.secretKey = '';
+        const m = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, flatShading: true });
+        R.secMat = { rock: m('#5a5650'), dark: m('#0a0808'), stone: m('#9a948a'), wood: m('#6a4a30'), plank: m('#8a6a48'), roof: m('#4e3e2c'), sack: m('#b8a47a'), moss: m('#5a6a3a') };
+      }
+      const near = room ? [] : world.secrets.list.filter(o => Math.abs(o.x - pe.x) < 60 && Math.abs(o.y - pe.y) < 60);
+      const key = near.map(o => o.id + (o.kind === 'circle' && o.done ? 'D' : '')).join('|');
+      if (key === R.secretKey) return;
+      R.secretKey = key;
+      while (R.secretGroup.children.length) { const c = R.secretGroup.children[0]; R.secretGroup.remove(c); c.traverse(x => { if (x.geometry) x.geometry.dispose(); }); }
+      const M = R.secMat;
+      const box = (w, h, d, mat, x, y, z, ry = 0, rz = 0) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); b.position.set(x, y, z); b.rotation.y = ry; b.rotation.z = rz; b.castShadow = true; return b; };
+      for (const o of near) {
+        const g = new THREE.Group(), gy = R.groundH(o.x, o.y);
+        g.position.set(o.x, gy, o.y);
+        const h = ECHO.hashStr(o.id), r = k => ((h >> k) % 100) / 100;
+        if (o.kind === 'cave') {
+          const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1.3, 0), M.rock); rock.scale.set(1.5, 0.95, 1.2); rock.position.set(0, 0.7, -0.3); rock.rotation.y = r(3) * 6; rock.castShadow = true; g.add(rock);
+          const rock2 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.7, 0), M.rock); rock2.position.set(1.3, 0.35, 0.2); g.add(rock2);
+          // the mouth: a black arch under an overhanging lip, facing the road you came by
+          g.add(box(1.1, 1.0, 0.5, M.dark, 0, 0.5, 1.3));
+          g.add(box(1.6, 0.3, 0.7, M.rock, 0, 1.1, 1.25));
+          g.add(box(1.2, 0.08, 0.5, M.moss, 0, 1.55, 0.2));
+        } else if (o.kind === 'shrine') {
+          g.add(box(0.8, 0.35, 0.8, M.stone, 0, 0.17, 0));
+          g.add(box(0.45, 0.9, 0.45, M.stone, 0, 0.8, 0));
+          const roof = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.4, 4), M.roof); roof.rotation.y = Math.PI / 4; roof.position.y = 1.45; g.add(roof);
+          g.add(box(0.2, 0.2, 0.06, M.dark, 0, 0.95, 0.24));
+        } else if (o.kind === 'wreck') {
+          if (o.boat) {
+            const hull = box(2.3, 0.45, 0.9, M.plank, 0, 0.25, 0, r(2) * 3, 0.35); g.add(hull);
+            for (let i = -1; i <= 1; i++) g.add(box(0.08, 0.6, 1.0, M.wood, i * 0.7, 0.35, 0, r(2) * 3, 0.35));
+          } else {
+            g.add(box(1.6, 0.5, 0.95, M.plank, 0, 0.5, 0, r(2) * 3, 1.15));
+            const w1 = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.1, 10), M.wood); w1.position.set(0.9, 0.06, 0.5); g.add(w1);
+            const w2 = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.1, 10), M.wood); w2.rotation.x = Math.PI / 2; w2.position.set(-0.5, 0.45, 0.6); g.add(w2);
+            for (let i = 0; i < 3; i++) g.add(box(0.35, 0.3, 0.3, M.sack, 0.3 + i * 0.35, 0.15, -0.8 + r(i + 4) * 0.4, r(i) * 2));
+          }
+        } else if (o.kind === 'circle') {
+          for (const [k, a] of [['north', -Math.PI / 2], ['east', 0], ['south', Math.PI / 2], ['west', Math.PI]]) g.add(box(0.5, 1.7, 0.38, M.stone, Math.cos(a) * 2.4, 0.85, Math.sin(a) * 2.4, a));
+          g.add(box(1.1, 0.25, 0.8, M.stone, o.done ? 0.9 : 0, 0.13, o.done ? 0.6 : 0, o.done ? 0.5 : 0));
+          if (o.done) g.add(box(0.7, 0.05, 0.5, M.dark, 0, 0.02, 0));
+        } else if (o.kind === 'hut') {
+          g.add(box(2.2, 1.3, 1.8, M.plank, 0, 0.65, 0));
+          const roof = new THREE.Mesh(new THREE.ConeGeometry(1.75, 1.0, 4), M.roof); roof.rotation.y = Math.PI / 4; roof.scale.set(1, 1, 0.85); roof.position.y = 1.8; roof.castShadow = true; g.add(roof);
+          g.add(box(0.5, 0.85, 0.06, M.dark, 0.3, 0.43, 0.92));
+          g.add(box(0.3, 0.7, 0.3, M.stone, -0.7, 2.0, -0.3));
+          g.add(box(0.6, 0.3, 0.4, M.wood, 1.4, 0.15, 0.6));
+        }
+        R.secretGroup.add(g);
+      }
+    },
     updateGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : [], ECHO.Jobs ? ECHO.Jobs.glows : [], ECHO.Town ? ECHO.Town.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : [], ECHO.Jobs ? ECHO.Jobs.glows : [], ECHO.Secrets ? ECHO.Secrets.glows : [], ECHO.Town ? ECHO.Town.glows : []);
       const ga = R.glows.geometry.attributes;
       const n = Math.min(list.length, ga.size.count);
       const tmp = R._gc || (R._gc = new THREE.Color());
@@ -2242,6 +2299,7 @@
       R.updateFx(game, dt);
       R.updateGlows(game);
       R.updateTownFires(game, room);
+      R.updateSecrets(game, room);
       if (!room) R.updateFestival(game); else if (R.festGroup) R.festGroup.visible = false;
       if (room) R.updateInteriorLighting(game, room); else R.updateLighting(game, dt);
       R.renderer.render(R.scene, R.camera);

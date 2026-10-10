@@ -432,7 +432,7 @@
         const d = U.dist(s.x, s.y, pe.x, pe.y); if (d > 80 || !(s.found || s.seen)) continue;
         add({ k: 'site', icon: s.cat === 'delve' ? '▼' : '◆', name: s.name, sub: s.cleared ? 'cleared' : (s.cat === 'delve' ? `dungeon ${ECHO.Explore.stars(s)}` : 'a place of note'), x: s.x, y: s.y, track: 'site:' + s.id, done: s.cleared });
       }
-      if (ECHO.Discover && ECHO.Discover.nearby) for (const o of ECHO.Discover.nearby(game)) add(o);
+      if (ECHO.Secrets && ECHO.Secrets.nearby) for (const o of ECHO.Secrets.nearby(game)) add(o);
       if (ECHO.Life && ECHO.Life.nearWater && ECHO.Life.nearWater(game)) add({ k: 'fish', icon: '≈', name: 'Water close by', sub: pl.inv.rod ? 'cast a line (E at the bank)' : 'buy a rod at a market to fish here', x: pe.x, y: pe.y });
       return out.sort((a, b) => a.d - b.d).slice(0, 40);
     },

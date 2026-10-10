@@ -487,6 +487,7 @@
       if (e.strain && S.STRAIN_TINT[e.strain]) base = mix(base, S.STRAIN_TINT[e.strain], 0.65);
       if (e.mutation === 'mirrorback') base = '#b8c4d4';
       if (e.winter) base = '#e8eef4';
+      if (e.rare === 'golden') base = '#e8c040';
       if (e.mutation === 'emberfur') base = mix(base, '#c8501a', 0.5);
       if (e.mutation === 'paleshade') g.globalAlpha = 0.55;
       const dark = shade(base, -0.3), light = shade(base, 0.25);
