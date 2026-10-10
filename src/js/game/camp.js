@@ -32,7 +32,7 @@
       const pl = game.pl; C.init(pl);
       if (pl.hp >= pl.maxHp && pl.fed > 85) return game.ui.toast('You\'re not hungry.', 'info', 2);
       const k = C.ORDER.find(k => pl.inv[k] > 0);
-      if (!k) return game.ui.toast('You have nothing to eat.', 'warn', 2);
+      if (!k) return game.ui.toast('You have nothing to eat. Buy bread at a market or a hot meal at an inn, pick berries (E by a bush), or hunt a hare or deer for meat — then cook it at a campfire (B).', 'warn', 7);
       C.eat(game, k);
     },
     eat(game, k) {
@@ -113,7 +113,7 @@
       C.warn(game, 'chilled', pl.warmth < 40, `You're getting cold${ex.why.length ? ' — ' + ex.why.join(', ') : ''}. Find a fire, a roof, or make camp (B).`);
       C.warn(game, 'freezing', pl.warmth < 20, 'You\'re freezing. Your strength won\'t come back and the cold is starting to hurt. Get to a fire.');
       C.warn(game, 'hungry', pl.fed < 25, 'You\'re hungry. (H to eat; cooked food does you most good.)');
-      C.warn(game, 'starving', pl.fed < 5, 'You\'re starving, and weakening by the hour.');
+      C.warn(game, 'starving', pl.fed < 5, (C.ORDER.some(k => pl.inv[k] > 0) ? 'You\'re starving — press H to eat what you carry.' : 'You\'re starving, and you have no food. Buy bread at a market or a meal at an inn, pick berries, or hunt and cook meat at a campfire (B).'));
       // the campfire burns down
       const f = C.fire;
       if (f) {
