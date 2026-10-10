@@ -79,7 +79,7 @@
       const n = melee.length;
       const base = n ? Math.atan2(melee[0].y - tg.y, melee[0].x - tg.x) : 0;
       // strikers: the ones already closest, a couple at a time, rotating
-      const tokens = n >= 6 ? 3 : 2;
+      const tokens = tg === game.pe && ECHO.Director && ECHO.Director.mercy(game) ? 1 : n >= 6 ? 3 : 2;
       const byDist = melee.slice().sort((a, b) => U.dist(a.x, a.y, tg.x, tg.y) - U.dist(b.x, b.y, tg.x, tg.y));
       // a turn lasts until a little after your blow lands (or a few seconds without one)
       for (const e of melee) if (e.token && ((e.struckT && game.time - e.struckT > 1.1) || game.time - e.tokenT > 4.5)) { e.token = false; e.struckT = 0; e.restT = game.time + 0.6 + Math.random() * 0.8; }

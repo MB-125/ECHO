@@ -65,7 +65,7 @@
       if (ECHO.Monsters && ECHO.Monsters.tick(game, e, dt, dT, ang)) return;
       const dmul = e.dmgMul || 1;
       // the elites call for help once, when hurt
-      if (F.elite && !e.called && e.hp < e.maxHp * 0.5) {
+      if (F.elite && !e.called && e.hp < e.maxHp * 0.5 && !(ECHO.Director && ECHO.Director.mercy(game))) {
         e.called = true;
         e.say = F.look === 'chief' ? 'To me! Kill them!' : '…RISE…'; e.sayT = 2;
         for (let i = 0; i < 2; i++) {

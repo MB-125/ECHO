@@ -32,7 +32,7 @@
       const nearTown = world.settlements.some(s => U.dist(s.x, s.y, pe.x, pe.y) < 20);
       const r = Math.random();
       const level = ECHO.Prowess ? ECHO.Prowess.level(game.pl) : 1;
-      if ((night || dusk) && !nearTown && level >= 2 && world.day - (Rd.lastRaid || -9) >= 1 && r < 0.3) { if (Rd.raid(game)) Rd.lastRaid = world.day; return; }
+      if ((night || dusk) && !nearTown && level >= 2 && world.day - (Rd.lastRaid || -9) >= 1 && r < 0.3 && (!ECHO.Director || ECHO.Director.allow(game, 'raid'))) { if (Rd.raid(game)) Rd.lastRaid = world.day; return; }
       if (!night && r < 0.22) return void Rd.patrol(game);
       if (r < 0.5) return void Rd.courier(game);
     },

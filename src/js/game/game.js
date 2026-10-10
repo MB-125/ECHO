@@ -149,6 +149,7 @@
       if (ECHO.Callers) ECHO.Callers.update(Game, dt);
       if (ECHO.Comrade) ECHO.Comrade.update(Game, dt);
       if (ECHO.Wild) ECHO.Wild.update(Game, dt);
+      if (ECHO.Director) ECHO.Director.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }

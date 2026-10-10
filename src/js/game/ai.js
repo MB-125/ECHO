@@ -64,6 +64,7 @@
       const speed = e.speed * (1 + (e.traits ? e.traits.speed * 0.4 : 0)) * (game.isNight() && e.species === 'wolf' ? 1.1 : 1);
       if (e.dq && ECHO.Dilemmas && ECHO.Dilemmas.creature(game, e, dt, speed)) return;
       if (e.species === 'hare') return Creature.hare(game, e, dt, speed);
+      if (e.shadow && ECHO.Director && ECHO.Director.shadow(game, e, dt, speed)) return;
       let target = (e.target && !e.target.dead && !e.target.hidden && U.dist(e.x, e.y, e.target.x, e.target.y) < 14) ? e.target : null;
       // lose sight of you for a few heartbeats and it's down to the nose
       if (target === game.pe && U.dist(e.x, e.y, target.x, target.y) > 2 && !ECHO.Ent.lineOfSight(world, e.x, e.y, target.x, target.y)) {
@@ -322,6 +323,7 @@
       if ((e.incident || e.reporting || e.chase || e.question) && ECHO.Patrol && ECHO.Patrol.ent(game, e, dt)) return;
       if (e.pilloried) { e.moving = false; e.dir = Math.PI / 2; if (e.sayT <= 0 && Math.random() < dt * 0.05) { e.say = ['Water… please.', 'It was only bread!', 'Don\'t look at me.', 'Let me out of here!'][Math.floor(Math.random() * 4)]; e.sayT = 3; } return; }
       if (e.yielded) { e.moving = false; e.state = 'yield'; return; }
+      if (e.stranded && ECHO.Director) return ECHO.Director.strandedThink(game, e, npc, dt);
       if (e.indoor && e.sleeping) { e.moving = false; if (!e.aggro) return; e.sleeping = false; e.seated = false; }
       if (npc.sick && !e._sickSlow) { e._sickSlow = true; e.speed *= 0.6; }
 

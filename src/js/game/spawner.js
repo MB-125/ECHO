@@ -58,6 +58,8 @@
         want = Math.min(CAP[sp], Math.floor(want));
         const have = game.ents.filter(e => e.species === sp && !e.dead).length;
         if (have >= want) continue;
+        // after a hard fight the land gives you room to breathe
+        if (sp === 'wolf' && ECHO.Director && !ECHO.Director.allow(game, 'wolves')) continue;
         const n = sp === 'wolf' ? Math.min(want - have, 1 + Math.floor(Math.random() * (ECHO.Intel.has(world, 'wild', 'packs') ? 4 : 3))) : 1;
         const spot = S.findSpot(game, sp, 15, 23);
         if (!spot) continue;
@@ -92,6 +94,7 @@
       return e;
     },
     reinforceWolves(game, e, n) {
+      if (ECHO.Director && ECHO.Director.mercy(game)) return;
       const region = game.world.regions[e.regionId];
       for (let i = 0; i < n; i++) {
         const a = Math.random() * Math.PI * 2;

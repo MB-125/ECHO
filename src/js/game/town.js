@@ -840,6 +840,7 @@
       const pl = game.pl, world = game.world;
       if (!(pl.inv.herbs > 0)) return;
       pl.inv.herbs--;
+      if (e.stranded && ECHO.Director) { ECHO.Director.help(game, e, n); e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.3); return; }
       e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.5);
       if (e.helped) { const h = e.helped; h.helping = null; h.together = false; e.helped = null; }
       e.say = pick(['Thank you… that\'s better already.', 'Bless you, stranger.', 'I won\'t forget this.']); e.sayT = 2.6;

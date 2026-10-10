@@ -54,6 +54,7 @@
       if (E.greatHerd(world) && S.herdYear !== year) { S.herdYear = year; game.ui.toast('The great herds are moving through the woods\' edges. Hunters say a white-antlered stag runs with them this year.', 'legend', 7); ECHO.Chronicle.add(world, { text: 'The great deer herds are on the move.', kind: 'season', importance: 1 }); }
       if (E.winterHunt(world) && S.winterYear !== year && night && out && !inTown && Math.random() < 0.22) { S.winterYear = year; E.winterWolf(game); }
       if (!out) return;
+      if (ECHO.Director && !ECHO.Director.allow(game, 'rare')) return;
       // the rare ones
       if (!S.giant && world.day - S.lastGiant > 9 && !inTown && Math.random() < 0.05) E.spawnGiant(game);
       else if (!S.dragon && !E.fly && world.day - S.lastDragon > 16 && !night && Math.random() < 0.03) E.flyover(game);
