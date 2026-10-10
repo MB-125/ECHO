@@ -585,7 +585,7 @@
     prowessHtml(world, pl) {
       const Pw = ECHO.Prowess, st = Pw.st(pl), L = st.lv, R = Pw.rank(L), nx = Pw.nextRank(L), need = Pw.need(L);
       const pow = Pw.power(world, pl);
-      return `<h3 class="gold">Prowess</h3><div class="prowess-card"><div style="text-align:center;min-width:86px"><div class="big" style="color:${R.color}">Lv ${L}</div><div style="color:${R.color}">${esc(R.title)}</div></div>
+      return `<h3 class="gold">Prowess</h3><div class="prowess-card"><div style="text-align:center;min-width:96px"><div class="pv-level" style="border-color:${R.color};box-shadow:0 0 10px ${R.color}55"><small>LEVEL</small><b>${L}</b></div><div style="color:${R.color};margin-top:6px">${esc(R.title)}</div></div>
         <div style="flex:1"><div class="xp"><i style="width:${L >= Pw.MAX ? 100 : Math.round(st.xp / need * 100)}%"></i></div>
         <div class="dim" style="font-size:13px">${L >= Pw.MAX ? 'You have reached the height of your strength.' : `${U.fmt(Math.floor(st.xp))} / ${U.fmt(need)} experience to level ${L + 1}`}${nx ? ` · ${esc(nx.title)} at level ${nx.lv}` : ''}</div>
         <div style="font-size:13px;margin-top:4px">Power <b class="gold">${pow.total}</b> · sword <b>${pow.melee}</b> a blow · bow <b>${pow.bow}</b> a shot · armour <b>${pow.def}</b></div>

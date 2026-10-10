@@ -1,5 +1,8 @@
 @font-face { font-family: 'Pixelify Sans'; src: url('../fonts/pixelify-sans-latin-400-normal.woff2') format('woff2'); font-weight: 400; }
 @font-face { font-family: 'Pixelify Sans'; src: url('../fonts/pixelify-sans-latin-600-normal.woff2') format('woff2'); font-weight: 600; }
+/* Pixelify's 5, 8 and 3 read alike at small sizes: its digits come from Inter instead (defined after, so they win for 0-9). */
+@font-face { font-family: 'Pixelify Sans'; src: url('../fonts/inter-digits-500.woff2') format('woff2'); font-weight: 400; unicode-range: U+0030-0039; }
+@font-face { font-family: 'Pixelify Sans'; src: url('../fonts/inter-digits-700.woff2') format('woff2'); font-weight: 600; unicode-range: U+0030-0039; }
 @font-face { font-family: 'Cormorant'; src: url('../fonts/cormorant-garamond-latin-400-normal.woff2') format('woff2'); font-weight: 400; }
 @font-face { font-family: 'Cormorant'; src: url('../fonts/cormorant-garamond-latin-600-normal.woff2') format('woff2'); font-weight: 600; }
 @font-face { font-family: 'Cormorant'; src: url('../fonts/cormorant-garamond-latin-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; }
@@ -262,6 +265,9 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 .upg-arrow { display: inline-flex; align-items: center; gap: 6px; }
 .prowess-card { display: flex; gap: 14px; align-items: center; padding: 8px 10px; margin: 8px 0; border: 1px solid rgba(200,168,90,0.3); border-radius: 4px; background: rgba(0,0,0,0.2); }
 .prowess-card .big { font-size: 28px; font-weight: bold; }
+.pv-level { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; width: 74px; height: 74px; border: 3px solid #c8c0b0; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #3a2e22, #120d09 75%); line-height: 1; }
+.pv-level small { font-size: 10px; letter-spacing: 1.5px; color: #d8c9a0; margin-bottom: 3px; }
+.pv-level b { font-size: 32px; font-weight: 600; color: #fff6e0; }
 .prowess-card .xp { height: 7px; background: rgba(0,0,0,0.5); margin: 4px 0; }
 .prowess-card .xp i { display: block; height: 100%; background: linear-gradient(90deg, #8a6ad8, #c8a8ff); }
 .rank-ladder span { margin-right: 6px; font-size: 12px; }
