@@ -87,7 +87,7 @@
       if (pe.seated) { if (len && ECHO.Home) ECHO.Home.stand(game); else { mx = 0; my = 0; len = 0; } }
 
       pe.blocking = !pl.mounted && In.key('Shift') && pl.stamina > 4 && PC.dodgeT <= 0 && !PC.drawing && !(pe.attackT > 0);
-      if (In.hit('Shift')) game.blockStart = game.time;
+      if (In.hit('Shift')) { game.blockStart = game.time; if (ECHO.Wits && !pl.mounted) ECHO.Wits.note(game, 'block'); }
 
       if (PC.dodgeT > 0) {
         PC.dodgeT -= dt;
@@ -207,6 +207,7 @@
         Ch().behave(pl, 'caution', 0.02);
         Ch().train(pl, 'endurance', 0.08);
         ECHO.Boss.noteDodge(game, dir);
+        if (ECHO.Wits) ECHO.Wits.note(game, 'dodge', { dir });
         ECHO.Sfx.play('dodge');
         PC.heavyHold = false; PC.holdT = 0;
         if (pl.spells.includes('echostep')) {
@@ -292,6 +293,7 @@
             game.kick(a2 + Math.PI, 0.08);
             Ch().train(pl, 'archery', 0.05);
             game.noise(pe.x, pe.y, 2.5);
+            if (ECHO.Wits) ECHO.Wits.note(game, 'ranged');
           }
           PC.draw = 0;
         }
@@ -393,6 +395,7 @@
       pe.attackT = 0.25; pe.attackDur = 0.25; pe.attackAngle = a; pe.attackKind = 'fore';
       ECHO.Combat.burst(pe.x + Math.cos(a) * 0.6, pe.y - 0.3 + Math.sin(a) * 0.6, '#c8a8ff', 10, 3, 0.4, 2);
       ECHO.Sfx.play('fireRelease', { pitch: 1.4 });
+      if (ECHO.Wits) ECHO.Wits.note(game, 'ranged');
       ECHO.Character.train(pl, 'flame', 0.1);
     },
     drink(game, id) {
@@ -412,6 +415,7 @@
       // Techniques found in battle reshape the blow.
       if (pe.blocking && Tc.level('bash') && kind !== 'heavy') kind = 'bash';
       const foesNear = game.ents.filter(e => !e.dead && e !== pe && game.hostileTo(pe, e) && U.dist(e.x, e.y, pe.x, pe.y) < 2.6).length;
+      if (kind === 'heavy' && ECHO.Wits && !pl.mounted) ECHO.Wits.note(game, 'heavy');
       if (kind === 'heavy' && Tc.level('whirlwind') && foesNear >= 2) kind = 'whirlwind';
       const lunge = kind !== 'bash' && Tc.level('lunge') && PC.rollEndT != null && game.time - PC.rollEndT < 0.4;
       const riposte = Tc.level('riposte') && Tc.riposteT > 0;

@@ -183,7 +183,7 @@
           ECHO.Character.train(game.pl, 'ward', perfect ? 0.6 : 0.25);
           ECHO.Character.behave(game.pl, 'caution', 0.04);
           if (perfect && from) { from.stagger = 0.9; C.floater(target.x, target.y - 0.9, 'perfect guard', '#ffe08a'); }
-          if (from && from !== game.pe) { if (perfect) ECHO.Tech.onPerfectGuard(game); else ECHO.Tech.record('blocks'); }
+          if (from && from !== game.pe) { if (perfect) ECHO.Tech.onPerfectGuard(game); else ECHO.Tech.record('blocks'); if (ECHO.Wits) ECHO.Wits.note(game, 'blockhit'); }
           if (game.pl.spells.includes('wardsong') && perfect) game.wardsong();
           if (from && from.type === 'boss') ECHO.Boss.noteBlock(from);
         }

@@ -79,12 +79,16 @@
         case 'windup':
           e.moving = false; e.dir = e.aim; e.flip = Math.cos(e.dir) < 0;
           if (e.t > e.windEnd) {
+            if (e.readPlan && ECHO.Wits && ECHO.Wits.hold(game, e, dt)) return;
             if (ECHO.Monsters && ECHO.Monsters.afterWindup(game, e)) return;
             e.state = 'attack'; e.t = 0; e.attackT = 0.2; e.attackDur = 0.2; e.attackKind = 'fore';
             if (e.shooter) ECHO.Combat.shoot(e, e.aim + (Math.random() - 0.5) * 0.1, { kind: 'arrow', speed: 13, dmg: F.dmg * 0.8 * dmul, life: 1.3, type: 'ranged' });
             else {
-              ECHO.Combat.melee(e, { angle: e.aim, arc: F.elite ? 2.2 : 1.6, range: F.reach, dmg: F.dmg * dmul * (0.9 + Math.random() * 0.2), knock: F.elite || e.boss2 ? 0.3 : 0.15 });
-              ECHO.Combat.slash(e.x, e.y, e.aim, F.reach + 0.1, F.elite ? 2.2 : 1.6, F.look === 'wight' || F.look === 'king' ? 'rgba(170,255,210,0.75)' : 'rgba(255,220,200,0.7)');
+              let mo = { angle: e.aim, arc: F.elite ? 2.2 : 1.6, range: F.reach, dmg: F.dmg * dmul * (0.9 + Math.random() * 0.2), knock: F.elite || e.boss2 ? 0.3 : 0.15 };
+              if (ECHO.Wits) mo = ECHO.Wits.blow(game, e, mo);
+              const hits = ECHO.Combat.melee(e, mo);
+              if (ECHO.Wits) ECHO.Wits.landed(game, e, mo, hits);
+              ECHO.Combat.slash(e.x, e.y, e.aim, mo.range + 0.1, mo.arc, mo.kick ? 'rgba(255,170,80,0.8)' : F.look === 'wight' || F.look === 'king' ? 'rgba(170,255,210,0.75)' : 'rgba(255,220,200,0.7)');
             }
             e.cd = (F.cd + Math.random() * 0.5) * (e.cdMul || 1);
           }
@@ -94,18 +98,24 @@
           e.state = 'chase';
           e.shooter = (e.gear.bow || (e.ab && e.ab.ranged)) && dT > 3;
           const want = e.shooter ? 6 : F.reach + 0.3;
-          if (ECHO.Tactics && !e.boss2 && !e.giant && ECHO.Tactics.move(game, e, T, dT, ang, e.speed, dt, { reach: F.reach, archer: e.shooter || ((e.gear.bow || (e.ab && e.ab.ranged)) && dT < 3.2), want: 6 })) {
+          if (T === pe && !e.boss2 && !e.giant && ECHO.Wits && ECHO.Wits.move(game, e, T, dT, ang, e.speed, dt, { archer: e.shooter })) return;
+          const punish = T === pe && !e.shooter && ECHO.Wits && ECHO.Wits.punish(game, e);
+          if (!punish && ECHO.Tactics && !e.boss2 && !e.giant && ECHO.Tactics.move(game, e, T, dT, ang, e.speed, dt, { reach: F.reach, archer: e.shooter || ((e.gear.bow || (e.ab && e.ab.ranged)) && dT < 3.2), want: 6 })) {
             if (e.shooter && e.cd <= 0 && dT < 9 && dT >= 3.2 && !e.blockedShot) { e.state = 'windup'; e.t = 0; e.aim = ang; e.windEnd = 0.7; }
             return;
           }
-          if (dT > want) ECHO.Ent.travel(world, e, T.x, T.y, e.speed, dt);
+          if (dT > want) ECHO.Ent.travel(world, e, T.x, T.y, e.speed * (punish ? 1.35 : 1), dt);
           else if (e.shooter && dT < 4) ECHO.Ent.seek(world, e, e.x - Math.cos(ang) * 2, e.y - Math.sin(ang) * 2, e.speed * 0.8, dt);
           else e.moving = false;
           e.dir = ang; e.flip = Math.cos(ang) < 0;
-          if (e.cd <= 0 && dT < (e.shooter ? 9 : want + 0.4) && (e.shooter || !ECHO.Tactics || e.boss2 || ECHO.Tactics.mayStrike(e))) {
+          if (e.cd <= 0 && dT < (e.shooter ? 9 : want + 0.4) && (punish || e.shooter || !ECHO.Tactics || e.boss2 || ECHO.Tactics.mayStrike(e))) {
             if (ECHO.Tactics && !e.shooter) ECHO.Tactics.struck(game, e);
             e.state = 'windup'; e.t = 0; e.aim = ang; e.windEnd = e.shooter ? 0.7 : F.wind;
-            if (!e.shooter) ECHO.Combat.telegraph({ x: e.x, y: e.y - 0.1, angle: ang, len: F.reach + 0.3, arc: F.elite ? 2.2 : 1.6, life: e.windEnd, shape: 'cone', color: 'rgba(255,90,70,0.22)', follow: e });
+            const plan = !e.shooter && T === pe && ECHO.Wits ? ECHO.Wits.plan(game, e, dT) : null;
+            const tele = e.windEnd;
+            e.readPlan = plan;
+            if (plan) e.windEnd = Math.max(0.16, e.windEnd + plan.wind);
+            if (!e.shooter) ECHO.Combat.telegraph({ x: e.x, y: e.y - 0.1, angle: ang, len: F.reach + 0.3, arc: plan && plan.kind === 'kick' ? 0.9 : F.elite ? 2.2 : 1.6, life: plan && plan.kind === 'delay' ? tele : e.windEnd, shape: 'cone', color: plan && plan.kind === 'kick' ? 'rgba(255,170,60,0.3)' : 'rgba(255,90,70,0.22)', follow: e });
             if (F.look === 'wight' && Math.random() < 0.3) { e.say = ['…', 'Leave…', 'Not yours…', 'Sleep…'][Math.floor(Math.random() * 4)]; e.sayT = 1.5; }
           }
         }
