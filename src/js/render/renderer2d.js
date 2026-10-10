@@ -38,6 +38,24 @@
       if (game.shakeT > 0) { sx = (Math.random() - 0.5) * game.shakeA * 0.6; sy = (Math.random() - 0.5) * game.shakeA * 0.6; }
       return { x: game.cam.x + sx, y: game.cam.y + sy };
     },
+    // your homestead, from above
+    stead(game, s) {
+      const ctx = R.ctx, H = ECHO.Homestead, u = TS * R.Z / 16;
+      const at = (dx, dy) => R.toScreen(game, s.x + dx, s.y + dy);
+      const rect = (c, dx, dy, w, h) => { const p = at(dx, dy); ctx.fillStyle = c; ctx.fillRect(p.x, p.y, w * 16 * u, h * 16 * u); };
+      const B = s.builds;
+      ctx.save();
+      if (B.fence) { ctx.strokeStyle = '#9a7a50'; ctx.lineWidth = 2 * u; const a = at(-5.2, -6.4), b = at(5.2, 6); ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y); }
+      s.plots.forEach((p, i) => { const pp = H.plotPos(s, i); rect('#5a4028', pp.x - s.x - 0.6, pp.y - s.y - 0.6, 1.2, 1.2); if (p.crop) { const C = H.CROPS[p.crop]; const g = Math.max(0.2, p.growth); rect(p.growth >= 1 ? C.color : '#6aa050', pp.x - s.x - 0.4 * g, pp.y - s.y - 0.4 * g, 0.8 * g, 0.8 * g); } });
+      if (B.tent) rect('#d8ccb0', -1, -1, 2, 1.6);
+      if (B.cabin) { rect('#7a5634', -1.5, -2.7, 3, 2.4); rect('#5a4028', -1.8, -3.6, 3.6, 1.2); rect('#1a1410', -0.8, -0.9, 0.6, 0.6); }
+      const BD = H.BUILDS;
+      const sq = (k, w, h, c, r) => { if (!B[k]) return; const [dx, dy] = BD[k].at; rect(c, dx - w / 2, dy - h / 2, w, h); if (r) rect(r, dx - w / 2 - 0.2, dy - h / 2 - 0.6, w + 0.4, 0.7); };
+      sq('well', 1, 1, '#8a847a'); sq('coop', 1.1, 0.8, '#7a5634', '#5a4028'); sq('workshop', 2, 1.6, '#7a5634', '#5a4028'); sq('shop', 1.6, 0.8, '#c85a3a'); sq('barn', 3.6, 2.6, '#8a3a2a', '#5a4028');
+      if (B.pen) { const [dx, dy] = BD.pen.at; ctx.strokeStyle = '#9a7a50'; ctx.lineWidth = 1.5 * u; const a = at(dx - 1.3, dy - 1.1), b = at(dx + 1.3, dy + 1.1); ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y); }
+      for (const b of (H.birds || [])) { const p = R.toScreen(game, b.x, b.y); ctx.fillStyle = '#f0ece0'; ctx.fillRect(p.x - 2 * u, p.y - 3 * u, 4 * u, 3 * u); ctx.fillStyle = '#c83a2a'; ctx.fillRect(p.x + 1 * u, p.y - 4 * u, 1 * u, 1 * u); }
+      ctx.restore();
+    },
     // caves, shrines, wrecks, stone circles, huts — a few strokes each
     secret(game, o) {
       const ctx = R.ctx, p = R.toScreen(game, o.x, o.y), u = TS * R.Z / 16;
@@ -191,6 +209,8 @@
           else if (ECHO.Fauna) { const cr = ECHO.Fauna.chimney(world, b); if (cr && Math.random() < dt * cr) ECHO.Combat.fx.push({ kind: 'smoke', x: b.x + b.w * 0.7, y: b.y - 0.1, vx: 0.15, vy: -0.5, t: 0, life: 2.6, size: 2.5 }); }
         }
       }
+      const stead = game.pl && game.pl.stead;
+      if (stead && !ECHO.Interior.cur && Math.abs(stead.x - cam.x) < halfW + 8 && Math.abs(stead.y - cam.y) < halfH + 8) objs.push({ y: stead.y - 1, draw: () => R.stead(game, stead) });
       if (ECHO.Secrets && world.secrets && !ECHO.Interior.cur) for (const o of world.secrets.list) {
         if (Math.abs(o.x - cam.x) > halfW + 3 || Math.abs(o.y - cam.y) > halfH + 3) continue;
         objs.push({ y: o.y + 0.5, draw: () => R.secret(game, o) });

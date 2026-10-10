@@ -180,6 +180,13 @@ Leave your horse and it waits where you left it, grazing, flicking its ears and 
 - **Treasure maps:** they describe a place ("an X among the trees, about 30 paces west of Wickford"). Find it, dig, and the chest may hold gear, star-iron, or another map.
 - **Rare creatures:** now and then a golden hare or a great grey elk appears.
 
+**A homestead of your own.** Find open land well away from towns, make camp (B) and stake a claim for 50 crowns. The trees are cleared and the land is yours. From there you can:
+- **Build:** a log cabin (sleep here, and store what the farm makes), a fence, crop beds, a well, a chicken coop, a goat pen, a workshop, a shop at the gate and a barn. Each needs crowns, timber or ore and some hours of work, and you can lend a hand to finish sooner.
+- **Farm:** plant wheat, cabbage, flax, herbs or pumpkins. They grow day by day: faster in summer and with a well, slower in a drought, and barely at all in winter. Harvest them when they're ripe.
+- **Keep animals:** hens lay eggs, goats give milk and sheep give wool. The workshop spins flax into linen.
+- **Run a business:** stock the shop and travellers buy from it while you're away. Send a caravan between two towns for a share of the profit, and hire guards, because the roads are not safe.
+- **Grow a village:** once the homestead is big enough, families ask to settle. A royal charter (200 crowns) founds a real village nearby, with a cart track to your gate, a reeve, and you as its warden.
+
 **A director for pacing.** The game keeps track of how hard things have been recently. Tension rises while you fight and when you take damage, and drops while you travel and rest (faster in towns). After a hard fight you get time to recover: no new wolf packs, night raids or big events for a while. When you're nearly dead, enemies attack one at a time, nobody calls for reinforcements, and hits do slightly less damage. When things have been quiet for too long, something happens: a wolf pack follows you at a distance and howls, raiders appear on the road at night, or someone injured by the road calls for help. Usually they really need it; sometimes it's a trap.
 
 ## Play

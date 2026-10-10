@@ -1818,6 +1818,51 @@
         m.visible = h > 0.03;
       }
     },
+    // Your homestead: tent, cabin, fence, beds of growing crops, well, coop and hens, pen, workshop, shop, barn.
+    updateHomestead(game, room) {
+      const H = ECHO.Homestead, s = H && game.pl && game.pl.stead;
+      if (!R.steadGroup) {
+        R.steadGroup = new THREE.Group(); R.scene.add(R.steadGroup); R.steadKey = ''; R.henGroup = new THREE.Group(); R.scene.add(R.henGroup);
+        const m = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, flatShading: true });
+        R.stM = { log: m('#7a5634'), roof: m('#5a4028'), dark: m('#1a1410'), canvas: m('#d8ccb0'), soil: m('#5a4028'), stone: m('#8a847a'), red: m('#8a3a2a'), white: m('#f0ece0'), comb: m('#c83a2a'), grey: m('#8a8070'), awn: m('#c85a3a'), awn2: m('#f0e8d8'), pole: m('#9a7a50') };
+        R.stCrop = {}; for (const k in H.CROPS) R.stCrop[k] = m(H.CROPS[k].color);
+      }
+      const show = s && !room && Math.abs(s.x - game.pe.x) < 70 && Math.abs(s.y - game.pe.y) < 70;
+      R.steadGroup.visible = R.henGroup.visible = !!show;
+      if (!show) return;
+      const key = JSON.stringify([Object.keys(s.builds).sort(), s.work.map(w => w.k), s.plots.map(p => p.crop ? p.crop + Math.floor(p.growth * 4) : '-'), s.animals.goats, s.animals.sheep]);
+      if (key !== R.steadKey) {
+        R.steadKey = key;
+        while (R.steadGroup.children.length) { const c = R.steadGroup.children[0]; R.steadGroup.remove(c); c.traverse(x => { if (x.geometry) x.geometry.dispose(); }); }
+        const M = R.stM, G = R.steadGroup;
+        const at = (dx, dy) => ({ x: s.x + dx, y: s.y + dy, gy: R.groundH(s.x + dx, s.y + dy) });
+        const box = (w, h, d, mat, x, y, z, ry = 0) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); b.position.set(x, y, z); b.rotation.y = ry; b.castShadow = true; b.receiveShadow = true; G.add(b); return b; };
+        const roof = (w, d, h, mat, x, y, z) => { const r = new THREE.Mesh(new THREE.ConeGeometry(0.71, 1, 4), mat); r.rotation.y = Math.PI / 4; r.scale.set(w, h, d); r.position.set(x, y + h / 2, z); r.castShadow = true; G.add(r); return r; };
+        const B = s.builds;
+        if (B.tent) { const p = at(0, 0); const t = new THREE.Mesh(new THREE.ConeGeometry(1.1, 1.4, 4), M.canvas); t.rotation.y = Math.PI / 4; t.position.set(p.x, p.gy + 0.7, p.y); t.castShadow = true; G.add(t); }
+        if (B.cabin) { const p = at(0, -1.5); box(3, 1.6, 2.4, M.log, p.x, p.gy + 0.8, p.y); roof(3.6, 3.0, 1.2, M.roof, p.x, p.gy + 1.6, p.y); box(0.6, 1.0, 0.08, M.dark, p.x - 0.5, p.gy + 0.5, p.y + 1.22); box(0.35, 1.2, 0.35, M.stone, p.x + 0.8, p.gy + 2.2, p.y - 0.4); }
+        if (B.fence) { const x0 = s.x - 5.2, x1 = s.x + 5.2, y0 = s.y - 6.4, y1 = s.y + 6.0; for (const [ax, ay, bx, by] of [[x0, y0, x1, y0], [x1, y0, x1, y1], [x0, y1, s.x - 0.8, y1], [s.x + 0.8, y1, x1, y1], [x0, y0, x0, y1]]) { const len = U.dist(ax, ay, bx, by), mx = (ax + bx) / 2, my = (ay + by) / 2, a = Math.atan2(by - ay, bx - ax), gy = R.groundH(mx, my); box(len, 0.08, 0.08, M.pole, mx, gy + 0.65, my, -a); box(len, 0.08, 0.08, M.pole, mx, gy + 0.35, my, -a); for (let k = 0; k <= Math.floor(len / 1.6); k++) { const t = k / Math.max(1, Math.floor(len / 1.6)); box(0.12, 0.9, 0.12, M.pole, ax + (bx - ax) * t, R.groundH(ax + (bx - ax) * t, ay + (by - ay) * t) + 0.45, ay + (by - ay) * t); } } }
+        s.plots.forEach((pl0, i) => {
+          const pp = H.plotPos(s, i), gy = R.groundH(pp.x, pp.y);
+          box(1.25, 0.1, 1.25, M.soil, pp.x, gy + 0.05, pp.y);
+          if (pl0.crop) { const g = Math.max(0.15, pl0.growth), mat = pl0.growth >= 1 ? R.stCrop[pl0.crop] : (pl0.crop === 'wheat' || pl0.crop === 'flax' ? R.stCrop.herbs : R.stCrop[pl0.crop]); for (let k = 0; k < 4; k++) { const c = new THREE.Mesh(pl0.crop === 'pumpkin' || pl0.crop === 'cabbage' ? new THREE.SphereGeometry(0.16, 6, 4) : new THREE.ConeGeometry(0.1, 0.5, 4), mat); c.scale.setScalar(g); c.position.set(pp.x - 0.3 + (k % 2) * 0.6, gy + 0.12 + 0.22 * g, pp.y - 0.3 + Math.floor(k / 2) * 0.6); G.add(c); } }
+        });
+        const BD = H.BUILDS;
+        if (B.well) { const p = at(...BD.well.at); const w = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.55, 0.7, 10), M.stone); w.position.set(p.x, p.gy + 0.35, p.y); G.add(w); box(0.08, 1.2, 0.08, M.pole, p.x - 0.45, p.gy + 1.0, p.y); box(0.08, 1.2, 0.08, M.pole, p.x + 0.45, p.gy + 1.0, p.y); roof(1.2, 0.9, 0.4, M.roof, p.x, p.gy + 1.6, p.y); }
+        if (B.coop) { const p = at(...BD.coop.at); box(1.1, 0.7, 0.8, M.log, p.x, p.gy + 0.35, p.y); roof(1.3, 1.0, 0.5, M.roof, p.x, p.gy + 0.7, p.y); }
+        if (B.pen) { const p = at(...BD.pen.at); for (const [dx, dy, w, d] of [[0, -1.1, 2.6, 0.08], [0, 1.1, 2.6, 0.08], [-1.3, 0, 0.08, 2.2], [1.3, 0, 0.08, 2.2]]) box(w, 0.07, d, M.pole, p.x + dx, p.gy + 0.55, p.y + dy);
+          const n = s.animals.goats + s.animals.sheep; for (let i = 0; i < Math.min(6, n); i++) { const sheep = i >= s.animals.goats; const a = box(0.42, 0.3, 0.24, sheep ? M.white : M.grey, p.x - 0.8 + (i % 3) * 0.8, p.gy + 0.3, p.y - 0.4 + Math.floor(i / 3) * 0.8, i); box(0.14, 0.14, 0.14, sheep ? M.dark : M.grey, a.position.x + 0.26, p.gy + 0.45, a.position.z); } }
+        if (B.workshop) { const p = at(...BD.workshop.at); box(2.0, 1.2, 1.6, M.log, p.x, p.gy + 0.6, p.y); roof(2.4, 2.0, 0.7, M.roof, p.x, p.gy + 1.2, p.y); box(0.5, 0.4, 0.3, M.dark, p.x + 0.4, p.gy + 0.2, p.y + 1.0); }
+        if (B.shop) { const p = at(...BD.shop.at); box(1.6, 0.8, 0.8, M.log, p.x, p.gy + 0.4, p.y); box(0.08, 1.6, 0.08, M.pole, p.x - 0.75, p.gy + 0.8, p.y + 0.35); box(0.08, 1.6, 0.08, M.pole, p.x + 0.75, p.gy + 0.8, p.y + 0.35); for (let k = 0; k < 4; k++) box(0.42, 0.06, 1.0, k % 2 ? M.awn2 : M.awn, p.x - 0.62 + k * 0.42, p.gy + 1.62, p.y); }
+        if (B.barn) { const p = at(...BD.barn.at); box(3.6, 2.0, 2.6, M.red, p.x, p.gy + 1.0, p.y); roof(4.2, 3.2, 1.3, M.roof, p.x, p.gy + 2.0, p.y); box(1.2, 1.5, 0.08, M.dark, p.x, p.gy + 0.75, p.y + 1.32); }
+        // scaffolding where work is going on
+        for (const w of s.work) { const off = BD[w.k].at || [0, 3]; const p = at(...off); for (const [dx, dz] of [[-0.8, -0.6], [0.8, -0.6], [-0.8, 0.6], [0.8, 0.6]]) box(0.1, 1.6, 0.1, M.pole, p.x + dx, p.gy + 0.8, p.y + dz); box(1.8, 0.08, 0.1, M.pole, p.x, p.gy + 1.5, p.y - 0.6); box(1.8, 0.08, 0.1, M.pole, p.x, p.gy + 1.5, p.y + 0.6); box(0.6, 0.3, 0.6, M.log, p.x + 1.2, p.gy + 0.15, p.y + 0.9); }
+      }
+      // hens about the yard
+      const hens = H.birds || [];
+      while (R.henGroup.children.length < hens.length) { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.14), R.stM.white); b.position.y = 0.12; g.add(b); const c = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.04), R.stM.comb); c.position.set(0.1, 0.24, 0); g.add(c); R.henGroup.add(g); }
+      R.henGroup.children.forEach((g, i) => { const b = hens[i]; g.visible = !!b; if (!b) return; g.position.set(b.x, R.groundH(b.x, b.y) + (b.peck > 0 ? -0.04 : Math.abs(Math.sin(R.time * 9 + i)) * 0.02), b.y); g.rotation.y = -b.dir; g.rotation.z = b.peck > 0 ? -0.5 : 0; });
+    },
     // Caves, wayside shrines, wrecks, stone circles and hermits' huts.
     updateSecrets(game, room) {
       const Sc = ECHO.Secrets, world = game.world, pe = game.pe;
@@ -2300,6 +2345,7 @@
       R.updateGlows(game);
       R.updateTownFires(game, room);
       R.updateSecrets(game, room);
+      R.updateHomestead(game, room);
       if (!room) R.updateFestival(game); else if (R.festGroup) R.festGroup.visible = false;
       if (room) R.updateInteriorLighting(game, room); else R.updateLighting(game, dt);
       R.renderer.render(R.scene, R.camera);

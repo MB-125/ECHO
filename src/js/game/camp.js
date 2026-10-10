@@ -203,6 +203,7 @@
       }
       if (!f.out && ECHO.Pastimes) ch.push({ label: 'Cook a recipe…', sub: 'pies, soups, cakes, salves', onPick: () => ECHO.Pastimes.cookMenu(game, 'by your fire', () => C.open(game)) });
       ch.push({ label: night ? 'Sleep until morning' : 'Rest a few hours', sub: f.out ? 'cold, without a fire' : C.watchman(game) ? `${C.watchman(game).first} will keep watch` : 'alone — keep one eye open', onPick: () => C.rest(game, night ? 'dawn' : 3) });
+      if (ECHO.Homestead) ch.push(...ECHO.Homestead.campChoices(game));
       ch.push({ label: 'Put out the fire and break camp', sub: 'kick dirt over it', onPick: () => { C.fire = null; game.ui.toast('You scatter the ashes.', 'info', 2); } });
       ch.push({ label: 'Leave it', onPick: () => {} });
       const C0 = C.ex || { cold: 0 };

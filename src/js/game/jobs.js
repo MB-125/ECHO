@@ -433,6 +433,7 @@
         add({ k: 'site', icon: s.cat === 'delve' ? '▼' : '◆', name: s.name, sub: s.cleared ? 'cleared' : (s.cat === 'delve' ? `dungeon ${ECHO.Explore.stars(s)}` : 'a place of note'), x: s.x, y: s.y, track: 'site:' + s.id, done: s.cleared });
       }
       if (ECHO.Secrets && ECHO.Secrets.nearby) for (const o of ECHO.Secrets.nearby(game)) add(o);
+      if (ECHO.Homestead) for (const o of ECHO.Homestead.nearby(game)) add(o);
       if (ECHO.Life && ECHO.Life.nearWater && ECHO.Life.nearWater(game)) add({ k: 'fish', icon: '≈', name: 'Water close by', sub: pl.inv.rod ? 'cast a line (E at the bank)' : 'buy a rod at a market to fish here', x: pe.x, y: pe.y });
       return out.sort((a, b) => a.d - b.d).slice(0, 40);
     },
