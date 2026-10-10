@@ -1034,7 +1034,7 @@
           if (hover || (e.foe && e.foe.elite) || e.beast || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 7) text(e.label, p.x, top, '#ffb0a0');
         } else if (e.type === 'creature' && hover) {
           const reg = world.regions[e.regionId];
-          text(e.humanoid ? e.foe.name : ECHO.Ecology.speciesName(world, reg, e.species), p.x, top, game.hostileTo(game.pe, e) ? '#ffb0a0' : '#e0e0d0');
+          text(e.humanoid ? e.foe.name : e.fname || ECHO.Ecology.speciesName(world, reg, e.species), p.x, top, game.hostileTo(game.pe, e) ? '#ffb0a0' : '#e0e0d0');
         }
       }
       // floaters

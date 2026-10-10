@@ -332,7 +332,7 @@
       if (target.event && ECHO.Events && target.type !== 'boss') ECHO.Events.onKill(target, from);
       if (target.humanoid) { C.burst(target.x, target.y, target.foe && (target.foe.look === 'wight' || target.foe.look === 'king') ? '#9fe8c8' : '#7a1d24', 12, 3, 0.6, 2); ECHO.Quests.onKill(target, from); return; }
       if (target.questId || target.delve) ECHO.Quests.onKill(target, from);
-      if (target.fauna) {
+      if (target.fauna || target.species === 'fox') {
         C.burst(target.x, target.y, '#5a1f1f', 10, 3, 0.6, 2);
         if (byPlayer) { game.pl.kills[target.fname.toLowerCase()] = (game.pl.kills[target.fname.toLowerCase()] || 0) + 1; game.drop(target); ECHO.Character.train(game.pl, 'archery', 0.05); }
         return;

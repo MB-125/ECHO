@@ -51,7 +51,7 @@
     wounded(game, from) {
       const world = game.world, pl = game.pl;
       const rng = ECHO.Sim.rngFor(world);
-      const killerDesc = from ? (from.type === 'boss' ? `${from.boss.name} ${from.boss.title}` : from.type === 'creature' && from.humanoid ? (from.foe ? from.foe.name.toLowerCase() : 'the dead') : from.type === 'creature' ? ECHO.Ecology.speciesName(world, world.regions[from.regionId], from.species).toLowerCase().replace(/(\w+)$/, (m) => (ECHO.SPECIES[from.species].plural.split(' ').pop())) : 'your own flame') : 'your wounds';
+      const killerDesc = from ? (from.type === 'boss' ? `${from.boss.name} ${from.boss.title}` : from.type === 'creature' && from.humanoid ? (from.foe ? from.foe.name.toLowerCase() : 'the dead') : from.type === 'creature' ? ECHO.Ecology.speciesName(world, world.regions[from.regionId], from.species).toLowerCase().replace(/(\w+)$/, (m) => (ECHO.SPECIES[from.species] ? ECHO.SPECIES[from.species].plural.split(' ').pop() : m)) : 'your own flame') : 'your wounds';
       if (from && from.type === 'boss') {
         from.boss.memory.knownFoes[pl.charId] = { name: pl.first + ' ' + pl.last, d: world.day, outcome: 'defeated' };
         from.boss.hp = from.boss.maxHp;

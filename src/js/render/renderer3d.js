@@ -2396,7 +2396,7 @@
         } else if (e.type === 'creature' && e.label && !e.marvel) {
           if (hover || (e.foe && e.foe.elite) || e.beast || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 7) text(e.label, p.x, ty, '#ffb0a0');
         } else if (e.type === 'creature' && hover) {
-          text(e.humanoid ? e.foe.name : ECHO.Ecology.speciesName(world, world.regions[e.regionId], e.species), p.x, ty, game.hostileTo(game.pe, e) ? '#ffb0a0' : '#e0e0d0');
+          text(e.humanoid ? e.foe.name : e.fname || ECHO.Ecology.speciesName(world, world.regions[e.regionId], e.species), p.x, ty, game.hostileTo(game.pe, e) ? '#ffb0a0' : '#e0e0d0');
         }
       }
       for (const f of ECHO.Combat.floaters) {

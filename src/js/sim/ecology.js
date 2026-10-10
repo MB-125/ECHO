@@ -182,8 +182,10 @@
       return 'something has changed in them';
     },
     speciesName(world, r, sp) {
+      // creatures outside the regional ecology (deer, foxes, dogs…) have plain names
+      if (!SPECIES[sp]) return { deer: 'Red deer', hind: 'White Hind', dog: 'Dog', fox: 'Red fox' }[sp] || (sp ? sp.charAt(0).toUpperCase() + sp.slice(1) : 'Creature');
       const base = SPECIES[sp].name;
-      if (!r || !r.eco) return base;
+      if (!r || !r.eco || !r.eco.traits || !r.eco.traits[sp]) return base;
       const tr = r.eco.traits[sp];
       const parts = [];
       if (tr.mutation) parts.push(MUTATIONS.find(m => m.key === tr.mutation).name);
@@ -193,9 +195,9 @@
       return parts.length ? parts.join(' ') + ' ' + base : base;
     },
     recordKill(world, r, sp, method, count = 1) {
-      if (!r || !r.eco) return;
+      if (!r || !r.eco || r.eco[sp] == null) return;
       r.eco[sp] = Math.max(0.3, r.eco[sp] - count);
-      if (method && r.eco.pressure[sp][method] != null) r.eco.pressure[sp][method] += count;
+      if (method && r.eco.pressure && r.eco.pressure[sp] && r.eco.pressure[sp][method] != null) r.eco.pressure[sp][method] += count;
     },
     // Snapshot for UI / debugging
     describe(world, r) {

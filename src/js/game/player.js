@@ -581,7 +581,9 @@
       }
       if (e.fauna) return game.ui.toast(`${e.fname}: ${e.stag ? 'the herd\'s stag, crowned with antlers' : 'a hind of the red deer'}. They graze at the edges of the woods and bolt at the first scent of you. Come from downwind, slow and low — and an arrow is the surest way.`, 'study', 7);
       const region = world.regions[e.regionId] || ECHO.World.regionAt(world, e.x, e.y);
+      if (e.species === 'fox') return game.ui.toast(`${e.fname || 'Red fox'}: a quick red hunter of hares and a thief of scraps. It creeps low through the grass and pounces — and wants nothing to do with you unless you creep too.`, 'study', 7);
       const sp = ECHO.SPECIES[e.species];
+      if (!sp) return;
       const tr = region && region.eco ? region.eco.traits[e.species] : null;
       const name = ECHO.Ecology.speciesName(world, region, e.species);
       let msg = `${name}: ${sp.desc}`;

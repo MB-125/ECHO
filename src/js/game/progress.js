@@ -172,6 +172,7 @@
       if (e.fauna) return e.fname;
       if (e.foe) return e.foe.name;
       if (e.type === 'person') { const n = game.world.npcs[e.npcId]; return n ? ECHO.People.name(n) : 'Someone'; }
+      if (e.type === 'creature' && e.fname) return e.fname;
       if (e.type === 'creature') return ECHO.Ecology.speciesName(game.world, game.world.regions[e.regionId], e.species);
       return 'Foe';
     },
