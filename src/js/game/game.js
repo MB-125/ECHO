@@ -158,6 +158,7 @@
       if (ECHO.Comrade) ECHO.Comrade.update(Game, dt);
       if (ECHO.Wild) ECHO.Wild.update(Game, dt);
       if (ECHO.Director) ECHO.Director.update(Game, dt);
+      if (ECHO.Jobs) ECHO.Jobs.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -288,7 +289,7 @@
     // Who fights whom.
     hostileTo(a, b) {
       if (!a || !b || a === b || a.dead || b.dead) return false;
-      if (a.pet || b.pet) return false;
+      if (a.pet || b.pet || a.stray || b.stray) return false;
       const pl = Game.pl;
       const side = e => (e.type === 'player' || e.isCompanion) ? 'player' : e.type === 'boss' ? 'beast' : e.type === 'creature' ? (e.species === 'hare' || e.species === 'hind' || e.species === 'fox' ? 'prey' : 'beast') : 'person';
       const sa = side(a), sb = side(b);

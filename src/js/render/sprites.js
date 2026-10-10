@@ -447,9 +447,10 @@
       const R = (col, x, y, w, h) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
       const sp = e.species;
       if (sp === 'deer') {
-        // red deer: russet coat, pale rump, the stag with his antlers
+        // red deer: russet coat, pale rump, the stag with his antlers (a stray goat is the same shape, smaller and pale)
         const walk = e.moving ? Math.sin(e.anim * 14) : 0;
         g.save(); if (e.flip) g.scale(-1, 1);
+        if (e.goat) { g.filter = 'saturate(0.15) brightness(1.75)'; g.scale(0.75, 0.75); }
         R('rgba(0,0,0,0.2)', -8, -1, 16, 2);
         const l = Math.round(walk * 1.5);
         R('#4a321e', -6, -8 + Math.max(0, l), 2, 8 - Math.max(0, l)); R('#4a321e', -3, -8, 2, 8); R('#4a321e', 3, -8 + Math.max(0, -l), 2, 8 - Math.max(0, -l)); R('#4a321e', 5, -8, 2, 8);
@@ -481,7 +482,7 @@
       }
       const walk = e.moving ? Math.sin(e.anim * 16) : 0;
       let base = sp === 'dog' || sp === 'fox' ? (e.coat || (sp === 'fox' ? '#c0642a' : '#8a5a32')) : ECHO.SPECIES[sp].color;
-      if (sp === 'dog') g.scale(0.72, 0.72);
+      if (sp === 'dog') g.scale(0.72 * (e.small || 1), 0.72 * (e.small || 1));
       if (sp === 'fox') g.scale(0.55, 0.55);
       if (e.strain && S.STRAIN_TINT[e.strain]) base = mix(base, S.STRAIN_TINT[e.strain], 0.65);
       if (e.mutation === 'mirrorback') base = '#b8c4d4';

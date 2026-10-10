@@ -287,6 +287,7 @@
         if (ECHO.Patrol) ECHO.Patrol.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         if (ECHO.Pastimes) ECHO.Pastimes.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         if (ECHO.Comrade) ECHO.Comrade.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
+        if (ECHO.Jobs && npc.id !== pl.companion) ECHO.Jobs.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         add('Any tales of heroes?', () => say(ECHO.Dialogue.aboutLegends(world, npc)));
         if (npc.carry) add('That blade you carry…', () => say(ECHO.Dialogue.aboutItem(world, npc, pl)));
         // Plights this person asked for
@@ -985,7 +986,7 @@
       if (ECHO.Courier) ECHO.Courier.deliver(game, s);
       const body = UI.openPanel(`Notice board — ${s.name}`, '', 'board');
       const render = () => {
-        const tabs = [['pleas', 'Pleas'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['affairs', 'Town affairs']];
+        const tabs = [['pleas', 'Pleas'], ['jobs', 'Odd jobs'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['affairs', 'Town affairs']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'pleas') html += '<p class="dim">Pleas, bounties and warnings, nailed up by people who will not wait forever.</p><div class="list" id="pl"></div>';
         else if (tab === 'law') {
@@ -1000,6 +1001,7 @@
           if (trials.length) html += `<h4 class="ware-h">Recent judgements</h4>${trials.map(e => `<div class="card"><span class="dim">${T.fmtDate(e.d)}</span> — ${esc(e.text)}</div>`).join('')}`;
         } else if (tab === 'requests') html += ECHO.Dilemmas ? ECHO.Dilemmas.boardHtml(world, s, pl) : '';
         else if (tab === 'post') html += ECHO.Courier ? ECHO.Courier.boardHtml(world, s, pl) : '';
+        else if (tab === 'jobs') html += ECHO.Jobs ? ECHO.Jobs.boardHtml(game, s) : '';
         else if (tab === 'watch') html += UI.watchHtml(s);
         else if (tab === 'bounty') {
           const B = ECHO.Bounty, today = B.forTown(world, s), mine = B.mine(pl);
@@ -1030,6 +1032,7 @@
         }
         if (tab === 'deeds') UI.bindDeeds(body, s, render);
         if (tab === 'post') body.querySelectorAll('button[data-post]').forEach(b => b.addEventListener('click', () => { const why = ECHO.Courier.accept(game, s, b.dataset.post); if (why) UI.toast(why, 'warn', 3); else UI.toast('Into your bag it goes. The line at the top of the screen points the way.', 'info', 3); render(); }));
+        if (tab === 'jobs') body.querySelectorAll('button[data-job]').forEach(b => b.addEventListener('click', () => { const o = ECHO.Jobs.boardOffers(game, s).find(x => x.id === b.dataset.job); if (o) { const why = ECHO.Jobs.accept(game, o); UI.toast(why || `Job taken: ${o.title}. (Tracked.)`, why ? 'warn' : 'info', 3); } render(); }));
         if (tab === 'requests') body.querySelectorAll('button[data-dq]').forEach(b => b.addEventListener('click', () => { const q = ECHO.Dilemmas.st(world).list.find(x => x.id === b.dataset.dq); if (q) { ECHO.Dilemmas.accept(game, q); UI.toast(`You take the request. ${q.who} will be waiting.`, 'info', 3); } render(); }));
         if (tab === 'bounty') body.querySelectorAll('button[data-bounty]').forEach(b => b.addEventListener('click', () => { const bt = ECHO.Bounty.forTown(world, s).find(x => x.id === b.dataset.bounty); const why = ECHO.Bounty.accept(world, pl, bt); if (why) UI.toast(why, 'warn', 3); else UI.toast('You tear the bounty from the board.', 'info', 2); render(); }));
         if (tab === 'watch') body.querySelectorAll('button[data-case]').forEach(b => b.addEventListener('click', () => { pl.investigating = b.dataset.case; UI.toast('You take down the notice. (Added to your journal.)', 'info', 3); render(); }));
@@ -1349,9 +1352,10 @@
       const body = UI.openPanel('Journal', '', 'journal');
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
-        const tabs = [['guide', 'Guide'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
+        const tabs = [['guide', 'Guide'], ['nearby', 'Nearby'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'guide') { html += ECHO.Guide.html(game); if (ECHO.Tutorial) ECHO.Tutorial.flag('guide'); }
+        else if (tab === 'nearby') html += ECHO.Jobs ? ECHO.Jobs.nearbyHtml(game) : '';
         else if (tab === 'story') html += ECHO.Saga.html(world, pl);
         else if (tab === 'ambition') html += ECHO.Purpose.journalHtml(world, pl);
         else if (tab === 'tasks') {

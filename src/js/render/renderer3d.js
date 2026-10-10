@@ -967,6 +967,7 @@
         M.recolor(inst, 'stag', e.stag ? '#7a4e2a' : '#8a5a32'); M.recolor(inst, 'cloth2', '#6e4626'); M.recolor(inst, 'white', '#efe4d0'); M.recolor(inst, 'eyeglow', '#1a1410'); M.recolor(inst, 'darkwood', '#3a2a1a');
         for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false);
         M.show(inst, 'antlers', !!e.stag);
+        if (e.goat) { M.recolor(inst, 'stag', '#e4ddd0'); M.recolor(inst, 'cloth2', '#c8c0b0'); M.recolor(inst, 'darkwood', '#8a8070'); inst.root.scale.setScalar(0.34); return; }
         if (e.white) { M.recolor(inst, 'stag', '#a8784a'); M.recolor(inst, 'darkwood', '#f4f0e0'); }
         for (const m of inst.mats) { if (m.emissive) m.emissive.set('#000000'); }
         inst.root.scale.setScalar(e.stag ? 0.52 : 0.44);
@@ -982,7 +983,7 @@
       if (e.type === 'creature') {
         const base = { wolf: 'fur', dog: 'fur', gnawer: 'rat', hare: 'hare' }[e.species];
         if (e.species === 'fox') { M.recolor(inst, 'fur', e.coat || '#c0642a'); M.recolor(inst, 'eyeglow', '#1a1410'); for (const m of inst.mats) if (m.emissive) m.emissive.set('#000000'); M.show(inst, 'horn', false); inst.root.scale.setScalar(0.5); return; }
-        if (e.species === 'dog') { M.recolor(inst, 'fur', e.coat || '#8a5a32'); M.recolor(inst, 'eyeglow', '#1a1410'); for (const m of inst.mats) if (m.emissive) m.emissive.set('#000000'); M.show(inst, 'horn', false); inst.root.scale.setScalar(0.66); return; }
+        if (e.species === 'dog') { M.recolor(inst, 'fur', e.coat || '#8a5a32'); M.recolor(inst, 'eyeglow', '#1a1410'); for (const m of inst.mats) if (m.emissive) m.emissive.set('#000000'); M.show(inst, 'horn', false); inst.root.scale.setScalar(0.66 * (e.small || 1)); return; }
         const tint = e.winter ? '#eef2f8' : e.mutation === 'mirrorback' ? '#b8c4d4' : e.mutation === 'emberfur' ? '#a8502a' : e.strain === 'Ashen' ? '#8e8e8a' : e.strain === 'Ironhide' ? '#5a4632' : null;
         if (tint) M.recolor(inst, base, tint);
         if (e.mutation === 'paleshade') for (const m of inst.mats) { m.transparent = true; m.opacity = 0.5; }
@@ -1817,7 +1818,7 @@
       }
     },
     updateGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : [], ECHO.Town ? ECHO.Town.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : [], ECHO.Jobs ? ECHO.Jobs.glows : [], ECHO.Town ? ECHO.Town.glows : []);
       const ga = R.glows.geometry.attributes;
       const n = Math.min(list.length, ga.size.count);
       const tmp = R._gc || (R._gc = new THREE.Color());

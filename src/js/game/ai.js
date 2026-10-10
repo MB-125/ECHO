@@ -57,6 +57,7 @@
       e.cd = Math.max(0, e.cd - dt);
       e.t += dt;
       if (e.stagger > 0) { e.stagger -= dt; return; }
+      if (e.stray && ECHO.Jobs) return ECHO.Jobs.stray(game, e, dt);
       if (e.pet) return ECHO.Pet.think(game, e, dt);
       if (e.rout && ECHO.Tactics) return ECHO.Tactics.flee(game, e, dt);
       if (e.fauna) return ECHO.Fauna.deer(game, e, dt);
@@ -326,6 +327,7 @@
       if (e.pilloried) { e.moving = false; e.dir = Math.PI / 2; if (e.sayT <= 0 && Math.random() < dt * 0.05) { e.say = ['Water… please.', 'It was only bread!', 'Don\'t look at me.', 'Let me out of here!'][Math.floor(Math.random() * 4)]; e.sayT = 3; } return; }
       if (e.yielded) { e.moving = false; e.state = 'yield'; return; }
       if (e.stranded && ECHO.Director) return ECHO.Director.strandedThink(game, e, npc, dt);
+      if (e.escort && !e.target && ECHO.Jobs && ECHO.Jobs.escortThink(game, e, npc, dt)) return;
       if (e.indoor && e.sleeping) { e.moving = false; if (!e.aggro) return; e.sleeping = false; e.seated = false; }
       if (npc.sick && !e._sickSlow) { e._sickSlow = true; e.speed *= 0.6; }
 

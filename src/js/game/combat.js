@@ -312,6 +312,8 @@
       target._xpOk = ECHO.Progress && ECHO.Progress.counts(game, target);
       target.dead = true;
       target.deathT = 0;
+      if (target.jobId && ECHO.Jobs) ECHO.Jobs.onKill(game, target, from);
+      if (target.escort && ECHO.Jobs && target.escort.status === 'active') ECHO.Jobs.fail(game, target.escort, `${target.escort.giverName} was killed on the road`);
       const byPlayer = from === game.pe || (from && from.isCompanion);
       target._killer = from || null;
       // Death has weight: a beat of stillness, then the body is thrown.
