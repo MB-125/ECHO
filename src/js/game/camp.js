@@ -25,13 +25,13 @@
   const ORDER = ['stew', 'roast', 'grilled', 'food', 'fish', 'meat'];
 
   const C = ECHO.Camp = {
-    FOODS, fire: null, said: {},
+    FOODS, ORDER, fire: null, said: {},
     init(pl) { if (pl.warmth == null) pl.warmth = 100; if (pl.fed == null) pl.fed = 80; },
     // ------------------------------------------------------------ eating
     eatBest(game) {
       const pl = game.pl; C.init(pl);
       if (pl.hp >= pl.maxHp && pl.fed > 85) return game.ui.toast('You\'re not hungry.', 'info', 2);
-      const k = ORDER.find(k => pl.inv[k] > 0);
+      const k = C.ORDER.find(k => pl.inv[k] > 0);
       if (!k) return game.ui.toast('You have nothing to eat.', 'warn', 2);
       C.eat(game, k);
     },
@@ -39,7 +39,10 @@
       const pl = game.pl, F = FOODS[k]; C.init(pl);
       if (!F || !(pl.inv[k] > 0)) return;
       pl.inv[k]--;
-      pl.hp = Math.min(pl.maxHp, pl.hp + F.hp);
+      const PG = ECHO.Pastimes && ECHO.Pastimes.GOODS[k];
+      const mul = PG && PG.dish && ECHO.Pastimes.level(pl, 'cook') >= 7 ? 1.25 : 1;
+      pl.hp = Math.min(pl.maxHp, pl.hp + F.hp * mul);
+      if (PG && PG.dish && ECHO.Pastimes.level(pl, 'cook') >= 9) { pl.warmth = Math.min(100, pl.warmth + 20); pl.hearty = Math.max(pl.hearty || 0, 300); }
       pl.fed = Math.min(100, pl.fed + F.fed);
       if (F.warm) pl.warmth = Math.min(100, pl.warmth + F.warm);
       if (F.hearty) pl.hearty = Math.max(pl.hearty || 0, F.hearty);
@@ -198,6 +201,7 @@
         ch.push({ label: `Grill fish${fish ? ` (${fish})` : ''}`, sub: fish ? 'all of it, over the coals' : 'you have no fish — a rod and any water', disabled: !fish, onPick: () => C.cook(game, 'fish', 'grilled', fish) });
         ch.push({ label: 'Make a herb stew', sub: meat && herbs ? '1 meat + 1 bundle of herbs: heals most, warms you through' : 'needs 1 meat and 1 bundle of herbs', disabled: !(meat && herbs), onPick: () => { pl.inv.meat--; pl.inv.herbs--; pl.inv.stew = (pl.inv.stew || 0) + 1; f.cookT = 6; ECHO.Character.train(pl, 'endurance', 0.1); game.ui.toast('A pot of stew, thick with herbs. (H to eat.)', 'info', 3); setTimeout(() => C.open(game), 0); } });
       }
+      if (!f.out && ECHO.Pastimes) ch.push({ label: 'Cook a recipe…', sub: 'pies, soups, cakes, salves', onPick: () => ECHO.Pastimes.cookMenu(game, 'by your fire', () => C.open(game)) });
       ch.push({ label: night ? 'Sleep until morning' : 'Rest a few hours', sub: f.out ? 'cold, without a fire' : C.watchman(game) ? `${C.watchman(game).first} will keep watch` : 'alone — keep one eye open', onPick: () => C.rest(game, night ? 'dawn' : 3) });
       ch.push({ label: 'Put out the fire and break camp', sub: 'kick dirt over it', onPick: () => { C.fire = null; game.ui.toast('You scatter the ashes.', 'info', 2); } });
       ch.push({ label: 'Leave it', onPick: () => {} });

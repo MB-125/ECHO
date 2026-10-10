@@ -1049,6 +1049,32 @@
       inst.root.scale.setScalar(scale);
     },
     // Boats on the water: yours, the ferry you ride, and ferries waiting at the jetties.
+    // Things to gather: berry bushes, mushrooms, herbs, wild bees' nests, birds' nests.
+    syncForage(game) {
+      const nodes = ECHO.Pastimes && !ECHO.Interior.cur ? ECHO.Pastimes.nodes : [];
+      R.forPool = R.forPool || {};
+      const mat = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, flatShading: true });
+      if (!R.forMats) R.forMats = { leaf: mat('#3e6a2e'), berry: mat('#b0203a'), blue: mat('#3a3a9a'), stem: mat('#e8dcc0'), cap: mat('#b0402a'), cap2: mat('#8a5a3a'), herb: mat('#6aa84a'), flower: mat('#d8c8ff'), stump: mat('#5a3e26'), hive: mat('#c89a3a'), nest: mat('#7a6040'), egg: mat('#efe8d8') };
+      const M = R.forMats;
+      const make = k => {
+        const g = new THREE.Group();
+        const add = (geo, m, x, y, z, s) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); if (s) o.scale.set(...s); o.castShadow = true; g.add(o); return o; };
+        if (k === 'berries') { add(new THREE.DodecahedronGeometry(0.32, 0), M.leaf, 0, 0.26, 0, [1, 0.8, 1]); for (let i = 0; i < 9; i++) { const a = i * 2.4, r = 0.24 + (i % 3) * 0.04; add(new THREE.SphereGeometry(0.045, 5, 4), i % 3 ? M.berry : M.blue, Math.cos(a) * r, 0.2 + (i % 4) * 0.08, Math.sin(a) * r); } }
+        if (k === 'mushrooms') for (let i = 0; i < 3; i++) { const x = (i - 1) * 0.14, z = (i % 2) * 0.1, h = 0.1 + i * 0.03; add(new THREE.CylinderGeometry(0.025, 0.03, h, 5), M.stem, x, h / 2, z); add(new THREE.SphereGeometry(0.08, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), i === 1 ? M.cap : M.cap2, x, h, z); }
+        if (k === 'herbs') for (let i = 0; i < 6; i++) { const a = i * 1.05; add(new THREE.ConeGeometry(0.04, 0.26, 4), M.herb, Math.cos(a) * 0.1, 0.13, Math.sin(a) * 0.1); if (i % 2) add(new THREE.SphereGeometry(0.03, 4, 3), M.flower, Math.cos(a) * 0.1, 0.27, Math.sin(a) * 0.1); }
+        if (k === 'honey') { add(new THREE.CylinderGeometry(0.22, 0.26, 0.4, 7), M.stump, 0, 0.2, 0); add(new THREE.SphereGeometry(0.16, 7, 5), M.hive, 0, 0.5, 0, [1, 1.3, 1]); }
+        if (k === 'eggs') { add(new THREE.TorusGeometry(0.13, 0.05, 4, 8), M.nest, 0, 0.04, 0).rotation.x = Math.PI / 2; for (let i = 0; i < 3; i++) add(new THREE.SphereGeometry(0.04, 5, 4), M.egg, (i - 1) * 0.05, 0.06, (i % 2) * 0.03, [1, 1.3, 1]); }
+        R.scene.add(g); return g;
+      };
+      const used = {};
+      for (const n of nodes) {
+        const pool = R.forPool[n.k] = R.forPool[n.k] || [];
+        const i = used[n.k] = (used[n.k] || 0) + 1;
+        let g = pool[i - 1]; if (!g) { g = make(n.k); pool.push(g); }
+        g.visible = true; g.position.set(n.x, R.groundH(n.x, n.y), n.y); g.rotation.y = (n.x * 7.3 + n.y * 3.1) % 6.28;
+      }
+      for (const k in R.forPool) for (let i = used[k] || 0; i < R.forPool[k].length; i++) R.forPool[k][i].visible = false;
+    },
     // A dragon's shadow sweeping across the ground.
     syncFly(game) {
       const f = ECHO.Events && ECHO.Events.fly;
@@ -1618,6 +1644,7 @@
       R.syncBoats(game, dt);
       R.syncCamp(game, dt);
       R.syncBirds(game, dt);
+      R.syncForage(game);
       R.syncFly(game);
       R.endHorses(); R.frameNo = (R.frameNo || 0) + 1;
       for (const [e, v] of R.views) {

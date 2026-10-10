@@ -140,6 +140,7 @@
       if (ECHO.Camp) ECHO.Camp.update(Game, dt);
       if (ECHO.Fauna) ECHO.Fauna.update(Game, dt);
       if (ECHO.Events) ECHO.Events.update(Game, dt);
+      if (ECHO.Pastimes) ECHO.Pastimes.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -590,6 +591,7 @@
       if (ECHO.Dilemmas) out.push(...ECHO.Dilemmas.interactables(Game));
       if (ECHO.Stealth) out.push(...ECHO.Stealth.interactables(Game));
       if (ECHO.Camp) out.push(...ECHO.Camp.interactables(Game));
+      if (ECHO.Pastimes) out.push(...ECHO.Pastimes.interactables(Game));
       out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game), ...ECHO.Patrol.interactables(Game), ...ECHO.Finds.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;

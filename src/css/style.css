@@ -344,3 +344,19 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 #hud-body:empty { display: none; }
 #hud-body .cool { color: #bcd8f0; } #hud-body .cold { color: #8ac8ff; } #hud-body .freeze { color: #ff8a6a; font-weight: bold; }
 #hud-body .warm { color: #ffb86a; } #hud-body .fed { color: #c8e0a0; }
+/* panning */
+#panning { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(8,10,14,0.5); }
+#panning.hidden { display: none; }
+#panning .pn-inner { width: min(340px, calc(100vw - 32px)); background: #1a1612; border: 1px solid #6a5a3a; border-radius: 6px; padding: 14px 16px; color: #e8dcc0; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+#panning h3 { margin: 0 0 8px; font-family: var(--serif); color: #f0d890; }
+#panning canvas { width: 220px; height: 220px; }
+#panning .pn-help { font-size: 13px; color: #b8ac90; margin-top: 6px; }
+#panning .pn-state { font-size: 12px; color: #d8c890; margin-top: 4px; }
+/* busking */
+#busk { position: fixed; left: 0; right: 0; bottom: 90px; z-index: 60; display: flex; justify-content: center; pointer-events: none; }
+#busk.hidden { display: none; }
+#busk .bk-inner { pointer-events: auto; width: min(560px, calc(100vw - 32px)); background: rgba(26,22,18,0.94); border: 1px solid #6a5a3a; border-radius: 6px; padding: 10px 14px; color: #e8dcc0; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+#busk h3 { margin: 0 0 6px; font-family: var(--serif); color: #f0d890; }
+#busk canvas { width: 100%; max-width: 520px; height: auto; border-radius: 4px; cursor: pointer; }
+#busk .bk-help { font-size: 12px; color: #b8ac90; margin-top: 4px; }
+#busk .bk-state { font-size: 12px; color: #d8c890; margin-top: 2px; }

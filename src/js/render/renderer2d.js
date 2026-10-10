@@ -160,6 +160,10 @@
         if (Math.abs(b.x - cam.x) > halfW + 2 || Math.abs(b.y - cam.y) > halfH + 2) continue;
         objs.push({ y: b.y + (b.z > 0.3 ? 50 : 0), draw: () => R.bird(game, f, b) });
       }
+      if (ECHO.Pastimes && !ECHO.Interior.cur) for (const n of ECHO.Pastimes.nodes) {
+        if (Math.abs(n.x - cam.x) > halfW + 2 || Math.abs(n.y - cam.y) > halfH + 2) continue;
+        objs.push({ y: n.y, draw: () => R.forage(game, n) });
+      }
       const fly = ECHO.Events && ECHO.Events.fly;
       if (fly && !ECHO.Interior.cur) objs.push({ y: 1e9, draw: () => R.dragonShadow(game, fly) });
       const myc = ECHO.Camp && ECHO.Camp.fire;
@@ -448,6 +452,16 @@
       g.fillStyle = '#ffe28a'; g.fillRect(-1, -5, 2, 3);
       R.ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (Math.random() < 0.05) ECHO.Combat.fx.push({ kind: 'smoke', x, y: y - 0.6, vx: 0.1, vy: -0.7, t: 0, life: 2, size: 2 });
+    },
+    forage(game, n) {
+      const g = R.art(game, n.x, n.y);
+      const R2 = (c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+      if (n.k === 'berries') { R2('#3e6a2e', -5, -7, 10, 7); R2('#4e7a3a', -4, -8, 8, 2); for (const [x, y] of [[-3, -5], [1, -6], [3, -3], [-1, -3], [2, -7]]) R2(x > 1 ? '#3a3a9a' : '#c0203a', x, y, 1, 1); }
+      if (n.k === 'mushrooms') { R2('#e8dcc0', -3, -3, 1, 3); R2('#b0402a', -4, -5, 3, 2); R2('#e8dcc0', 1, -2, 1, 2); R2('#8a5a3a', 0, -4, 3, 2); }
+      if (n.k === 'herbs') { R2('#6aa84a', -3, -5, 1, 5); R2('#6aa84a', 0, -6, 1, 6); R2('#6aa84a', 2, -4, 1, 4); R2('#d8c8ff', 0, -7, 1, 1); R2('#d8c8ff', -3, -6, 1, 1); }
+      if (n.k === 'honey') { R2('#5a3e26', -4, -4, 8, 4); R2('#c89a3a', -2, -9, 5, 5); R2('#a07a2a', -2, -7, 5, 1); }
+      if (n.k === 'eggs') { R2('#7a6040', -4, -2, 8, 2); R2('#efe8d8', -2, -3, 2, 2); R2('#efe8d8', 1, -3, 2, 2); }
+      R.ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
     dragonShadow(game, f) {
       const g = R.art(game, f.x, f.y);

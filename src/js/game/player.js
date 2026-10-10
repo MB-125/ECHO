@@ -612,6 +612,7 @@
     },
     useHerbs(game) {
       const pl = game.pl;
+      if (pl.inv.salve > 0 && pl.hp < pl.maxHp * 0.85) { pl.inv.salve--; pl.hp = Math.min(pl.maxHp, pl.hp + 90); game.pe.burn = 0; ECHO.Combat.burst(game.pe.x, game.pe.y, '#ffd88a', 12, 2, 0.6, 2); ECHO.Sfx.play('heal'); game.ui.toast('You smooth on the healing salve.', 'info', 2); return; }
       if (pl.inv.herbs > 0 && (pl.hp < pl.maxHp || pl.sick)) {
         pl.inv.herbs--; pl.hp = Math.min(pl.maxHp, pl.hp + 45); game.pe.burn = 0; ECHO.Combat.burst(game.pe.x, game.pe.y, '#7fd67f', 10, 2, 0.6, 2); ECHO.Sfx.play('heal');
         if (pl.sick && Math.random() < 0.45) { (pl.immune = pl.immune || []).push(pl.sick.d); delete pl.sick; game.ui.toast('The herbs break your fever.', 'mercy', 3); }

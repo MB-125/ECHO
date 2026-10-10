@@ -211,7 +211,7 @@
       el.className = '';
       el.innerHTML = `<div class="lp-inner"><h3>${o.title || 'Pick the lock'}</h3><div class="lp-pins"></div><div class="lp-help">Set each pin when the pick is in the bright notch — <b>E</b>, <b>Space</b> or click. <b>Esc</b> to give up.</div><div class="lp-picks"></div></div>`;
       el.onclick = () => LP.press();
-      LP.key = ev => { if (!LP.st) return; if (ev.key === 'e' || ev.key === 'E' || ev.key === ' ') { ev.preventDefault(); LP.press(); } if (ev.key === 'Escape') { ev.preventDefault(); LP.close(false, true); } };
+      LP.key = ev => { if (!LP.st) return; if (ev.key === 'e' || ev.key === 'E' || ev.key === ' ') { ev.preventDefault(); ev.stopImmediatePropagation(); LP.press(); } if (ev.key === 'Escape') { ev.preventDefault(); ev.stopImmediatePropagation(); LP.close(false, true); } };
       window.addEventListener('keydown', LP.key, true);
       LP.last = performance.now();
       LP.draw();

@@ -285,6 +285,7 @@
           void to; render();
         });
         if (ECHO.Patrol) ECHO.Patrol.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
+        if (ECHO.Pastimes) ECHO.Pastimes.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         add('Any tales of heroes?', () => say(ECHO.Dialogue.aboutLegends(world, npc)));
         if (npc.carry) add('That blade you carry…', () => say(ECHO.Dialogue.aboutItem(world, npc, pl)));
         // Plights this person asked for
@@ -416,6 +417,7 @@
           <h4 class="ware-h">Supplies</h4><div class="wares">${['food', 'herbs'].map(card).join('')}</div>
           <h4 class="ware-h">Sell your hunt</h4><div class="wares">${['meat', 'hide'].map(card).join('')}</div>
           <h4 class="ware-h">Trade goods</h4><div class="wares">${['ore', 'timber', 'arms'].map(card).join('')}</div>
+          ${ECHO.Pastimes ? ECHO.Pastimes.marketHtml(pl, s) : ''}
           ${UI.lootMarketHtml(world, pl, s)}
           ${UI.apothecaryHtml(pl)}
           ${UI.stablesHtml(pl, s)}
@@ -439,6 +441,8 @@
             pl.inv[d.rare]--; const got = d.rare === 'starshard' ? rare.star : rare.hide; pl.gold += got; s.wealth = Math.max(0, s.wealth - got * 0.5); ECHO.Sfx.play('coin');
             if (d.rare === 'whitehide') ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} sold the hide of the White Hind in ${s.name}.`, importance: 1, sid: s.id, rep: -2, tag: 'cruel' });
           }
+          if ((d.psell || d.psellall) && ECHO.Pastimes) { const k = d.psell || d.psellall, n = d.psell ? 1 : pl.inv[k] || 0; if (n > 0) { const got = ECHO.Pastimes.priceOf(s, k) * n; pl.inv[k] -= n; pl.gold += got; s.wealth = (s.wealth || 0) + got * 0.3; ECHO.Sfx.play('coin'); } }
+          if (d.ptool && ECHO.Pastimes) { const why = ECHO.Pastimes.buyTool(pl, d.ptool, s); if (why) UI.toast(why, 'warn', 3); }
           if (d.star) {
             const m = ECHO.Marvels.MERCHANT.find(x => x.id === d.star);
             if (m && pl.gold >= m.price) {
@@ -1334,7 +1338,7 @@
       const body = UI.openPanel('Journal', '', 'journal');
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
-        const tabs = [['guide', 'Guide'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['help', 'How the world works']];
+        const tabs = [['guide', 'Guide'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'guide') { html += ECHO.Guide.html(game); if (ECHO.Tutorial) ECHO.Tutorial.flag('guide'); }
         else if (tab === 'story') html += ECHO.Saga.html(world, pl);
@@ -1387,6 +1391,8 @@
           const kinds = ['all', 'war', 'politics', 'economy', 'crime', 'nature', 'intel', 'era', 'mystery', 'legacy', 'plight'];
           const known = ECHO.Chronicle.knownEntries(world).filter(e => kind === 'all' || e.kind === kind).slice(-150).reverse();
           html += `<div class="tabs">${kinds.map(k => `<button class="small ${kind === k ? 'on' : ''}" data-k="${k}">${k}</button>`).join('')}</div><div class="chron">${known.map(e => `<div class="e i${e.imp} ${e.char === pl.charId ? 'me' : ''}"><span class="d">${T.fmtDate(e.d)}</span>${esc(e.text)}</div>`).join('') || '<p class="dim">You have heard nothing yet. Talk to people; listen in town squares.</p>'}</div>`;
+        } else if (tab === 'pastimes') {
+          html += ECHO.Pastimes ? ECHO.Pastimes.html(game) : '';
         } else if (tab === 'self') {
           const mine = world.chronicle.filter(e => e.char === pl.charId).slice(-60).reverse();
           html += `<div class="chron">${mine.map(e => `<div class="e i${e.imp} me"><span class="d">${T.fmtDate(e.d)}</span>${esc(e.text)}</div>`).join('') || '<p class="dim">Nothing yet. The world is waiting to see what you will do.</p>'}</div>`;

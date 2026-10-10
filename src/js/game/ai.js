@@ -333,6 +333,13 @@
       if (e.rider && ECHO.Riders && ECHO.Riders.think(game, e, npc, dt, target)) return;
       if (e.dq && ECHO.Dilemmas && ECHO.Dilemmas.think(game, e, npc, dt, target)) return;
       if (e.siege && ECHO.Events && ECHO.Events.siegeThink(game, e, npc, dt, target)) return;
+      if (e.listen && e.listen.t > 0 && !target) {
+        // listening to the music
+        e.listen.t -= dt;
+        if (U.dist(e.x, e.y, e.listen.x, e.listen.y) > 0.5) ECHO.Ent.travel(world, e, e.listen.x, e.listen.y, e.speed * 0.8, dt);
+        else { e.moving = false; e.dir = Math.atan2(game.pe.y - e.y, game.pe.x - e.x); e.flip = Math.cos(e.dir) < 0; }
+        return;
+      }
       if (e.role === 'companion') return Person.companion(game, e, npc, dt, target);
       if (target) {
         if (!fighter || (ECHO.People.has(npc, 'cowardly') && e.hp < e.maxHp * 0.5) || npc.prof === 'child') return Person.flee(game, e, target, dt);
