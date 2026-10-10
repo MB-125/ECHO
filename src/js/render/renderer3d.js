@@ -1412,6 +1412,7 @@
           case 'hawk': aR = -2.0 + Math.sin(R.time * 3 + e.id) * 0.5; aL = -0.6; break;
           case 'talk': aR = -0.9 + Math.sin(R.time * 4.3 + e.id) * 0.35; aRx = Math.sin(R.time * 2.1) * 0.3; break;
           case 'point': aR = -1.65; break;
+          case 'wave': aR = -2.9 + Math.sin(R.time * 11) * 0.35; aRx = 0.2; break;
           case 'cheer': { const b = Math.sin(R.time * 9 + e.id); aL = -2.75 + b * 0.25; aR = -2.75 - b * 0.25; choreY = Math.abs(b) * 0.07; break; }
           case 'mourn': aL = aR = -0.45; aLx = 0.3; aRx = -0.3; lean = 0.25; break;
           case 'bucket': aL = aR = -1.35; aLx = 0.25; aRx = -0.25; twist = Math.sin(R.time * 5.5 + e.id) * 0.45; lean = 0.12; break;

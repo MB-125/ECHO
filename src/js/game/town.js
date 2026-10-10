@@ -37,6 +37,7 @@
     // Called in a townsperson's peaceful moments, before their routine.
     think(game, e, npc, dt) {
       if (e.hidden || e.indoor) return false;
+      if ((e.call || e.eyeing) && ECHO.Callers && ECHO.Callers.think(game, e, npc, dt)) return true;
       if (e.bucket) return Tn.bucketDo(game, e, npc, dt);
       if (e.funeral) return Tn.mourn(game, e, npc, dt);
       if (e.spectate) return Tn.watch(game, e, npc, dt);
