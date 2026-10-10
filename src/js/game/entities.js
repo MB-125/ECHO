@@ -18,7 +18,11 @@
       const r = e.r * 0.85;
       // shallow water is wadeable by anyone; deep water only by you, on foot
       const solidAt = ECHO.Water ? (x, y) => ECHO.Water.blockedFor(e, world, x, y) : (x, y) => ECHO.World.isSolid(world, x, y);
-      const blocked = (x, y) => solidAt(x - r, y - r) || solidAt(x + r, y - r) || solidAt(x - r, y + r) || solidAt(x + r, y + r);
+      // things standing on the ground (trunks, boulders, tents, walls…); something
+      // that finds itself already inside one may always step out of it
+      const So = e.x < 9000 && !e.ghost && ECHO.Solids;
+      const stuckIn = So && So.hit(world, e.x, e.y, r);
+      const blocked = (x, y) => solidAt(x - r, y - r) || solidAt(x + r, y - r) || solidAt(x - r, y + r) || solidAt(x + r, y + r) || (So && !stuckIn && So.hit(world, x, y, r));
       let moved = false;
       if (dx) {
         const nx = e.x + dx;
@@ -75,6 +79,7 @@
       for (let t = 0.25; t < d; t += 0.3) {
         const x = ax + ux * t, y = ay + uy * t;
         if (ECHO.World.isSolid(world, x, y) || ECHO.World.isSolid(world, x + px, y + py) || ECHO.World.isSolid(world, x - px, y - py)) return false;
+        if (x < 9000 && ECHO.Solids && ECHO.Solids.hit(world, x, y, r * 0.9)) return false;
       }
       return true;
     },
@@ -84,7 +89,7 @@
     // Would a body of radius r fit standing here?
     fits(world, x, y, r = 0.3) {
       const S = (a, b) => ECHO.World.isSolid(world, a, b);
-      return !S(x, y) && !S(x - r, y - r) && !S(x + r, y - r) && !S(x - r, y + r) && !S(x + r, y + r) && !S(Math.floor(x) + 0.5, Math.floor(y) + 0.5);
+      return !S(x, y) && !S(x - r, y - r) && !S(x + r, y - r) && !S(x - r, y + r) && !S(x + r, y + r) && !S(Math.floor(x) + 0.5, Math.floor(y) + 0.5) && !(x < 9000 && ECHO.Solids && ECHO.Solids.hit(world, x, y, r));
     },
     // The nearest place to (x, y) where a body can actually stand — a goal
     // inside a wall, a tree or a pond is moved to the closest open ground.
@@ -139,7 +144,8 @@
         e.pathT = 0.8;
         if (e.pathGoal === goalKey && e.path !== undefined) e._repaths = (e._repaths || 0) + 1;
         const W = world.W;
-        const cost = (x, y, i) => (ECHO.World.isSolid(world, x + 0.5, y + 0.5) ? Infinity : 1 / ECHO.World.speedAt(world, x, y));
+        const So = e.x < 9000 && ECHO.Solids;
+        const cost = (x, y, i) => (ECHO.World.isSolid(world, x + 0.5, y + 0.5) || (So && So.blocksTile(world, x, y)) ? Infinity : 1 / ECHO.World.speedAt(world, x, y));
         const p = ECHO.World.findPath(world, e.x, e.y, tx, ty, cost, 2500);
         // through a wood, step past each trunk rather than into it
         const wp = i => {

@@ -33,6 +33,7 @@
     nest: { label: 'Spider nest', names: ['the Webbed Hollow', 'Silkfall Cave', 'the Weaver\'s Pit', 'Spindle Deep'], desc: 'White silk thick across a cave mouth. Things the size of dogs move behind it.', boss: 'queen', floors: 3, roster: [['spider', 5], ['slime', 1]], deep: [['spider', 2]], style: 'cave', glow: '#c8e8ff', webs: true, lvl: 1 },
     trollden: { label: 'Troll den', names: ['Troll Hole', 'the Gnawed Cave', 'Boulderthrow Den', 'the Stinking Hollow'], desc: 'A huge cave under a cliff, the ground around it gnawed bones and smashed stone.', boss: 'ogre', floors: 2, roster: [['troll', 2], ['giantrat', 2], ['goblin', 1]], deep: [['troll', 2]], style: 'cave', glow: '#ffb060', lvl: 2 },
     sanctum: { label: 'Drowned sanctum', names: ['the Black Sanctum', 'the Drowned Temple', 'the Fane of Whispers'], desc: 'A temple to something without a name, half-swallowed by the earth. Robed figures go in and out at night.', boss: 'necromancer', floors: 3, roster: [['cultist', 3], ['wraith', 1], ['slime', 1]], deep: [['wraith', 2], ['cultist', 2]], style: 'crypt', glow: '#b48aff', lvl: 2 },
+    grot: { label: 'Cave', names: [], desc: 'A cave in the rock, going back further than the light does.', foes: 'giantrat', boss: 'spider', floors: 1, roster: [['giantrat', 3], ['slime', 1], ['spider', 1]], style: 'cave', glow: '#9fd3ff' },
     riftdeep: { label: 'The Rift', names: ['Beyond the Rift'], desc: 'On the other side of the tear in the air: a grey hall that goes on for ever, and a throne.', boss: 'hollowking', floors: 2, roster: [['wraith', 3], ['cultist', 2], ['skeleton', 2]], deep: [['wraith', 2], ['golemling', 1]], style: 'crypt', glow: '#b48aff', lvl: 0 },
     forge: { label: 'Deep forge', names: ['the Old Deep Forge', 'the Dwarrow Halls', 'Hammerdeep', 'the Cinder Halls'], desc: 'A door of black iron in the mountainside. The ground is warm. Something inside still keeps the fires.', boss: 'golem', floors: 3, roster: [['golemling', 2], ['slime', 2]], deep: [['golemling', 3]], style: 'stone', glow: '#ff7a2a', lvl: 3 }
   };
@@ -145,7 +146,9 @@
     title(site) { return U.cap(site.name); },
     // delves fill up again with time
     refill(world, site) {
-      if (site.cat !== 'delve' || !site.cleared || world.day - site.clearedDay < 40) return false;
+      // what another adventurer emptied fills up again sooner than what you did
+      if (site.cat !== 'delve' || !site.cleared || world.day - site.clearedDay < (site.clearedBy ? 12 : 40)) return false;
+      site.clearedBy = null;
       site.cleared = false; site.chestTaken = false; site.round = (site.round || 0) + 1;
       site.floorsDone = {}; site.caches = {}; site.keys = {}; site.doors = {}; site.treasure = {};
       return true;

@@ -220,6 +220,10 @@
         f('candles', far.x0 + 1, far.y1 - 1, { solid: false, light: { r: 6, a: 1.2, color: '#ff6a4a', h: 1.1 } });
         f('candles', far.x1 - 1, far.y1 - 1, { solid: false, light: { r: 6, a: 1.2, color: '#ff6a4a', h: 1.1 } });
       } else f('stairs', fx, fy, { w: 2, h: 2, action: 'delvedown', label: `Go down the stairs (floor ${depth + 2} of ${floors})` });
+      // what a cave off the beaten track was known for
+      if (last && site.feature === 'paintings') f('tablet', fx - 2.2, far.y0 + 0.9, { action: 'cavepaint', label: site.used.paint ? 'The painted wall' : 'Look at the paintings on the wall', colors: { rune: '#d0803a', stone: '#6a5a48' } });
+      if (last && site.feature === 'spring') f('well', fx + 2.2, far.my, { action: 'cavespring', label: 'Drink from the spring', colors: { stone: '#5a6878', glow: '#9fd3ff' }, light: { r: 4, a: 0.9, color: '#9fd3ff', h: 0.5 } });
+      if (last && site.feature === 'bats') f('rock', fx - 2.2, far.my, { action: 'cavemoss', label: site.used.moss ? 'Bare rock' : 'Scrape the cave-moss', scale: 0.7, colors: { rock: '#5a7a3a', darkstone: '#3a5a2a' } });
       // the way back up, by the entrance
       if (depth > 0) f('stairs', ent.x0 + 1.5, ent.y0 + 1.5, { w: 2, h: 2, action: 'delveup', label: 'Climb back up a floor', rot: Math.PI });
       // the iron door, unless already opened
@@ -243,8 +247,16 @@
     populate(game, L) {
       const world = game.world, site = L.site, BASE = ECHO.Interior.BASE, depth = L.depth || 0, G = L.G;
       site.floorsDone = site.floorsDone || {};
-      if (site.cleared || site.floorsDone[depth]) return;
+      if (site.cleared || site.floorsDone[depth]) {
+        if (site.cleared && depth === 0) UI().toast(site.clearedBy ? `Quiet. ${site.clearedBy} came through here ${Math.max(1, world.day - (site.clearedDay || world.day))} days ago and emptied it — the chest stands open. Give it a week or two and something will move back in.` : 'Quiet. Nothing has moved back in yet.', 'info', 6);
+        return;
+      }
       const def = X().DELVES[site.kind];
+      if (site.feature === 'bats' && depth === 0) {
+        for (let i = 0; i < 50; i++) ECHO.Combat.fx.push({ kind: 'p', x: L.inside.x + (Math.random() - 0.5), y: L.inside.y - 2 + (Math.random() - 0.5), vx: (Math.random() - 0.5) * 9, vy: (Math.random() - 0.5) * 9, t: 0, life: 1.3, color: '#1a1418', size: 3, h0: 0.8, vz: 3 + Math.random() * 3 });
+        if (ECHO.Sfx) ECHO.Sfx.play('flutter', { pitch: 1.6 });
+        UI().toast('A storm of bats bursts past your ears and out into the daylight!', 'info', 4);
+      }
       const last = depth >= L.floors - 1;
       const lvl = Math.min(9, X().level(world, site) + Math.floor(depth / 2) + Math.floor((site.round || 0) / 2));
       const roster = (def.roster || [[def.foes, 1]]).concat(depth >= 1 ? def.deep || [] : []);
@@ -320,6 +332,24 @@
         ECHO.Mysteries.checkVault(world);
         UI().toast(`Old runes, cut deep. You make out two words of ${lang.name}: ${words.join(', ')}.`, 'study', 6);
         return;
+      }
+      if (it.action === 'cavepaint') {
+        if (site.used.paint) return UI().toast('Hunters, beasts, and the great beast with too many legs. You already have a copy.', 'info', 3);
+        site.used.paint = true; it.label = 'The painted wall';
+        pl.inv.rubbing = (pl.inv.rubbing || 0) + 1;
+        if (ECHO.Character) ECHO.Character.train(pl, 'study', 1);
+        ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} found ancient paintings in ${site.name}.`, importance: 1, x: site.x, y: site.y, rep: 1 });
+        return UI().toast('On the wall, in ochre and soot: hunters, beasts, and a great beast with too many legs, painted long before any kingdom. You make a careful copy. (A scholar at an archive would pay for it.)', 'legend', 7);
+      }
+      if (it.action === 'cavespring') {
+        pl.hp = pl.maxHp; game.pe.hp = pl.hp; pl.fed = Math.max(pl.fed || 0, 80);
+        if (ECHO.Water) ECHO.Water.splash(game.pe.x, game.pe.y, 6, 0.5);
+        return UI().toast('The spring wells up cold and clear out of the rock. You drink, and wash your wounds, and feel new.', 'mercy', 5);
+      }
+      if (it.action === 'cavemoss') {
+        if (site.used.moss) return UI().toast('You have scraped it bare.', 'info', 2);
+        site.used.moss = true; it.label = 'Bare rock'; pl.inv.herbs = (pl.inv.herbs || 0) + 3;
+        return UI().toast('Rare cave-moss, grown fat on what the bats leave. (+3 herbs)', 'info', 4);
       }
       if (it.action === 'delvedown' || it.action === 'delveup') {
         const d = (L.depth || 0) + (it.action === 'delvedown' ? 1 : -1);
@@ -424,6 +454,9 @@
         pl.inv.hide = (pl.inv.hide || 0) + 3; out.push('3 wolf hides');
         if (r() < 0.6) { pl.inv.arrows += 15; out.push('a dead hunter\'s quiver (15 arrows)'); }
         if (r() < 0.35) { const it = ECHO.Character.makeItem(world, { kind: 'bow', name: 'Hunter\'s longbow', dmg: Math.round(17 + r() * 6), holder: 'player', history: [{ d: world.day, t: `found in ${site.name}, beside its owner's bones` }] }); pl.items.push(it.id); if (!world.items[pl.bow] || it.dmg > world.items[pl.bow].dmg) pl.bow = it.id; ECHO.PlayerCtl.derivedT = 0; out.push(`${it.name} (power ${it.dmg})`); }
+      } else if (site.kind === 'grot') {
+        pl.inv.herbs = (pl.inv.herbs || 0) + 2; out.push('2 bundles of cave herbs');
+        if (r() < 0.5) { pl.inv.starshard = (pl.inv.starshard || 0) + 1; out.push('a vein of star-iron in the rock, prised out'); }
       } else if (site.kind === 'hideout') {
         pl.inv.arms = (pl.inv.arms || 0) + 3; pl.inv.food += 4; out.push('3 bundles of smuggled arms', '4 sacks of food');
         const near = ECHO.World.nearestSettlement(world, site.x, site.y, s => s.faction !== 'ashfang');
@@ -709,7 +742,7 @@
         const d = U.dist(s.x, s.y, pe.x, pe.y);
         if (d > 2.6) continue;
         if (s.cat === 'delve' && s.kind === 'riftdeep' && !(world.story && world.story.ch === 5 && !world.story.kingSlain)) continue;
-        if (s.cat === 'delve') { X().refill(world, s); const fl = X().floors(s); out.push({ kind: 'act', label: `Enter ${s.name} — ${X().stars(s.level ? s : (X().level(world, s), s))}${fl > 1 ? ' · ' + fl + ' floors' : ''}${s.cleared ? ' (quiet now)' : ''}`, d: d * 0.5, act: () => Q.enterDelve(game, s) }); }
+        if (s.cat === 'delve') { X().refill(world, s); const fl = X().floors(s); out.push({ kind: 'act', label: `${s.secret ? 'Explore' : 'Enter'} ${s.name} — ${X().stars(s.level ? s : (X().level(world, s), s))}${fl > 1 ? ' · ' + fl + ' floors' : ''}${s.cleared ? (s.clearedBy ? ` (emptied by ${s.clearedBy} — quiet for now)` : ' (quiet now)') : ''}`, d: d * 0.5, act: () => Q.enterDelve(game, s) }); }
         else {
           const label = { stones: 'Read the standing stones', lookout: 'Look out over the land', moonwell: 'Drink from the moonwell', oak: 'Rest beneath the great oak', battlefield: 'Search the battlefield', wayshrine: 'Pray at the wayside shrine', wreck: 'Search the wreck',
             falls: 'Stand beneath the falls', springs: 'Soak in the springs', grotto: 'Work a crystal free', bones: 'Study the bones', crater: 'Search the crater', ring: 'Step into the ring and make a wish' }[s.kind];

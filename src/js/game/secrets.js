@@ -95,6 +95,7 @@
     },
     byId(world, id) { return (world.secrets && world.secrets.list.find(o => o.id === id)) || null; },
     label(o, world) {
+      if (o.kind === 'cave' && o.site && world) { const st = ECHO.Explore.byId(world, o.site); if (st) return U.cap(st.name); }
       if (o.kind === 'cave') return o.done ? { den: 'An empty wolf den', smugglers: 'A smugglers\' cave', paintings: 'The painted cave', bats: 'A bat cave', spring: 'A cave spring' }[o.what] : 'A cave in the rock';
       if (o.kind === 'shrine') return `Wayside shrine of ${SAINTS[o.saint][0]}`;
       if (o.kind === 'wreck') return o.boat ? 'A wrecked boat' : 'An overturned cart';
@@ -297,7 +298,7 @@
       for (const o of world.secrets.list) {
         if (Math.abs(o.x - pe.x) > 4 || Math.abs(o.y - pe.y) > 4) continue;
         const d = U.dist(o.x, o.y, pe.x, pe.y);
-        if (o.kind === 'cave' && d < 2.2 && !o.done) out.push({ kind: 'act', label: 'Explore the cave', d: 0.4, act: () => Sc.cave(game, o) });
+        if (o.kind === 'cave' && !o.site && U.dist(o.x, o.y + 1.4, pe.x, pe.y) < 2.2) out.push({ kind: 'act', label: 'Go into the cave', d: 0.4, act: () => Sc.cave(game, o) });
         if (o.kind === 'shrine' && d < 2) out.push({ kind: 'act', label: pl.shrines && pl.shrines[o.id] === world.day ? 'The lamp is lit (you prayed here today)' : `Pray at the shrine of ${SAINTS[o.saint][0]}`, d: 0.4, act: () => Sc.pray(game, o) });
         if (o.kind === 'wreck' && d < 2 && !o.done) out.push({ kind: 'act', label: `Search the ${o.boat ? 'wrecked boat' : 'overturned cart'}`, d: 0.4, act: () => Sc.wreck(game, o) });
         if (o.kind === 'circle' && !o.done && d < 4) {
@@ -308,33 +309,28 @@
       }
       return out;
     },
+    // A cave is a place to go into: the first time, it becomes a small delve of
+    // its own (a den, a smugglers' cellar, or a natural cave with something in
+    // its far chamber: paintings, a spring, bats and their moss).
+    caveSite(world, o) {
+      if (o.site) return ECHO.Explore.byId(world, o.site);
+      const near = ECHO.World.nearestSettlement(world, o.x, o.y);
+      const by = near ? ` by ${near.name}` : '';
+      const kind = o.what === 'den' ? 'cave' : o.what === 'smugglers' ? 'hideout' : 'grot';
+      const name = { den: 'the wolf hole', smugglers: 'the smugglers\' cave', paintings: 'the painted cave', bats: 'the bat cave', spring: 'the spring cave' }[o.what] + by;
+      const sites = ECHO.Explore.sites(world);
+      const site = { id: 'site' + sites.length, cat: 'delve', kind, name, x: o.x, y: o.y + 1.4, found: true, cleared: false, used: {}, secret: o.id, feature: o.what, doors: { 0: true }, keys: { 0: true } };
+      sites.push(site);
+      ECHO.Explore.level(world, site);
+      o.site = site.id; o.done = true;
+      return site;
+    },
     cave(game, o) {
-      const world = game.world, pl = game.pl, pe = game.pe;
-      o.done = true;
-      if (o.what === 'den') {
-        const region = ECHO.World.regionAt(world, o.x, o.y);
-        for (let i = 0; i < 3; i++) { const sp = ECHO.Ent.freeSpot(world, o.x + (i - 1) * 1.2, o.y - 1.5, 3); if (!sp) continue; const w = ECHO.Spawner.makeCreature(game, 'wolf', sp.x, sp.y, region, 'den' + o.id); w.target = pe; w.aggro = true; if (!i) { w.say = '*SNARL*'; w.sayT = 1.5; } game.addEnt(w); }
-        pl.inv.hide = (pl.inv.hide || 0) + 1;
-        game.ui.toast('A wolf den — and the wolves are home! Among the bones at the back, an old hide.', 'warn', 4);
-      } else if (o.what === 'smugglers') {
-        const g = 30 + Math.floor(Math.random() * 30); pl.gold += g; pl.inv.food = (pl.inv.food || 0) + 2;
-        game.ui.toast(`A smugglers' stash behind a rock: ${g} crowns, salted meat, and an oilskin packet…`, 'legend', 5);
-        setTimeout(() => Sc.giveMap(game, o.x, o.y, 'from the smugglers\' packet'), 1500);
-      } else if (o.what === 'paintings') {
-        pl.inv.rubbing = (pl.inv.rubbing || 0) + 1;
-        if (ECHO.Character) ECHO.Character.train(pl, 'study', 1);
-        ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} found ancient paintings in a cave near ${(ECHO.World.nearestSettlement(world, o.x, o.y) || {}).name || 'the wilds'}.`, importance: 1, x: o.x, y: o.y, rep: 1 });
-        game.ui.toast('On the cave wall: hunters, beasts, and a great beast with too many legs, painted in ochre long before any kingdom. You make a careful copy. (A scholar at an archive would pay for it.)', 'legend', 7);
-      } else if (o.what === 'bats') {
-        for (let i = 0; i < 40; i++) ECHO.Combat.fx.push({ kind: 'p', x: o.x + (Math.random() - 0.5), y: o.y + (Math.random() - 0.5), vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, t: 0, life: 1.2, color: '#1a1418', size: 3, h0: 0.8, vz: 3 + Math.random() * 3 });
-        if (ECHO.Sfx) ECHO.Sfx.play('flutter', { pitch: 1.6 });
-        pl.inv.herbs = (pl.inv.herbs || 0) + 2;
-        game.ui.toast('A storm of bats bursts out past your ears! When they\'re gone: rare cave-moss on the walls. (+2 herbs)', 'info', 5);
-      } else {
-        pl.hp = pl.maxHp; pe.hp = pl.hp; pl.fed = Math.max(pl.fed || 0, 80);
-        game.ui.toast('A spring wells up at the back of the cave, cold and clear. You drink, and wash your wounds, and feel new.', 'mercy', 5);
-      }
-      if (ECHO.Prowess) { const ups = ECHO.Prowess.gain(pl, 30); for (const u of ups) ECHO.Progress.levelUp(game, u); }
+      const world = game.world, pl = game.pl;
+      const first = !o.site;
+      const site = Sc.caveSite(world, o);
+      if (first && ECHO.Prowess) { const ups = ECHO.Prowess.gain(pl, 30); for (const u of ups) ECHO.Progress.levelUp(game, u); }
+      ECHO.Quests.enterDelve(game, site);
     },
     pray(game, o) {
       const world = game.world, pl = game.pl, pe = game.pe;

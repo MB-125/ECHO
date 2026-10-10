@@ -190,7 +190,13 @@
       const night = game.isNight();
       const season = T.dateOf(world.day).seasonIdx;
       for (let y = Math.max(0, y0); y < Math.min(world.H, y1); y++) for (let x = Math.max(0, x0); x < Math.min(world.W, x1); x++) {
-        if (world.tiles[y * world.W + x] !== ECHO.TILE.TREE) continue;
+        if (world.tiles[y * world.W + x] !== ECHO.TILE.TREE) {
+          // the oaks of the woods, boulders on the hills, old pillars: solid, so shown
+          const p = ECHO.Solids && ECHO.Solids.tileProp(world, x, y);
+          if (p && p.k === 'oak') { const h = ECHO.hash2(x, y, world.seed + 11); objs.push({ y: p.y + 0.5, draw: () => R.img(game, S.tree('oak', season, (h * 7) | 0), p.x, p.y + 0.5, 12, 33) }); }
+          else if (p && (p.k === 'rock' || p.k === 'pillar')) objs.push({ y: p.y + p.r, draw: () => R.stone(game, p) });
+          continue;
+        }
         const h = ECHO.hash2(x, y, world.seed + 11);
         const kind = y < world.H * 0.3 || h < 0.18 ? 'pine' : ECHO.World.regionAt(world, x, y).swamp > 0.2 && h < 0.5 ? 'willow' : 'oak';
         const tr = ECHO.World.trunk(world, x, y);
@@ -254,7 +260,7 @@
         objs.push({ y: st.y + 1, draw: () => R.structure(game, st) });
       }
       if (ECHO.Explore) for (const s of ECHO.Explore.sites(world)) {
-        if (Math.abs(s.x - cam.x) > halfW + 4 || Math.abs(s.y - cam.y) > halfH + 4) continue;
+        if (Math.abs(s.x - cam.x) > halfW + 4 || Math.abs(s.y - cam.y) > halfH + 4 || s.secret) continue;
         objs.push({ y: s.y + 0.5, draw: () => R.site(game, s) });
       }
       for (const c of world.caches || []) {
@@ -605,6 +611,20 @@
       for (let i = 0; i < 5; i++) { g.fillRect(-4, -20 + i * 4, 3 + (i * 7) % 5, 1); g.fillRect(1, -20 + i * 4, 2 + (i * 3) % 3, 1); }
       R.ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (glow) game.light(r.x + 0.5, r.y - 2, 2.5, 0.6, '#bfe8ff');
+    },
+    stone(game, p) {
+      const g = R.art(game, p.x, p.y + p.r * 0.6), k = p.r / 0.3, h = ECHO.hash2(Math.floor(p.x), Math.floor(p.y), 5);
+      if (p.k === 'pillar') {
+        g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(-5, -1, 10, 3);
+        g.fillStyle = '#a8a094'; g.fillRect(-4, -20, 8, 20); g.fillStyle = '#c4bcb0'; g.fillRect(-4, -20, 3, 20); g.fillStyle = '#7a746a'; g.fillRect(-5, -22, 10, 3);
+      } else {
+        const w = Math.round(7 * k), t = Math.round(9 * k * (0.8 + h * 0.4));
+        g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(-w - 1, -1, w * 2 + 2, 3);
+        g.fillStyle = '#7d786e'; g.fillRect(-w, -t, w * 2, t); g.fillRect(-w + 2, -t - 2, w * 2 - 4, 2);
+        g.fillStyle = '#9d988d'; g.fillRect(-w + 2, -t, Math.max(2, w - 1), Math.max(2, t >> 1));
+        g.fillStyle = '#5c584f'; g.fillRect(-w, -2, w * 2, 2);
+      }
+      R.ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
     rubble(game, x, y) {
       const g = R.art(game, x, y + 0.5);
