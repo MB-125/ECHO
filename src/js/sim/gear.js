@@ -127,7 +127,8 @@
     rarity(k) { return RARITY.find(r => r.k === k) || RARITY[0]; },
     // Roll a rarity: deeper and stronger foes roll better.
     rollRarity(rng, level, boost = 0) {
-      const r = rng.next() * 100, luck = level * 4 + boost;
+      // the first levels count for most; past 30 luck still grows, slowly
+      const r = rng.next() * 100, luck = Math.min(level, 30) * 4 + Math.max(0, level - 30) * 0.6 + boost;
       return r < 1 + luck * 0.08 ? 'legendary' : r < 5 + luck * 0.25 ? 'epic' : r < 18 + luck * 0.5 ? 'rare' : r < 45 + luck * 0.6 ? 'fine' : 'common';
     },
     // A piece of gear dropped in the world.

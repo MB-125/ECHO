@@ -455,7 +455,7 @@ function main() {
     const delves = X.sites(B).filter(s => s.cat === 'delve');
     const kinds = new Set(delves.map(s => s.kind));
     check('many dungeons lie across the map, of many kinds', delves.length >= 12 && ['catacomb', 'warren', 'nest', 'trollden', 'sanctum', 'forge'].every(k => kinds.has(k)), `${delves.length} dungeons: ${[...kinds].join(' ')}`);
-    check('dungeons have floors, and grow deadlier away from the capitals', delves.every(s => s.level >= 1 && s.level <= 6 && X.floors(s) >= 1) && delves.some(s => X.floors(s) >= 3) && new Set(delves.map(s => s.level)).size >= 3, delves.map(s => s.level + '/' + X.floors(s)).join(' '));
+    check('dungeons have floors, and grow deadlier away from the capitals', delves.every(s => s.level >= 1 && s.level <= 30 && X.floors(s) >= 3 && X.floorLevel(s, X.floors(s) - 1) > X.floorLevel(s, 0)) && delves.some(s => X.floors(s) >= 5) && new Set(delves.map(s => s.level)).size >= 3, delves.map(s => s.level + '/' + X.floors(s)).join(' '));
     check('no dungeon sits on solid ground or in a town', delves.every(s => !ECHO.World.isSolid(B, s.x, s.y) && B.settlements.every(t => ECHO.U.dist(t.x, t.y, s.x, s.y) > 10)));
     const json = ECHO.Save.serialize(B), B2 = ECHO.Save.deserialize(json);
     const cachesFound = B.caches.filter(c => c.found).length; B.caches[0].found = true;
@@ -505,7 +505,7 @@ function main() {
     const lv = Pw.level(pl), x0 = Pw.st(pl).xp, xp = Pw.onKill(pl, { lvl: 1 }).xp;
     check('things far beneath you teach you almost nothing', xp <= 3 && Pw.level(pl) === lv, `${xp} xp`);
     Pw.gain(pl, 1e7);
-    check('there is a height to reach', Pw.level(pl) === Pw.MAX && Pw.title(pl) === 'Mythic' && Pw.gain(pl, 100).length === 0);
+    check('there is a height to reach', Pw.level(pl) === Pw.MAX && Pw.MAX === 150 && Pw.title(pl) === 'the Undying' && Pw.gain(pl, 100).length === 0);
     void x0;
     const Gr = ECHO.Gear;
     const a = Gr.look({ kind: 'sword', rarity: 'common', plus: 0 }), b = Gr.look({ kind: 'sword', rarity: 'legendary', plus: 5, affix: 'ember' });
@@ -594,11 +594,16 @@ function main() {
     let land = 0, n = 0;
     for (let y = 2; y < B.H; y += 4) for (let x = 2; x < 78; x += 4) { n++; const t = B.tiles[y * B.W + x]; if (t !== ECHO.TILE.DEEP && t !== ECHO.TILE.WATER) land++; }
     check('the new country is mostly land', land / n > 0.6, `${Math.round(land / n * 100)}% land in the west`);
+    const X0 = ECHO.Explore;
     const json = ECHO.Save.serialize(B), B2 = ECHO.Save.deserialize(json);
     check('a grown world saves and loads', B2.W === B.W && B2.tiles.length === B.W * B.H && B2.tiles.every((t, i) => t === B.tiles[i]) && B2.frontier.sides.e === 1, `${Math.round(json.length / 1024)} KB`);
     let ok = true;
     try { for (let d = 0; d < 40; d++) ECHO.Sim.dailyTick(B2, true); } catch (e) { ok = false; console.log(e); }
     check('...and goes on living', ok && B2.settlements.filter(s => s.frontier).every(s => s.residents.length > 10), `day ${B2.day}`);
+    const far = B.sites.filter(s => s.cat === 'delve').map(s => X0.level(B, s));
+    check('far lands hold deadlier dungeons', Math.max(...far) > 20 && Math.min(...far) <= 3, `levels ${Math.min(...far)}–${Math.max(...far)}`);
+    const fm = [1, 12, 13, 50, 150].map(L => ECHO.Prowess.foeMul(L));
+    check('foes grow stronger with every level, up to 150', fm.every((m, i) => !i || (m.hp > fm[i - 1].hp && m.dmg > fm[i - 1].dmg)) && Math.abs(fm[2].hp / fm[1].hp - 1) < 0.2, fm.map(m => `${m.hp.toFixed(1)}/${m.dmg.toFixed(1)}`).join(' '));
     check('travel reaches the new villages', B2.journeys.some(j => fresh.some(s => s.id === j.to || s.id === j.from)) || B2.chronicle.some(e => fresh.some(s => e.text.includes(s.name))));
   }
 

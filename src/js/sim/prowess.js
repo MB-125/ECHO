@@ -9,7 +9,9 @@
 (function () {
   const { U } = ECHO;
 
-  const MAX = 15;
+  // Levels run from 1 to 150: the old island's dungeons reach the teens, the
+  // far lands past it go all the way up.
+  const MAX = 150;
   const RANKS = [
     { lv: 1, title: 'Novice', color: '#c8c0b0', desc: 'You know which end of the sword to hold.' },
     { lv: 3, title: 'Fighter', color: '#8fe08a', desc: 'You have killed things that wanted to kill you.' },
@@ -17,7 +19,15 @@
     { lv: 7, title: 'Champion', color: '#c88aff', desc: 'People point you out in the street.' },
     { lv: 9, title: 'Hero', color: '#ffb84a', desc: 'Songs are being made about you, some of them true.' },
     { lv: 11, title: 'Legend', color: '#ff7a5a', desc: 'Monsters have heard of you.' },
-    { lv: 14, title: 'Mythic', color: '#ff5aa0', desc: 'There is no one left who can stand against you.' }
+    { lv: 14, title: 'Mythic', color: '#ff5aa0', desc: 'Few in the old kingdoms could stand against you.' },
+    { lv: 20, title: 'Wayfarer of the Far Lands', color: '#5ad8c8', desc: 'You have walked where the maps end.' },
+    { lv: 30, title: 'Warden of the Deep', color: '#4ab0ff', desc: 'The deep places know your footstep.' },
+    { lv: 45, title: 'Ascendant', color: '#9a7aff', desc: 'Your blows ring like bells in the dark.' },
+    { lv: 60, title: 'Paragon', color: '#e07aff', desc: 'Kings send gifts, and hope you do not visit.' },
+    { lv: 80, title: 'Demigod', color: '#ffd84a', desc: 'The old gods would have been jealous.' },
+    { lv: 100, title: 'Eternal', color: '#ff9a3a', desc: 'Your name will outlast the kingdoms.' },
+    { lv: 125, title: 'Worldbreaker', color: '#ff4a4a', desc: 'Mountains have less weight than you.' },
+    { lv: 150, title: 'the Undying', color: '#ffffff', desc: 'There is nothing deeper left to fear.' }
   ];
   // How a foe compares to you.
   const DIFF = [
@@ -51,7 +61,24 @@
     // Harder blows with every weapon, more life, more breath.
     dmgMult(pl) { return 1 + 0.07 * (P.level(pl) - 1); },
     hpBonus(pl) { return 9 * (P.level(pl) - 1); },
-    staBonus(pl) { return 4 * (P.level(pl) - 1); },
+    staBonus(pl) { return 4 * (Math.min(40, P.level(pl)) - 1); },
+
+    // ------------------------------------------------------------ how strong foes grow
+    // A foe of level L matches what a player of level L hits and takes with gear
+    // of their level: up to 12 the old tuning, beyond it the same curves the
+    // player climbs (gear power x level bonus; life x armour).
+    expect(L) {
+      const dmg = (12 + L * 3.2 * 1.15 + 1.5) * (1 + 0.07 * (L - 1));
+      const def = (4 + 4 * L) * 1.15;
+      return { dmg, tough: (104 + 9 * (L - 1)) * (def + 55) / 55, hp: 104 + 9 * (L - 1) };
+    },
+    foeMul(L, boss) {
+      L = U.clamp(L || 1, 1, MAX);
+      const lo = l => ({ hp: 1 + (boss ? 0.3 : 0.42) * (l - 1), dmg: 1 + (boss ? 0.22 : 0.28) * (l - 1) });
+      if (L <= 12) return lo(L);
+      const a = lo(12), e = P.expect(L), e12 = P.expect(12);
+      return { hp: a.hp * e.dmg / e12.dmg, dmg: a.dmg * e.tough / e12.tough };
+    },
 
     // ------------------------------------------------------------ reading a foe
     foeLevel(e) {
@@ -87,8 +114,7 @@
       const L = P.foeLevel(e), me = P.level(pl);
       const R = FOE_RANK[P.foeRank(e)];
       const gap = L - me;
-      // foes well below you teach little; the deepest places top out around level 9,
-      // so the penalty is gentle enough that the last levels are still reachable
+      // foes well below you teach little
       const scale = gap <= -6 ? 0.05 : U.clamp(1 + 0.2 * gap, 0.25, 2.5);
       // no single kill carries you too far: about two levels, three for a lord or a great beast
       const rk = P.foeRank(e), cap = P.capXp(pl, rk === 'great' || rk === 'lord' ? 3 : 2);

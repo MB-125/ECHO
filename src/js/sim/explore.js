@@ -47,6 +47,7 @@
       if (!world.sites) X.place(world);
       if (!world._wild && ECHO.Discover) ECHO.Discover.ensure(world);
       if (!world._dng) X.placeDungeons(world);
+      if (!world._lv2) { world._lv2 = 1; for (const s of world.sites) if (s.cat === 'delve') X.level(world, s); }
       return world.sites;
     },
     place(world) {
@@ -129,16 +130,37 @@
       world._tileEpoch = (world._tileEpoch || 0) + 1;
     },
     // How dangerous a delve is: deeper into the wilds, away from the capitals, the worse it gets.
+    // How dangerous a delve is: the further from the old capitals, the worse.
+    // The old island's run from 1 to the teens; out past the old shores, the
+    // land grows deadlier the further you go, up to level 150.
     level(world, site) {
-      if (site.level) return site.level;
-      const caps = world.settlements.filter(s => s.kind !== 'village');
+      if (site.level && site.lv2) return site.level;
+      const caps = world.settlements.filter(s => s.kind !== 'village' && !s.frontier);
       const d = caps.length ? Math.min(...caps.map(s => U.dist(s.x, s.y, site.x, site.y))) : 40;
       const def = DELVES[site.kind] || {};
-      site.level = U.clamp(1 + Math.floor(d / (((world.frontier && world.frontier.W0) || world.W || 200) * 0.13)) + (def.lvl || 0), 1, 6);
+      const W0 = (world.frontier && world.frontier.W0) || world.W || 200;
+      const u = d / (W0 * 0.065);
+      site.level = site.kind === 'riftdeep' ? Math.max(site.level || 0, 9) : U.clamp(Math.round(1 + Math.pow(u, 1.25) + (def.lvl || 0) * 2), 1, 150);
+      site.lv2 = 1;
       return site.level;
     },
-    floors(site) { return (DELVES[site.kind] || {}).floors || 1; },
-    stars(site) { return '★'.repeat(Math.min(6, site.level || 1)); },
+    // Floors: caves go three deep at least, dungeons further; the deadlier the place, the deeper it runs.
+    small(site) { return site.kind === 'cave' || site.kind === 'hideout' || site.kind === 'grot'; },
+    floors(site) {
+      const def = DELVES[site.kind] || {};
+      if (site.kind === 'riftdeep') return def.floors || 2;
+      const L = site.level || 1;
+      return X.small(site) ? Math.min(9, 3 + Math.floor(L / 30)) : Math.min(12, (def.floors || 1) + 2 + Math.floor(L / 25));
+    },
+    // Each floor down is stronger than the one above.
+    floorLevel(site, depth) {
+      const L = site.level || 1;
+      return Math.min(150, L + (depth || 0) * (2 + Math.floor(L / 25)) + Math.floor((site.round || 0) / 2));
+    },
+    stars(site) {
+      const a = X.floorLevel(site, 0), b = X.floorLevel(site, X.floors(site) - 1);
+      return a === b ? `Lv ${a}` : `Lv ${a}–${b}`;
+    },
     byId(world, id) { return X.sites(world).find(s => s.id === id); },
     def(site) { return site.cat === 'wonder' ? ECHO.Discover.WONDERS[site.kind] : (site.cat === 'landmark' ? LANDMARKS : DELVES)[site.kind]; },
     label(site) { return X.def(site).label; },

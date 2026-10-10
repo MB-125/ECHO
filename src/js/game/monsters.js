@@ -46,7 +46,7 @@
       const D = DEFS[kind] || ECHO.Quests.FOES[kind];
       const e = ECHO.Quests.makeFoe(game, kind, x, y, o);
       const L = Math.max(1, level);
-      const hpM = 1 + (D.boss ? 0.3 : 0.42) * (L - 1), dmM = 1 + (D.boss ? 0.22 : 0.28) * (L - 1);
+      const FM = ECHO.Prowess.foeMul(L, D.boss), hpM = FM.hp, dmM = FM.dmg;
       e.lvl = L; e.dmgMul = dmM; e.shape = D.shape || null; e.scale = D.scale || 1;
       e.hp = e.maxHp = Math.round(D.hp * hpM);
       e.resist = { ...(D.resist || {}) };
@@ -61,7 +61,7 @@
         if (X.scale) e.scale *= X.scale;
         if (X.speed) e.speed *= X.speed;
         if (X.cd) e.cdMul = X.cd;
-        if (X.poison) e.ab.poison = e.ab.poison || { dps: 2 + L, dur: 5 };
+        if (X.poison) e.ab.poison = e.ab.poison || { dps: 2 + Math.min(L, 12), dur: 5 };
         if (X.resist) for (const t of ['melee', 'ranged', 'fire', 'magic']) e.resist[t] = (e.resist[t] || 0) + X.resist;
       }
       if (e.r) e.r = 0.36 * Math.min(1.6, e.scale);
@@ -181,7 +181,7 @@
     hitPlayer(game, from, dmg) {
       const pl = game.pl, world = game.world;
       if (!from || !from.ab) return;
-      if (from.ab.poison && dmg > 0) { pl.poisonT = from.ab.poison.dur; pl.poisonDps = Math.max(pl.poisonDps || 0, from.ab.poison.dps * (1 + (from.lvl - 1) * 0.2)); ECHO.Combat.floater(game.pe.x, game.pe.y - 1.1, 'poisoned', '#9fe05a'); M.tip(game, 'poison'); }
+      if (from.ab.poison && dmg > 0) { pl.poisonT = from.ab.poison.dur; pl.poisonDps = Math.max(pl.poisonDps || 0, from.ab.poison.dps * Math.min(1 + (from.lvl - 1) * 0.2, ECHO.Prowess.expect(from.lvl || 1).hp / 52)); ECHO.Combat.floater(game.pe.x, game.pe.y - 1.1, 'poisoned', '#9fe05a'); M.tip(game, 'poison'); }
       if (from.ab.drain && dmg > 0) { from.hp = Math.min(from.maxHp, from.hp + dmg * from.ab.drain); ECHO.Combat.floater(from.x, from.y - 1, 'drains', '#bfe8ff'); }
       const a = pl.armor && world.items[pl.armor];
       if (a && a.affix === 'thorns' && dmg > 0) ECHO.Combat.damage(from, Math.max(2, dmg * 0.3), { type: 'melee', from: game.pe, angle: Math.atan2(from.y - game.pe.y, from.x - game.pe.x), knock: 0.05 });
@@ -273,7 +273,7 @@
       const gold = Math.round((g0 + r() * (g1 - g0)) * (1 + (L - 1) * 0.3) * (e.elite ? 2 : 1));
       if (gold > 0) drop('gold', gold);
       // finished gear
-      const gearChance = e.boss2 ? 1 : e.elite ? 0.35 : 0.04 + L * 0.012;
+      const gearChance = e.boss2 ? 1 : e.elite ? 0.35 : Math.min(0.22, 0.04 + L * 0.012);
       const n = e.boss2 ? (r() < 0.4 ? 2 : 1) : r() < gearChance ? 1 : 0;
       for (let i = 0; i < n; i++) M.dropGear(game, e.x + (r() - 0.5), e.y + (r() - 0.5), L, e.boss2 ? 18 : e.elite ? 8 : 0, `on ${e.label || 'a ' + D.name.toLowerCase()}`);
       // what splits, splits

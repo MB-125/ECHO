@@ -163,13 +163,14 @@
     layout(game, b, s, BASE) {
       const world = game.world, site = b.site, depth = b.depth || 0;
       const def = X().DELVES[site.kind] || {};
+      X().level(world, site);
       const floors = X().floors(site), last = depth >= floors - 1;
-      const small = site.kind === 'hideout' || site.kind === 'cave';
+      const small = X().small(site);
       const style = def.style || 'cave';
       const cave = style === 'cave';
       const rng = new ECHO.RNG(ECHO.hashStr(site.id + world.seed + ':' + depth));
       // rooms and passages: bigger and more tangled the deeper you go
-      const cols = small ? 2 : depth >= 2 ? 3 : 3, rows = small ? 2 : depth >= 1 ? 3 : 2;
+      const cols = small ? 2 + (depth >= 2 ? 1 : 0) : 3 + (depth >= 5 ? 1 : 0), rows = small ? 2 + (depth >= 4 ? 1 : 0) : 2 + (depth >= 1 ? 1 : 0) + (depth >= 7 ? 1 : 0);
       const G = ECHO.DGen.carve(rng, cols, rows);
       const W = G.W, H = G.H;
       const L = { id: b.id, b, s, type: 'delve', kind: site.kind, site, depth, floors, W, H, floor: cave ? 'cave' : style === 'stone' ? 'stone' : 'crypt', wall: cave ? 'rock' : 'stone', cave: true, carved: true, G, rev: 0,
@@ -241,7 +242,7 @@
       for (let i = 0; i < nTrap; i++) { const t = ctiles.splice(rng.int(0, ctiles.length - 1), 1)[0]; if (t) L.traps.push({ x: t.x + 0.5, y: t.y + 0.5, phase: rng.next() * 3, kind: fire ? 'flame' : 'spikes', cycle: -1 }); }
       L.inside = { x: BASE + G.doorX + 1, y: H - 2.2 };
       L.outside = { x: site.x, y: site.y + 1.6 };
-      L.name = U.cap(site.name) + (floors > 1 ? ` — ${depth === floors - 1 ? 'the deepest floor' : 'floor ' + (depth + 1) + ' of ' + floors}` : '');
+      L.name = U.cap(site.name) + (floors > 1 ? ` — ${depth === floors - 1 ? 'the deepest floor' : 'floor ' + (depth + 1) + ' of ' + floors}` : '') + ` · Lv ${X().floorLevel(site, depth)}`;
       return L;
     },
     populate(game, L) {
@@ -258,11 +259,12 @@
         UI().toast('A storm of bats bursts past your ears and out into the daylight!', 'info', 4);
       }
       const last = depth >= L.floors - 1;
-      const lvl = Math.min(9, X().level(world, site) + Math.floor(depth / 2) + Math.floor((site.round || 0) / 2));
+      X().level(world, site);
+      const lvl = X().floorLevel(site, depth);
       const roster = (def.roster || [[def.foes, 1]]).concat(depth >= 1 ? def.deep || [] : []);
       const pick = () => { const tot = roster.reduce((a, r) => a + r[1], 0); let r = Math.random() * tot; for (const [k, w] of roster) { r -= w; if (r <= 0) return k; } return roster[0][0]; };
       const tag = e => { e.delve = site.id; e.indoor = true; e.floor = depth; return e; };
-      const wolf = (x, y, boss) => { const e = ECHO.Spawner.makeCreature(game, 'wolf', x, y, null, 'den'); e.lvl = lvl; e.hp = e.maxHp = Math.round(e.maxHp * (1 + 0.35 * (lvl - 1)) * (boss ? 3 : 1)); e.dmgMul = (e.dmgMul || 1) * (1 + 0.25 * (lvl - 1)) * (boss ? 1.7 : 1); if (boss) { e.scale = 1.5; e.label = 'the Den-Mother'; e.boss2 = true; } return tag(e); };
+      const wolf = (x, y, boss) => { const e = ECHO.Spawner.makeCreature(game, 'wolf', x, y, null, 'den'); const FM = ECHO.Prowess.foeMul(lvl); e.lvl = lvl; e.hp = e.maxHp = Math.round(e.maxHp * FM.hp * (boss ? 3 : 1)); e.dmgMul = (e.dmgMul || 1) * FM.dmg * (boss ? 1.7 : 1); if (boss) { e.scale = 1.5; e.label = 'the Den-Mother'; e.boss2 = true; } return tag(e); };
       const free = r => ECHO.DGen.tiles(G, r, 1).filter(t => !L.blocked[t.y * L.W + t.x]).sort(() => Math.random() - 0.5);
       // a pack in every room but the first; the far room keeps its own guard
       const rooms = G.rooms.filter(r => r !== G.entrance && r !== L.farRoom);
@@ -312,8 +314,8 @@
         }
         if (st === 'up' && t.hitCycle !== cyc && Math.abs(pe.x - (B + t.x)) < 0.75 && Math.abs(pe.y - t.y) < 0.75 && !(pe.iframes > 0)) {
           t.hitCycle = cyc;
-          const lvl = X().level(game.world, L.site) + Math.floor((L.depth || 0) / 2);
-          ECHO.Combat.damage(pe, 7 + lvl * 3, { type: t.kind === 'flame' ? 'fire' : 'melee', from: null, angle: Math.random() * 6.28, knock: 0.25 });
+          const lvl = X().floorLevel(L.site, L.depth);
+          ECHO.Combat.damage(pe, Math.round((7 + Math.min(lvl, 12) * 3) * ECHO.Prowess.foeMul(lvl).dmg / ECHO.Prowess.foeMul(Math.min(lvl, 12)).dmg), { type: t.kind === 'flame' ? 'fire' : 'melee', from: null, angle: Math.random() * 6.28, knock: 0.25 });
           ECHO.Combat.floater(pe.x, pe.y - 1.4, t.kind === 'flame' ? 'fire trap!' : 'spike trap!', '#ffb08a');
           if (ECHO.Monsters) ECHO.Monsters.tip(game, 'trap');
         }
@@ -394,7 +396,7 @@
           return ECHO.Lockpick.open({ pins: lvl0 >= 4 ? 4 : 3, title: 'The strongbox lock', onDone: ok => { if (ok) { site.picked[L.depth] = true; Q.use(game, it); } } });
         }
         site.treasure[L.depth] = true; it.label = 'An empty strongbox';
-        const lvl = X().level(world, site) + Math.floor((L.depth || 0) / 2);
+        const lvl = X().floorLevel(site, L.depth);
         const gold = Math.round((40 + Math.random() * 60) * (1 + 0.35 * (lvl - 1))); pl.gold += gold;
         const out = [`${gold} crowns`];
         const D0 = X().DELVES[site.kind];
@@ -409,7 +411,7 @@
         site.caches = site.caches || {};
         if (site.caches[L.depth]) return UI().toast('The cache is empty.', 'info', 2);
         site.caches[L.depth] = true; it.label = 'An empty cache';
-        const lvl = X().level(world, site) + Math.floor((L.depth || 0) / 2);
+        const lvl = X().floorLevel(site, L.depth);
         const gold = Math.round((12 + Math.random() * 25) * (1 + 0.3 * (lvl - 1))); pl.gold += gold;
         const out = [`${gold} crowns`];
         const D = X().DELVES[site.kind];
@@ -436,7 +438,7 @@
     },
     loot(game, site) {
       const world = game.world, pl = game.pl, out = [];
-      const r = Math.random, lvl = 1 + (site.round || 0) * 0.3;
+      const r = Math.random, lvl = (1 + (site.round || 0) * 0.3) * (1 + 0.25 * (X().floorLevel(site, (ECHO.Interior.cur && ECHO.Interior.cur.depth) || 0) - 1));
       const gold = Math.round((40 + r() * 60) * lvl); pl.gold += gold; out.push(`${gold} crowns`);
       if (site.kind === 'barrow' || site.kind === 'crypt') {
         const names = ['Barrow-blade', 'Kingsorrow', 'the Grey Edge', 'Oathbreaker', 'Wightsbane', 'the Old Tooth'];
@@ -465,7 +467,7 @@
       }
       if (r() < 0.5) { pl.inv.herbs += 2; out.push('2 bundles of herbs'); }
       // the dungeon's own treasures
-      const lv = X().level(world, site) + Math.floor(((ECHO.Interior.cur && ECHO.Interior.cur.depth) || 0) / 2);
+      const lv = X().floorLevel(site, (ECHO.Interior.cur && ECHO.Interior.cur.depth) || 0);
       const D = X().DELVES[site.kind];
       const MATS = { catacomb: ['grave', 'bonedust'], warren: ['trinket', 'fetish'], nest: ['queensilk', 'silk', 'venom'], trollden: ['tusk', 'trollhide'], sanctum: ['sigil', 'ecto'], forge: ['core', 'heartstone'], crypt: ['bonedust', 'ecto'], barrow: ['bonedust'] }[site.kind];
       if (MATS) for (const k of MATS) if (r() < 0.75) { const q = 1 + Math.floor(r() * 2); pl.inv[k] = (pl.inv[k] || 0) + q; out.push(`${q} ${ECHO.Gear.MATS[k].name}`); }

@@ -108,6 +108,8 @@
       const world = game.world, pe = game.pe, pl = game.pl;
       if (!world || !pe || ECHO.Interior.cur || pl.capture) return;
       Sc.ensure(world);
+      // every cave is a place on the map with a name, a level and floors
+      if (world.secrets.cavesN !== world.secrets.list.length) { world.secrets.cavesN = world.secrets.list.length; for (const o of world.secrets.list) if (o.kind === 'cave' && !o.site) Sc.caveSite(world, o); }
       Sc.glows.length = 0;
       // dig spots glint when you're close and hold the map
       for (const m of (pl.tmaps || [])) {
@@ -132,6 +134,7 @@
         if (o.found) continue;
         if (U.dist(o.x, o.y, pe.x, pe.y) < 11 && ECHO.Ent.lineOfSight(world, pe.x, pe.y, o.x, o.y)) {
           o.found = true;
+          if (o.site) { const st = ECHO.Explore.byId(world, o.site); if (st) st.found = true; }
           pl.secretsFound = (pl.secretsFound || 0) + 1;
           game.ui.toast(`You've come upon ${Sc.label(o, world).replace(/^A /, 'a ').replace(/^An /, 'an ').replace(/^The /, 'the ')}. (E when you're close.)`, 'info', 4);
           if (ECHO.Pastimes && ECHO.Pastimes.gain) ECHO.Pastimes.gain(game, 'forage', 2);
@@ -319,16 +322,17 @@
       const kind = o.what === 'den' ? 'cave' : o.what === 'smugglers' ? 'hideout' : 'grot';
       const name = { den: 'the wolf hole', smugglers: 'the smugglers\' cave', paintings: 'the painted cave', bats: 'the bat cave', spring: 'the spring cave' }[o.what] + by;
       const sites = ECHO.Explore.sites(world);
-      const site = { id: 'site' + sites.length, cat: 'delve', kind, name, x: o.x, y: o.y + 1.4, found: true, cleared: false, used: {}, secret: o.id, feature: o.what, doors: { 0: true }, keys: { 0: true } };
+      const site = { id: 'site' + sites.length, cat: 'delve', kind, name, x: o.x, y: o.y + 1.4, found: !!o.found, cleared: false, used: {}, secret: o.id, feature: o.what };
       sites.push(site);
       ECHO.Explore.level(world, site);
-      o.site = site.id; o.done = true;
+      o.site = site.id;
       return site;
     },
     cave(game, o) {
       const world = game.world, pl = game.pl;
-      const first = !o.site;
+      const first = !o.done;
       const site = Sc.caveSite(world, o);
+      o.done = true; site.found = true;
       if (first && ECHO.Prowess) { const ups = ECHO.Prowess.gain(pl, 30); for (const u of ups) ECHO.Progress.levelUp(game, u); }
       ECHO.Quests.enterDelve(game, site);
     },
