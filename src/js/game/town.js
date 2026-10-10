@@ -524,6 +524,7 @@
       for (const o of game.ents) if (o.funeral === f) { o.funeral = null; o.chore = null; }
       // you stood with them
       if (f.watch > 25 && dead && pl) {
+        if (ECHO.Comrade) ECHO.Comrade.react(game, 'mercy', 0.4);
         const kin = [dead.spouse, ...(dead.kids || [])].map(id => world.npcs[id]).filter(n => n && n.status !== 'dead');
         for (const k of kin) { P().remember(world, k, `${pl.first} ${pl.last} stood with us when we buried ${dead.first}`, 'gratitude', null, 3); k.op = k.op || {}; k.op[pl.charId] = (k.op[pl.charId] || 0) + 10; }
         const s = world.settlements.find(t => t.id === f.sid);
@@ -671,6 +672,7 @@
         let d = 0;
         if (f.help >= 3) {
           d += saved ? 2 : 1;
+          if (ECHO.Comrade) { ECHO.Comrade.react(game, 'protect', 1); ECHO.Comrade.note(game, 'fire', { x: f.x, y: f.y }); }
           if (own) { P().remember(world, own, `${pl.first} ${pl.last} helped fight the fire at my house`, 'gratitude', null, saved ? 4 : 2); own.op = own.op || {}; own.op[pl.charId] = (own.op[pl.charId] || 0) + (saved ? 20 : 10); }
           if (saved) ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} helped put out a house fire in ${s.name}.`, importance: 1, x: f.x, y: f.y, rep: 2, tag: 'protect' });
         }
@@ -842,6 +844,7 @@
       if (e.helped) { const h = e.helped; h.helping = null; h.together = false; e.helped = null; }
       e.say = pick(['Thank you… that\'s better already.', 'Bless you, stranger.', 'I won\'t forget this.']); e.sayT = 2.6;
       ECHO.Combat.burst(e.x, e.y - 0.3, '#7aff8a', 10, 2, 0.6, 2);
+      if (ECHO.Comrade) ECHO.Comrade.react(game, 'gift', 0.8);
       P().remember(world, n, `${pl.first} ${pl.last} bound my wounds in the street`, 'gratitude', null, 3);
       n.op = n.op || {}; n.op[pl.charId] = (n.op[pl.charId] || 0) + 12;
       ECHO.Character.train(pl, 'study', 0.1);

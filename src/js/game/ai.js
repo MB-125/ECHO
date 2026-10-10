@@ -13,6 +13,7 @@
     let best = null, bd = sight;
     for (const o of game.ents) {
       if (o === e || o.dead || o.hidden || o.ghost) continue;
+      if (o.isCompanion && o.sneaking && !e.aggro && U.dist(e.x, e.y, o.x, o.y) > 2.5) continue;   // creeping with you
       if (!game.hostileTo(e, o)) continue;
       if (o.type === 'creature' && o.species === 'hare') continue;
       let d = U.dist(e.x, e.y, o.x, o.y);
@@ -767,18 +768,24 @@
       const pe = game.pe;
       if (!pe) return;
       const d = U.dist(e.x, e.y, pe.x, pe.y);
+      // orders, and what they've learned of how you fight
+      const ord = ECHO.Comrade ? ECHO.Comrade.steer(game, e, npc, dt, target) : null;
+      const mode = ord ? ord.mode : 'follow';
+      if (ord) target = ord.target;
       // left far behind, or wedged for a few seconds: they find their own way and turn up behind you
       e._lagT = d > 4 && !target && (e.stuck || 0) > 0.3 ? (e._lagT || 0) + dt : 0;
-      if (d > 18 || e._lagT > 2.5) {
+      if (mode !== 'hold' && (d > 18 || e._lagT > 2.5)) {
         const a = pe.dir + Math.PI;
         const sp = ECHO.Ent.freeSpot(game.world, pe.x + Math.cos(a) * 1.2, pe.y + Math.sin(a) * 1.2, 4) || { x: pe.x, y: pe.y };
         e.x = sp.x; e.y = sp.y; e._lagT = 0; e.stuck = 0; e.ipath = null; e.path = null;
       }
       // When you ride, they ride: their own horse, kept up with yours. A fight close by
       // puts them on their feet.
-      if (ECHO.Companions && ECHO.Companions.ride(game, e, npc, dt, target, d)) return;
+      if (mode !== 'hold' && ECHO.Companions && ECHO.Companions.ride(game, e, npc, dt, target, d)) return;
       if (ECHO.Companions && ECHO.Companions.act(game, e, npc, dt, target)) return;
-      if (target && U.dist(target.x, target.y, pe.x, pe.y) < 10) return Person.fight(game, e, npc, dt, target);
+      if (target && (mode === 'focus' || mode === 'hold' || U.dist(target.x, target.y, pe.x, pe.y) < 10)) return Person.fight(game, e, npc, dt, target);
+      if (ECHO.Comrade && ECHO.Comrade.place(game, e, npc, dt, mode)) { e.hidden = false; return; }
+      if (e.sneaking && d > 2.4) { const bx = pe.x - Math.cos(pe.dir) * 1.6, by = pe.y - Math.sin(pe.dir) * 1.6; ECHO.Ent.travel(game.world, e, bx, by, e.speed * 0.5, dt); e.hidden = false; return; }
       if (d > 2.4) { const bx = pe.x - Math.cos(pe.dir) * 1.2, by = pe.y - Math.sin(pe.dir) * 1.2; const ok = !ECHO.World.isSolid(game.world, bx, by); ECHO.Ent.travel(game.world, e, ok ? bx : pe.x, ok ? by : pe.y, e.speed * (d > 6 ? 1.2 : 0.9), dt); }
       else e.moving = false;
       e.hidden = false;

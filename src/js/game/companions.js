@@ -197,7 +197,7 @@
       // techniques, each on its own clock (tactics brings them round sooner)
       if (C.technique(game, e, npc, s, dt, target)) return true;
       // the hedge-mage closes your wounds
-      if (s.cls === 'mender' && e.healT <= 0 && pl.hp < pl.maxHp * 0.5 && U.dist(e.x, e.y, pe.x, pe.y) < 7) {
+      if (s.cls === 'mender' && e.healT <= 0 && pl.hp < pl.maxHp * (e.healAt || 0.5) && U.dist(e.x, e.y, pe.x, pe.y) < 7) {
         e.healT = 16 * (e.cdMul || 1); const amt = Math.round(pl.maxHp * (0.18 + s.lv * 0.012 + s.sk.tactics / 600)); C.train(npc, 'tactics', 0.4);
         pl.hp = Math.min(pl.maxHp, pl.hp + amt); pe.hp = pl.hp;
         ECHO.Combat.floater(pe.x, pe.y - 1.4, `+${amt} (${npc.first})`, '#9fe0c8'); ECHO.Combat.burst(pe.x, pe.y, '#9fe0c8', 14, 2, 0.7, 2); C.say(e, npc, 'heal', 0.5);
@@ -400,6 +400,7 @@
       const pl = game.pl, npc = pl && pl.companion && game.world.npcs[pl.companion];
       const e = game.ents.find(x => x.isCompanion && !x.dead);
       if (!npc || !e) return;
+      if (ECHO.Comrade) { if (kind === 'kill') ECHO.Comrade.onKill(game, foe); if (kind === 'enter' && ECHO.Interior.cur && ECHO.Interior.cur.site) ECHO.Comrade.note(game, 'delve', { name: ECHO.Interior.cur.site.name }); }
       if (kind === 'kill') { C.st(npc).kills++; C.say(e, npc, foe && foe.boss2 ? 'lord' : 'kill', foe && foe.boss2 ? 1 : 0.18); }
       if (kind === 'enter') C.say(e, npc, 'enter', 0.8);
     },
@@ -436,9 +437,9 @@
       const pl = game.pl, npc = pl.companion && game.world.npcs[pl.companion];
       const e = npc && game.ents.find(x => x.isCompanion && !x.dead);
       const st = npc && C.st(npc), need = st ? ECHO.Prowess.need(st.lv) : 1;
-      const key = e ? `${npc.first}|${Math.round(e.hp / e.maxHp * 40)}|${st.lv}|${Math.round(st.xp / need * 30)}|${e.tauntT > 0}|${pl._cward > 0}` : '';
+      const key = e ? `${npc.first}|${Math.round(e.hp / e.maxHp * 40)}|${st.lv}|${Math.round(st.xp / need * 30)}|${e.tauntT > 0}|${pl._cward > 0}|${e.order}|${ECHO.Comrade ? ECHO.Comrade.mood(npc)[0] : ''}` : '';
       if (C._hud === key) return; C._hud = key;
-      el.innerHTML = e ? `<span>${CLASSES[st.cls].icon} ${esc(npc.first)} · Lv ${st.lv}${e.tauntT > 0 ? ' · <b style="color:#ffcf8a">taunting</b>' : ''}${pl._cward > 0 ? ' · <b style="color:#a8c8ff">ward</b>' : ''}</span><span class="cb"><i style="width:${Math.round(e.hp / e.maxHp * 100)}%"></i></span><span class="cx"><i style="width:${Math.round(Math.min(1, st.xp / need) * 100)}%"></i></span>` : '';
+      el.innerHTML = e ? `<span>${CLASSES[st.cls].icon} ${esc(npc.first)} · Lv ${st.lv}${e.tauntT > 0 ? ' · <b style="color:#ffcf8a">taunting</b>' : ''}${pl._cward > 0 ? ' · <b style="color:#a8c8ff">ward</b>' : ''}${ECHO.Comrade ? ECHO.Comrade.badge(npc, e) : ''}</span><span class="cb"><i style="width:${Math.round(e.hp / e.maxHp * 100)}%"></i></span><span class="cx"><i style="width:${Math.round(Math.min(1, st.xp / need) * 100)}%"></i></span>` : '';
     },
     // The inn's list of fighters for hire.
     innHtml(world, s, pl) {

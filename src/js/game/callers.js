@@ -140,7 +140,7 @@
         }
         return UI.modal({ title: name, html: html(`<b>${esc(npc.first)}</b> catches up with you, a little out of breath. "There you are. ${esc(why)} I wanted you to have this." ${U.cap(he)} holds out ${esc(what)}.`), choices: [
           { label: 'Take it, with thanks.', onPick: () => { give(pl); if (npc.mind) npc.mind.owe = Math.max(0, (npc.mind.owe || 0) - 1); say('It\'s the least I could do.'); ECHO.Sfx.play('coin', { pitch: 1.3 }); UI.toast(`${npc.first} gave you ${what}.`, 'mercy', 4); } },
-          { label: '"Keep it. You need it more than I do."', sub: 'They will think the more of you', onPick: () => { npc.op[pl.charId] = (npc.op[pl.charId] || 0) + 12; if (npc.mind) npc.mind.owe = 0; ECHO.Character.behave(pl, 'mercy', 0.04); say(pick(['…You\'re a good soul.', 'Then I owe you twice.', 'Bless you.'])); } }
+          { label: '"Keep it. You need it more than I do."', sub: 'They will think the more of you', onPick: () => { npc.op[pl.charId] = (npc.op[pl.charId] || 0) + 12; if (npc.mind) npc.mind.owe = 0; ECHO.Character.behave(pl, 'mercy', 0.04); if (ECHO.Comrade) ECHO.Comrade.react(game, 'gift', 0.6); say(pick(['…You\'re a good soul.', 'Then I owe you twice.', 'Bless you.'])); } }
         ] });
       }
       if (c.kind === 'warn') {
@@ -183,14 +183,14 @@
         npc.askedDay = world.day;
         const k = c.kin, rel = k.id === npc.spouse ? (k.sex === 'f' ? 'wife' : 'husband') : (npc.kids || []).includes(k.id) ? (k.sex === 'f' ? 'daughter' : 'son') : (k.sex === 'f' ? 'mother' : 'father');
         return UI.modal({ title: name, html: html(`<b>${esc(npc.first)}</b> has been watching the herbs at your belt. "Forgive me. My ${rel}, ${esc(k.first)}, has the fever, and the healers are run off their feet. If you could spare even a little…"`), choices: [
-          { label: 'Give a bundle of herbs.', onPick: () => { pl.inv.herbs--; if (k.sick) k.sick.days = Math.max(1, (k.sick.days || 3) - 3); P().remember(world, npc, `${pl.first} ${pl.last} gave herbs for ${k.first}'s fever`, 'gratitude', null, 3); npc.op[pl.charId] = (npc.op[pl.charId] || 0) + 15; if (npc.mind) npc.mind.owe = (npc.mind.owe || 0) + 1; say('Thank you. Oh, thank you.'); } },
+          { label: 'Give a bundle of herbs.', onPick: () => { pl.inv.herbs--; if (k.sick) k.sick.days = Math.max(1, (k.sick.days || 3) - 3); P().remember(world, npc, `${pl.first} ${pl.last} gave herbs for ${k.first}'s fever`, 'gratitude', null, 3); npc.op[pl.charId] = (npc.op[pl.charId] || 0) + 15; if (npc.mind) npc.mind.owe = (npc.mind.owe || 0) + 1; say('Thank you. Oh, thank you.'); if (ECHO.Comrade) ECHO.Comrade.react(game, 'gift', 1); } },
           { label: '"I\'m sorry. I need them."', onPick: () => say('…Of course.') }
         ] });
       }
       if (c.kind === 'food') {
         npc.askedDay = world.day;
         return UI.modal({ title: name, html: html(`<b>${esc(npc.first)}</b> can't quite meet your eye. "Bread's ${s.prices.food} crowns. I can't… the children haven't eaten properly in days. Could you spare anything at all?"`), choices: [
-          { label: 'Give two portions of food.', onPick: () => { pl.inv.food -= 2; P().remember(world, npc, `${pl.first} ${pl.last} fed my children in the hungry time`, 'gratitude', null, 3); npc.op[pl.charId] = (npc.op[pl.charId] || 0) + 12; if (npc.mind) npc.mind.owe = (npc.mind.owe || 0) + 1; ECHO.Character.behave(pl, 'mercy', 0.03); say('I won\'t forget this.'); } },
+          { label: 'Give two portions of food.', onPick: () => { pl.inv.food -= 2; P().remember(world, npc, `${pl.first} ${pl.last} fed my children in the hungry time`, 'gratitude', null, 3); npc.op[pl.charId] = (npc.op[pl.charId] || 0) + 12; if (npc.mind) npc.mind.owe = (npc.mind.owe || 0) + 1; ECHO.Character.behave(pl, 'mercy', 0.03); say('I won\'t forget this.'); if (ECHO.Comrade) ECHO.Comrade.react(game, 'gift', 1); } },
           { label: '"I can\'t."', onPick: () => say('No. Nobody can, these days.') }
         ] });
       }

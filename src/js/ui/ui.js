@@ -286,6 +286,7 @@
         });
         if (ECHO.Patrol) ECHO.Patrol.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         if (ECHO.Pastimes) ECHO.Pastimes.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
+        if (ECHO.Comrade) ECHO.Comrade.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         add('Any tales of heroes?', () => say(ECHO.Dialogue.aboutLegends(world, npc)));
         if (npc.carry) add('That blade you carry…', () => say(ECHO.Dialogue.aboutItem(world, npc, pl)));
         // Plights this person asked for

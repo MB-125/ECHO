@@ -19,6 +19,7 @@
     },
     record(game, kind, o = {}) {
       const world = game.world, pl = game.pl;
+      if (ECHO.Comrade && (kind === 'theft' || kind === 'pickpocket' || kind === 'burglary')) ECHO.Comrade.react(game, 'theft', 1);
       const wp = game.wp(o.x != null ? o.x : game.pe.x, o.y != null ? o.y : game.pe.y);
       const s = o.s || ECHO.World.settlementAt(world, wp.x, wp.y, 30) || ECHO.World.nearestSettlement(world, wp.x, wp.y, t => t.faction !== 'ashfang');
       if (!s || s.faction === 'ashfang') return null;

@@ -157,6 +157,7 @@
       if (target.iframes > 0) { if (target === game.pe) { C.floater(target.x, target.y - 0.8, 'dodged', '#9fd3ff'); if (src.from && src.from !== game.pe) ECHO.Tech.onDodgedHit(game); } return 0; }
       const from = src.from;
       if (from && from.hidden && !from.dead) return 0; // nothing unseen can strike
+      if (from === game.pe && target !== game.pe) { game.lastStruck = target; game.lastStruckT = game.time; }
       // a companion's own skill: dodge, parry, shield
       if (target.isCompanion && ECHO.Companions) { amount = ECHO.Companions.defend(game, target, amount, src); if (amount <= 0) return 0; }
       const type = src.type;
