@@ -196,13 +196,14 @@
 
   // ------------------------------------------------------------ Schedules
   const Sched = {
-    houseOf(game, s, npc) {
+    houseOf(game, s, npc, raw) {
       // their own house, their spouse's or parents', or the room they rent
       const own = ECHO.Property && game.world._prop ? ECHO.Property.homeOf(game.world, npc) : null;
-      if (own) return own;
       const houses = s.buildings.filter(b => b.type === 'house');
-      if (!houses.length) return null;
-      return houses[ECHO.hashStr(npc.last + npc.home) % houses.length];
+      const h = own || (houses.length ? houses[ECHO.hashStr(npc.last + npc.home) % houses.length] : null);
+      // burnt out: they lodge at the inn until it's rebuilt
+      if (!raw && h && h.gutted != null) return s.buildings.find(b => b.type === 'inn') || h;
+      return h;
     },
     door(b) { return { x: b.x + b.w / 2, y: b.y + b.h + 0.4 }; },
     building(s, type) { return s.buildings.find(b => b.type === type); },

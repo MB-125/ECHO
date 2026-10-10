@@ -38,6 +38,16 @@
       if (game.shakeT > 0) { sx = (Math.random() - 0.5) * game.shakeA * 0.6; sy = (Math.random() - 0.5) * game.shakeA * 0.6; }
       return { x: game.cam.x + sx, y: game.cam.y + sy };
     },
+    // a burnt-out house: soot over walls and roof, the beams showing through
+    scorch(game, b) {
+      const ctx = R.ctx, a = R.toScreen(game, b.x, b.y - 1.6), c = R.toScreen(game, b.x + b.w, b.y + b.h);
+      ctx.save();
+      ctx.fillStyle = 'rgba(22,16,12,0.62)'; ctx.fillRect(a.x, a.y, c.x - a.x, c.y - a.y);
+      ctx.fillStyle = 'rgba(40,28,20,0.9)';
+      const n = Math.max(3, Math.round(b.w * 1.2)), w = Math.max(2, (c.x - a.x) * 0.04);
+      for (let i = 0; i < n; i++) { const x = a.x + (c.x - a.x) * (i + 0.5) / n; ctx.fillRect(x - w / 2, a.y - w * 2 + (i % 2) * w * 3, w, (c.y - a.y) * 0.55); }
+      ctx.restore();
+    },
     toScreen(game, x, y) {
       const c = R._cam || game.cam;
       return { x: (x - c.x) * TS * R.Z + R.cw / 2, y: (y - c.y) * TS * R.Z + R.ch / 2 };
@@ -159,8 +169,8 @@
       for (const s of world.settlements) {
         if (Math.abs(s.x - cam.x) > halfW + 20 || Math.abs(s.y - cam.y) > halfH + 20) continue;
         for (const b of s.buildings) {
-          objs.push({ y: b.y + b.h, draw: () => R.building(game, b, s, night) });
-          if (night && (b.type === 'house' || b.type === 'inn' || b.type === 'keep' || b.type === 'temple')) game.light(b.x + b.w / 2, b.y + b.h, b.type === 'house' ? 1.6 : 2.6, 0.55, '#ffcf80');
+          objs.push({ y: b.y + b.h, draw: () => { R.building(game, b, s, night); if (b.gutted != null) R.scorch(game, b); } });
+          if (night && b.gutted == null && (b.type === 'house' || b.type === 'inn' || b.type === 'keep' || b.type === 'temple')) game.light(b.x + b.w / 2, b.y + b.h, b.type === 'house' ? 1.6 : 2.6, 0.55, '#ffcf80');
           if (b.type === 'lamp' && (night || T.daylight(world.minute) < 0.6)) {
             const era = world.factions[s.faction] ? world.factions[s.faction].tech.era : 0;
             game.light(b.x + 0.5, b.y + 0.4, era >= 4 ? 7 : 3.2, 0.85, era >= 4 && world.factions[s.faction].tech.path === 'arcane' ? '#bfe8ff' : '#ffd08a');

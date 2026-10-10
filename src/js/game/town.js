@@ -31,13 +31,15 @@
   const GOODS = [['a loaf', 'food'], ['a dozen eggs', 'food'], ['that cheese', 'food'], ['a sack of meal', 'food'], ['the candles', 2], ['a pot of honey', 3], ['this wool', 4], ['a twist of salt', 2], ['the copper pot', 9], ['a bag of nails', 3]];
 
   const Tn = ECHO.Town = {
-    t: 0, slowT: 0, glows: [], fires: [], games: [], funerals: [], fights: {}, lastHour: -1,
+    t: 0, slowT: 0, glows: [], fires: [], games: [], funerals: [], fights: {}, brawls: [], lastHour: -1,
 
     // ------------------------------------------------------------ the hook
     // Called in a townsperson's peaceful moments, before their routine.
     think(game, e, npc, dt) {
       if (e.hidden || e.indoor) return false;
       if ((e.call || e.eyeing) && ECHO.Callers && ECHO.Callers.think(game, e, npc, dt)) return true;
+      if (e.brawl) return Tn.brawlDo(game, e, npc, dt);
+      if (e.breakup) return Tn.breakUp(game, e, npc, dt);
       if (e.bucket) return Tn.bucketDo(game, e, npc, dt);
       if (e.funeral) return Tn.mourn(game, e, npc, dt);
       if (e.spectate) return Tn.watch(game, e, npc, dt);
@@ -149,6 +151,9 @@
         if (deed && pl.renown >= 10) add(3, [[0, `That's ${pl.first}. The one who ${deed.text.replace(new RegExp('^' + pl.first + '( ' + pl.last + ')? '), '').replace(/\.$/, '')}.`], [1, pick(['Smaller than I\'d pictured.', 'Don\'t stare.', 'Really? Them?'])]]);
         else add(1, [[0, 'Who\'s that, then?'], [1, pick(['Some traveller.', 'Never seen them before.', 'Trouble, by the look of it.'])]]);
       }
+      // the house that burned
+      const burnt = s && s.buildings.find(b => b.gutted != null);
+      if (burnt) add(game.world.day - burnt.gutted < 2 ? 2.5 : 1, burnt.gutBlame ? [[0, 'They say it was the stranger\'s fire that did it.'], [1, 'I believe it. Watch yourself around that one.']] : [[0, `Poor ${burnt.gutOwner || 'souls'}. Lost everything in that fire.`], [1, pick(['We\'ll have the walls up again by week\'s end.', 'They\'re sleeping at the inn, I hear.', 'Could have been any of us.'])]]);
       // the weather
       const wx = ECHO.Weather ? ECHO.Weather.here(world, a.x, a.y) : null;
       if (wx) {
@@ -197,7 +202,12 @@
       } else c.ear = 0;
       if (c.t <= 0) {
         c.i++;
-        if (c.i >= c.lines.length) { e.convo = null; o.convo = null; e.chore = o.chore = null; e.convoAt = o.convoAt = game.time; return false; }
+        if (c.i >= c.lines.length) {
+          e.convo = null; o.convo = null; e.chore = o.chore = null; e.convoAt = o.convoAt = game.time;
+          const A = game.world.npcs[e.npcId], B = game.world.npcs[o.npcId];
+          if (A && B && ((A.rel && A.rel[B.id]) || 0) < -25 && !c.caught && Math.random() < 0.35) Tn.startBrawl(game, e, o, 'grudge');
+          return false;
+        }
         const [who, text] = c.lines[c.i];
         const sp = who === 0 ? e : o;
         sp.say = text; sp.sayT = Math.min(3.6, 1.6 + text.length * 0.035);
@@ -329,7 +339,7 @@
     fightScan(game) {
       const world = game.world, pe = game.pe, now = game.time;
       const seen = {};
-      const fighting = o => (o.type === 'person' && o.target && !o.dead && !o.hidden && (o.state === 'chase' || o.state === 'windup' || o.state === 'attack') && U.dist(o.x, o.y, o.target.x, o.target.y) < 6) ||
+      const fighting = o => (o.brawl && !o.brawl.over && !o.dead) || (o.type === 'person' && o.target && !o.dead && !o.hidden && (o.state === 'chase' || o.state === 'windup' || o.state === 'attack') && U.dist(o.x, o.y, o.target.x, o.target.y) < 6) ||
         (o.foe && o.aggro && !o.dead && !o.hidden && !o.indoor) || (o.type === 'creature' && o.target && !o.dead && (o.state === 'lunge' || o.state === 'windup' || o.state === 'stalk'));
       for (const o of game.ents) {
         if (!fighting(o) || o.x >= 9000) continue;
@@ -376,6 +386,128 @@
           n++;
         }
       }
+    },
+
+    // ------------------------------------------------------------ fists in the street
+    brawlRoll(game) {
+      const world = game.world, pe = game.pe, h = hourOf(world);
+      if (pe.x >= 9000 || ECHO.Interior.cur || Tn.brawls.some(B => !B.over)) return;
+      const s = ECHO.World.settlementAt(world, pe.x, pe.y, 26);
+      if (!s || (Tn.lastBrawl && Tn.lastBrawl[s.id] && game.time - Tn.lastBrawl[s.id] < 300)) return;
+      const evening = h >= 17 && h < 23;
+      if (Math.random() > (evening ? 0.012 : 0.003)) return;
+      Tn.provoke(game, s, evening ? 'drink' : 'grudge');
+    },
+    // find two who'd come to blows, and set them at it; true if it happened
+    provoke(game, s, why) {
+      const world = game.world, pe = game.pe;
+      const ok = o => o.type === 'person' && !o.dead && !o.hidden && !o.indoor && !o.target && !o.brawl && !o.bucket && !o.funeral && !o.call && o.npcId && !o.isCompanion && o.role !== 'guard' && o.role !== 'soldier' && o.role !== 'bandit' && o.role !== 'traveler' && !o.stranded && U.dist(o.x, o.y, pe.x, pe.y) < 22 && (() => { const n = world.npcs[o.npcId]; return n && n.loc === s.id && !['child', 'elder', 'priest', 'ruler'].includes(n.prof) && !n.sick; })();
+      const pool = game.ents.filter(ok);
+      let best = null, bs = 1e9;
+      for (const a of pool) for (const b of pool) {
+        if (a === b || U.dist(a.x, a.y, b.x, b.y) > 12) continue;
+        const r = (world.npcs[a.npcId].rel && world.npcs[a.npcId].rel[b.npcId]) || 0;
+        const sc = r + U.dist(a.x, a.y, b.x, b.y) * 2 + Math.random() * 10;
+        if (sc < bs) { bs = sc; best = [a, b]; }
+      }
+      if (!best) return false;
+      Tn.startBrawl(game, best[0], best[1], why);
+      return true;
+    },
+    startBrawl(game, a, b, why) {
+      const s = ECHO.World.settlementAt(game.world, a.x, a.y, 30);
+      for (const e of [a, b]) { if (e.convo) { const c = e.convo; c.a.convo = null; c.b.convo = null; } e.play = null; e.shop = null; e.spectate = null; e.chore = null; }
+      const B = { a, b, t0: game.time, why, over: false, sid: s ? s.id : null, bet: null };
+      a.brawl = B; b.brawl = B;
+      a.say = why === 'drink' ? pick(['You calling me a cheat?!', 'Say that again. Go on.', 'That was MY drink!']) : pick(['That\'s it! I\'ve had enough of you!', 'You\'ll take that back!', 'Right. Outside. Now.']); a.sayT = 2.4;
+      b.say = pick(['Come on, then!', 'Try it!', 'I\'ve been waiting for this.']); b.sayT = 2.4;
+      Tn.brawls.push(B);
+      (Tn.lastBrawl || (Tn.lastBrawl = {}))[B.sid] = game.time;
+      // the watch comes running
+      const g = game.ents.filter(o => o.role === 'guard' && !o.dead && !o.hidden && !o.target && U.dist(o.x, o.y, a.x, a.y) < 26).sort((p, q) => U.dist(p.x, p.y, a.x, a.y) - U.dist(q.x, q.y, a.x, a.y))[0];
+      if (g) { g.breakup = B; B.guard = g; }
+      return B;
+    },
+    brawlDo(game, e, npc, dt) {
+      const B = e.brawl, world = game.world, pe = game.pe;
+      if (B.over) { if (game.time - B.endT > 3) { e.brawl = null; e.chore = null; return false; } e.moving = false; return true; }
+      const o = B.a === e ? B.b : B.a;
+      if (!o || o.dead || o.hidden || e.target || o.target) { B.why2 = !o ? 'gone' : o.dead ? 'dead' : o.hidden ? 'hidden' : 'target'; return Tn.endBrawl(game, B, null), false; }
+      const d = U.dist(e.x, e.y, o.x, o.y);
+      e.chore = null;
+      e.dir = Math.atan2(o.y - e.y, o.x - e.x); e.flip = Math.cos(e.dir) < 0;
+      if (d > 1.15) ECHO.Ent.seek(world, e, o.x, o.y, e.speed * 0.8, dt, 0.9);
+      else if (Math.sin(game.time * 1.3 + e.id) > 0.6) { const a = e.dir + Math.PI / 2; ECHO.Ent.seek(world, e, e.x + Math.cos(a), e.y + Math.sin(a), e.speed * 0.4, dt, 0.1); }   // circling
+      else e.moving = false;
+      if (d < 1.35 && e.cd <= 0) {
+        e.cd = 0.9 + Math.random() * 0.9; e.attackT = 0.2; e.attackDur = 0.2; e.attackKind = Math.random() < 0.5 ? 'fore' : 'back';
+        if (Math.random() < 0.55) {
+          const floor = o.maxHp * 0.4;
+          o.hp = Math.max(floor, o.hp - (2 + Math.random() * 4)); o.hurtT = 0.18;
+          ECHO.Ent.move(world, o, Math.cos(e.dir) * 0.25, Math.sin(e.dir) * 0.25);
+          ECHO.Combat.burst(o.x, o.y - 0.5, '#e8c8a8', 4, 1.5, 0.3, 2);
+          const dp = U.dist(o.x, o.y, pe.x, pe.y);
+          if (dp < 14 && ECHO.Sfx) ECHO.Sfx.play('hit', { pitch: 1.3 + Math.random() * 0.3, vol: U.clamp(0.4 - dp / 40, 0.05, 0.4) });
+          if (o.sayT <= 0 && Math.random() < 0.35) { o.say = pick(['Oof!', 'Ow — my nose!', 'Is that all you\'ve got?', 'Agh!']); o.sayT = 1.2; }
+          if (o.hp <= o.maxHp * 0.46) return Tn.endBrawl(game, B, e), true;
+        } else if (e.sayT <= 0 && Math.random() < 0.3) { e.say = pick(['Hold still!', 'Ha! Missed me!', 'Come here!']); e.sayT = 1; }
+      }
+      if (game.time - B.t0 > 40) Tn.endBrawl(game, B, null);
+      return true;
+    },
+    // the watchman wades in
+    breakUp(game, g, npc, dt) {
+      const B = g.breakup;
+      if (!B || B.over || g.target) { g.breakup = null; return false; }
+      if (game.time - B.t0 < 9) return false;    // it takes the watch a moment to notice
+      const cx = (B.a.x + B.b.x) / 2, cy = (B.a.y + B.b.y) / 2;
+      if (U.dist(g.x, g.y, cx, cy) > 1.8) { ECHO.Ent.travel(game.world, g, cx, cy, g.speed * 1.15, dt); if (g.sayT <= 0) { g.say = 'Oi! You two!'; g.sayT = 2; } return true; }
+      g.say = 'Break it up! Both of you — enough!'; g.sayT = 2.4;
+      Tn.endBrawl(game, B, null, 'watch');
+      g.breakup = null;
+      return true;
+    },
+    endBrawl(game, B, winner, how) {
+      if (B.over) return;
+      const world = game.world, pl = game.pl;
+      B.over = true; B.endT = game.time; B.winner = winner;
+      const A = world.npcs[B.a.npcId], C = world.npcs[B.b.npcId];
+      if (winner) {
+        const loser = winner === B.a ? B.b : B.a;
+        loser.say = pick(['Enough! Enough…', 'All right! I yield!', 'Ugh. You win.']); loser.sayT = 2.4;
+        winner.say = pick(['And stay down!', 'Let that be a lesson.', 'Anyone else?']); winner.sayT = 2.4;
+        if (Math.random() < 0.5) winner.cheerT = 1.5;
+      } else if (how === 'watch' || how === 'you') { B.a.say = '…Fine.'; B.a.sayT = 2; B.b.say = pick(['He started it!', 'She started it!', 'This isn\'t over.']); B.b.sayT = 2; }
+      else { B.a.say = 'I\'m… too tired for this.'; B.a.sayT = 2; B.b.say = 'Me too.'; B.b.sayT = 2; }
+      if (A && C) { P().bond(A, C.id, winner ? -12 : -4); P().bond(C, A.id, winner ? -12 : -4); }
+      // the wager
+      if (B.bet && pl) {
+        const won = winner && winner === B.bet.on;
+        if (won) { pl.gold += B.bet.amt * 2; ECHO.Sfx && ECHO.Sfx.play('coin'); }
+        game.ui.toast(won ? `Your fighter won! You collect ${B.bet.amt * 2} crowns.` : winner ? `Your fighter lost. There go ${B.bet.amt} crowns.` : `No winner — the bookmaker keeps your ${B.bet.amt} crowns, naturally.`, won ? 'legend' : 'info', 4);
+      }
+      if (how === 'you' && pl) {
+        const s = world.settlements.find(t => t.id === B.sid);
+        if (s) { s.rep = s.rep || {}; s.rep[pl.charId] = (s.rep[pl.charId] || 0) + 1; }
+        ECHO.Character.behave(pl, 'protect', 0.1);
+      }
+    },
+    brawlActs(game) {
+      const pe = game.pe, pl = game.pl, out = [];
+      for (const B of Tn.brawls) {
+        if (B.over) continue;
+        const da = Math.min(U.dist(B.a.x, B.a.y, pe.x, pe.y), U.dist(B.b.x, B.b.y, pe.x, pe.y));
+        if (da < 2.4) out.push({ kind: 'act', label: 'Break it up', d: 0.4, act: () => {
+          const tongue = (pl.skills.tongue || 0) + (pl.renown || 0) * 0.5;
+          if (Math.random() < 0.45 + tongue / 80) { pe.dir = Math.atan2(B.a.y - pe.y, B.a.x - pe.x); Tn.endBrawl(game, B, null, 'you'); game.ui.toast('You get between them. They back off, glaring.', 'info', 3); ECHO.Character.train(pl, 'tongue', 0.3); }
+          else { B.a.say = 'Stay out of this!'; B.a.sayT = 1.6; game.ui.toast('They shove you aside and go back at it.', 'info', 2.5); }
+        } });
+        else if (da < 8 && !B.bet && game.time - B.t0 < 20 && pl.gold >= 5) {
+          const na = game.world.npcs[B.a.npcId], nb = game.world.npcs[B.b.npcId];
+          for (const [e, n] of [[B.a, na], [B.b, nb]]) if (n) out.push({ kind: 'act', label: `Bet 5 crowns on ${n.first}`, d: 1.2, act: () => { if (B.bet || pl.gold < 5) return; pl.gold -= 5; B.bet = { on: e, amt: 5 }; game.ui.toast(`Five crowns on ${n.first}. A man in the crowd takes your money and grins.`, 'info', 3); } });
+        }
+      }
+      return out;
     },
 
     // ------------------------------------------------------------ helping the hurt
@@ -537,7 +669,7 @@
     ignite(game, s, b, why, blame) {
       if (Tn.fires.some(f => !f.done)) return null;
       const world = game.world;
-      const owner = Object.values(world.npcs).find(n => n.status !== 'dead' && n.home === s.id && ECHO.AI.Sched.houseOf(game, s, n) === b);
+      const owner = Object.values(world.npcs).find(n => n.status !== 'dead' && n.home === s.id && ECHO.AI.Sched.houseOf(game, s, n, true) === b);
       const f = { sid: s.id, b, x: b.x + b.w / 2, y: b.y + b.h / 2, heat: 0.4, fuel: 100, t0: game.time, why, blame: !!blame, owner: owner && owner.id, help: 0, alarm: false, line: null, buckets: [], bT: 0, done: false };
       Tn.fires.push(f);
       return f;
@@ -663,7 +795,7 @@
       for (const o of game.ents) if (o.bucket === f) { o.bucket = null; o.holding = false; o.chore = null; if (saved) { o.cheerT = 2 + Math.random() * 2; if (Math.random() < 0.5) { o.say = pick(['It\'s out!', 'Thank the Flame!', 'We did it!', 'Hurrah!']); o.sayT = 2; } } }
       const near = pe && U.dist(pe.x, pe.y, f.x, f.y) < 30;
       if (!saved) {
-        f.b.gutted = world.day;
+        f.b.gutted = world.day; f.b.gutOwner = own ? own.first : null; f.b.gutBlame = f.blame;
         if (own) P().remember(world, own, 'lost their home to fire', 'grief', null, 3);
         Tn.ruins.push({ x: f.x, y: f.y, b: f.b, until: game.time + 240 });
       }
@@ -729,6 +861,7 @@
       for (const r of Tn.ruins) if (Math.random() < dt * 1.2 && U.dist(r.x, r.y, pe.x, pe.y) < 50) ECHO.Combat.fx.push({ kind: 'smoke', x: r.b.x + Math.random() * r.b.w, y: r.b.y + Math.random() * r.b.h, sh: 1.2, vx: 0.2, vy: 0, t: 0, life: 4, size: 3 });
       Tn.ruins = Tn.ruins.filter(r => game.time < r.until);
       for (const f of Tn.funerals) if (!f.done) Tn.glows.push({ x: f.x, y: f.y + 0.2, h: 0.4, c: '#ffd890', s: 1.2 + Math.sin(game.time * 9) * 0.1, a: 0.7 });
+      Tn.brawls = Tn.brawls.filter(B => !B.over || game.time - B.endT < 6);
       for (const G of Tn.games) if (!G.over) Tn.tagTick(game, G, dt);
       Tn.games = Tn.games.filter(G => !G.over);
       Tn.t -= dt;
@@ -743,6 +876,18 @@
       Tn.funeralScan(game);
       Tn.chatScan(game);
       Tn.fireRoll(game);
+      Tn.brawlRoll(game);
+      if ((Tn.rebuildT = (Tn.rebuildT || 0) - 1.5) <= 0) { Tn.rebuildT = 30; Tn.rebuild(game); }
+    },
+    // a few days on, the neighbours have the walls back up
+    rebuild(game) {
+      const world = game.world;
+      for (const s of world.settlements) for (const b of s.buildings) {
+        if (b.gutted == null || world.day - b.gutted < 4) continue;
+        delete b.gutted;
+        ECHO.Chronicle.add(world, { text: `The neighbours rebuilt ${b.gutOwner ? b.gutOwner + '\'s' : 'the burnt'} house in ${s.name}.`, kind: 'misc', importance: 0, x: b.x, y: b.y });
+        b.gutOwner = null; b.gutBlame = null;
+      }
     },
     // who might stop and talk, start a game, or go to market
     chatScan(game) {
@@ -812,6 +957,7 @@
     interactables(game) {
       const pe = game.pe, out = [];
       if (pe.mounted || pe.inBoat || ECHO.Interior.cur) return out;
+      out.push(...Tn.brawlActs(game));
       for (const f of Tn.fires) {
         if (f.done) continue;
         const b = f.b;

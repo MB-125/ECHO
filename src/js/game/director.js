@@ -69,6 +69,7 @@
       const opts = [];
       if (town) {
         if (ECHO.Callers) opts.push([3, 'caller', () => { ECHO.Callers.nextAt = 0; return true; }]);
+        if (ECHO.Town && !ECHO.Town.brawls.some(B => !B.over)) opts.push([2, 'brawl', () => ECHO.Town.provoke(game, town, world.minute / 60 >= 17 ? 'drink' : 'grudge')]);
       } else {
         if (dusk) opts.push([3, 'stalkers', () => D.stalkers(game)]);
         if (dusk && level >= 2 && ECHO.Riders) opts.push([2, 'raid', () => ECHO.Riders.raid(game)]);

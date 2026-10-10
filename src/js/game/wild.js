@@ -83,7 +83,8 @@
       const a = Math.atan2(p.y - w.y, p.x - w.x) + (d > 3 ? side * Math.min(1, d / 10) : 0);
       if (H.phase === 'stalk') {
         w.state = 'stalk';
-        ECHO.Ent.seek(world, w, w.x + Math.cos(a) * 2, w.y + Math.sin(a) * 2, speed * 0.42, dt, 0.1);
+        if (!ECHO.Ent.lineOfSight(world, w.x, w.y, p.x, p.y)) ECHO.Ent.travel(world, w, p.x, p.y, speed * 0.42, dt);
+        else ECHO.Ent.seek(world, w, w.x + Math.cos(a) * 2, w.y + Math.sin(a) * 2, speed * 0.42, dt, 0.1);
         const spooked = p.state === 'flee';
         if (d < 9 || spooked) for (const o of game.ents) if (o.hunt && o.hunt.herd === H.herd && o.hunt.phase === 'stalk') o.hunt.phase = 'rush';
         return true;
@@ -93,7 +94,8 @@
       if (H.rushAt == null) H.rushAt = now;
       const burst = now - H.rushAt < 8 ? 1.6 : 1.1;
       if (p.species === 'deer' && p.state !== 'flee' && d < 12 && ECHO.Fauna) ECHO.Fauna.panic(game, p.herd, w);
-      ECHO.Ent.seek(world, w, p.x + Math.cos(a) * 0.3, p.y + Math.sin(a) * 0.3, speed * burst, dt, 0.05);
+      if (d > 2 && !ECHO.Ent.lineOfSight(world, w.x, w.y, p.x, p.y)) ECHO.Ent.travel(world, w, p.x, p.y, speed * burst, dt);   // round the trees, not into them
+      else ECHO.Ent.seek(world, w, p.x + Math.cos(a) * 0.3, p.y + Math.sin(a) * 0.3, speed * burst, dt, 0.05);
       if (d < (p.species === 'hare' ? 0.9 : 1.35) && (w.cd || 0) <= 0) {
         w.cd = 0.85; w.attackT = 0.15; w.dir = a;
         Wd.bite(game, w, p);
@@ -131,7 +133,7 @@
         w.hunt = null; w.state = 'flee'; w.target = pe; return false;
       }
       if (!pe.dead && dp < 9 && w.sayT <= 0 && Math.random() < dt * 0.5) { w.say = pick(['*growl*', '*grr…*', '*snarl*']); w.sayT = 1; w.dir = Math.atan2(pe.y - w.y, pe.x - w.x); if (ECHO.Sfx && Math.random() < 0.5) ECHO.Sfx.play('growl', { vol: 0.35 }); }
-      if (U.dist(w.x, w.y, spot.x, spot.y) > 0.3) { ECHO.Ent.seek(world, w, spot.x, spot.y, speed * 0.6, dt, 0.1); w.state = 'roam'; return true; }
+      if (U.dist(w.x, w.y, spot.x, spot.y) > 0.3) { if (U.dist(w.x, w.y, spot.x, spot.y) > 2) ECHO.Ent.travel(world, w, spot.x, spot.y, speed * 0.6, dt); else ECHO.Ent.seek(world, w, spot.x, spot.y, speed * 0.6, dt, 0.1); w.state = 'roam'; return true; }
       w.moving = false; w.state = 'feed';
       if (!(dp < 9 && w.sayT > 0)) w.dir = Math.atan2(c.y - w.y, c.x - w.x);
       c.eaten = Math.min(0.95, c.eaten + dt * 0.006);
@@ -198,7 +200,7 @@
       const c = e.scav;
       if (c) {
         if (c.done || c.eaten >= 0.95 || game.ents.some(w => w.species === 'wolf' && !w.dead && U.dist(w.x, w.y, c.x, c.y) < 5)) { e.scav = null; e.state = 'carry'; e.wa = Math.random() * 6.28; return; }
-        if (U.dist(e.x, e.y, c.x, c.y) > 0.7) { ECHO.Ent.seek(world, e, c.x + 0.5, c.y, e.speed * 0.45, dt, 0.1); e.state = 'stalk'; return; }
+        if (U.dist(e.x, e.y, c.x, c.y) > 0.7) { const dc = U.dist(e.x, e.y, c.x, c.y); if (dc > 2) ECHO.Ent.travel(world, e, c.x + 0.5, c.y, e.speed * 0.45, dt); else ECHO.Ent.seek(world, e, c.x + 0.5, c.y, e.speed * 0.45, dt, 0.1); e.state = 'stalk'; return; }
         e.moving = false; e.state = 'feed'; e.dir = Math.atan2(c.y - e.y, c.x - e.x);
         c.eaten = Math.min(0.95, c.eaten + dt * 0.01);
         e.feedT = (e.feedT || 0) + dt;
@@ -225,7 +227,7 @@
         e.quarry = h;
         const dh = U.dist(e.x, e.y, h.x, h.y);
         // trot to within a stone's throw, then the slow creep
-        if (dh > 2.6) { e.state = dh > 6 ? 'roam' : 'stalk'; ECHO.Ent.seek(world, e, h.x, h.y, e.speed * (dh > 6 ? 0.55 : 0.32), dt, 0.1); return; }
+        if (dh > 2.6) { e.state = dh > 6 ? 'roam' : 'stalk'; if (dh > 6) ECHO.Ent.travel(world, e, h.x, h.y, e.speed * 0.55, dt); else ECHO.Ent.seek(world, e, h.x, h.y, e.speed * 0.32, dt, 0.1); return; }
         e.pounce = 0.3; e.pAng = Math.atan2(h.y - e.y, h.x - e.x); e.dir = e.pAng; e.state = 'lunge';
         return;
       }

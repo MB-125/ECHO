@@ -1782,6 +1782,33 @@
           }
         }
       }
+      // gutted houses: a soot shell and blackened beams through the roof
+      if (!R.ruinGroup) { R.ruinGroup = new THREE.Group(); R.scene.add(R.ruinGroup); R.ruinKey = ''; R.sootMat = new THREE.MeshStandardMaterial({ color: '#0e0a08', roughness: 1, transparent: true, opacity: 0.8, depthWrite: false }); R.beamMat = new THREE.MeshStandardMaterial({ color: '#0f0a07', roughness: 1 }); R.emberMat = new THREE.MeshBasicMaterial({ color: '#ff5a1a', transparent: true, opacity: 0.7 }); }
+      const pe = game.pe, ruins = [];
+      if (!room && pe) for (const s of game.world.settlements) { if (Math.abs(s.x - pe.x) > 70 || Math.abs(s.y - pe.y) > 70) continue; for (const b of s.buildings) if (b.gutted != null) ruins.push(b); }
+      const rk = ruins.map(b => b.x + ',' + b.y).join('|');
+      if (rk !== R.ruinKey) {
+        R.ruinKey = rk;
+        while (R.ruinGroup.children.length) { const o = R.ruinGroup.children[0]; R.ruinGroup.remove(o); if (o.geometry) o.geometry.dispose(); }
+        for (const b of ruins) {
+          const gy = R.groundH(b.x + b.w / 2, b.y + b.h / 2);
+          // soot up the walls, and the roof fallen in: a black, broken cap where it was
+          const shell = new THREE.Mesh(new THREE.BoxGeometry(b.w + 0.1, 2.75, b.h + 0.1), R.sootMat);
+          shell.position.set(b.x + b.w / 2, gy + 1.375, b.y + b.h / 2); R.ruinGroup.add(shell);
+          const cap = new THREE.Mesh(new THREE.ConeGeometry(0.75, 1, 4), R.beamMat);
+          cap.rotation.y = Math.PI / 4; cap.scale.set(b.w + 0.5, 1.15, b.h + 0.5);
+          cap.position.set(b.x + b.w / 2, gy + 2.6 + 0.55, b.y + b.h / 2); R.ruinGroup.add(cap);
+          const n = Math.max(3, Math.round(b.w * 1.3));
+          for (let i = 0; i < n; i++) {
+            const bh = 2.6 + (i % 3) * 0.5;
+            const beam = new THREE.Mesh(new THREE.BoxGeometry(0.22, bh, 0.22), R.beamMat);
+            beam.position.set(b.x + b.w * (i + 0.5) / n, gy + 2.6 + bh / 2, b.y + b.h * (0.35 + (i % 2) * 0.3));
+            beam.rotation.z = ((i * 37) % 7 - 3) * 0.08; beam.rotation.x = ((i * 53) % 5 - 2) * 0.1;
+            R.ruinGroup.add(beam);
+            if (i % 2 === 0) { const em = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), R.emberMat); em.position.set(beam.position.x, gy + 2.6 + bh * 0.9, beam.position.z); R.ruinGroup.add(em); }
+          }
+        }
+      }
       for (const m of R.townFire.children) {
         const u = m.userData, h = u.f.heat;
         const k = u.s0 * (0.3 + h * 0.75) * (1 + Math.sin(R.time * 11 + u.ph) * 0.18);
