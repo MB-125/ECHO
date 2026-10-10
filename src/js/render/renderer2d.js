@@ -666,6 +666,14 @@
       if (e.iframes > 0 && e === game.pe) ctx.globalAlpha = 0.55;
       if (e.type === 'ghost' || e.species === 'hind') { ctx.globalAlpha = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)); if (e.type === 'ghost') ctx.filter = 'grayscale(1) brightness(1.9) sepia(0.3) hue-rotate(170deg)'; }
       if (e.type === 'person' && e.dancing) ctx.translate(0, -Math.abs(Math.sin(game.time * 7 + e.id)) * 2);
+      // work and street life read as a rhythm in the sprite: the stroke of a hoe, a cheer, a bow of the head
+      if (e.type === 'person' && e.chore && !e.moving) {
+        const c = e.chore, ct = e.choreT || game.time;
+        if (c === 'hoe' || c === 'chop' || c === 'hammer') { const k = (ct / (c === 'hammer' ? 0.85 : 1.4)) % 1; ctx.translate(0, k < 0.6 ? -k * 2 : -(1 - k) * 3); }
+        else if (c === 'cheer') ctx.translate(0, -Math.abs(Math.sin(game.time * 9 + e.id)) * 2.5);
+        else if (c === 'gather' || c === 'mourn' || c === 'pray') ctx.translate(0, c === 'gather' ? 3 : 1);
+        else if (c === 'bucket' || c === 'sweep') ctx.translate(Math.sin(game.time * 5.5 + e.id) * 1.2, 0);
+      }
       if (e.swimming) ctx.translate(0, 10 + Math.sin(game.time * 3) * 0.6);
       if (e.inBoat && !e.dead && e.inBoat !== 'passenger') { ctx.save(); if (e.flip) ctx.scale(-1, 1); R.boat2d(ctx, e.inBoat === 'ferry' ? 'ferry' : 'row', e === game.pe && e.rowing, game.time); ctx.restore(); ctx.translate(0, 3); }
       const mountedHere = (e === game.pe && e.mounted && game.pl.horse) || (e !== game.pe && e.mounted && !e.dead);

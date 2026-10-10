@@ -84,7 +84,7 @@
       if (ECHO.Sfx) ECHO.Sfx.play('explode', { pitch: 1.2 - Math.min(0.5, R * 0.1) });
       if (U.dist(p.x, p.y, game.pe.x, game.pe.y) < 12) game.shake(Math.min(0.4, 0.12 + R * 0.06));
       game.light(p.x, p.y, R * 3 + 1, 0.9, '#ff9a3c', 0.25);
-      if (ECHO.Dilemmas) ECHO.Dilemmas.fireAt(p.x, p.y);
+      if (ECHO.Dilemmas) ECHO.Dilemmas.fireAt(p.x, p.y); if (ECHO.Town && !steam) ECHO.Town.fireAt(p.x, p.y, p.from);
       if (ECHO.Senses) ECHO.Senses.noise(game, p.x, p.y, 14, { kind: 'fight', by: p.from });
       for (const e of game.ents) {
         if (e.dead || e.hidden || e.ghost || e.dqScared) continue;

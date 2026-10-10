@@ -400,7 +400,10 @@
       if (e.indoor) return Person.indoorIdle(game, e, npc, dt);
       if (e.role === 'traveler' || e.role === 'soldier') return Person.followJourney(game, e, dt);
       if (e.role === 'bandit') return Person.campLife(game, e, npc, dt);
+      // the life of the town: talk, games, crowds, buckets, burials
+      if (ECHO.Town && ECHO.Town.think(game, e, npc, dt)) return;
       Person.routine(game, e, npc, dt);
+      if (ECHO.Town) ECHO.Town.work(game, e, npc, dt);
       Person.chatter(game, e, npc, dt);
     },
 

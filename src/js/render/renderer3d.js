@@ -1394,13 +1394,39 @@
       }
       if (e.yielded) { aL = -2.6; aR = -2.6; }
       if (e.dancing) { const ph2 = R.time * 7 + e.id; aL = -2.4 + Math.sin(ph2) * 0.4; aR = -2.4 - Math.sin(ph2) * 0.4; lean = Math.sin(ph2 * 0.5) * 0.12; }
+      // the work of the day, and the life of the street
+      const ch = e.chore && !e.dead && !(e.state === 'windup' || e.state === 'attack' || e.state === 'flee') && (!moving || e.chore === 'carry' || e.chore === 'support' || e.chore === 'limp') ? e.chore : null;
+      let choreY = 0, choreKneel = false;
+      if (ch) {
+        const ct = e.choreT || R.time, st = (k, lands) => { const p = (ct / k) % 1; return p < lands ? p / lands : 1 - (p - lands) / (1 - lands); };
+        switch (ch) {
+          case 'hoe': { const k = st(1.5, 0.62); aL = aR = U.lerp(-0.3, -2.7, 1 - Math.pow(1 - k, 2)); lean = U.lerp(0.35, -0.1, k); break; }
+          case 'chop': { const k = st(1.35, 0.6); aL = aR = U.lerp(-0.5, -3.0, k); twist = U.lerp(0.5, -0.2, k); lean = U.lerp(0.3, -0.15, k); break; }
+          case 'hammer': { const k = st(0.85, 0.55); aR = U.lerp(-0.9, -2.6, k); aL = -1.0; aLx = 0.3; lean = 0.15; break; }
+          case 'sweep': { const w = Math.sin(R.time * 5.7 + e.id); aL = aR = -0.85; aLx = 0.3; aRx = -0.3; twist = w * 0.55; lean = 0.18; break; }
+          case 'gather': { choreKneel = true; aR = -0.7 + Math.sin(R.time * 2.8 + e.id) * 0.35; aL = -0.4; break; }
+          case 'draw': { const k = st(3.2, 0.5); aL = aR = U.lerp(-0.9, -1.9, k); lean = 0.1; break; }
+          case 'pray': aL = aR = -1.15; aLx = 0.55; aRx = -0.55; lean = 0.12; break;
+          case 'read': aL = aR = -1.0; aLx = 0.45; aRx = -0.45; lean = 0.18; break;
+          case 'carry': aL = aR = -1.25; aLx = 0.35; aRx = -0.35; break;
+          case 'hawk': aR = -2.0 + Math.sin(R.time * 3 + e.id) * 0.5; aL = -0.6; break;
+          case 'talk': aR = -0.9 + Math.sin(R.time * 4.3 + e.id) * 0.35; aRx = Math.sin(R.time * 2.1) * 0.3; break;
+          case 'point': aR = -1.65; break;
+          case 'cheer': { const b = Math.sin(R.time * 9 + e.id); aL = -2.75 + b * 0.25; aR = -2.75 - b * 0.25; choreY = Math.abs(b) * 0.07; break; }
+          case 'mourn': aL = aR = -0.45; aLx = 0.3; aRx = -0.3; lean = 0.25; break;
+          case 'bucket': aL = aR = -1.35; aLx = 0.25; aRx = -0.25; twist = Math.sin(R.time * 5.5 + e.id) * 0.45; lean = 0.12; break;
+          case 'wait': aL = aR = -0.6; aLx = 0.2; aRx = -0.2; break;
+          case 'support': aL = -1.3; aLx = 0.9; break;
+          case 'limp': aR = -1.2; aRx = -0.9; lean = 0.22; break;
+        }
+      }
       if (e.type === 'ghost' && e.say && e.sayT > 0 && !e.kneel) { aR = -2.2; aL = -2.2; }
       if (e.role === 'captive') { aL = 0.4; aR = 0.4; }
       // Windups glint so you can read the attack coming.
       if (e.state === 'windup' && e !== game.pe) { lean = -0.18; v.tell = 1; } else v.tell = 0;
       const seated = (e.seated && !moving && e.indoor) || e.seatedGhost;
       if (seated) { P.legL.rotation.z = P.legR.rotation.z = -1.45; aL = aR = -0.45; }
-      if (e.kneel) { P.legL.rotation.z = -1.5; P.legR.rotation.z = 0.2; aL = aR = -0.3; }
+      if (e.kneel || choreKneel) { P.legL.rotation.z = -1.5; P.legR.rotation.z = 0.2; if (!choreKneel) aL = aR = -0.3; }
       P.armL.rotation.z = aL; P.armR.rotation.z = aR;
       P.armL.rotation.x = aLx; P.armR.rotation.x = aRx;
       P.body.position.y = 0.42 + Math.abs(Math.sin(ph)) * 0.04 * (v.mv || 0) + Math.sin(R.time * 2 + v.bob) * 0.006 * (1 - (v.mv || 0));
@@ -1452,7 +1478,8 @@
       v.inst.root.rotation.z = 0; v.yOff = 0;
       if (e.sleeping) { v.inst.root.rotation.z = Math.PI / 2; v.yOff = e.indoor && e.indoor.pose === 'bed' && !e.indoor.floor ? 0.62 : 0.18; }
       else if (e.yielded || e.role === 'captive') v.yOff = -0.18;
-      else if (e.kneel) v.yOff = -0.22;
+      else if (e.kneel || choreKneel) v.yOff = -0.22;
+      else if (choreY) v.yOff = choreY;
       else if (e.seatedGhost) v.yOff = 0.15;
       else if (e.dancing) v.yOff = Math.abs(Math.sin(R.time * 7 + e.id)) * 0.08;
       else if (seated) v.yOff = e.indoor.spot && /bench/.test(e.indoor.spot.tag) ? 0 : 0.02;
@@ -1728,8 +1755,39 @@
       R.scene.add(R.glows);
       R.festGroup = new THREE.Group(); R.scene.add(R.festGroup); R.festKey = ''; R.festFlames = [];
     },
+    // A house on fire: tongues of flame licking up over the roof, and a char on it
+    // when it's done.
+    updateTownFires(game, room) {
+      const T = ECHO.Town;
+      if (!T) return;
+      if (!R.townFire) { R.townFire = new THREE.Group(); R.scene.add(R.townFire); R.townFireMat = [new THREE.MeshBasicMaterial({ color: '#ff7a10', transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false }), new THREE.MeshBasicMaterial({ color: '#e8380a', transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false })]; R.townFireGeo = new THREE.ConeGeometry(0.32, 1.3, 6); R.townFireGeo.translate(0, 0.65, 0); R.townFireKey = ''; }
+      const live = room ? [] : T.fires.filter(f => !f.done);
+      const key = live.map(f => f.b.x + ',' + f.b.y).join('|');
+      if (key !== R.townFireKey) {
+        R.townFireKey = key;
+        while (R.townFire.children.length) R.townFire.remove(R.townFire.children[0]);
+        for (const f of live) {
+          const b = f.b, n = Math.max(6, Math.round(b.w * b.h * 1.4));
+          for (let i = 0; i < n; i++) {
+            const m = new THREE.Mesh(R.townFireGeo, R.townFireMat[i % 2]);
+            const x = b.x + 0.3 + Math.random() * (b.w - 0.6), y = b.y + 0.3 + Math.random() * (b.h - 0.6);
+            // on the slope of the roof: higher toward the ridge
+            const ridge = 1 - Math.abs((y - b.y) / b.h - 0.5) * 2;
+            m.position.set(x, R.groundH(b.x + b.w / 2, b.y + b.h / 2) + 2.5 + ridge * 0.9, y);
+            m.userData = { ph: Math.random() * 7, f, s0: 0.4 + Math.random() * 0.45 };
+            R.townFire.add(m);
+          }
+        }
+      }
+      for (const m of R.townFire.children) {
+        const u = m.userData, h = u.f.heat;
+        const k = u.s0 * (0.3 + h * 0.75) * (1 + Math.sin(R.time * 11 + u.ph) * 0.18);
+        m.scale.set(k * 0.9, k * (1.1 + Math.sin(R.time * 7.3 + u.ph) * 0.25), k * 0.9);
+        m.visible = h > 0.03;
+      }
+    },
     updateGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : [], ECHO.Town ? ECHO.Town.glows : []);
       const ga = R.glows.geometry.attributes;
       const n = Math.min(list.length, ga.size.count);
       const tmp = R._gc || (R._gc = new THREE.Color());
@@ -2152,6 +2210,7 @@
       R.updateEntities(game, dt);
       R.updateFx(game, dt);
       R.updateGlows(game);
+      R.updateTownFires(game, room);
       if (!room) R.updateFestival(game); else if (R.festGroup) R.festGroup.visible = false;
       if (room) R.updateInteriorLighting(game, room); else R.updateLighting(game, dt);
       R.renderer.render(R.scene, R.camera);

@@ -128,7 +128,9 @@
     gossipLine(world, e, sd) {
       let t = e.text.replace(/\.$/, '');
       if (t.length > 70) t = t.slice(0, 67).replace(/\s+\S*$/, '') + '…';
-      return pick(['Did you hear? ', 'They say ', 'Word is, ', 'Heard at the well: '], sd) + t.charAt(0).toLowerCase() + t.slice(1);
+      // lower-case a plain opening word ("The…", "A…"), never a name
+      const plain = /^(The|A|An|By|In|On|At|Some|Work|Two|Three|Four|Several|After|Before|There|Bandits|Wolves|Raiders|Thieves|Fire|Plague|Fever|Word)\b/.test(t);
+      return pick(['Did you hear? ', 'They say ', 'Word is, ', 'Heard at the well: '], sd) + (plain ? t.charAt(0).toLowerCase() + t.slice(1) : t);
     },
 
     // ---- Topics
