@@ -744,7 +744,7 @@
         const d = U.dist(s.x, s.y, pe.x, pe.y);
         if (d > 2.6) continue;
         if (s.cat === 'delve' && s.kind === 'riftdeep' && !(world.story && world.story.ch === 5 && !world.story.kingSlain)) continue;
-        if (s.cat === 'delve') { X().refill(world, s); const fl = X().floors(s); out.push({ kind: 'act', label: `${s.secret ? 'Explore' : 'Enter'} ${s.name} — ${X().stars(s.level ? s : (X().level(world, s), s))}${fl > 1 ? ' · ' + fl + ' floors' : ''}${s.cleared ? (s.clearedBy ? ` (emptied by ${s.clearedBy} — quiet for now)` : ' (quiet now)') : ''}`, d: d * 0.5, act: () => Q.enterDelve(game, s) }); }
+        if (s.cat === 'delve') { X().refill(world, s); const fl = X().floors(s); out.push({ kind: 'act', label: `${s.secret ? 'Explore' : 'Enter'} ${s.name} — ${X().stars(s.level ? s : (X().level(world, s), s))}${fl > 1 ? ' · ' + fl + ' floors' : ''}${s.cleared ? (s.clearedBy ? ` (emptied by ${s.clearedBy} — quiet for now)` : ' (quiet now)') : ''}`, d: d * 0.5, act: () => Q.chooseFloor(game, s) }); }
         else {
           const label = { stones: 'Read the standing stones', lookout: 'Look out over the land', moonwell: 'Drink from the moonwell', oak: 'Rest beneath the great oak', battlefield: 'Search the battlefield', wayshrine: 'Pray at the wayside shrine', wreck: 'Search the wreck',
             falls: 'Stand beneath the falls', springs: 'Soak in the springs', grotto: 'Work a crystal free', bones: 'Study the bones', crater: 'Search the crater', ring: 'Step into the ring and make a wish' }[s.kind];
@@ -762,7 +762,28 @@
       }
       return out;
     },
+    // The deepest floor open to you: where you have set foot, or one below a floor you cleared.
+    reached(site) {
+      let r = site.reached || 0;
+      for (const k of Object.keys(site.floorsDone || {})) r = Math.max(r, +k + 1);
+      return Math.min(r, X().floors(site) - 1);
+    },
+    // At the entrance of a place you have been deep in: choose the floor to start on.
+    chooseFloor(game, site) {
+      const world = game.world;
+      X().level(world, site);
+      const top = Q.reached(site), fl = X().floors(site), done = site.floorsDone || {};
+      if (top <= 0) return Q.enterDelve(game, site, 0);
+      const choices = [];
+      for (let d = 0; d <= top; d++) {
+        const cleared = done[d] != null || (site.cleared && d === fl - 1);
+        choices.push({ label: `${d === fl - 1 ? 'The deepest floor' : 'Floor ' + (d + 1)} · Lv ${X().floorLevel(site, d)}${cleared ? ' · cleared ✓' : d === top ? ' · where you got to' : ''}`, onPick: () => Q.enterDelve(game, site, d) });
+      }
+      choices.push({ label: 'Not now', onPick: () => {} });
+      UI().modal({ title: U.cap(site.name), html: `<p>${fl} floors, Lv ${X().floorLevel(site, 0)} at the top to Lv ${X().floorLevel(site, fl - 1)} at the bottom. You have been down to ${top === fl - 1 ? 'the deepest floor' : 'floor ' + (top + 1)}. Which floor do you go down to?</p>`, choices });
+    },
     enterDelve(game, site, depth = 0) {
+      site.reached = Math.max(site.reached || 0, depth);
       const s = ECHO.World.nearestSettlement(game.world, site.x, site.y) || game.world.settlements[0];
       ECHO.Interior.enter(game, Q.delveBuilding(site, s, depth), s);
     },
