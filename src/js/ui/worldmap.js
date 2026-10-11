@@ -83,10 +83,10 @@
       for (const site of ECHO.Explore.sites(world)) {
         if (!site.found && !site.seen) continue;
         if (site.cat === 'delve') {
-          const L = ECHO.Explore.level(world, site), fl = ECHO.Explore.floors(site), done = Math.min(fl, Object.keys(site.floorsDone || {}).length);
+          const told = site.found || site.starter, L = ECHO.Explore.level(world, site), fl = ECHO.Explore.floors(site), done = Math.min(fl, Object.keys(site.floorsDone || {}).length);
           const D = Pw ? Pw.diff(L, me) : { color: '#e0a070', word: '' };
-          out.push({ layer: 'dungeons', kind: site.cleared ? 'dungeon-cleared' : site.found ? 'dungeon' : 'dungeon-unknown', x: site.x, y: site.y, name: site.found ? site.name : 'An uncharted dungeon', color: site.cleared ? '#9a9080' : site.found ? D.color : '#a89c88', pri: 10, ref: site,
-            stars: site.found ? ECHO.Explore.stars(site) : '?', sub: !site.found ? 'A way down, glimpsed from afar' : `${ECHO.Explore.label(site)} · ${ECHO.Explore.stars(site)} · ${fl} floor${fl > 1 ? 's' : ''}${site.cleared ? ' · cleared' : done ? ` · ${done}/${fl} floors cleared` : ''}`, diff: site.cleared ? 'Cleared — it will fill again in time' : site.found ? `${D.word} for you (monsters about level ${L}–${L + Math.floor((fl - 1) / 2) + 1})` : 'Seen from afar. Go closer to learn more.' });
+          out.push({ layer: 'dungeons', kind: site.cleared ? 'dungeon-cleared' : told ? 'dungeon' : 'dungeon-unknown', x: site.x, y: site.y, name: told ? site.name : 'An uncharted dungeon', color: site.cleared ? '#9a9080' : told ? D.color : '#a89c88', pri: 10, ref: site,
+            stars: told ? ECHO.Explore.stars(site) : '?', sub: !told ? 'A way down, glimpsed from afar' : `${ECHO.Explore.label(site)} · ${ECHO.Explore.stars(site)} · ${fl} floor${fl > 1 ? 's' : ''}${site.cleared ? ' · cleared' : done ? ` · ${done}/${fl} floors cleared` : ''}`, diff: site.cleared ? 'Cleared — it will fill again in time' : site.found ? `${D.word} for you (monsters about level ${L}–${L + Math.floor((fl - 1) / 2) + 1})` : 'Seen from afar. Go closer to learn more.' });
         } else if (site.cat === 'wonder') out.push({ layer: 'wonders', kind: 'wonder', x: site.x, y: site.y, name: site.found ? site.name : 'Something strange', color: '#ffd38a', pri: 5, ref: site, sub: site.found ? 'A wonder of the wild' : 'Seen from afar' });
         else out.push({ layer: 'places', kind: 'landmark', x: site.x, y: site.y, name: site.found ? site.name : 'A landmark', color: '#a8e0c0', pri: 4, ref: site, sub: site.found ? ECHO.Explore.label(site) : 'Seen from afar' });
       }

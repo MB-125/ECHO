@@ -607,6 +607,20 @@ function main() {
     check('travel reaches the new villages', B2.journeys.some(j => fresh.some(s => s.id === j.to || s.id === j.from)) || B2.chronicle.some(e => fresh.some(s => e.text.includes(s.name))));
   }
 
+  {
+    // every old town has a gentle cave within reach, added once to old saves too
+    const W = ECHO.generateWorld({ seed: 4242, name: 'Starter' }), X = ECHO.Explore;
+    delete W._starter; W.sites = W.sites.filter(s => !s.starter);
+    const before = X.sites(W).length;
+    const n1 = W.sites.filter(s => s.starter).length;
+    X.sites(W); const n2 = W.sites.filter(s => s.starter).length;
+    const towns = W.settlements.filter(t => !t.frontier && t.kind !== 'ashfang');
+    const near = towns.every(t => W.sites.some(s => s.cat === 'delve' && X.level(W, s) <= 3 && U0(s, t) <= 40));
+    function U0(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+    const walk = W.sites.filter(s => s.starter).every(s => !ECHO.Solids || !ECHO.World.isBlocked || !ECHO.World.isBlocked(W, s.x, s.y));
+    check('every old town has a gentle cave nearby', n1 > 0 && n1 === n2 && near && walk && before >= n1, `${n1} starter caves`);
+  }
+
   console.log(`\n${passes} passed, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 }

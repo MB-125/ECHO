@@ -54,6 +54,8 @@
     dungeons(world) { return X().sites(world).filter(s => s.cat === 'delve'); },
     // The dungeon worth going to next: known, not cleared, near your strength, not far.
     suggestDungeon(world, pl) {
+      const fit = G.forYou(world, pl, 1)[0];
+      if (fit && !fit.s.cleared) return fit.s;
       const p = G.power(world, pl);
       let best = null, bs = -Infinity;
       for (const s of G.dungeons(world)) {
@@ -61,6 +63,39 @@
         const lv = X().level(world, s), d = U.dist(s.x, s.y, pl.x, pl.y);
         const sc = -Math.abs(lv - p) * 40 - (lv > p + 1 ? 200 : 0) - d * 0.5 + (s.found || s.seen ? 30 : 0);
         if (sc > bs) { bs = sc; best = s; }
+      }
+      return best;
+    },
+
+    // Dungeons with a floor that suits you: the floor whose foes are nearest your
+    // strength (a little below is better than above), near ones first.
+    forYou(world, pl, n) {
+      const p = G.power(world, pl), out = [];
+      for (const s of G.dungeons(world)) {
+        X().level(world, s);
+        if (s.cleared && X().refill) X().refill(world, s);
+        const nf = X().floors(s);
+        let bf = 0, bd = Infinity;
+        for (let f = 0; f < nf; f++) {
+          const fl = X().floorLevel(s, f), dd = fl > p ? (fl - p) * 1.6 : p - fl;
+          if (dd < bd) { bd = dd; bf = f; }
+        }
+        const fl = X().floorLevel(s, bf);
+        if (fl > p + 3 || fl < p - 8) continue;
+        const d = U.dist(s.x, s.y, pl.x, pl.y);
+        out.push({ s, f: bf, fl, d, sc: bd * 12 + d * 0.15 + (s.found || s.seen ? 0 : 6) + (s.cleared ? 60 : 0) });
+      }
+      return out.sort((a, b) => a.sc - b.sc).slice(0, n || 6);
+    },
+    // When nothing suits: which way the easier (or harder) dungeons lie.
+    nearestBand(world, pl, want) {
+      let best = null, bd = Infinity;
+      for (const s of G.dungeons(world)) {
+        X().level(world, s);
+        const lo = X().floorLevel(s, 0), hi = X().floorLevel(s, X().floors(s) - 1);
+        const gap = want < lo ? lo - want : want > hi ? want - hi : 0;
+        const sc = gap * 40 + U.dist(s.x, s.y, pl.x, pl.y);
+        if (sc < bd) { bd = sc; best = s; }
       }
       return best;
     },
@@ -92,9 +127,10 @@
       // a dungeon to go to
       const d = G.suggestDungeon(world, pl);
       if (d) {
-        const lv = X().level(world, d), p = G.power(world, pl);
+        const p = G.power(world, pl), fit = G.forYou(world, pl, 99).find(o => o.s === d);
+        const lv = fit ? fit.fl : X().level(world, d);
         const known = d.found || d.seen;
-        add('▼', `${known ? `<b>${esc(d.name)}</b>` : 'An uncharted dungeon'} ${known ? '' : 'lies '}${esc(ECHO.Purpose.dirTo(world, pl, d))}, ${Math.round(U.dist(d.x, d.y, pl.x, pl.y))} leagues — ${X().stars(d)} ${X().floors(d)} floor${X().floors(d) > 1 ? 's' : ''}${lv > p ? ' <span class="ember">(harder than you are ready for)</span>' : lv < p - 1 ? ' <span class="dim">(easy for you now)</span>' : ' <span class="gold">(about your strength)</span>'}.`, { track: 'site:' + d.id, label: pl.tracked === 'site:' + d.id ? 'Stop guiding' : 'Guide me there' });
+        add('▼', `${known ? `<b>${esc(d.name)}</b>` : 'An uncharted dungeon'} ${known ? '' : 'lies '}${esc(ECHO.Purpose.dirTo(world, pl, d))}, ${Math.round(U.dist(d.x, d.y, pl.x, pl.y))} leagues — ${X().stars(d)} ${X().floors(d)} floor${X().floors(d) > 1 ? 's' : ''}${fit && fit.f > 0 ? `, floor ${fit.f + 1} is Lv ${fit.fl}` : ''}${lv > p ? ' <span class="ember">(harder than you are ready for)</span>' : lv < p - 1 ? ' <span class="dim">(easy for you now)</span>' : ' <span class="gold">(about your strength)</span>'}.`, { track: 'site:' + d.id, label: pl.tracked === 'site:' + d.id ? 'Stop guiding' : 'Guide me there' });
       }
       if (!pl.horse && pl.gold >= 120) add('🐎', 'You can afford a horse. Markets have stables; press <b>V</b> to ride — far faster on the roads.');
       if (!(pl.bounties || []).some(b => !b.done)) add('📜', 'Notice boards post three <b>bounties</b> a day — kill so many of a monster, an elite, a lord — paid the moment you finish.');
@@ -121,6 +157,22 @@
       // ---- suggestions
       const sug = G.suggestions(game);
       if (sug.length) html += `<h3 class="gold">What would help</h3><div class="list">${sug.map(s => `<div class="card guide-tip"><span class="gi">${s.icon}</span><div>${s.html}${s.btn ? `<div class="row"><button class="small" data-track="${esc(s.btn.track)}">${esc(s.btn.label)}</button></div>` : ''}</div></div>`).join('')}</div>`;
+      // ---- dungeons for your level
+      {
+        const p = G.power(world, pl), fit = G.forYou(world, pl, 6);
+        html += `<h3 class="gold">Dungeons for your level <span class="dim">(your strength: Lv ${p})</span></h3>`;
+        if (fit.length) {
+          html += `<table class="grid"><tr><th>Dungeon</th><th>Best floor</th><th>All floors</th><th>Where</th><th></th></tr>${fit.map(({ s, f, fl, d }) => {
+            const known = s.found || s.seen, top = ECHO.Quests && ECHO.Quests.reached ? ECHO.Quests.reached(s) : 0;
+            const how = f === 0 ? 'the first floor' : f <= top ? 'pick it at the door' : `go down from floor ${top + 1}`;
+            const col = fl > p + 1 ? 'ember' : fl < p - 3 ? 'dim' : 'gold';
+            return `<tr><td><b>${known ? esc(s.name) : 'An uncharted ' + esc(X().label(s).toLowerCase())}</b><div class="dim" style="font-size:12px">${known ? esc(X().label(s)) : 'not yet found — the arrow will lead you'}${s.cleared ? ' · emptied — quiet for now, fills again in time' : ''}</div></td><td><span class="${col}">Floor ${f + 1} · Lv ${fl}</span><div class="dim" style="font-size:12px">${how}</div></td><td class="dim">${X().stars(s)}</td><td class="dim">${Math.round(d)} lg ${esc(ECHO.Purpose.dirTo(world, pl, s).replace('to the ', ''))}</td><td><button class="small" data-track="site:${s.id}">${pl.tracked === 'site:' + s.id ? 'Stop' : 'Guide me there'}</button></td></tr>`;
+          }).join('')}</table><p class="dim" style="font-size:13px">Dungeons near the old towns are gentle; the further into the wild, the deadlier. Each floor down is stronger than the one above, so a dungeon above your level may still have a first floor that suits you.</p>`;
+        } else {
+          const lo = G.nearestBand(world, pl, p);
+          html += `<p class="dim">No dungeon has a floor near your strength.${lo ? ` The closest match is <b>${esc((lo.found || lo.seen) ? lo.name : 'an uncharted ' + X().label(lo).toLowerCase())}</b> (${X().stars(lo)}), ${Math.round(U.dist(lo.x, lo.y, pl.x, pl.y))} leagues ${esc(ECHO.Purpose.dirTo(world, pl, lo))}.` : ''}</p>${lo ? `<div class="row"><button class="small" data-track="site:${lo.id}">Guide me there</button></div>` : ''}`;
+        }
+      }
       // ---- dungeons
       const all = G.dungeons(world), known = all.filter(s => s.found || s.seen).sort((a, b) => U.dist(a.x, a.y, pl.x, pl.y) - U.dist(b.x, b.y, pl.x, pl.y));
       html += `<h3 class="gold">Dungeons you know <span class="dim">(${known.length} of ${all.length})</span></h3>`;

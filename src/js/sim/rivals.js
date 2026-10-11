@@ -33,7 +33,7 @@
         if (!n || n.status !== 'alive') { r.alive = false; continue; }
         if (!rng.chance(0.03)) continue;
         // pick a dungeon at about their strength that no one has cleared
-        const sites = ECHO.Explore.sites(world).filter(s => s.cat === 'delve' && s.kind !== 'riftdeep' && !s.cleared && ECHO.Explore.level(world, s) <= r.lv + 1);
+        const sites = ECHO.Explore.sites(world).filter(s => s.cat === 'delve' && s.kind !== 'riftdeep' && !s.starter && !s.cleared && ECHO.Explore.level(world, s) <= r.lv + 1);
         if (!sites.length) continue;
         const s = sites[rng.int(0, sites.length - 1)];
         if (pl && ECHO.Game && ECHO.Interior && ECHO.Interior.cur && ECHO.Interior.cur.site === s) continue;

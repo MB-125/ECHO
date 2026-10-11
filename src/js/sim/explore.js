@@ -48,6 +48,7 @@
       if (!world._wild && ECHO.Discover) ECHO.Discover.ensure(world);
       if (!world._dng) X.placeDungeons(world);
       if (!world._lv2) { world._lv2 = 1; for (const s of world.sites) if (s.cat === 'delve') X.level(world, s); }
+      if (!world._starter) X.starters(world);
       return world.sites;
     },
     place(world) {
@@ -130,6 +131,36 @@
       world._tileEpoch = (world._tileEpoch || 0) + 1;
     },
     // How dangerous a delve is: deeper into the wilds, away from the capitals, the worse it gets.
+    // Every town of the old land gets a gentle cave within a short walk (level 1–3),
+    // so a new adventurer always has somewhere to start. Added once, old worlds too.
+    starters(world) {
+      world._starter = 1;
+      const T = ECHO.TILE, rng = new RNG((world.seed ^ 0x57a7) >>> 0);
+      const sites = world.sites;
+      const OK = [T.GRASS, T.FOREST, T.HILL];
+      let i = 0;
+      for (const t of world.settlements) {
+        if (t.frontier || t.faction === 'ashfang') continue;
+        if (sites.some(s => s.cat === 'delve' && (s.level || 99) <= 3 && U.dist(s.x, s.y, t.x, t.y) < 40)) continue;
+        let spot = null;
+        for (let k = 0; k < 400 && !spot; k++) {
+          const a = rng.next() * Math.PI * 2, d = rng.range(13, 28);
+          const x = Math.round(t.x + Math.cos(a) * d), y = Math.round(t.y + Math.sin(a) * d);
+          if (!OK.includes(ECHO.World.tile(world, x, y)) || ECHO.World.isSolid(world, x + 0.5, y + 0.5)) continue;
+          if (world.settlements.some(o => U.dist(o.x, o.y, x, y) < 11) || sites.some(o => U.dist(o.x, o.y, x, y) < 9) || world.lairs.some(l => U.dist(l.x, l.y, x, y) < 12) || world.camps.some(c => U.dist(c.x, c.y, x, y) < 10)) continue;
+          let wet = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (ECHO.World.isSolid(world, x + dx + 0.5, y + dy + 0.5)) wet++;
+          if (wet > 2) continue;
+          spot = { x, y };
+        }
+        if (!spot) continue;
+        const kind = i % 2 ? 'cave' : 'grot';
+        const site = { id: 'site' + sites.length, cat: 'delve', kind, name: `${kind === 'cave' ? 'the fox earth' : 'the shallow cave'} by ${t.name}`, x: spot.x + 0.5, y: spot.y + 0.5, found: false, seen: true, cleared: false, used: {}, level: 1 + (i % 3), lv2: 1, starter: true };
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (ECHO.World.tile(world, spot.x + dx, spot.y + dy) === T.TREE) ECHO.World.setTile(world, spot.x + dx, spot.y + dy, T.FOREST);
+        sites.push(site); i++;
+      }
+      ECHO.World.rebuildBlocked(world);
+      world._tileEpoch = (world._tileEpoch || 0) + 1;
+    },
     // How dangerous a delve is: the further from the old capitals, the worse.
     // The old island's run from 1 to the teens; out past the old shores, the
     // land grows deadlier the further you go, up to level 150.
