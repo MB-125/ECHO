@@ -166,7 +166,7 @@
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
       Game.saveTimer += dt;
-      if (Game.saveTimer > 180) { Game.saveTimer = 0; Game.save(); }
+      if (Game.saveTimer > 60) { Game.saveTimer = 0; Game.save(); }
       // Camera
       const k = Math.min(1, dt * 8);
       Game.cam.x = U.lerp(Game.cam.x, Game.pe.x, k);

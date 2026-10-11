@@ -12,7 +12,11 @@
     ECHO.Game.running = true;
     ECHO.Game.lastFrame = performance.now();
     requestAnimationFrame(ECHO.Game.loop);
-    window.addEventListener('beforeunload', () => { if (ECHO.Game.world) ECHO.Game.save(); });
+    // Save whenever the page might go away: closed, reloaded, replaced by a newer version, or hidden.
+    const saveNow = () => { try { if (ECHO.Game.world && !ECHO.UI.screenOpen) ECHO.Game.save(); } catch (e) { console.error(e); } };
+    window.addEventListener('beforeunload', saveNow);
+    window.addEventListener('pagehide', saveNow);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(); });
     if (window.echoNative && window.echoNative.onBeforeClose) {
       window.echoNative.onBeforeClose(async () => {
         try { if (ECHO.Game.world) await ECHO.Game.save(); } catch (e) { console.error(e); }

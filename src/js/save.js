@@ -32,7 +32,40 @@
     return out;
   }
 
+  // IndexedDB: room for big worlds (localStorage holds about 5 MB, and a grown
+  // world can outgrow it). Every save goes to both; whichever copy is newer wins.
+  const IDB = {
+    db: null,
+    open() {
+      if (IDB.db) return Promise.resolve(IDB.db);
+      if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+      return new Promise(res => {
+        try {
+          const rq = indexedDB.open('echo-worlds', 1);
+          rq.onupgradeneeded = () => { const d = rq.result; if (!d.objectStoreNames.contains('worlds')) d.createObjectStore('worlds'); };
+          rq.onsuccess = () => { IDB.db = rq.result; res(IDB.db); };
+          rq.onerror = rq.onblocked = () => res(null);
+        } catch (e) { res(null); }
+      });
+    },
+    async op(mode, fn) {
+      const d = await IDB.open(); if (!d) return null;
+      return new Promise(res => {
+        try {
+          const tx = d.transaction('worlds', mode), st = tx.objectStore('worlds');
+          const rq = fn(st);
+          tx.oncomplete = () => res(rq ? rq.result : true); tx.onerror = tx.onabort = () => res(null);
+        } catch (e) { res(null); }
+      });
+    },
+    put(id, json, meta) { return IDB.op('readwrite', st => st.put({ json, meta }, id)); },
+    get(id) { return IDB.op('readonly', st => st.get(id)); },
+    all() { return IDB.op('readonly', st => st.getAll()); },
+    del(id) { return IDB.op('readwrite', st => st.delete(id)); }
+  };
+
   const S = ECHO.Save = {
+    IDB,
     serialize(world) {
       const out = {};
       for (const k of Object.keys(world)) {
@@ -71,32 +104,41 @@
     },
     async list() {
       if (typeof window !== 'undefined' && window.echoNative) return window.echoNative.listWorlds();
-      const out = [];
+      const by = {};
+      const add = m => { if (m && m.id && (!by[m.id] || (m.savedAt || 0) > (by[m.id].savedAt || 0))) by[m.id] = m; };
       try {
-        if (typeof localStorage === 'undefined') return out;
-        for (let i = 0; i < localStorage.length; i++) {
+        if (typeof localStorage !== 'undefined') for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
-          if (k && k.startsWith('echo.meta.')) { try { out.push(JSON.parse(localStorage.getItem(k))); } catch (e) { /* skip */ } }
+          if (k && k.startsWith('echo.meta.')) { try { add(JSON.parse(localStorage.getItem(k))); } catch (e) { /* skip */ } }
         }
       } catch (e) { S.storageBlocked = true; }
-      return out;
+      const rows = await IDB.all();
+      if (rows) for (const r of rows) add(r && r.meta);
+      return Object.values(by);
     },
     async save(world) {
       const json = S.serialize(world);
       const meta = S.meta(world);
       if (typeof window !== 'undefined' && window.echoNative) { await window.echoNative.saveWorld(world.id, json, meta); return true; }
+      // localStorage first: it is written at once, even as the page closes
+      let ls = false;
       try {
         localStorage.setItem('echo.world.' + world.id, json);
         localStorage.setItem('echo.meta.' + world.id, JSON.stringify(meta));
-        return true;
+        ls = true;
       } catch (e) {
-        console.warn('save failed', e);
-        if (!S._warned && typeof ECHO.UI !== 'undefined' && ECHO.UI.toast) {
-          S._warned = true;
-          ECHO.UI.toast('This browser would not save the world (storage is full or blocked). Use Export world on the title screen to keep a copy.', 'warn', 10);
-        }
-        return false;
+        // too big for localStorage: drop the old copy there, so it can never be mistaken for the newest
+        try { localStorage.removeItem('echo.world.' + world.id); localStorage.setItem('echo.meta.' + world.id, JSON.stringify({ ...meta, inIdb: true })); } catch (e2) { /* blocked */ }
       }
+      const idb = await IDB.put(world.id, json, meta);
+      S.lastSaved = Date.now();
+      if (ls || idb) return true;
+      console.warn('save failed');
+      if (!S._warned && typeof ECHO.UI !== 'undefined' && ECHO.UI.toast) {
+        S._warned = true;
+        ECHO.UI.toast('This browser would not save the world (storage is full or blocked). Use Export world on the title screen to keep a copy.', 'warn', 10);
+      }
+      return false;
     },
     // A portable copy of a whole world, for backup or moving between browsers.
     exportText(world) {
@@ -112,10 +154,18 @@
       return world;
     },
     async load(id) {
-      let json = null;
-      if (typeof window !== 'undefined' && window.echoNative) json = await window.echoNative.loadWorld(id);
-      else { try { json = localStorage.getItem('echo.world.' + id); } catch (e) { json = null; } }
-      try { return json ? S.deserialize(json) : null; } catch (e) { console.error(e); return null; }
+      if (typeof window !== 'undefined' && window.echoNative) {
+        const json = await window.echoNative.loadWorld(id);
+        try { return json ? S.deserialize(json) : null; } catch (e) { console.error(e); return null; }
+      }
+      // both copies, newest first; a damaged one falls back to the other
+      const cands = [];
+      try { const j = localStorage.getItem('echo.world.' + id); if (j) { let m = null; try { m = JSON.parse(localStorage.getItem('echo.meta.' + id)); } catch (e) { /* none */ } cands.push({ json: j, at: (m && m.savedAt) || 0 }); } } catch (e) { /* blocked */ }
+      const r = await IDB.get(id);
+      if (r && r.json) cands.push({ json: r.json, at: (r.meta && r.meta.savedAt) || 0 });
+      cands.sort((a, b) => b.at - a.at);
+      for (const c of cands) { try { return S.deserialize(c.json); } catch (e) { console.error(e); } }
+      return null;
     },
     async remove(id) {
       if (typeof window !== 'undefined' && window.echoNative) return window.echoNative.deleteWorld(id);
@@ -123,6 +173,7 @@
         localStorage.removeItem('echo.world.' + id);
         localStorage.removeItem('echo.meta.' + id);
       } catch (e) { /* storage blocked */ }
+      await IDB.del(id);
     }
   };
 })();

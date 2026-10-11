@@ -245,7 +245,7 @@ A see-through controls card sits on the left of the screen while you play (it di
 
 A gamepad works too; the mapping is in the Esc menu.
 
-Worlds are saved automatically (each in-game day and every few minutes) to your user data folder, one file per world. They never reset.
+Worlds are saved automatically (each in-game day, every minute of play, and whenever the window is closed, reloaded or hidden) to your user data folder, one file per world. In the browser version they are kept in the browser's storage: in localStorage and in IndexedDB, which has room for worlds that have grown large, and the newest copy is loaded. Updating the game never resets a world: old saves load into new versions, and anything new (dungeon levels and floors, cave sites, grown land) is added to the world you already have. Use Export world on the title screen to keep a backup file.
 
 ## Build installers yourself
 
