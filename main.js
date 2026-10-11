@@ -120,16 +120,21 @@ ipcMain.handle('worlds:list', () => {
 
 ipcMain.handle('worlds:load', (_e, id) => {
   const file = path.join(WORLDS_DIR(), safeId(id) + '.json');
-  if (!fs.existsSync(file)) return null;
-  return fs.readFileSync(file, 'utf8');
+  for (const f of [file, file + '.bak']) {
+    if (!fs.existsSync(f)) continue;
+    const text = fs.readFileSync(f, 'utf8');
+    try { JSON.parse(text); return text; } catch (e) { /* damaged: try the backup */ }
+  }
+  return null;
 });
 
 ipcMain.handle('worlds:save', (_e, id, json, meta) => {
   const dir = WORLDS_DIR();
   ensureDir(dir);
   const base = path.join(dir, safeId(id));
-  // Write to temp then rename so a crash never corrupts a world.
+  // Write to temp then rename so a crash never corrupts a world; the save before it is kept as .bak.
   fs.writeFileSync(base + '.json.tmp', json, 'utf8');
+  try { if (fs.existsSync(base + '.json')) fs.copyFileSync(base + '.json', base + '.json.bak'); } catch (e) { /* backup optional */ }
   fs.renameSync(base + '.json.tmp', base + '.json');
   fs.writeFileSync(base + '.meta.json', JSON.stringify(meta), 'utf8');
   return true;
@@ -137,7 +142,7 @@ ipcMain.handle('worlds:save', (_e, id, json, meta) => {
 
 ipcMain.handle('worlds:delete', (_e, id) => {
   const base = path.join(WORLDS_DIR(), safeId(id));
-  for (const f of [base + '.json', base + '.meta.json']) {
+  for (const f of [base + '.json', base + '.meta.json', base + '.json.bak']) {
     if (fs.existsSync(f)) fs.unlinkSync(f);
   }
   return true;

@@ -1,8 +1,8 @@
 {
   "name": "echo-living-realm",
   "productName": "ECHO",
-  "version": "0.1.0",
-  "description": "ECHO \u2014 The Living Realm. A world that existed before you, continues without you, and remembers what you do.",
+  "version": "0.2.0",
+  "description": "ECHO — The Living Realm. A world that existed before you, continues without you, and remembers what you do.",
   "main": "main.js",
   "author": "Merveille <MB-125@users.noreply.github.com>",
   "license": "MIT",
@@ -23,7 +23,7 @@
   "build": {
     "appId": "com.mb125.echo",
     "productName": "ECHO",
-    "copyright": "ECHO \u2014 The Living Realm",
+    "copyright": "ECHO — The Living Realm",
     "directories": {
       "output": "release",
       "buildResources": "build"

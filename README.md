@@ -210,6 +210,8 @@ On your first crossing a sandbar rises across the strait so you can walk over. T
 | macOS | `ECHO-x.y.z.dmg` / `ECHO-x.y.z-arm64.dmg` — unsigned: right-click → *Open* the first time |
 | Linux | `ECHO-x.y.z.AppImage` (chmod +x) or `.deb` |
 
+**Bring your browser world to the desktop app:** on the browser version's title screen choose *Export world* (a `.echo.json` file is saved), then on the desktop app's title screen choose *Import world* and pick that file. The desktop app keeps each world as a file in your user data folder, with the previous save kept beside it as a `.bak`.
+
 **From source** (Node 18+):
 
 ```bash
