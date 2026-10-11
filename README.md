@@ -137,13 +137,13 @@ Leave your horse and it waits where you left it, grazing, flicking its ears and 
 
 **No classes.** You become what you repeatedly do. Eight skills grow by use, and your *tendencies* change how your body fights: aggression quickens your strikes but thins your guard; patience makes guarding cheap; reckless overcasting makes fire mighty and unstable. Your title is a biography of how you played.
 
-**Death makes stories.** Beasts leave you to be found by a named villager, and each fall wears your fate thinner. They carry you to a town with a dungeon of your level close by (if one exists), the waking screen names it with its best floor, and **Get up and head for it** sets the arrow; if you fell below ground, they count from the dungeon's door. People take you captive, take your sword, and rise in status for it — you might meet them later as a chieftain carrying your blade. Escape, pay a ransom, or wait for rescue, and come back to a world that moved on without you.
+**Death makes stories.** Your hero never dies for good unless you choose that: each fall wears your fate thinner and costs a few days and some coin, but you keep your level and gear. Beasts leave you to be found by a named villager. They carry you to a town with a dungeon of your level close by (if one exists), the waking screen names it with its best floor, and **Get up and head for it** sets the arrow; if you fell below ground, they count from the dungeon's door. People take you captive, take your sword, and rise in status for it — you might meet them later as a chieftain carrying your blade. Escape, pay a ransom, or wait for rescue, and come back to a world that moved on without you.
 
 ![While you were captive](docs/while-you-were-captive.png)
 
 **Pleas that don't wait.** "Please save my son" has a deadline. Ignore it and someone else may try — and succeed, or die. The captive may escape alone and come home changed, or join the outlaws, or be sold across the sea.
 
-**Legacy.** When fate runs out your character dies for good and enters history. Their house stands, their sword ends up somewhere in the world (perhaps with the one who killed them), statues may rise, children are named after them, and you continue as someone new in the same world — perhaps as their kin, inheriting their house and their reputation.
+**Legacy (optional).** Turn on *Legacy: die for good* under *If you fall* in the Esc menu for real stakes. Then, when fate runs out, your character dies for good and enters history. Their house stands, their sword ends up somewhere in the world (perhaps with the one who killed them), statues may rise, children are named after them, and you continue as someone new in the same world — perhaps as their kin, inheriting their house and their reputation.
 
 ![An epitaph](docs/epitaph.png)
 

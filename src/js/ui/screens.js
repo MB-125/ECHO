@@ -304,6 +304,7 @@
         <div class="card"><h4>Pace of life</h4><div class="row">${['brisk', 'steady', 'lifelike'].map(p => `<button class="small" data-p="${p}" ${(ECHO.Game.world && (ECHO.Game.world.pace || 'brisk')) === p ? 'disabled' : ''}>${{ brisk: 'Brisk', steady: 'Steady', lifelike: 'Lifelike' }[p]}</button>`).join('')}</div><div class="dim">A day lasts ${{ brisk: 6, steady: 12, lifelike: 24 }[(ECHO.Game.world && ECHO.Game.world.pace) || 'brisk']} real minutes. Slower pace: lives, seasons and wars unfold more gradually around you.</div></div>
         <div class="card"><h4>Sound</h4><div class="row"><button class="small" data-s="on" ${ECHO.Sfx.enabled ? 'disabled' : ''}>On</button><button class="small" data-s="off" ${ECHO.Sfx.enabled ? '' : 'disabled'}>Off</button></div>
           <div class="row"><span>Music</span><input type="range" id="musvol" min="0" max="100" value="${Math.round(ECHO.Music.volume * 100)}" ${ECHO.Music.enabled ? '' : 'disabled'} style="flex:1"><button class="small" data-mu="${ECHO.Music.enabled ? 'off' : 'on'}">${ECHO.Music.enabled ? 'Mute music' : 'Play music'}</button></div></div>
+        <div class="card"><h4>If you fall</h4><div class="row"><button class="small" data-pd="off" ${ECHO.Game.world && !ECHO.Game.world.permadeath ? 'disabled' : ''}>Keep my hero</button><button class="small" data-pd="on" ${ECHO.Game.world && ECHO.Game.world.permadeath ? 'disabled' : ''}>Legacy: die for good</button></div><div class="dim">${ECHO.Game.world && ECHO.Game.world.permadeath ? 'When your fate runs out, your hero dies for good and becomes history; you go on as someone new, starting over.' : 'Your hero never dies for good. A fall costs a few days and some coin, but your level and gear stay yours.'}</div></div>
         <div class="card"><h4>While you are away</h4><div class="row"><button class="small" data-lo="on" ${ECHO.Game.world && ECHO.Game.world.livesOn !== false ? 'disabled' : ''}>The world lives on</button><button class="small" data-lo="off" ${ECHO.Game.world && ECHO.Game.world.livesOn === false ? 'disabled' : ''}>The world waits</button></div><div class="dim">When the world lives on, a day passes for every two hours you are gone (at most five), and you come back to news, letters and changes.</div></div>
         <button data-a="help">How the world works</button>
         <button data-a="title">Save and return to title</button>
@@ -330,6 +331,13 @@
       body.querySelectorAll('button[data-q]').forEach(b => b.addEventListener('click', () => { UI.settings.quality = b.dataset.q; try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ } if (ECHO.Renderer.applyQuality) ECHO.Renderer.applyQuality(); Scr.openPause(); }));
       body.querySelectorAll('button[data-p]').forEach(b => b.addEventListener('click', () => { if (ECHO.Game.world) ECHO.Game.world.pace = b.dataset.p; Scr.openPause(); }));
       body.querySelectorAll('button[data-mu]').forEach(b => b.addEventListener('click', () => { ECHO.Music.setEnabled(b.dataset.mu === 'on'); Scr.openPause(); }));
+      body.querySelectorAll('button[data-pd]').forEach(b => b.addEventListener('click', () => {
+        const w = ECHO.Game.world; if (!w) return;
+        if (b.dataset.pd === 'off') { w.permadeath = false; return Scr.openPause(); }
+        ECHO.UI.modal({ title: 'Die for good?', html: '<p>With Legacy on, when your fate runs out your hero dies for good: you lose your level, gear and gold and start again as someone new in the same world.</p>', choices: [
+          { label: 'Yes, Legacy', onPick: () => { w.permadeath = true; Scr.openPause(); } },
+          { label: 'No, keep my hero', onPick: () => Scr.openPause() }] });
+      }));
       body.querySelectorAll('button[data-lo]').forEach(b => b.addEventListener('click', () => { if (ECHO.Game.world) ECHO.Game.world.livesOn = b.dataset.lo === 'on'; Scr.openPause(); }));
       const mv = body.querySelector('#musvol'); if (mv) mv.addEventListener('input', () => ECHO.Music.setVolume(mv.value / 100));
       body.querySelectorAll('button[data-s]').forEach(b => b.addEventListener('click', () => { ECHO.Sfx.setEnabled(b.dataset.s === 'on'); Scr.openPause(); }));

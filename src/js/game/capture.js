@@ -2,7 +2,8 @@
 //  • Beaten by beasts: someone finds you. Each time, fate wears thinner.
 //  • Beaten by people: they take you captive, take your sword, and gain
 //    status for it. You escape, pay, or wait — and the world moves on.
-//  • When fate runs out, the character dies for good and becomes legend.
+//  • When fate runs out, the character dies for good and becomes legend —
+//    only if the player turned on Legacy (world.permadeath); otherwise never.
 (function () {
   const { U } = ECHO;
   const P = () => ECHO.People;
@@ -58,7 +59,10 @@
         from.boss.hp = from.boss.maxHp;
       }
       pl.fate--;
-      if (pl.fate <= 0) return Cap.die(game, `killed by ${killerDesc}`, null);
+      if (pl.fate <= 0) {
+        if (Cap.mortal(world)) return Cap.die(game, `killed by ${killerDesc}`, null);
+        pl.fate = 1;   // in this world your hero can't die for good: they are always found
+      }
       // where you fell (the dungeon's door, if you fell below ground)
       const at = ECHO.Interior.cur && ECHO.Interior.cur.outside ? ECHO.Interior.cur.outside : game.pe;
       const okTown = s => s.faction !== 'ashfang' && ECHO.People.residents(world, s).length > 0;
@@ -83,7 +87,7 @@
           P().remember(world, rescuer, `found ${pl.first} half-dead in ${region.name} and carried them home`, 'deed', null, 3);
           ECHO.Chronicle.add(world, { text: `${P().name(rescuer)} found ${pl.first} ${pl.last} half-dead in ${region.name}, struck down by ${killerDesc}, and carried them to ${home ? home.name : 'safety'}.`, kind: 'player', importance: 1, sid: home ? home.id : null, char: pl.charId });
         }
-        const fateLine = pl.fate === 1 ? 'You feel death standing very close now. One more fall may be the last.' : 'You feel death a little closer than before.';
+        const fateLine = !Cap.mortal(world) ? (pl.fate === 1 ? 'Your fate is worn thin — but in this world your hero never dies for good. Your level and gear stay yours.' : 'You feel death a little closer than before.') : pl.fate === 1 ? 'You feel death standing very close now. One more fall may be the last.' : 'You feel death a little closer than before.';
         const X = ECHO.Explore, ds = near && near.site;
         const dLine = ds ? `<p>A dungeon of your level lies close by: <b>${ds.found || ds.seen ? esc(ds.name) : 'an uncharted ' + esc(X.label(ds).toLowerCase())}</b>, ${Math.round(U.dist(ds.x, ds.y, game.pe.x, game.pe.y))} leagues ${esc(ECHO.Purpose.dirTo(world, game.pe, ds))} — floor ${near.f + 1} is Lv ${near.fl}.</p>` : '';
         const go = ds ? [{ label: `Get up and head for ${ds.found || ds.seen ? U.cap(ds.name) : 'the dungeon'}`, sub: 'The arrow at the top of the screen will point the way.', onPick: () => { pl.tracked = 'site:' + ds.id; if (ECHO.Purpose) { ECHO.Purpose._html = null; ECHO.Purpose.t = 0; } Cap.finish(game); } }] : [];
@@ -177,8 +181,8 @@
     // wood breaks, or the crowd looks away long enough, and you live — marked.
     gallows(game, captor, camp) {
       const pl = game.pl;
-      if (pl.fate <= 1) return Cap.die(game, `hanged by the Ashfang at ${camp ? camp.name : 'their camp'}`, { npcId: captor.id });
-      pl.fate--;
+      if (pl.fate <= 1 && Cap.mortal(game.world)) return Cap.die(game, `hanged by the Ashfang at ${camp ? camp.name : 'their camp'}`, { npcId: captor.id });
+      pl.fate = Math.max(1, pl.fate - 1);
       pl.hp = pl.maxHp * 0.2;
       const how = Math.random() < 0.5
         ? 'At dawn they hang you from a branch of green wood. It bends, then cracks. In the shouting you crawl into the ditch and are gone before they find you.'
@@ -301,6 +305,8 @@
     },
 
     // ------------------------------------------------------------ Death
+    // Can a hero die for good here? Only if the player chose that (Esc menu).
+    mortal(world) { return !!(world && world.permadeath); },
     die(game, cause, killer) {
       const world = game.world, pl = game.pl;
       const homeName = (ECHO.Sim.settlement(world, pl.homeId) || {}).name;

@@ -1468,7 +1468,7 @@
 
 <b>You become what you do.</b> There is no class. Every skill grows by use, and your habits shape your body: aggression quickens your hands but thins your guard; reckless overcasting makes fire mighty and unstable; patience makes guarding cheap.
 
-<b>Defeat is not the end.</b> Beasts leave you to be found by someone; people take you captive, take your sword, and grow in status. When fate runs out, you die for good — and become history. Your house stands, your sword lies somewhere in the world, and you can live again as someone new in the same world.
+<b>Defeat is not the end.</b> Beasts leave you to be found by someone; people take you captive, take your sword, and grow in status. Each fall wears your fate thinner, but your hero never dies for good: you keep your level and gear (a fall costs a few days and some coin). (If you want real stakes, turn on <i>Legacy</i> in the Esc menu: then, when fate runs out, you die for good and become history — your house stands, your sword lies somewhere in the world, and you live again as someone new.)
 
 <b>The world has wonders.</b> On clear nights, wisps lead the patient to the Echoes of the old world. Stars fall, and leave star-iron behind. The restless dead linger by their homes with last words for someone. A white hind walks the forest edge at dawn and dusk — go quietly. Four festivals a year bring every town into the square. People who know you write letters. Each real day brings an omen; and if you let it, the world lives on while you're away. See the Wonders page of your journal.
 

@@ -191,8 +191,8 @@
     },
     gallows(game, s, crimes) {
       const world = game.world, pl = game.pl;
-      if (pl.fate <= 1) { game.defeating = false; return ECHO.Capture.die(game, `hanged in ${s.name} for ${U.listJoin(crimes.map(c => L().CRIME_WORD[c.kind]))}`, null); }
-      pl.fate--; pl.hp = pl.maxHp * 0.2;
+      if (pl.fate <= 1 && ECHO.Capture.mortal(world)) { game.defeating = false; return ECHO.Capture.die(game, `hanged in ${s.name} for ${U.listJoin(crimes.map(c => L().CRIME_WORD[c.kind]))}`, null); }
+      pl.fate = Math.max(1, pl.fate - 1); pl.hp = pl.maxHp * 0.2;
       pl.banished = pl.banished || {}; pl.banished[s.faction] = world.day + 180;
       const friend = ECHO.People.residents(world, s).find(n => (n.op[pl.charId] || 0) > 50);
       const how = friend ? `The rope is cut before it tightens — ${friend.first} ${friend.last} and two others rush the scaffold in the confusion, and you are gone over the wall before the guards can turn.` : 'The rope snaps. In the uproar — an omen, a sign — the crowd will not let them try again. You are thrown out of the gates with a warning never to return.';
