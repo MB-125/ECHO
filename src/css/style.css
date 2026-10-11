@@ -403,4 +403,11 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 .upd-news { border-color: #8fc8a0; }
 .upd-news h4 { color: #b8f0c8; }
 .upd-line { text-align: center; font-size: 12px; }
+.upd-badge { display: block; width: fit-content; max-width: 100%; margin: 4px auto; padding: 6px 14px; border-radius: 999px; border: 1px solid #6b5a3a; background: rgba(28, 24, 18, .9); color: #d8cbb0; font-size: 13px; text-align: center; }
+.upd-badge b { color: #ffe08a; margin-right: 4px; }
+.upd-badge.ok { border-color: #6fb586; }
+.upd-badge.ok span { color: #b8f0c8; }
+.upd-badge.err { border-color: #c98a4a; }
+.upd-badge.err span { color: #f0c090; }
+.upd-badge .linkish { background: none; border: none; color: #c9a45a; text-decoration: underline; padding: 0 2px; cursor: pointer; font-size: 12px; }
 .upd-line .linkish { background: none; border: none; color: #c9a45a; text-decoration: underline; padding: 0 2px; cursor: pointer; font-size: 12px; }

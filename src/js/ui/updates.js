@@ -7,6 +7,7 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.2.4', items: ['The title screen shows your version in a clear badge: green when you have the newest, gold with a download button when a new one is out.', 'If an update is out, you are told each time you enter a world.'] },
     { v: '0.2.3', items: ['The app tells you when a new version is out, with a button to download it, and shows what changed after you update.'] },
     { v: '0.2.2', items: ['Every town of the old island has an easy starter cave nearby (Lv 1–3), shown on the map from the start.', 'The guide (J) lists dungeons for your level: the best floor for you in each, and a Guide me there button.'] },
     { v: '0.2.1', items: ['Text no longer piles up over the HUD in smaller windows.'] },
@@ -45,6 +46,16 @@
       Up.mount();
       Up.check();
       setInterval(() => Up.check(), 3 * 3600 * 1000);
+      // tell a player who is in a world, once per world entered
+      let shownFor = null;
+      setInterval(() => {
+        const g = ECHO.Game, UI = ECHO.UI;
+        if (Up.state !== 'available' || !g || !g.world || !UI || !UI.toast || UI.paused()) return;
+        const key = g.world.id + '|' + Up.info.latest;
+        if (shownFor === key) return;
+        shownFor = key;
+        UI.toast(`⬆ ECHO ${Up.info.latest} is out (you have ${Up.current}). Press Esc to download it; your worlds carry over.`, 'legend', 9);
+      }, 4000);
     },
 
     async check() {
@@ -56,10 +67,6 @@
       if (!r || r.error || !r.latest) Up.state = 'error';
       else { Up.info = r; Up.state = cmp(r.latest, Up.current || r.current) > 0 ? 'available' : 'current'; }
       Up.mount();
-      if (Up.state === 'available' && !Up.toasted && ECHO.Game && ECHO.Game.world && ECHO.UI && ECHO.UI.toast) {
-        Up.toasted = true;
-        ECHO.UI.toast(`ECHO ${Up.info.latest} is out. Press Esc to download it; your worlds carry over.`, 'legend', 8);
-      }
     },
 
     // The little card on the title screen and in the pause menu.
@@ -72,8 +79,8 @@
         const i = Up.info;
         out += `<div class="upd-card upd-new"><h4>⬆ A new version is out: v${esc(i.latest)}</h4><div class="dim">You have ${v}. Download it and install over this one; your worlds carry over.</div><div class="row">${i.download ? `<button class="small primary" data-upd="download">Download ${esc(i.file || '')}</button>` : ''}<button class="small" data-upd="page">${i.download ? 'Release page' : 'Download page'}</button></div></div>`;
       } else {
-        const s = { idle: '', checking: 'checking for updates…', current: 'up to date', error: 'could not check for updates' }[Up.state] || '';
-        out += `<div class="upd-line dim">ECHO ${v}${s ? ' · ' + s : ''}${Up.state === 'error' || Up.state === 'current' ? ' <button class="small linkish" data-upd="check">Check again</button>' : ''}</div>`;
+        const st = Up.state, s = { idle: 'checking for updates…', checking: 'checking for updates…', current: '✓ up to date — this is the newest version', error: 'could not reach GitHub to check for updates' }[st] || '';
+        out += `<div class="upd-badge ${st === 'current' ? 'ok' : st === 'error' ? 'err' : ''}"><b>ECHO ${v}</b> <span>${s}</span>${st === 'error' || st === 'current' ? ' <button class="small linkish" data-upd="check">Check again</button>' : ''}</div>`;
       }
       return out;
     },

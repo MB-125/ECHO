@@ -1,6 +1,6 @@
 // ECHO — Electron main process.
 // Owns the window and the on-disk world saves (one JSON file per world).
-const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -158,6 +158,7 @@ ipcMain.handle('app:toggleFullscreen', (e) => {
 // Asks GitHub for the newest release and, if it is newer than this copy,
 // tells the game where to download it. Nothing is installed automatically.
 const REPO = 'MB-125/ECHO';
+const VERSION = () => process.env.ECHO_FAKE_VERSION || app.getVersion(); // the env var is for testing the notice
 function pickAsset(assets) {
   const names = (assets || []).map(a => ({ name: a.name, url: a.browser_download_url }));
   const find = re => names.find(a => re.test(a.name));
@@ -168,18 +169,19 @@ function pickAsset(assets) {
 async function gh(pathname) {
   const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
   try {
-    const r = await fetch('https://api.github.com/repos/' + REPO + pathname, { signal: ctl.signal, headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'ECHO/' + app.getVersion() } });
+    const get = (net && net.fetch) ? net.fetch.bind(net) : fetch;
+    const r = await get('https://api.github.com/repos/' + REPO + pathname, { signal: ctl.signal, headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'ECHO/' + VERSION() } });
     return r.ok ? await r.json() : null;
   } finally { clearTimeout(t); }
 }
-ipcMain.handle('app:version', () => app.getVersion());
+ipcMain.handle('app:version', () => VERSION());
 ipcMain.handle('app:checkUpdate', async () => {
   try {
     const rel = await gh('/releases/latest');
-    if (!rel || !rel.tag_name) return { current: app.getVersion(), error: 'no release' };
+    if (!rel || !rel.tag_name) return { current: VERSION(), error: 'no release' };
     const a = pickAsset(rel.assets);
-    return { current: app.getVersion(), latest: String(rel.tag_name).replace(/^v/, ''), page: rel.html_url, download: a ? a.url : null, file: a ? a.name : null, notes: rel.body || '', date: rel.published_at };
-  } catch (e) { return { current: app.getVersion(), error: String(e && e.message || e) }; }
+    return { current: VERSION(), latest: String(rel.tag_name).replace(/^v/, ''), page: rel.html_url, download: a ? a.url : null, file: a ? a.name : null, notes: rel.body || '', date: rel.published_at };
+  } catch (e) { return { current: VERSION(), error: String(e && e.message || e) }; }
 });
 ipcMain.handle('app:openLink', (_e, url) => {
   if (typeof url === 'string' && url.startsWith('https://github.com/' + REPO + '/')) shell.openExternal(url);
