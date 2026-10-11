@@ -1,7 +1,7 @@
 {
   "name": "echo-living-realm",
   "productName": "ECHO",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "ECHO — The Living Realm. A world that existed before you, continues without you, and remembers what you do.",
   "main": "main.js",
   "author": "Merveille <MB-125@users.noreply.github.com>",
