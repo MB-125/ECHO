@@ -249,6 +249,8 @@ A gamepad works too; the mapping is in the Esc menu.
 
 Worlds are saved automatically (each in-game day, every minute of play, and whenever the window is closed, reloaded or hidden) to your user data folder, one file per world. In the browser version they are kept in the browser's storage: in localStorage and in IndexedDB, which has room for worlds that have grown large, and the newest copy is loaded. Updating the game never resets a world: old saves load into new versions, and anything new (dungeon levels and floors, cave sites, grown land) is added to the world you already have. Use Export world on the title screen to keep a backup file.
 
+**Updates (desktop).** The desktop app checks GitHub for a newer release when it starts and every few hours. If one is out, the title screen and the Esc menu show it with a button that downloads the installer for your system (or opens the release page), and a message tells you while you play. Install it over the old one; your worlds carry over. The first time you start a new version, the title screen lists what changed. The title screen and Esc menu also show which version you have.
+
 ## Build installers yourself
 
 ```bash

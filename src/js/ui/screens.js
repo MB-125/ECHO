@@ -32,6 +32,7 @@
       const metas = (await ECHO.Save.list()).sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
       let sel = metas[0] ? metas[0].id : null;
       const el = Scr.show(`${Scr.logo('A world that existed before you, continues without you, and remembers what you do.')}
+        <div class="upd-slot"></div>
         <div class="worlds">${metas.map(m => `<div class="wcard ${m.id === sel ? 'sel' : ''}" data-id="${m.id}">
           <h3>${esc(m.name)}</h3>
           <div class="m">${esc(m.date)} · ${m.population} souls · ${Math.round((m.playSeconds || 0) / 60)} min lived<br>${m.hero ? `Now: <b>${esc(m.hero)}</b>, ${esc(m.heroTitle || '')}` : '<span class="ember">No one lives your life here now.</span>'}${m.legends && m.legends.length ? `<br>Legends: ${m.legends.map(l => esc(l.name)).join(', ')}` : ''}<br>${(m.eras || []).map(e => esc(e.name.replace('Kingdom of ', '').replace(' Dominion', '')) + ': ' + esc(e.era)).join(' · ')}</div>
@@ -43,6 +44,7 @@
         <p class="faint" style="text-align:center;margin-top:30px;font-size:12px">Worlds never reset. Each one lives and changes on its own. ${window.echoNative ? 'F11 toggles fullscreen. To carry on a world from the browser version, use Export world there and Import world here.' : 'Worlds are kept in this browser; export one to keep a backup. Best with a keyboard and mouse.'}</p>
         <div id="titlemsg" class="dim" style="text-align:center;margin-top:8px"></div>`);
       Scr.titleFx(el);
+      if (ECHO.Updates) ECHO.Updates.mount();
       const msg = t => { const m = el.querySelector('#titlemsg'); if (m) m.textContent = t; };
       if (ECHO.Save.storageBlocked) msg('This browser is blocking storage, so worlds cannot be saved here. You can still play; export your world before leaving.');
       const fileIn = el.querySelector('#importfile');
@@ -294,6 +296,7 @@
         <button data-a="resume" class="primary">Resume</button>
         <button data-a="journal">Journal (Tab)</button><button data-a="map">Map (M)</button><button data-a="char">Character (K)</button>
         <button data-a="save">Save now</button>
+        <div class="upd-slot"></div>
         <div class="card"><h4>View distance</h4><div class="row"><button class="small" data-z="-1">Closer</button><button class="small" data-z="1">Farther</button><span class="dim">${UI.settings.zoom}</span></div></div>
         <div class="card"><h4>Graphics</h4><div class="row"><button class="small" data-g="3d" ${ECHO.render3d ? 'disabled' : ''}>3D</button><button class="small" data-g="2d" ${ECHO.render3d ? '' : 'disabled'}>Classic 2D</button><span class="dim">${ECHO.render3d ? 'Using 3D' : 'Using classic 2D'}</span></div></div>
         ${ECHO.render3d ? `<div class="card"><h4>Quality</h4><div class="row">${['low', 'medium', 'high'].map(q => `<button class="small" data-q="${q}" ${(UI.settings.quality || 'high') === q ? 'disabled' : ''}>${{ low: 'Low', medium: 'Medium', high: 'High' }[q]}</button>`).join('')}</div><div class="dim">Low: sharper speed on weaker computers — no shadows, fewer lights, a shorter view, lower resolution. High: everything.</div></div>` : ''}
@@ -306,6 +309,7 @@
         <button data-a="title">Save and return to title</button>
         ${window.echoNative ? '<button data-a="quit">Save and quit</button>' : ''}</div>`, 'pause');
       UI.pauseOpen = false; // the panel itself pauses the game
+      if (ECHO.Updates) ECHO.Updates.mount();
       body.querySelectorAll('button[data-a]').forEach(b => b.addEventListener('click', async () => {
         const a = b.dataset.a;
         if (a === 'resume') UI.closePanel();

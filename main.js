@@ -154,6 +154,37 @@ ipcMain.handle('app:toggleFullscreen', (e) => {
   if (win) win.setFullScreen(!win.isFullScreen());
 });
 
+// ---- Updates ----------------------------------------------------------------
+// Asks GitHub for the newest release and, if it is newer than this copy,
+// tells the game where to download it. Nothing is installed automatically.
+const REPO = 'MB-125/ECHO';
+function pickAsset(assets) {
+  const names = (assets || []).map(a => ({ name: a.name, url: a.browser_download_url }));
+  const find = re => names.find(a => re.test(a.name));
+  if (process.platform === 'win32') return process.env.PORTABLE_EXECUTABLE_FILE ? find(/^ECHO[ .][\d.]+\.exe$/i) || find(/\.exe$/i) : find(/setup.*\.exe$/i) || find(/\.exe$/i);
+  if (process.platform === 'darwin') return (process.arch === 'arm64' ? find(/arm64.*\.dmg$/i) : find(/^(?!.*arm64).*\.dmg$/i)) || find(/\.dmg$/i);
+  return process.env.APPIMAGE ? find(/\.AppImage$/i) : find(/\.AppImage$/i) || find(/\.deb$/i);
+}
+async function gh(pathname) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const r = await fetch('https://api.github.com/repos/' + REPO + pathname, { signal: ctl.signal, headers: { 'Accept': 'application/vnd.github+json', 'User-Agent': 'ECHO/' + app.getVersion() } });
+    return r.ok ? await r.json() : null;
+  } finally { clearTimeout(t); }
+}
+ipcMain.handle('app:version', () => app.getVersion());
+ipcMain.handle('app:checkUpdate', async () => {
+  try {
+    const rel = await gh('/releases/latest');
+    if (!rel || !rel.tag_name) return { current: app.getVersion(), error: 'no release' };
+    const a = pickAsset(rel.assets);
+    return { current: app.getVersion(), latest: String(rel.tag_name).replace(/^v/, ''), page: rel.html_url, download: a ? a.url : null, file: a ? a.name : null, notes: rel.body || '', date: rel.published_at };
+  } catch (e) { return { current: app.getVersion(), error: String(e && e.message || e) }; }
+});
+ipcMain.handle('app:openLink', (_e, url) => {
+  if (typeof url === 'string' && url.startsWith('https://github.com/' + REPO + '/')) shell.openExternal(url);
+});
+
 app.whenReady().then(() => {
   createWindow();
   app.on('activate', () => {

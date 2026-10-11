@@ -392,3 +392,15 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 .sketches .sk .dim { color: #7a6a50; }
 .sketches .sk .noimg { height: 90px; display: flex; align-items: center; justify-content: center; font-size: 30px; }
 .sketches .sk button { margin-top: 4px; }
+
+/* update notices (desktop) */
+.upd-slot { max-width: 560px; margin: 10px auto 0; }
+.upd-card { background: rgba(28, 24, 18, .92); border: 1px solid #c9a45a; border-radius: 8px; padding: 10px 14px; margin: 8px 0; text-align: left; }
+.upd-card h4 { margin: 0 0 4px; color: #ffe08a; }
+.upd-card ul { margin: 4px 0 6px 18px; padding: 0; }
+.upd-card .row { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+.upd-new { border-color: #ffd36a; box-shadow: 0 0 0 1px rgba(255, 211, 106, .25), 0 0 18px rgba(255, 200, 90, .18); }
+.upd-news { border-color: #8fc8a0; }
+.upd-news h4 { color: #b8f0c8; }
+.upd-line { text-align: center; font-size: 12px; }
+.upd-line .linkish { background: none; border: none; color: #c9a45a; text-decoration: underline; padding: 0 2px; cursor: pointer; font-size: 12px; }

@@ -25,5 +25,6 @@
     }
     try { if (document.fonts) await document.fonts.load('16px "Pixelify Sans"'); } catch (e) { /* fonts optional */ }
     ECHO.Screens.title();
+    if (ECHO.Updates) ECHO.Updates.init();
   });
 })();

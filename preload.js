@@ -11,5 +11,8 @@ contextBridge.exposeInMainWorld('echoNative', {
   quit: () => ipcRenderer.invoke('app:quit'),
   toggleFullscreen: () => ipcRenderer.invoke('app:toggleFullscreen'),
   onBeforeClose: (cb) => ipcRenderer.on('app:beforeClose', () => cb()),
-  closeNow: () => ipcRenderer.invoke('app:closeNow')
+  closeNow: () => ipcRenderer.invoke('app:closeNow'),
+  version: () => ipcRenderer.invoke('app:version'),
+  checkUpdate: () => ipcRenderer.invoke('app:checkUpdate'),
+  openLink: (url) => ipcRenderer.invoke('app:openLink', url)
 });
