@@ -14,5 +14,7 @@ contextBridge.exposeInMainWorld('echoNative', {
   closeNow: () => ipcRenderer.invoke('app:closeNow'),
   version: () => ipcRenderer.invoke('app:version'),
   checkUpdate: () => ipcRenderer.invoke('app:checkUpdate'),
-  openLink: (url) => ipcRenderer.invoke('app:openLink', url)
+  openLink: (url) => ipcRenderer.invoke('app:openLink', url),
+  ready: () => ipcRenderer.invoke('app:ready'),
+  restart: () => ipcRenderer.invoke('app:restart')
 });

@@ -1,9 +1,10 @@
 {
   "name": "echo-living-realm",
   "productName": "ECHO",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "ECHO — The Living Realm. A world that existed before you, continues without you, and remembers what you do.",
   "main": "main.js",
+  "echoShell": 2,
   "author": "Merveille <MB-125@users.noreply.github.com>",
   "license": "MIT",
   "homepage": "https://github.com/MB-125/ECHO",

@@ -7,6 +7,7 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.2.7', items: ['Updates now install themselves: the app downloads each new version in the background and plays it the next time you open it, or at once with Restart now.'] },
     { v: '0.2.6', items: ['When you fall to beasts or monsters, you wake in a town with a dungeon of your level close by, and can head straight for it.'] },
     { v: '0.2.5', items: ['Horses no longer get stuck against trees, rocks or the water\'s edge: a wedged horse works itself free, steers round trunks and boulders, and picks its way through thick woods at a walk.', 'When you mount or whistle, your horse stands somewhere with room to move.'] },
     { v: '0.2.4', items: ['The title screen shows your version in a clear badge: green when you have the newest, gold with a download button when a new one is out.', 'If an update is out, you are told each time you enter a world.'] },
@@ -52,11 +53,13 @@
       let shownFor = null;
       setInterval(() => {
         const g = ECHO.Game, UI = ECHO.UI;
-        if (Up.state !== 'available' || !g || !g.world || !UI || !UI.toast || UI.paused()) return;
-        const key = g.world.id + '|' + Up.info.latest;
+        if ((Up.state !== 'available' && Up.state !== 'ready') || !g || !g.world || !UI || !UI.toast || UI.paused()) return;
+        const key = g.world.id + '|' + Up.info.latest + '|' + Up.state;
         if (shownFor === key) return;
         shownFor = key;
-        UI.toast(`⬆ ECHO ${Up.info.latest} is out (you have ${Up.current}). Press Esc to download it; your worlds carry over.`, 'legend', 9);
+        UI.toast(Up.state === 'ready'
+          ? `⬆ ECHO ${Up.info.latest} has downloaded. It starts the next time you open the game, or now from the Esc menu (Restart now). Your world carries over.`
+          : `⬆ ECHO ${Up.info.latest} is out (you have ${Up.current}). Press Esc to download it; your worlds carry over.`, 'legend', 10);
       }, 4000);
     },
 
@@ -67,7 +70,7 @@
       let r = null;
       try { r = await N.checkUpdate(); } catch (e) { r = { error: String(e) }; }
       if (!r || r.error || !r.latest) Up.state = 'error';
-      else { Up.info = r; Up.state = cmp(r.latest, Up.current || r.current) > 0 ? 'available' : 'current'; }
+      else { Up.info = r; Up.state = cmp(r.latest, Up.current || r.current) <= 0 ? 'current' : r.ready === r.latest ? 'ready' : 'available'; }
       Up.mount();
     },
 
@@ -77,11 +80,13 @@
       const v = Up.current ? 'v' + esc(Up.current) : '';
       let out = '';
       if (Up.news) out += `<div class="upd-card upd-news"><h4>Updated to ${v}</h4><ul>${Up.news.map(c => c.items.map(t => `<li>${esc(t)}</li>`).join('')).join('')}</ul><div class="dim">Your worlds and progress are as you left them.</div><div class="row"><button class="small" data-upd="seen">Got it</button></div></div>`;
-      if (Up.state === 'available') {
+      if (Up.state === 'ready') {
+        out += `<div class="upd-card upd-new"><h4>⬆ ECHO v${esc(Up.info.latest)} is ready</h4><div class="dim">It has downloaded by itself and starts the next time you open ECHO. Your worlds and progress carry over.</div><div class="row"><button class="small primary" data-upd="restart">Restart now</button></div></div>`;
+      } else if (Up.state === 'available') {
         const i = Up.info;
         out += `<div class="upd-card upd-new"><h4>⬆ A new version is out: v${esc(i.latest)}</h4><div class="dim">You have ${v}. Download it and install over this one; your worlds carry over.</div><div class="row">${i.download ? `<button class="small primary" data-upd="download">Download ${esc(i.file || '')}</button>` : ''}<button class="small" data-upd="page">${i.download ? 'Release page' : 'Download page'}</button></div></div>`;
       } else {
-        const st = Up.state, s = { idle: 'checking for updates…', checking: 'checking for updates…', current: '✓ up to date — this is the newest version', error: 'could not reach GitHub to check for updates' }[st] || '';
+        const st = Up.state, s = { idle: 'checking for updates…', checking: 'checking for updates (and fetching any new version)…', current: '✓ up to date — this is the newest version', error: 'could not reach GitHub to check for updates' }[st] || '';
         out += `<div class="upd-badge ${st === 'current' ? 'ok' : st === 'error' ? 'err' : ''}"><b>ECHO ${v}</b> <span>${s}</span>${st === 'error' || st === 'current' ? ' <button class="small linkish" data-upd="check">Check again</button>' : ''}</div>`;
       }
       return out;
@@ -97,6 +102,10 @@
         if (a === 'download' && Up.info && Up.info.download) N.openLink(Up.info.download);
         else if (a === 'page' && Up.info) N.openLink(Up.info.page);
         else if (a === 'check') Up.check();
+        else if (a === 'restart') {
+          b.disabled = true; b.textContent = 'Saving…';
+          (async () => { try { if (ECHO.Game && ECHO.Game.world) await ECHO.Game.save(); } catch (e) { console.error(e); } if (N.restart) N.restart(); })();
+        }
         else if (a === 'seen') { Up.news = null; store.set('echo.lastVersion', Up.current); Up.mount(); }
       }));
     }
