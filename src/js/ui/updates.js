@@ -7,6 +7,7 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.2.5', items: ['Horses no longer get stuck against trees, rocks or the water\'s edge: a wedged horse works itself free, steers round trunks and boulders, and picks its way through thick woods at a walk.', 'When you mount or whistle, your horse stands somewhere with room to move.'] },
     { v: '0.2.4', items: ['The title screen shows your version in a clear badge: green when you have the newest, gold with a download button when a new one is out.', 'If an update is out, you are told each time you enter a world.'] },
     { v: '0.2.3', items: ['The app tells you when a new version is out, with a button to download it, and shows what changed after you update.'] },
     { v: '0.2.2', items: ['Every town of the old island has an easy starter cave nearby (Lv 1–3), shown on the map from the start.', 'The guide (J) lists dungeons for your level: the best floor for you in each, and a Guide me there button.'] },

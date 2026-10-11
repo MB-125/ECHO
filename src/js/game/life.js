@@ -63,6 +63,7 @@
       const world = game.world, look = 1.2 + Math.max(0, v) * 0.5;
       const probe = { type: 'player', mounted: true };
       const solid = (px, py) => ECHO.Water ? ECHO.Water.blockedFor(probe, world, px, py) : ECHO.World.isSolid(world, px, py);
+      const So = x < 9000 && ECHO.Solids;
       // at the gallop, foes ahead are ridden down; everyone else is gone around
       const pe = game.pe, charging = v > 4.5;
       const people = game.ents.filter(e => e !== self && e !== pe && !e.dead && !e.hidden && !e.isCompanion && e.type !== 'boss' && U.dist(e.x, e.y, x, y) < look + 2 && !(charging && game.hostileTo(pe, e)));
@@ -71,6 +72,7 @@
         for (let t = 0.45; t <= look; t += 0.3) {
           const cx = x + ca * t, cy = y + sa * t;
           if (solid(cx, cy) || solid(cx + lx, cy + ly) || solid(cx - lx, cy - ly)) return t;
+          if (So && So.hit(world, cx, cy, 0.3)) return t;
           for (const e of people) if ((e.x - cx) ** 2 + (e.y - cy) ** 2 < (0.42 + (e.r || 0.3)) ** 2) return t;
         }
         return look + 1;
@@ -87,6 +89,25 @@
       }
       if (self) self._steerSide = best.side || prefer;
       return { dir: best.dir, free: best.free, look, dev: U.angleDiff(want, best.dir) };
+    },
+    // the horse (with or without you on it) as a body that moves through the world
+    body(h) { return { x: h.x, y: h.y, r: 0.35, type: 'player', mounted: true }; },
+    // the nearest place a horse and rider fit
+    fitsAt(w, px, py) { return ECHO.Ent.fits(w, px, py, 0.3) && !(ECHO.Water && ECHO.Water.blockedFor({ type: 'player', mounted: true }, w, px, py)); },
+    spot(game, x, y) {
+      // somewhere you fit with room to move off (not a pocket among the trunks)
+      const w = game.world, ok = (px, py) => {
+        if (!Lf.fitsAt(w, px, py)) return false;
+        let room = 0;
+        for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; if (Lf.fitsAt(w, px + Math.cos(a) * 0.8, py + Math.sin(a) * 0.8)) room++; }
+        return room >= 4;
+      };
+      if (ok(x, y)) return { x, y };
+      for (let rad = 0.4; rad <= 6; rad += 0.4) {
+        const n = Math.max(8, Math.round(rad * 10));
+        for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, px = x + Math.cos(a) * rad, py = y + Math.sin(a) * rad; if (ok(px, py)) return { x: px, y: py }; }
+      }
+      return { x, y };
     },
     accelMul(pl) { const h = Lf.hs(pl); return h ? 1 + (h.bond || 0) / 200 : 1; },
     feed(game) {
@@ -151,7 +172,7 @@
       if (on) {
         const h = pl.horseAt;
         if (h && U.dist(h.x, h.y, pe.x, pe.y) > 2.2) return Lf.whistle(game);
-        if (h) { pe.x = h.x; pe.y = h.y; pe.dir = h.dir; }
+        if (h) { const sp = Lf.spot(game, h.x, h.y); pe.x = sp.x; pe.y = sp.y; pe.dir = h.dir; }
         pl.horseAt = null;
         ECHO.Sfx.play(Math.random() < 0.35 ? 'neigh' : 'snort', { vol: 0.8 });
       } else {
@@ -174,7 +195,7 @@
       if (!h || U.dist(h.x, h.y, pe.x, pe.y) > 70) {
         const a = Math.random() * Math.PI * 2;
         let sp = null;
-        for (let r = 14; r >= 4 && !sp; r -= 2) { const x = pe.x + Math.cos(a) * r, y = pe.y + Math.sin(a) * r; if (!ECHO.World.isSolid(game.world, x, y)) sp = { x, y }; }
+        for (let r = 14; r >= 4 && !sp; r -= 2) { const x = pe.x + Math.cos(a) * r, y = pe.y + Math.sin(a) * r; if (!ECHO.World.isSolid(game.world, x, y)) sp = Lf.spot(game, x, y); }
         pl.horseAt = { x: (sp || pe).x, y: (sp || pe).y, dir: a + Math.PI, v: 0 };
       }
       pl.horseAt.call = true; pl.horseAt.stuck = 0;
@@ -208,19 +229,22 @@
       h.v += U.clamp(want - h.v, -dt * 7, dt * 4.5);
       if (tx != null) {
         let a = Math.atan2(ty - h.y, tx - h.x);
-        if (h.v > 0.3 || want > 1) { const S = Lf.steer(game, h.x, h.y, a, Math.max(h.v, 1.5), h); a = S.dir; if (S.free <= S.look) want = Math.min(want, Math.sqrt(Math.max(0, 2 * 7 * (S.free - 0.6)))); }
+        if (h.v > 0.3 || want > 1) { const S = Lf.steer(game, h.x, h.y, a, Math.max(h.v, 1.5), h); a = S.dir; if (S.free <= S.look) want = Math.min(want, Math.max(h.call ? 1.3 : 0, Math.sqrt(Math.max(0, 2 * 7 * (S.free - 0.6))))); }
         const turn = U.angleDiff(h.dir, a);
         h.dir += U.clamp(turn, -dt * (h.v > 3 ? 3.2 : 6), dt * (h.v > 3 ? 3.2 : 6));
         if (Math.abs(turn) > 1.6 && h.v > 3) h.v -= dt * 6;
       }
       if (h.v > 0.05) {
-        const nx = h.x + Math.cos(h.dir) * h.v * dt, ny = h.y + Math.sin(h.dir) * h.v * dt;
-        if (!ECHO.World.isSolid(world, nx, ny)) { h.x = nx; h.y = ny; h.stuck = 0; }
-        else if (!ECHO.World.isSolid(world, nx, h.y)) h.x = nx;
-        else if (!ECHO.World.isSolid(world, h.x, ny)) h.y = ny;
-        else { h.stuck = (h.stuck || 0) + dt; h.dir += dt * 2; }
+        // it moves by the same rules as when you ride it, so wherever it stands, you fit in the saddle
+        const body = Lf.body(h), want0 = h.v * dt;
+        ECHO.Ent.move(world, body, Math.cos(h.dir) * want0, Math.sin(h.dir) * want0);
+        const got = Math.hypot(body.x - h.x, body.y - h.y);
+        h.x = body.x; h.y = body.y;
+        if (got > want0 * 0.3) h.stuck = 0; else { h.stuck = (h.stuck || 0) + dt; h.dir += dt * 2; }
         // hopelessly stuck while called: it finds another way round and turns up beside you
-        if (h.call && h.stuck > 2.5) { const a = pe.dir + Math.PI; h.x = pe.x + Math.cos(a) * 1.4; h.y = pe.y + Math.sin(a) * 1.4; h.stuck = 0; }
+        if (h.call && h.stuck > 2.5) { const a = pe.dir + Math.PI, sp = Lf.spot(game, pe.x + Math.cos(a) * 1.4, pe.y + Math.sin(a) * 1.4); h.x = sp.x; h.y = sp.y; h.stuck = 0; }
+        // left standing wedged against something: it steps clear
+        if (!h.call && h.stuck > 3) { const sp = Lf.spot(game, h.x, h.y); h.x = sp.x; h.y = sp.y; h.stuck = 0; }
       }
       // the odd snort, close enough to hear
       h.sT = (h.sT == null ? 8 : h.sT) - dt;

@@ -128,7 +128,7 @@
             const S = ECHO.Life.steer(game, pe.x, pe.y, goal, Math.max(R0.v, want * 0.5, 1.2), pe);
             goal = S.dir;
             // nothing to go round: check the pace in time to stop short of it
-            if (S.free <= S.look) want = Math.min(want, Math.sqrt(Math.max(0, 2 * 9 * (S.free - 0.55))));
+            if (S.free <= S.look) want = Math.min(want, Math.max(want > 0 ? 1.3 : 0, Math.sqrt(Math.max(0, 2 * 9 * (S.free - 0.55)))));  // never below a walk: it picks its way through
             R0.steering = Math.abs(S.dev) > 0.05 ? S.dev : 0;
           } else R0.steering = 0;
           R0.v += U.clamp(want - R0.v, -dt * (rein || R0.rearT > 0 ? 12 : 9), dt * (R0.v < 2 ? 5 : 3.2) * (ECHO.Life ? ECHO.Life.accelMul(pl) : 1));
@@ -159,6 +159,18 @@
             const k = 1 - R0.sideT / 0.34, push = Math.sin(Math.PI * k) * 6.2;
             ECHO.Ent.move(world, pe, Math.cos(R0.sideDir) * push * dt, Math.sin(R0.sideDir) * push * dt);
           }
+          // pressing on and going nowhere for a while (wedged somewhere odd): the horse backs out to open ground
+          if (len && !rein && ECHO.Life && ECHO.Life.spot) {
+            const moved = Math.hypot(pe.x - (R0.lx == null ? pe.x : R0.lx), pe.y - (R0.ly == null ? pe.y : R0.ly));
+            R0.wedgeT = moved < 0.004 ? (R0.wedgeT || 0) + dt : 0;
+            if (R0.wedgeT > 1.6 && !ECHO.Life.fitsAt(world, pe.x, pe.y)) {
+              R0.wedgeT = 0;
+              const sp = ECHO.Life.spot(game, pe.x - Math.cos(R0.dir) * 0.5, pe.y - Math.sin(R0.dir) * 0.5);
+              if (Math.hypot(sp.x - pe.x, sp.y - pe.y) > 0.05) { pe.x = sp.x; pe.y = sp.y; R0.dir += Math.PI * 0.5; ECHO.Sfx.play('snort', { vol: 0.6 }); }
+              else R0.dir += Math.PI * 0.5;   // turn and try another way
+            }
+          } else R0.wedgeT = 0;
+          R0.lx = pe.x; R0.ly = pe.y;
           if (ECHO.Life) ECHO.Life.trample(game, R0, dt);
           R0.peak = Math.max(R0.v, (R0.peak || 0) - dt * 4);  // the momentum a blow carries, a moment after you check
           pe.moving = R0.v > 0.3;

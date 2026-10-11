@@ -22,7 +22,12 @@
       // that finds itself already inside one may always step out of it
       const So = e.x < 9000 && !e.ghost && ECHO.Solids;
       const stuckIn = So && So.hit(world, e.x, e.y, r);
-      const blocked = (x, y) => solidAt(x - r, y - r) || solidAt(x + r, y - r) || solidAt(x - r, y + r) || solidAt(x + r, y + r) || (So && !stuckIn && So.hit(world, x, y, r));
+      const tight = (x, y) => solidAt(x - r, y - r) || solidAt(x + r, y - r) || solidAt(x - r, y + r) || solidAt(x + r, y + r) || (So && !stuckIn && So.hit(world, x, y, r));
+      // Wedged already (set down half in a wall, a tree or the water's edge): any
+      // step that keeps its middle on open ground is allowed, so it can work free.
+      const wedged = (dx || dy) && tight(e.x, e.y);
+      const o0 = wedged ? Ent.overlap(world, e.x, e.y, r, solidAt) : 0;
+      const blocked = wedged ? (x, y) => tight(x, y) && Ent.overlap(world, x, y, r, solidAt) >= o0 : tight;
       let moved = false;
       if (dx) {
         const nx = e.x + dx;
@@ -50,6 +55,12 @@
         e._sliding = false;
       }
       return moved;
+    },
+    // How many of a body's corners (and its sides) are inside solid ground.
+    overlap(world, x, y, r, solidAt) {
+      let n = solidAt(x, y) ? 4 : 0;
+      for (const [a, b] of [[-r, -r], [r, -r], [-r, r], [r, r], [0, -r], [0, r], [-r, 0], [r, 0]]) if (solidAt(x + a, y + b)) n++;
+      return n;
     },
     // Steer toward a point at a speed. Returns true when arrived.
     seek(world, e, tx, ty, speed, dt, arrive = 0.25) {
