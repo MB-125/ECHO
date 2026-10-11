@@ -137,7 +137,7 @@ Leave your horse and it waits where you left it, grazing, flicking its ears and 
 
 **No classes.** You become what you repeatedly do. Eight skills grow by use, and your *tendencies* change how your body fights: aggression quickens your strikes but thins your guard; patience makes guarding cheap; reckless overcasting makes fire mighty and unstable. Your title is a biography of how you played.
 
-**Death makes stories.** Beasts leave you to be found by a named villager, and each fall wears your fate thinner. People take you captive, take your sword, and rise in status for it — you might meet them later as a chieftain carrying your blade. Escape, pay a ransom, or wait for rescue, and come back to a world that moved on without you.
+**Death makes stories.** Beasts leave you to be found by a named villager, and each fall wears your fate thinner. They carry you to a town with a dungeon of your level close by (if one exists), the waking screen names it with its best floor, and **Get up and head for it** sets the arrow; if you fell below ground, they count from the dungeon's door. People take you captive, take your sword, and rise in status for it — you might meet them later as a chieftain carrying your blade. Escape, pay a ransom, or wait for rescue, and come back to a world that moved on without you.
 
 ![While you were captive](docs/while-you-were-captive.png)
 

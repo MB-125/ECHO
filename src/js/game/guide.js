@@ -69,23 +69,50 @@
 
     // Dungeons with a floor that suits you: the floor whose foes are nearest your
     // strength (a little below is better than above), near ones first.
-    forYou(world, pl, n) {
-      const p = G.power(world, pl), out = [];
+    // The floor of a dungeon that best suits strength p (a little below beats above).
+    fit(world, s, p) {
+      X().level(world, s);
+      if (s.cleared && X().refill) X().refill(world, s);
+      const nf = X().floors(s);
+      let bf = 0, bd = Infinity;
+      for (let f = 0; f < nf; f++) {
+        const fl = X().floorLevel(s, f), dd = fl > p ? (fl - p) * 1.6 : p - fl;
+        if (dd < bd) { bd = dd; bf = f; }
+      }
+      const fl = X().floorLevel(s, bf);
+      return { s, f: bf, fl, bd, ok: fl <= p + 3 && fl >= p - 8 };
+    },
+    forYou(world, pl, n, from) {
+      const p = G.power(world, pl), out = [], at = from || pl;
       for (const s of G.dungeons(world)) {
-        X().level(world, s);
-        if (s.cleared && X().refill) X().refill(world, s);
-        const nf = X().floors(s);
-        let bf = 0, bd = Infinity;
-        for (let f = 0; f < nf; f++) {
-          const fl = X().floorLevel(s, f), dd = fl > p ? (fl - p) * 1.6 : p - fl;
-          if (dd < bd) { bd = dd; bf = f; }
-        }
-        const fl = X().floorLevel(s, bf);
-        if (fl > p + 3 || fl < p - 8) continue;
-        const d = U.dist(s.x, s.y, pl.x, pl.y);
-        out.push({ s, f: bf, fl, d, sc: bd * 12 + d * 0.15 + (s.found || s.seen ? 0 : 6) + (s.cleared ? 60 : 0) });
+        const F = G.fit(world, s, p);
+        if (!F.ok) continue;
+        const d = U.dist(s.x, s.y, at.x, at.y);
+        out.push({ s, f: F.f, fl: F.fl, d, sc: F.bd * 12 + d * 0.15 + (s.found || s.seen ? 0 : 6) + (s.cleared ? 60 : 0) });
       }
       return out.sort((a, b) => a.sc - b.sc).slice(0, n || 6);
+    },
+    // Where to wake after a fall: a town with a dungeon of your level close by
+    // (preferring towns not too far from where you fell). Null if none suits.
+    reviveAt(world, pl, at, okTown) {
+      const p = G.power(world, pl);
+      const fits = G.dungeons(world).map(s => G.fit(world, s, p)).filter(F => F.ok && F.s.kind !== 'riftdeep');
+      if (!fits.length) return null;
+      let best = null, bs = Infinity;
+      for (const t of world.settlements) {
+        if (okTown && !okTown(t)) continue;
+        let near = null, ns = Infinity;
+        for (const F of fits) {
+          const d = U.dist(t.x, t.y, F.s.x, F.s.y);
+          if (d > 60) continue;
+          const sc = d + F.bd * 12 + (F.s.cleared ? 60 : 0);
+          if (sc < ns) { ns = sc; near = F; }
+        }
+        if (!near) continue;
+        const sc = ns + U.dist(t.x, t.y, at.x, at.y) * 0.08;
+        if (sc < bs) { bs = sc; best = { town: t, site: near.s, f: near.f, fl: near.fl }; }
+      }
+      return best;
     },
     // When nothing suits: which way the easier (or harder) dungeons lie.
     nearestBand(world, pl, want) {

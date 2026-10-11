@@ -7,6 +7,7 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.2.6', items: ['When you fall to beasts or monsters, you wake in a town with a dungeon of your level close by, and can head straight for it.'] },
     { v: '0.2.5', items: ['Horses no longer get stuck against trees, rocks or the water\'s edge: a wedged horse works itself free, steers round trunks and boulders, and picks its way through thick woods at a walk.', 'When you mount or whistle, your horse stands somewhere with room to move.'] },
     { v: '0.2.4', items: ['The title screen shows your version in a clear badge: green when you have the newest, gold with a download button when a new one is out.', 'If an update is out, you are told each time you enter a world.'] },
     { v: '0.2.3', items: ['The app tells you when a new version is out, with a button to download it, and shows what changed after you update.'] },

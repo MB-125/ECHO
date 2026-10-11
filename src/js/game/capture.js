@@ -6,6 +6,7 @@
 (function () {
   const { U } = ECHO;
   const P = () => ECHO.People;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   const Cap = ECHO.Capture = {
     begin(game, from) {
@@ -58,14 +59,19 @@
       }
       pl.fate--;
       if (pl.fate <= 0) return Cap.die(game, `killed by ${killerDesc}`, null);
-      const home = ECHO.World.nearestSettlement(world, game.pe.x, game.pe.y, s => s.faction !== 'ashfang' && ECHO.People.residents(world, s).length > 0);
+      // where you fell (the dungeon's door, if you fell below ground)
+      const at = ECHO.Interior.cur && ECHO.Interior.cur.outside ? ECHO.Interior.cur.outside : game.pe;
+      const okTown = s => s.faction !== 'ashfang' && ECHO.People.residents(world, s).length > 0;
+      // you are carried to a town with a dungeon of your level close by
+      const near = ECHO.Guide && ECHO.Guide.reviveAt ? ECHO.Guide.reviveAt(world, pl, at, okTown) : null;
+      const home = near ? near.town : ECHO.World.nearestSettlement(world, at.x, at.y, okTown);
       const comp = pl.companion && world.npcs[pl.companion];
       const pool = home ? P().residents(world, home).filter(n => ['hunter', 'herbalist', 'woodcutter', 'priest', 'guard', 'farmer'].includes(n.prof)) : [];
       const rescuer = comp && comp.status === 'alive' ? comp : pool.length ? rng.pick(pool) : null;
       const days = rng.int(2, 4);
       const lost = Math.floor(pl.gold * 0.2);
       pl.gold -= lost;
-      const region = ECHO.World.regionAt(world, game.pe.x, game.pe.y);
+      const region = ECHO.World.regionAt(world, at.x, at.y);
       game.fastForward(days, 'You drift in and out of darkness…', (events) => {
         if (home) {
           const inn = home.buildings.find(b => b.type === 'inn') || home.buildings.find(b => b.type === 'shrine');
@@ -78,12 +84,15 @@
           ECHO.Chronicle.add(world, { text: `${P().name(rescuer)} found ${pl.first} ${pl.last} half-dead in ${region.name}, struck down by ${killerDesc}, and carried them to ${home ? home.name : 'safety'}.`, kind: 'player', importance: 1, sid: home ? home.id : null, char: pl.charId });
         }
         const fateLine = pl.fate === 1 ? 'You feel death standing very close now. One more fall may be the last.' : 'You feel death a little closer than before.';
+        const X = ECHO.Explore, ds = near && near.site;
+        const dLine = ds ? `<p>A dungeon of your level lies close by: <b>${ds.found || ds.seen ? esc(ds.name) : 'an uncharted ' + esc(X.label(ds).toLowerCase())}</b>, ${Math.round(U.dist(ds.x, ds.y, game.pe.x, game.pe.y))} leagues ${esc(ECHO.Purpose.dirTo(world, game.pe, ds))} — floor ${near.f + 1} is Lv ${near.fl}.</p>` : '';
+        const go = ds ? [{ label: `Get up and head for ${ds.found || ds.seen ? U.cap(ds.name) : 'the dungeon'}`, sub: 'The arrow at the top of the screen will point the way.', onPick: () => { pl.tracked = 'site:' + ds.id; if (ECHO.Purpose) { ECHO.Purpose._html = null; ECHO.Purpose.t = 0; } Cap.finish(game); } }] : [];
         ECHO.UI.modal({
           title: 'You wake',
           html: `<p>${rescuer ? `<b>${P().name(rescuer)}</b>, ${P().role(world, rescuer)} of ${home ? home.name : 'nowhere'}, found you in ${region.name} and carried you ${home ? 'to ' + home.name : 'to safety'}.` : `You crawl to ${home ? home.name : 'safety'} on your own.`}</p>
                  <p>${days} days have passed.${lost ? ` Some of your coin (${lost}) is gone.` : ''}</p>
-                 <p class="dim">${fateLine}</p>${ECHO.UI.eventsDigest(events, 'While you lay senseless')}`,
-          choices: [{ label: 'Get up', onPick: () => Cap.finish(game) }]
+                 ${dLine}<p class="dim">${fateLine}</p>${ECHO.UI.eventsDigest(events, 'While you lay senseless')}`,
+          choices: [...go, { label: 'Get up', onPick: () => Cap.finish(game) }]
         });
       });
     },
