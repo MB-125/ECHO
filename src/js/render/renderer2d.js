@@ -1031,6 +1031,7 @@
         if (!info || U.dist(b.x + b.w / 2, b.y + b.h / 2, game.pe.x, game.pe.y) > 18) continue;
         const p = R.toScreen(game, b.x + b.w / 2, b.y - 0.3);
         const t1 = info.icon + ' ' + info.title, w = Math.max(ctx.measureText(t1).width, ctx.measureText(info.sub).width) + 12 * R.dpr;
+        if (ECHO.UI.overHud(p.x - w / 2, p.y - fs * 2 - 10 * R.dpr, p.x + w / 2, p.y, R.dpr)) continue;
         ctx.fillStyle = 'rgba(28,20,12,0.82)'; ctx.fillRect(p.x - w / 2, p.y - fs * 2 - 10 * R.dpr, w, fs * 2 + 8 * R.dpr);
         ctx.strokeStyle = 'rgba(230,192,106,0.85)'; ctx.strokeRect(p.x - w / 2, p.y - fs * 2 - 10 * R.dpr, w, fs * 2 + 8 * R.dpr);
         ctx.fillStyle = '#f2d47a'; ctx.fillText(t1, p.x, p.y - fs - 6 * R.dpr);
@@ -1044,6 +1045,7 @@
           const hh = parseInt(ctx.font, 10) || fs;
           y = Math.max(y, hh + 92 * R.dpr);
           for (let k = 0; k < 8; k++) { const hit = placed.find(r => x - w / 2 - 4 < r[2] && x + w / 2 + 4 > r[0] && y - hh - 2 < r[3] && y + 2 > r[1]); if (!hit) break; y = hit[1] - 3 * R.dpr; }
+          if (ECHO.UI.overHud(x - w / 2 - 6 * R.dpr, y - hh - 4 * R.dpr, x + w / 2 + 6 * R.dpr, y + 3 * R.dpr, R.dpr)) return;
           placed.push([x - w / 2, y - hh, x + w / 2, y]);
         }
         if (bg) { ctx.fillStyle = bg; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x - w / 2 - 6 * R.dpr, y - fs - 4 * R.dpr, w + 12 * R.dpr, fs + 7 * R.dpr, 5 * R.dpr); else ctx.rect(x - w / 2 - 6 * R.dpr, y - fs - 4 * R.dpr, w + 12 * R.dpr, fs + 7 * R.dpr); ctx.fill(); }
@@ -1060,9 +1062,15 @@
         const hover = U.dist(mouse.x, mouse.y, e.x, e.y - 0.5) < 0.8;
         if (e.say && e.sayT > 0) {
           const w = ctx.measureText(e.say).width;
+          // bubbles stack instead of covering each other
+          let topb = top;
+          for (let k = 0; k < 8; k++) { const r0 = [p.x - w / 2 - 6 * R.dpr, topb - fs - 10 * R.dpr, p.x + w / 2 + 6 * R.dpr, topb - 1 * R.dpr]; const hit = placed.find(r => r0[0] < r[2] && r0[2] > r[0] && r0[1] < r[3] && r0[3] > r[1]); if (!hit) break; topb = hit[1] - 2 * R.dpr; }
+          if (ECHO.UI.overHud(p.x - w / 2 - 8 * R.dpr, topb - fs - 10 * R.dpr, p.x + w / 2 + 8 * R.dpr, topb, R.dpr)) continue;
+          placed.push([p.x - w / 2 - 6 * R.dpr, topb - fs - 10 * R.dpr, p.x + w / 2 + 6 * R.dpr, topb - 1 * R.dpr]);
+          const top0 = top; { const top = topb; void top0;
           ctx.fillStyle = 'rgba(250,244,228,0.95)';
           ctx.fillRect(p.x - w / 2 - 6 * R.dpr, top - fs - 10 * R.dpr, w + 12 * R.dpr, fs + 8 * R.dpr);
-          ctx.fillStyle = '#2a2420'; ctx.fillText(e.say, p.x, top - 5 * R.dpr);
+          ctx.fillStyle = '#2a2420'; ctx.fillText(e.say, p.x, top - 5 * R.dpr); }
           continue;
         }
         if (e.type === 'boss') { const lb = ECHO.Progress ? ECHO.Progress.label(game, e) : { text: e.label, color: '#ffcf8a' }; text(lb.text, p.x, top, lb.color, 'rgba(14,10,8,0.66)', true); continue; }

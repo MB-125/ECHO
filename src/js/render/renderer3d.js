@@ -2411,6 +2411,7 @@
         const w2 = ctx.measureText(info.sub).width;
         const W = Math.max(w1, w2) + 16 * R.dpr, H = big + small + 14 * R.dpr;
         const x0 = p.x - W / 2, y0 = p.y - H;
+        if (ECHO.UI.overHud(x0, y0, x0 + W, y0 + H + 6 * R.dpr, R.dpr)) continue;
         ctx.globalAlpha = a;
         ctx.fillStyle = 'rgba(28,20,12,0.82)'; ctx.fillRect(x0, y0, W, H);
         ctx.strokeStyle = 'rgba(230,192,106,0.85)'; ctx.lineWidth = 1.5 * R.dpr; ctx.strokeRect(x0 + 0.5, y0 + 0.5, W - 1, H - 1);
@@ -2442,6 +2443,7 @@
           const hh = parseInt(ctx.font, 10) || fs;
           y = Math.max(y, hh + 92 * R.dpr);
           for (let k = 0; k < 8; k++) { const hit = placed.find(r => x - w / 2 - 4 < r[2] && x + w / 2 + 4 > r[0] && y - hh - 2 < r[3] && y + 2 > r[1]); if (!hit) break; y = hit[1] - 3 * R.dpr; }
+          if (ECHO.UI.overHud(x - w / 2 - 6 * R.dpr, y - hh - 4 * R.dpr, x + w / 2 + 6 * R.dpr, y + 3 * R.dpr, R.dpr)) return;
           placed.push([x - w / 2, y - hh, x + w / 2, y]);
         }
         if (bg) { ctx.fillStyle = bg; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x - w / 2 - 6 * R.dpr, y - fs - 4 * R.dpr, w + 12 * R.dpr, fs + 7 * R.dpr, 5 * R.dpr); else ctx.rect(x - w / 2 - 6 * R.dpr, y - fs - 4 * R.dpr, w + 12 * R.dpr, fs + 7 * R.dpr); ctx.fill(); }
@@ -2474,9 +2476,15 @@
         const ty = p.y - 6 * R.dpr;
         if (e.say && e.sayT > 0) {
           const w = ctx.measureText(e.say).width;
+          // bubbles stack instead of covering each other
+          let tyb = ty;
+          for (let k = 0; k < 8; k++) { const r0 = [p.x - w / 2 - 7 * R.dpr, tyb - fs - 10 * R.dpr, p.x + w / 2 + 7 * R.dpr, tyb - 1 * R.dpr]; const hit = placed.find(r => r0[0] < r[2] && r0[2] > r[0] && r0[1] < r[3] && r0[3] > r[1]); if (!hit) break; tyb = hit[1] - 2 * R.dpr; }
+          if (ECHO.UI.overHud(p.x - w / 2 - 8 * R.dpr, tyb - fs - 10 * R.dpr, p.x + w / 2 + 8 * R.dpr, tyb, R.dpr)) continue;
+          placed.push([p.x - w / 2 - 7 * R.dpr, tyb - fs - 10 * R.dpr, p.x + w / 2 + 7 * R.dpr, tyb - 1 * R.dpr]);
+          const ty0 = ty; { const ty = tyb; void ty0;
           ctx.fillStyle = 'rgba(250,244,228,0.95)';
           ctx.fillRect(p.x - w / 2 - 7 * R.dpr, ty - fs - 10 * R.dpr, w + 14 * R.dpr, fs + 9 * R.dpr);
-          ctx.fillStyle = '#2a2420'; ctx.fillText(e.say, p.x, ty - 5 * R.dpr);
+          ctx.fillStyle = '#2a2420'; ctx.fillText(e.say, p.x, ty - 5 * R.dpr); }
           continue;
         }
         if (e.type === 'boss') { const lb = ECHO.Progress ? ECHO.Progress.label(game, e) : { text: e.label, color: '#ffcf8a' }; text(lb.text, p.x, ty, lb.color, 'rgba(14,10,8,0.66)', true); continue; }

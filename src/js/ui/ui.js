@@ -58,6 +58,22 @@
       try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ }
       UI.applyHelp();
     },
+    // Where the HUD panels are on screen (in canvas pixels), so world labels drawn on the
+    // canvas can stay out from under them.
+    hudRects(dpr) {
+      const now = performance.now();
+      if (UI._hr && now - UI._hr.t < 300 && UI._hr.dpr === dpr) return UI._hr.r;
+      const r = [];
+      for (const el of document.querySelectorAll('#hud-left > *, #hud-right, #hud-goal, #hud-bottom, #hud-target, #toasts .toast')) {
+        if (el.classList.contains('hidden') || el.offsetParent === null) continue;
+        const b = el.getBoundingClientRect();
+        if (b.width < 2 || b.height < 2) continue;
+        r.push([b.left * dpr, b.top * dpr, b.right * dpr, b.bottom * dpr]);
+      }
+      UI._hr = { t: now, dpr, r };
+      return r;
+    },
+    overHud(x0, y0, x1, y1, dpr) { return UI.hudRects(dpr).some(h => x0 < h[2] && x1 > h[0] && y0 < h[3] && y1 > h[1]); },
     applyHelp() {
       const hide = !!UI.settings.hideHelp;
       $('#hud-help').classList.toggle('hidden', hide);
@@ -70,6 +86,18 @@
       if (!UI.helpApplied) { UI.helpApplied = true; UI.applyHelp(); }
       const fighting = game.combatT != null && game.time - game.combatT < 4;
       if (fighting !== UI.wasFighting) { UI.wasFighting = fighting; $('#hud').classList.toggle('fighting', fighting); }
+      // a short window (a laptop, a scaled desktop): the controls card must not run under the bar or other panels
+      if ((UI._fitT = (UI._fitT || 0) - dt) <= 0) {
+        UI._fitT = 0.5;
+        const help = $('#hud-help');
+        if (help && !help.classList.contains('hidden')) {
+          help.style.maxHeight = '';
+          const room = window.innerHeight - 64 - help.getBoundingClientRect().top;
+          const tooShort = room < help.scrollHeight;
+          help.classList.toggle('clipped', tooShort);
+          if (tooShort) help.style.maxHeight = Math.max(60, room) + 'px';
+        }
+      }
       set('#hud-hero', pl.first + ' ' + pl.last);
       const hon = pl.honor || (ECHO.Ambition && ECHO.Ambition.honor(pl));
       set('#hud-title', hon ? `${hon} · ${ECHO.Character.title(pl)}` : ECHO.Character.title(pl));

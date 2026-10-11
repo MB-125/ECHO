@@ -151,7 +151,7 @@
       const el = document.getElementById('hud-target');
       if (!el) return;
       const e = Pg.target, pl = game.pl;
-      if (!e || e.dead || ECHO.UI.paused() || (ECHO.UI.bossEnt === e)) { if (Pg._tgt !== '') { Pg._tgt = ''; el.classList.add('hidden'); } return; }
+      if (!e || e.dead || ECHO.UI.paused() || (ECHO.UI.bossEnt === e)) { if (Pg._tgt !== '') { Pg._tgt = ''; el.classList.add('hidden'); document.getElementById('hud').classList.remove('has-target'); } return; }
       const L = Pw().foeLevel(e), me = Pw().level(pl), D = Pw().diff(L, me), rk = Pw().foeRank(e), RK = Pw().FOE_RANK[rk];
       const name = Pg.nameOf(game, e);
       const def = e.species && ECHO.Monsters && ECHO.Monsters.DEFS[e.species];
@@ -160,7 +160,7 @@
       const key = [e.id, Math.round(e.hp / e.maxHp * 50), me].join('|');
       if (Pg._tgt === key) return;
       Pg._tgt = key;
-      el.classList.remove('hidden');
+      el.classList.remove('hidden'); document.getElementById('hud').classList.add('has-target');
       el.innerHTML = `<div class="tn"><b>${esc(name)}</b></div>
         <div class="tl"><span style="color:${D.color}">Lv ${L}</span> · <span style="color:${RK.color}">${RK.name}</span> · <span style="color:${D.color}">${'☠'.repeat(D.skulls)}${D.skulls ? ' ' : ''}${D.word}</span></div>
         <div class="tb"><i style="width:${Math.max(0, Math.round(e.hp / e.maxHp * 100))}%;background:${D.color}"></i></div>
