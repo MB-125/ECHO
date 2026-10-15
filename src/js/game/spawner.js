@@ -197,7 +197,9 @@
       if (Dv) {
         const w = Dv.weapon(world, npc), a = Dv.armor(world, npc);
         if (w) { e.dmgMul = (e.dmgMul || 1) * (1 + Math.min(2, (w.dmg || 0) / 80)); if (w.wclass === 'spear') e.gear.spear = true; if (w.kind === 'bow') e.gear.bow = true; e.wearing = w.id; }
-        if (a) { e.hp = e.maxHp = Math.round(e.maxHp + (a.def || 0) * 1.2); e.gear.helm = true; }
+        if (a) { e.hp = e.maxHp = Math.round(e.maxHp + (a.def || 0) * 1.2); }
+        e.gearLook = Dv.lookOf(world, npc);
+        if (w && w.kind !== 'bow') { e.gear.bow = false; e.gear.crossbow = false; e.gear.spear = w.wclass === 'spear'; }
       }
       void f;
       return e;

@@ -354,8 +354,9 @@
       if (prof === 'guard' && npc) { const f = world.factions[npc.faction]; cols = [f ? f.color : '#6f8fc4', f ? f.banner : '#2b3f66']; }
       if (prof === 'child' && npc) { const kc = ['#c8574a', '#4a8ac8', '#d8b84a', '#6aa85a', '#9a5ac8', '#d87a3a']; cols = [kc[ECHO.hashStr(npc.id) % kc.length], '#4a3a2a']; }
       if (prof === 'farmer' && npc && ECHO.hashStr(npc.id) % 2) cols = ['#8a6a3a', '#4a3a24'];
-      const GL = e.type === 'player' ? e.gearLook : null;
+      const GL = e.gearLook || null;
       if (e.type === 'player') cols = GL && GL.armor ? [GL.armor.body, GL.armor.trim] : ['#2f7f86', '#1f4f56'];
+      else if (GL && GL.armor) cols = [GL.armor.body, GL.armor.trim];
       if (e.isCompanion) cols = [shade(cols[0], 0.1), cols[1]];
       const walk = e.moving ? Math.sin(e.anim * 12) : 0;
       const child = npc && prof === 'child';
@@ -378,8 +379,8 @@
       if (prof === 'smith') R('#3a2a1a', -3, -11, 6, 6);
       if (prof === 'guard' || e.role === 'soldier') { R(shade(cols[0], 0.25), -1, -12, 2, 6); }
       if (prof === 'bandit') { R('#2a1a18', -4, -13, 8, 2); }
-      if (e.type === 'player') {
-        R(GL && GL.rank ? shade(GL.rank.color, -0.4) : '#1f4f56', -5, -13, 2, 9); R('#c8b46a', -1, -12, 2, 1);
+      if (e.type === 'player') { R(GL && GL.rank ? shade(GL.rank.color, -0.4) : '#1f4f56', -5, -13, 2, 9); R('#c8b46a', -1, -12, 2, 1); }
+      {
         const A = GL && GL.armor;
         if (A) {
           for (let i = 0; i < Math.min(5, A.plus); i++) R(A.gold ? '#f2c84a' : A.metal, -3 + i * 1.5, -10, 1, 1);
@@ -409,13 +410,13 @@
       if (e.gear) {
         if (e.gear.shield) { R('#7a5a36', e.flip ? 3 : -8, -13, 5, 7); R('#c8a85a', e.flip ? 5 : -6, -11, 1, 3); R(shade('#7a5a36', -0.3), e.flip ? 3 : -8, -13, 5, 1); }
         if (e.gear.fireward) { R('#7a8a8a', -4, -13, 8, 2); }
-        if (e.gear.spear) { R('#6a4a2a', e.flip ? -7 : 6, -22, 1, 18); R('#c8c8d0', e.flip ? -7 : 6, -24, 1, 3); }
-        else if (e.gear.bow) { R(e.gear.crossbow ? '#5a5a5a' : '#6a4a2a', e.flip ? -7 : 6, -16, 1, 9); R('#d8d0c0', e.flip ? -6 : 5, -15, 1, 7); }
+        if (e.gear.spear && !(GL && GL.blade)) { R('#6a4a2a', e.flip ? -7 : 6, -22, 1, 18); R('#c8c8d0', e.flip ? -7 : 6, -24, 1, 3); }
+        else if (e.gear.bow) { const BW = GL && GL.bow; R(e.gear.crossbow ? '#5a5a5a' : BW ? BW.wood : '#6a4a2a', e.flip ? -7 : 6, -16, 1, 9); R('#d8d0c0', e.flip ? -6 : 5, -15, 1, 7); if (BW && BW.glow > 0.15) { g.globalAlpha = 0.3 + BW.glow * 0.3; R(BW.glowCol, e.flip ? -8 : 5, -17, 3, 11); g.globalAlpha = 1; } }
         if (e.gear.torch) { R('#5a3a1a', e.flip ? 5 : -7, -17, 1, 6); R('#ffb347', e.flip ? 4 : -8, -19, 3, 2); R('#ffe28a', e.flip ? 5 : -7, -20, 1, 1); }
       }
       // weapon in hand
-      if (e.type === 'player' || e.carrying || prof === 'guard' || prof === 'bandit' || prof === 'wanderer' || e.role === 'soldier') {
-        if (!(e.gear && (e.gear.spear || e.gear.bow))) {
+      if (e.type === 'player' || e.carrying || prof === 'guard' || prof === 'bandit' || prof === 'wanderer' || e.role === 'soldier' || (GL && GL.blade)) {
+        if (!(e.gear && (e.gear.spear || e.gear.bow)) || (GL && GL.blade)) {
           const legendary = e.carrying && world.items[e.carrying] && (world.items[e.carrying].legend || world.items[e.carrying].history.some(h => h.t.includes('taken by')));
           const blade = legendary ? '#f2dc8a' : '#d8dce4';
           const B = GL && GL.blade;

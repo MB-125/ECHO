@@ -411,3 +411,7 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 .upd-badge.err span { color: #f0c090; }
 .upd-badge .linkish { background: none; border: none; color: #c9a45a; text-decoration: underline; padding: 0 2px; cursor: pointer; font-size: 12px; }
 .upd-line .linkish { background: none; border: none; color: #c9a45a; text-decoration: underline; padding: 0 2px; cursor: pointer; font-size: 12px; }
+
+/* what a person wears, in the conversation panel */
+.npc-gear { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.npc-gear-it { display: flex; gap: 8px; align-items: center; }

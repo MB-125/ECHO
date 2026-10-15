@@ -48,6 +48,12 @@
       n.gear[sl] = it.id;
       return true;
     },
+    // How their gear looks on them — the same as yours looks on you.
+    lookOf(world, n) {
+      const G = ECHO.Gear, w = D.weapon(world, n), a = D.armor(world, n);
+      if (!G || (!w && !a)) return null;
+      return { blade: w && w.kind !== 'bow' ? G.look(w) : null, bow: w && w.kind === 'bow' ? G.look(w) : null, armor: a ? G.look(a) : null, rank: null, npc: true, key: [w && w.id, w && w.plus, a && a.id, a && a.plus].join('|') };
+    },
     // What to say about them in a line: "Lv 14 · a fine axe · leather armour".
     line(world, n) {
       const w = D.weapon(world, n), a = D.armor(world, n);

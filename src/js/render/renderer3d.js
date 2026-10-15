@@ -1059,7 +1059,7 @@
         M.show(inst, 'hood', !e.crown && !(e.look && e.look.female));
         if (e.child) scale = 0.66;
       }
-      if (e.type === 'player' && e.gearLook) R.dressPlayer(inst, e.gearLook);
+      if (e.gearLook && (e.type === 'player' || e.type === 'person')) R.dressPlayer(inst, e.gearLook);
       inst.root.scale.setScalar(scale);
     },
     // Boats on the water: yours, the ferry you ride, and ferries waiting at the jetties.
@@ -1354,9 +1354,10 @@
       const A = G.armor;
       if (A) {
         M.recolor(inst, 'cloth', A.body); M.recolor(inst, 'cloth2', A.trim); M.recolor(inst, 'leather', A.trim);
-        M.show(inst, 'helm', A.helm); M.show(inst, 'hair', !A.helm); M.recolor(inst, 'helmmetal', '#' + new THREE.Color(A.metal).lerp(new THREE.Color('#6a6a72'), 0.55).getHexString()); M.recolor(inst, 'plate', A.gold ? '#d8b04a' : A.metal);
+        const helmOn = A.helm || !!(G.npc && P.helm && P.helm.visible);
+        M.show(inst, 'helm', helmOn); M.show(inst, 'hair', !helmOn); M.recolor(inst, 'helmmetal', '#' + new THREE.Color(A.metal).lerp(new THREE.Color('#6a6a72'), 0.55).getHexString()); M.recolor(inst, 'plate', A.gold ? '#d8b04a' : A.metal);
         glowSet('plate', A.glowCol, A.glow * 0.6); glowSet('helmmetal', A.glowCol, A.glow * 0.4);
-      } else { M.show(inst, 'helm', false); }
+      } else if (!G.npc) { M.show(inst, 'helm', false); }
       for (const m of inst.pauldrons || []) m.visible = !!(A && A.pauldrons);
       if (inst.crest) inst.crest.visible = !!(A && A.crest && A.helm);
       if (G.rank) M.recolor(inst, 'cape', '#' + new THREE.Color(G.rank.color).multiplyScalar(0.62).getHexString());

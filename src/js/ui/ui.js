@@ -253,6 +253,15 @@
       const age = Math.floor(P().age(world, npc));
       const body = UI.openPanel(P().fullTitle(world, npc), `<div class="dlg"><div class="pt"></div><div><div class="who"><div class="meta">${esc(U.cap(P().role(world, npc)))} · ${esc(f ? f.short : '')} · ${age} years${npc.namedAfter ? ' · named for a legend' : ''}</div></div><div class="speech prose"></div><div class="opts"></div></div></div>`, 'dialogue');
       body.querySelector('.pt').appendChild(UI.portrait(ent, npc));
+      // what they wear, as you see your own
+      if (ECHO.Delvers && npc.gear) {
+        const ws = [ECHO.Delvers.weapon(world, npc), ECHO.Delvers.armor(world, npc)].filter(Boolean);
+        if (ws.length) {
+          const box = document.createElement('div'); box.className = 'npc-gear';
+          box.innerHTML = `<div class="dim" style="font-size:12px">Level ${ECHO.Delvers.lv(npc)} · wears</div>` + ws.map(it => `<div class="npc-gear-it">${ECHO.GearArt.img(it, 'gear-ic small')}<div><b style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}</b><div class="dim" style="font-size:12px">${esc(ECHO.Gear.line(it))}</div></div></div>`).join('');
+          const who = body.querySelector('.who'); (who || body).appendChild(box);
+        }
+      }
       const speech = body.querySelector('.speech');
       const opts = body.querySelector('.opts');
       if (!npc._talkedDay || npc._talkedDay !== world.day) {
