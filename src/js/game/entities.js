@@ -69,9 +69,38 @@
       // Once settled, don't twitch back into motion for a nudge of a few inches.
       if (d < arrive || (!e.moving && d < arrive + 0.45 && e.type !== 'player')) { e.moving = false; return true; }
       const sp = speed * ECHO.World.speedAt(world, e.x, e.y) * (ECHO.Climate && e.x < 9000 ? ECHO.Climate.moveMul(world, e.x, e.y, e.mounted) : 1) * dt;
-      const k = Math.min(1, sp / d);
+      // not getting any closer (stuck, or dithering at a corner)? plan a real route
+      // there for a while, instead of pushing at the obstacle
+      if (!e._inTravel && e.type !== 'player' && e.x < 9000) {
+        const P = e._sk && U.dist(e._sk.tx, e._sk.ty, tx, ty) < 2.5 ? e._sk : (e._sk = { tx, ty, d, t: 0 });
+        P.tx = tx; P.ty = ty; P.t += dt;
+        if (d < P.d - 0.5) { P.d = d; P.t = 0; }
+        if (((e.stuck || 0) > 0.8 || P.t > 2) && d > 1.6) { e._planT = 4; P.t = 0; P.d = d; }
+        if (e._planT > 0 && d > 1.2) {
+          e._planT -= dt;
+          e._inTravel = true;
+          try { return Ent.travel(world, e, tx, ty, speed, dt); } finally { e._inTravel = false; }
+        }
+      }
+      let k = Math.min(1, sp / d), mx = dx * k, my = dy * k;
+      // eyes ahead: something in the way? bear round it, keeping to one side
+      if (d > 0.7 && e.type !== 'player' && !e.ghost && !e._onPath && (e._lookT = (e._lookT || 0) - dt) <= 0) {
+        e._lookT = 0.12;
+        const a0 = Math.atan2(dy, dx), look = Math.min(d, 0.9 + speed * 0.12);
+        e._bear = 0;
+        if (!Ent.clearAhead(world, e, a0, look)) {
+          const side = e._side || (Math.random() < 0.5 ? 1 : -1);
+          for (const off of [0.4, 0.8, 1.2, 1.6, 2.1]) {
+            if (Ent.clearAhead(world, e, a0 + off * side, look * 0.8)) { e._bear = off * side; break; }
+            if (Ent.clearAhead(world, e, a0 - off * side, look * 0.8)) { e._bear = -off * side; e._side = -side; break; }
+          }
+          if (e._bear) e._side = Math.sign(e._bear);
+        } else if (Math.random() < 0.05) e._side = 0;
+      }
+      if (e._onPath) e._bear = 0;
+      if (e._bear && d > 0.7) { const a = Math.atan2(dy, dx) + e._bear, L = Math.min(sp, d); mx = Math.cos(a) * L; my = Math.sin(a) * L; }
       const before = { x: e.x, y: e.y };
-      Ent.move(world, e, dx * k, dy * k);
+      Ent.move(world, e, mx, my);
       e.moving = true;
       // turn toward where we actually went (not where a wall deflected us)
       if (d > arrive + 0.12) e.dir = Math.atan2(dy, dx); // no last-inch spins on arrival
@@ -81,6 +110,47 @@
         e.stuck = (e.stuck || 0) + dt;
       } else e.stuck = 0;
       return false;
+    },
+    // The cost of stepping onto a tile, for a body of this size: there must be
+    // room for it on the tile and in the gap it steps through to get there.
+    pathCost(world, e, avoid) {
+      const r = U.clamp((e.r || 0.34) * 0.85, 0.22, 0.6);
+      const fitsAt = (x, y) => !ECHO.World.isSolid(world, x, y) && Ent.fits(world, x, y, r);
+      const spots = new Map();
+      // somewhere on this tile a body this size can stand (the middle, or past a trunk to one side)
+      const spot = (x, y) => {
+        const k = y * (world.W || 200) + x;
+        if (spots.has(k)) return spots.get(k);
+        let v = null;
+        for (const [ox, oy] of [[0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75], [0.5, 0.2], [0.5, 0.8], [0.2, 0.5], [0.8, 0.5]]) if (fitsAt(x + ox, y + oy)) { v = { x: x + ox, y: y + oy }; break; }
+        spots.set(k, v);
+        return v;
+      };
+      const cost = (x, y, i, fx, fy) => {
+        if (avoid && avoid.has(i)) return Infinity;
+        if (!spot(x, y)) return Infinity;
+        // and room to get across the edge between the two tiles
+        if (fx != null) {
+          const mx = (x + fx) / 2 + 0.5, my = (y + fy) / 2 + 0.5, px = fy !== y ? 0.3 : 0, py = fx !== x ? 0.3 : 0;
+          if (!fitsAt(mx, my) && !fitsAt(mx + px, my + py) && !fitsAt(mx - px, my - py)) return Infinity;
+        }
+        return 1 / ECHO.World.speedAt(world, x, y);
+      };
+      cost.spot = spot;
+      return cost;
+    },
+    // Would this body be blocked standing here? (the same test Ent.move uses)
+    blockedAt(world, e, x, y) {
+      const r = e.r * 0.85;
+      const solidAt = ECHO.Water ? (a, b) => ECHO.Water.blockedFor(e, world, a, b) : (a, b) => ECHO.World.isSolid(world, a, b);
+      if (solidAt(x - r, y - r) || solidAt(x + r, y - r) || solidAt(x - r, y + r) || solidAt(x + r, y + r)) return true;
+      return x < 9000 && !e.ghost && ECHO.Solids ? ECHO.Solids.hit(world, x, y, r) : false;
+    },
+    // Looking ahead: is the way clear for a short distance along this heading?
+    clearAhead(world, e, a, len) {
+      const ca = Math.cos(a), sa = Math.sin(a);
+      for (let t = 0.3; t <= len; t += 0.3) if (Ent.blockedAt(world, e, e.x + ca * t, e.y + sa * t)) return false;
+      return true;
     },
     // Can a body of radius r walk straight from a to b?
     clearLine(world, ax, ay, bx, by, r = 0.3) {
@@ -123,6 +193,10 @@
     // ground, a blocked straight line falls back to a path, and a goal with no
     // way there at all sets e.navFail so the walker can choose something else.
     travel(world, e, tx, ty, speed, dt) {
+      if (e._inTravel === undefined || !e._inTravel) { e._inTravel = true; try { return Ent.travel0(world, e, tx, ty, speed, dt); } finally { e._inTravel = false; } }
+      return Ent.travel0(world, e, tx, ty, speed, dt);
+    },
+    travel0(world, e, tx, ty, speed, dt) {
       if (e.x >= 9000 || tx >= 9000) return (e.isCompanion || e.foe || e.type === 'creature' || e.type === 'boss') ? Ent.travelIn(world, e, tx, ty, speed, dt) : Ent.seek(world, e, tx, ty, speed, dt, 0.3);
       // a swimmer goes straight in after a target in the water
       if (ECHO.Water && ECHO.WildWater && ECHO.WildWater.swimmer(e) && U.dist(e.x, e.y, tx, ty) < 12 && ECHO.Water.kind(world, tx, ty)) return Ent.seek(world, e, tx, ty, speed, dt, 0.3);
@@ -149,29 +223,31 @@
         return r;
       }
       const goalKey = (tx | 0) + ',' + (ty | 0);
-      if (e.pathGoal !== goalKey) e._repaths = 0;
+      if (e.pathGoal !== goalKey) { e._repaths = 0; e._avoid = null; }
       const needPath = !e.path || e.pathGoal !== goalKey || (e.stuck || 0) > 0.6;
       if (needPath && d > 1.2 && (e.pathT || 0) <= 0) {
         e.pathT = 0.8;
-        if (e.pathGoal === goalKey && e.path !== undefined) e._repaths = (e._repaths || 0) + 1;
         const W = world.W;
-        const So = e.x < 9000 && ECHO.Solids;
-        const cost = (x, y, i) => (ECHO.World.isSolid(world, x + 0.5, y + 0.5) || (So && So.blocksTile(world, x, y)) ? Infinity : 1 / ECHO.World.speedAt(world, x, y));
-        const p = ECHO.World.findPath(world, e.x, e.y, tx, ty, cost, 2500);
-        // through a wood, step past each trunk rather than into it
-        const wp = i => {
-          const x = i % W, y = (i / W) | 0;
-          if (world.tiles[i] !== ECHO.TILE.TREE) return { x: x + 0.5, y: y + 0.5 };
-          const tr = ECHO.World.trunk(world, x, y);
-          let ox = x + 0.5 - tr.x, oy = y + 0.5 - tr.y; const L = Math.hypot(ox, oy) || 1;
-          if (L < 0.45) { ox = ox / L * 0.45; oy = oy / L * 0.45; }
-          return { x: tr.x + ox, y: tr.y + oy };
-        };
+        if (e.pathGoal === goalKey && e.path !== undefined) {
+          e._repaths = (e._repaths || 0) + 1;
+          // wedged on the way: that spot is no good — plan round it this time
+          if ((e.stuck || 0) > 0.6) {
+            e._avoid = e._avoid || new Set();
+            const ax = Math.floor(e.x), ay = Math.floor(e.y), nxt = e.path && e.path[0];
+            if (nxt) e._avoid.add(Math.floor(nxt.y) * W + Math.floor(nxt.x));
+            const fx = Math.floor(e.x + Math.cos(e.dir || 0) * 0.8), fy = Math.floor(e.y + Math.sin(e.dir || 0) * 0.8);
+            if (fx !== ax || fy !== ay) e._avoid.add(fy * W + fx);
+          }
+        }
+        const cost = Ent.pathCost(world, e, e._avoid);
+        const p = ECHO.World.findPath(world, e.x, e.y, tx, ty, cost, 14000);
+        // each step goes to the open part of its tile (past a trunk, round a rock)
+        const wp = i => { const x = i % W, y = (i / W) | 0; return cost.spot(x, y) || { x: x + 0.5, y: y + 0.5 }; };
         e.path = p ? p.slice(1).map(wp) : null;
         e.pathGoal = goalKey;
         e.stuck = 0;
         // no way there, or we keep getting stuck on the way: give up on it
-        if (!p || e._repaths > 4) { e.navFail = true; e.path = null; e.moving = false; return false; }
+        if (!p || e._repaths > 8) { e.navFail = true; e.path = null; e.moving = false; return false; }
         e.navFail = false;
         if (e.path.length) e.path[e.path.length - 1] = { x: tx, y: ty };
       }
@@ -180,7 +256,16 @@
         // skip every waypoint we can already walk past in a straight line
         while (e.path.length > 1 && Ent.clearLine(world, e.x, e.y, e.path[1].x, e.path[1].y, e.r * 0.9)) e.path.shift();
         const n = e.path[0];
-        if (Ent.seek(world, e, n.x, n.y, speed, dt, 0.3)) { e.path.shift(); e.moving = e.path.length > 0; }
+        // real progress, not just motion: dithering at a corner counts as stuck
+        const dn = U.dist(e.x, e.y, n.x, n.y);
+        if (!e._prog || e._prog.n !== n) e._prog = { n, d: dn, t: 0 };
+        e._prog.t += dt;
+        if (dn < e._prog.d - 0.25) { e._prog.d = dn; e._prog.t = 0; }
+        else if (e._prog.t > 1.5) { e.stuck = 1; e._prog.t = 0; e.pathT = 0; }
+        e._onPath = true;
+        let arrived;
+        try { arrived = Ent.seek(world, e, n.x, n.y, speed, dt, 0.3); } finally { e._onPath = false; }
+        if (arrived) { e.path.shift(); e.moving = e.path.length > 0; }
         return false;
       }
       if (e.navFail) { e.moving = false; return false; }

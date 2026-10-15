@@ -142,9 +142,13 @@
       sx |= 0; sy |= 0; tx |= 0; ty |= 0;
       if (sx < 0 || sy < 0 || tx < 0 || ty < 0 || sx >= W || sy >= H || tx >= W || ty >= H) return null;
       const N = W * H;
-      const g = new Float32Array(N).fill(Infinity);
-      const came = new Int32Array(N).fill(-1);
-      const closed = new Uint8Array(N);
+      // buffers reused between searches (a grown world is millions of tiles);
+      // a stamp marks what belongs to this search
+      const B = World._pf || (World._pf = { n: 0 });
+      if (B.n < N) { B.n = N; B.g = new Float32Array(N); B.came = new Int32Array(N); B.stamp = new Uint32Array(N); B.closed = new Uint32Array(N); B.gen = 0; }
+      const gen = ++B.gen, g = B.g, came = B.came, stamp = B.stamp, closed = B.closed;
+      if (gen > 4e9) { B.stamp.fill(0); B.closed.fill(0); B.gen = 1; }
+      const G = i => stamp[i] === gen ? g[i] : Infinity;
       const heap = [];
       const push = (i, f) => {
         heap.push([f, i]);
@@ -165,28 +169,28 @@
         return top;
       };
       const start = sy * W + sx, goal = ty * W + tx;
-      g[start] = 0; push(start, 0);
-      let iter = 0;
+      stamp[start] = gen; g[start] = 0; came[start] = -1; push(start, 0);
+      let iter = 0, found = start === goal;
       while (heap.length && iter++ < maxIter) {
         const [, cur] = pop();
-        if (cur === goal) break;
-        if (closed[cur]) continue;
-        closed[cur] = 1;
+        if (cur === goal) { found = true; break; }
+        if (closed[cur] === gen) continue;
+        closed[cur] = gen;
         const cx = cur % W, cy = (cur / W) | 0;
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const nx = cx + dx, ny = cy + dy;
           if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
           const ni = ny * W + nx;
-          if (closed[ni]) continue;
-          const c = costFn(nx, ny, ni);
+          if (closed[ni] === gen) continue;
+          const c = costFn(nx, ny, ni, cx, cy);
           if (!isFinite(c)) continue;
-          const ng = g[cur] + c;
-          if (ng < g[ni]) { g[ni] = ng; came[ni] = cur; push(ni, ng + (Math.abs(nx - tx) + Math.abs(ny - ty)) * 0.9); }
+          const ng = G(cur) + c;
+          if (ng < G(ni)) { stamp[ni] = gen; g[ni] = ng; came[ni] = cur; push(ni, ng + (Math.abs(nx - tx) + Math.abs(ny - ty)) * 0.9); }
         }
       }
-      if (came[goal] === -1 && start !== goal) return null;
+      if (!found) return null;
       const path = [];
-      for (let c = goal; c !== -1; c = came[c]) { path.push(c); if (c === start) break; }
+      for (let c = goal, k = 0; c !== -1 && k < N; c = came[c], k++) { path.push(c); if (c === start) break; }
       return path.reverse();
     }
   };

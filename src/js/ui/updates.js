@@ -7,6 +7,7 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.3.7', items: ['Smarter pathfinding for every creature and person: they look ahead and steer round trunks, rocks and walls, plan routes only through gaps their body actually fits, notice when they stop getting closer and plan a way round, and avoid the spot that stopped them. Wolves chasing through woods now get through about four times as often; big creatures like trolls find their way through towns and rocky ground.'] },
     { v: '0.3.6', items: ['Send word to your old companions: on your character page (K), everyone who once rode with you can be reached by a runner (3 crowns) — ask them to come back and fight beside you (they ride to find you), to send supplies, or just send your regards. Their answers arrive as letters.'] },
     { v: '0.3.5', items: ['Anyone carrying a weapon now fights back when attacked — a farmer you armed will stand and cut down the wolves instead of running.', 'Gear counts properly for townsfolk: their blows come from their weapon\'s own damage (shaped by their skill), as yours do, and their strength updates as soon as they put something new on.'] },
     { v: '0.3.4', items: ['People now look like what they wear, the same way you do: the colour and glow of their blade, axe, spear, staff or bow, and their armour\'s colours, helm, shoulder plates and crest — in 3D and in 2D.', 'Talking to someone shows the gear they wear, with pictures, names and stats, and their level.'] },
