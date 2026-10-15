@@ -7,6 +7,7 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.3.2', items: ['Updates now arrive completely by themselves: each new version is published automatically, downloaded in the background, and switched to on the title screen.', 'Fixed a rare crash when a great beast roared before the sound had started.'] },
     { v: '0.3.1', items: ['Guards, soldiers, outlaws and townsfolk now size up a foe before they fight: its level, gear, health and healing against their own and their friends\'. Good odds, they fight; poor odds alone, they shout for help, hold back out of reach and go in together once enough have gathered; hopeless, guards keep their distance and send for more while outlaws and townsfolk run.', 'Seasoned or brave townsfolk answer a call for help and fight beside the guards when together they stand a chance.'] },
     { v: '0.3.0', items: ['Townsfolk go delving too: guards, hunters and the bold go down into dungeons and caves (alone or with friends), come back stronger and wear the weapons and armour they find. Some don\'t come back.', 'Everyone has a level now, and seasoned delvers hit harder and last longer. Ask anyone "How strong are you these days?" — and give them gear from your pack.', 'The guide (J) lists the townsfolk who delve, with their level and gear.'] },
     { v: '0.2.9', items: ['No more dungeon floors walled off by chests, stairs, boulders or pillars: every room, iron door, stair and chest can now be reached.'] },
@@ -52,7 +53,7 @@
       if (!Up.news) store.set('echo.lastVersion', Up.current);
       Up.mount();
       Up.check();
-      setInterval(() => Up.check(), 3 * 3600 * 1000);
+      setInterval(() => Up.check(), 3600 * 1000);
       // tell a player who is in a world, once per world entered
       let shownFor = null;
       setInterval(() => {
@@ -62,7 +63,7 @@
         if (shownFor === key) return;
         shownFor = key;
         UI.toast(Up.state === 'ready'
-          ? `⬆ ECHO ${Up.info.latest} has downloaded. It starts the next time you open the game, or now from the Esc menu (Restart now). Your world carries over.`
+          ? `⬆ ECHO ${Up.info.latest} has downloaded. It switches over when you go back to the title screen or next open the game (or now: Esc → Restart now). Your world carries over.`
           : `⬆ ECHO ${Up.info.latest} is out (you have ${Up.current}). Press Esc to download it; your worlds carry over.`, 'legend', 10);
       }, 4000);
     },
@@ -74,8 +75,26 @@
       let r = null;
       try { r = await N.checkUpdate(); } catch (e) { r = { error: String(e) }; }
       if (!r || r.error || !r.latest) Up.state = 'error';
-      else { Up.info = r; Up.state = cmp(r.latest, Up.current || r.current) <= 0 ? 'current' : r.ready === r.latest ? 'ready' : 'available'; }
+      else {
+        Up.info = r;
+        const newer = cmp(r.latest, Up.current || r.current) > 0;
+        // a release still being built (its game file not attached yet): wait and look again
+        const fresh = r.date && Date.now() - Date.parse(r.date) < 40 * 60 * 1000;
+        Up.state = !newer ? 'current' : r.ready === r.latest ? 'ready' : (r.why === 'no game file' && fresh) ? 'pending' : 'available';
+        if (Up.state === 'pending') { clearTimeout(Up._again); Up._again = setTimeout(() => Up.check(), 3 * 60 * 1000); }
+      }
       Up.mount();
+      Up.autoApply();
+    },
+    // On the title screen (no world open), a downloaded update switches over by itself.
+    autoApply() {
+      const N = Up.native();
+      if (Up.state !== 'ready' || !N || !N.restart || Up._applying) return;
+      if (ECHO.Game && ECHO.Game.world) return;          // never in the middle of play
+      if (!document.querySelector('#screen:not(.hidden) .upd-slot')) return;   // only on the title screen
+      Up._applying = true;
+      Up.mount();
+      setTimeout(() => { if (ECHO.Game && ECHO.Game.world) { Up._applying = false; Up.mount(); return; } N.restart(); }, 2500);
     },
 
     // The little card on the title screen and in the pause menu.
@@ -84,8 +103,12 @@
       const v = Up.current ? 'v' + esc(Up.current) : '';
       let out = '';
       if (Up.news) out += `<div class="upd-card upd-news"><h4>Updated to ${v}</h4><ul>${Up.news.map(c => c.items.map(t => `<li>${esc(t)}</li>`).join('')).join('')}</ul><div class="dim">Your worlds and progress are as you left them.</div><div class="row"><button class="small" data-upd="seen">Got it</button></div></div>`;
-      if (Up.state === 'ready') {
-        out += `<div class="upd-card upd-new"><h4>⬆ ECHO v${esc(Up.info.latest)} is ready</h4><div class="dim">It has downloaded by itself and starts the next time you open ECHO. Your worlds and progress carry over.</div><div class="row"><button class="small primary" data-upd="restart">Restart now</button></div></div>`;
+      if (Up.state === 'ready' && Up._applying) {
+        out += `<div class="upd-card upd-new"><h4>⬆ Updating to v${esc(Up.info.latest)}…</h4><div class="dim">One moment — ECHO restarts on the new version. Your worlds carry over.</div></div>`;
+      } else if (Up.state === 'pending') {
+        out += `<div class="upd-badge"><b>ECHO ${v}</b> <span>v${esc(Up.info.latest)} is on its way — it will install itself in a few minutes</span></div>`;
+      } else if (Up.state === 'ready') {
+        out += `<div class="upd-card upd-new"><h4>⬆ ECHO v${esc(Up.info.latest)} is ready</h4><div class="dim">It has downloaded by itself and switches over when you return to the title screen or next open ECHO. Your worlds and progress carry over.</div><div class="row"><button class="small primary" data-upd="restart">Restart now</button></div></div>`;
       } else if (Up.state === 'available') {
         const i = Up.info;
         out += `<div class="upd-card upd-new"><h4>⬆ A new version is out: v${esc(i.latest)}</h4><div class="dim">You have ${v}. Download it and install over this one; your worlds carry over.</div><div class="row">${i.download ? `<button class="small primary" data-upd="download">Download ${esc(i.file || '')}</button>` : ''}<button class="small" data-upd="page">${i.download ? 'Release page' : 'Download page'}</button></div></div>`;
@@ -98,6 +121,7 @@
 
     mount() {
       document.querySelectorAll('.upd-slot').forEach(el => { el.innerHTML = Up.html(); Up.bind(el); });
+      if (Up.state === 'ready' && !Up._applying) setTimeout(() => Up.autoApply(), 0);
     },
 
     bind(root) {

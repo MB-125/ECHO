@@ -3,8 +3,9 @@ name: Build desktop app
 # Builds ECHO for Windows, macOS and Linux.
 #  • Every push / pull request: run the simulation tests and build all three
 #    platforms (downloadable from the run's "Artifacts" section).
-#  • Pushing a tag like v0.1.0, or publishing a Release on GitHub: attaches
-#    the installers to that Release.
+#  • A push to main with a new version in package.json makes the Release by
+#    itself (installers + the game file installed apps update from). Pushing a
+#    v* tag or publishing a Release by hand does the same.
 #  • "Run workflow" button in the Actions tab: build on demand.
 
 on:
@@ -13,110 +14,54 @@ on:
     tags: ['v*']
   pull_request:
   release:
-    types: [published]
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - name: Simulation tests
-        run: node tests/run-tests.js
-
-  smoke:
-    # Launch the real Electron app headless: create a world, play, save, reload.
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install
-        run: npm ci
-      - name: Launch the desktop app
-        run: timeout 240 xvfb-run -a -s '-screen 0 1440x900x24' npx electron . --no-sandbox --ignore-gpu-blocklist --use-angle=swiftshader --enable-unsafe-swiftshader
-        env:
-          ECHO_SMOKE: '1'
-      - name: Screenshot
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-screenshot
-          path: smoke.png
-          if-no-files-found: ignore
-
-  build:
-    needs: [test, smoke]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: --win
-          - os: macos-latest
-            target: --mac
-          - os: ubuntu-latest
-            target: --linux
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install
-        run: npm ci
-      - name: Build
-        run: npx electron-builder ${{ matrix.target }} --publish never
-        env:
-          # No code-signing certificate: produce unsigned builds.
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      - name: Upload build
-        uses: actions/upload-artifact@v4
-        with:
-          name: ECHO-${{ runner.os }}
-          path: |
-            release/*.exe
-            release/*.dmg
-            release/*.AppImage
-            release/*.deb
-          if-no-files-found: error
-
-  release:
-    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v')
+    # A published Release, a pushed v* tag, or simply a push to main with a new
+    # version in package.json: the release is made here, with everything attached,
+    # and installed apps pick the game up from it by themselves.
+    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-      # The game as one page, which installed apps download and switch to by themselves.
       - uses: actions/checkout@v4
         with:
           path: repo
+      - name: Which release
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then TAG="${{ github.event.release.tag_name }}";
+          elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" = "true" ]; then TAG="${{ github.ref_name }}";
+          else TAG="v$(node -p "require('./repo/package.json').version")"; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          SKIP=false
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            if gh release view "$TAG" -R "${{ github.repository }}" >/dev/null 2>&1; then SKIP=true; echo "Release $TAG already exists; nothing to do."; fi
+          fi
+          echo "skip=$SKIP" >> "$GITHUB_OUTPUT"
+      - uses: actions/download-artifact@v4
+        if: steps.tag.outputs.skip != 'true'
+        with:
+          path: dist
+          merge-multiple: true
       - uses: actions/setup-node@v4
+        if: steps.tag.outputs.skip != 'true'
         with:
           node-version: 22
+      # The game as one page, which installed apps download and switch to by themselves.
       - name: Game update files
+        if: steps.tag.outputs.skip != 'true'
         run: |
           node repo/tools/build-web.js
           cp repo/dist/web/index.html dist/echo-game.html
-          TAG="${{ github.event.release.tag_name || github.ref_name }}"
-          node -e "const fs=require('fs'),p=require('./repo/package.json');const v=process.argv[1].replace(/^v/,'');fs.writeFileSync('dist/echo-game.json',JSON.stringify({version:v,shell:p.echoShell||1,size:fs.statSync('dist/echo-game.html').size}))" "$TAG"
+          node -e "const fs=require('fs'),p=require('./repo/package.json');const v=process.argv[1].replace(/^v/,'');fs.writeFileSync('dist/echo-game.json',JSON.stringify({version:v,shell:p.echoShell||1,size:fs.statSync('dist/echo-game.html').size}))" "${{ steps.tag.outputs.tag }}"
           cat dist/echo-game.json
       - name: Publish release
+        if: steps.tag.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
-          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ECHO ${{ steps.tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
           generate_release_notes: ${{ github.event_name != 'release' }}

@@ -44,6 +44,7 @@
     },
     noise(t0, dur, type, f0, f1, q, peak, attack = 0.005) {
       const c = S.ctx;
+      if (!c || !S.noiseBuf || !S.master || !S.enabled) return;
       const src = c.createBufferSource(); src.buffer = S.noiseBuf;
       src.playbackRate.value = 0.8 + Math.random() * 0.4;
       const f = c.createBiquadFilter(); f.type = type; f.Q.value = q;
@@ -54,6 +55,7 @@
     },
     tone(t0, dur, wave, f0, f1, peak, attack = 0.004) {
       const c = S.ctx;
+      if (!c || !S.master) return;
       const o = c.createOscillator(); o.type = wave;
       o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur);
       const g = c.createGain(); S.env(g, t0, attack, peak, dur);
