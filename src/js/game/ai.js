@@ -393,7 +393,7 @@
       // ordinary folk don't run indoors from crop vermin and rabbits
       if (target && !fighter && !Person.scary(target)) { target = null; e.target = null; }
       if (target) {
-        if (!fighter || (ECHO.People.has(npc, 'cowardly') && e.hp < e.maxHp * 0.5) || npc.prof === 'child') return Person.flee(game, e, target, dt);
+        if ((!fighter && !(ECHO.Odds && ECHO.Odds.volunteer(game, e, npc, target))) || (ECHO.People.has(npc, 'cowardly') && e.hp < e.maxHp * 0.5) || npc.prof === 'child') return Person.flee(game, e, target, dt);
         // Yield when beaten (not everyone will)
         if (e.hp < e.maxHp * 0.22 && !e.triedYield && target === game.pe) {
           e.triedYield = true;
@@ -405,6 +405,8 @@
             return;
           }
         }
+        // size them up first: fight, gather friends and go together, hold back, or run
+        if (ECHO.Odds && e.state !== 'windup' && e.state !== 'attack' && ECHO.Odds.think(game, e, npc, target, dt)) return;
         return Person.fight(game, e, npc, dt, target);
       }
       if (e.state === 'chase' || e.state === 'attack' || e.state === 'flee') e.state = 'idle';
@@ -489,7 +491,7 @@
       }
       const a = Math.atan2(e.y - threat.y, e.x - threat.x);
       ECHO.Ent.seek(world, e, e.x + Math.cos(a) * 3, e.y + Math.sin(a) * 3, e.speed * 1.25, dt, 0.1);
-      if (e.sayT <= 0 && Math.random() < dt * 0.5) { e.say = threat.type === 'creature' ? 'Wolves!' : threat.type === 'player' ? 'Stay away from me!' : 'Help!'; e.sayT = 1.5; }
+      if (e.sayT <= 0 && Math.random() < dt * 0.5) { e.say = threat.foe ? ['Monsters! Run!', 'Get away from it!', 'Help!'][Math.floor(Math.random() * 3)] : threat.type === 'creature' ? 'Wolves!' : threat.type === 'player' ? 'Stay away from me!' : 'Help!'; e.sayT = 1.5; }
     },
 
     // How a person's mind shapes what they do when you are around.

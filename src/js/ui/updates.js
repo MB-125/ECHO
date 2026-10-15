@@ -7,6 +7,7 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.3.1', items: ['Guards, soldiers, outlaws and townsfolk now size up a foe before they fight: its level, gear, health and healing against their own and their friends\'. Good odds, they fight; poor odds alone, they shout for help, hold back out of reach and go in together once enough have gathered; hopeless, guards keep their distance and send for more while outlaws and townsfolk run.', 'Seasoned or brave townsfolk answer a call for help and fight beside the guards when together they stand a chance.'] },
     { v: '0.3.0', items: ['Townsfolk go delving too: guards, hunters and the bold go down into dungeons and caves (alone or with friends), come back stronger and wear the weapons and armour they find. Some don\'t come back.', 'Everyone has a level now, and seasoned delvers hit harder and last longer. Ask anyone "How strong are you these days?" — and give them gear from your pack.', 'The guide (J) lists the townsfolk who delve, with their level and gear.'] },
     { v: '0.2.9', items: ['No more dungeon floors walled off by chests, stairs, boulders or pillars: every room, iron door, stair and chest can now be reached.'] },
     { v: '0.2.8', items: ['Your hero no longer dies for good: a fall costs a few days and some coin, never your level or gear. (Legacy, where heroes die for good, is now a choice in the Esc menu.)'] },

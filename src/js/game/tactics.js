@@ -108,6 +108,9 @@
       else theirs = 1 + tg.hp / Math.max(1, tg.maxHp || 1);
       const lost = s.dead / Math.max(1, s.size0 + 0);
       let m = 1 - lost * 1.1 - (s.leaderDown ? 0.45 : 0) + U.clamp((ours - theirs) * 0.1, -0.3, 0.15) + (s.leaders.length ? 0.15 : 0);
+      // and what they make of the foe: its level and gear against theirs
+      const p0 = s.members.find(o => o.type === 'person' && !o.isCompanion);
+      if (p0 && ECHO.Odds) m += U.clamp((ECHO.Odds.odds(game, p0, tg, false) - 0.5) * 0.5, -0.3, 0.12);
       s.nerve = m;
       if (game.time - s.start < 3) return;
       for (const e of s.members) {
