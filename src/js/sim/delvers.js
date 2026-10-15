@@ -176,34 +176,100 @@
       }
       for (const m of party) D.home(world, m);
     },
+    // ------------------------------------------------------------ gifts from you
+    // How much this item would help this person (0 = not at all).
+    benefit(world, n, it) {
+      if (!n || n.status !== 'alive' || n.prof === 'child' || !D.slot(it)) return 0;
+      const cur = D.slot(it) === 'armor' ? D.armor(world, n) : D.weapon(world, n);
+      const gain = D.score(it) - D.score(cur);
+      if (gain <= 0) return 0;
+      return gain * (KEEN[n.prof] ? 0.6 + KEEN[n.prof] * 0.4 : 0.5) * ((n.delves || 0) > 0 ? 1.3 : 1);
+    },
+    // Who in a town would be helped most by it.
+    neediest(world, s, it, not) {
+      let best = null, bs = 0;
+      for (const n of P().residents(world, s)) { if (n === not) continue; const b = D.benefit(world, n, it); if (b > bs) { bs = b; best = n; } }
+      return best;
+    },
+    // You give an item away, free. It always finds a use: the one you give it
+    // to wears it if it beats theirs, or passes it to whoever in their town
+    // needs it most, or sells it for the town's good. Returns what happened.
+    gift(world, pl, to, it, town) {
+      if (!it || !pl.items.includes(it.id) || it.id === pl.weapon || it.id === pl.armor || it.id === pl.bow) return null;
+      pl.items = pl.items.filter(id => id !== it.id);
+      const R = ECHO.Gear ? ECHO.Gear.rarity(it.rarity).mult : 1;
+      const s = town || (to && ECHO.Sim.settlement(world, to.loc || to.home));
+      const from = `${pl.first} ${pl.last}`;
+      let wearer = null, how;
+      if (to && D.benefit(world, to, it) > 0) { wearer = to; how = 'wears'; }
+      else {
+        const other = s && D.neediest(world, s, it, to);
+        if (other) { wearer = other; how = 'passed'; }
+      }
+      if (wearer) {
+        D.equip(world, wearer, it, `given by ${from}${how === 'passed' && to ? ', by way of ' + to.first + ' ' + to.last : ''} to ${wearer.first} ${wearer.last}`);
+        it.delverLoot = false;
+        wearer.op[pl.charId] = (wearer.op[pl.charId] || 0) + Math.round(8 + R * 6);
+        P().remember(world, wearer, `was given ${it.name.toLowerCase()} by ${from}`, 'gratitude', null, 3);
+        if (wearer.mind) wearer.mind.owe = (wearer.mind.owe || 0) + 1;
+      } else {
+        // nobody needs it: sold, and the coin goes to the town
+        how = 'sold';
+        const coin = ECHO.Gear ? Math.round(ECHO.Gear.value(it) * 0.6) : 10;
+        if (s) s.prosperity = Math.min(100, (s.prosperity || 50) + Math.min(3, coin / 60));
+        if (to) to.wealth = (to.wealth || 0) + Math.round(coin * 0.3);
+        it.holder = null; it.history.push({ d: world.day, t: `given away by ${from}, and sold for the good of ${s ? s.name : 'the poor'}` });
+        delete world.items[it.id];
+      }
+      if (to && to !== wearer) { to.op[pl.charId] = (to.op[pl.charId] || 0) + Math.round(4 + R * 3); P().remember(world, to, `was trusted by ${from} to see a gift put to good use`, 'gratitude', null, 2); }
+      // the town hears of it
+      if (s && ECHO.Chronicle && ECHO.Chronicle.deed) ECHO.Chronicle.deed(world, { text: `${from} gave ${it.name.toLowerCase()} away${wearer ? ' to ' + wearer.first + ' ' + wearer.last : ''} in ${s.name}, asking nothing for it.`, kind: 'deed', importance: R >= 1.5 ? 1 : 0, sid: s.id, x: s.x, y: s.y, rep: Math.min(4, 0.5 + R * 1.2), tag: 'protect' });
+      return { how, wearer, to, s, it };
+    },
+    // Hand all your spare gear to a town: each piece goes where it helps most.
+    shareAll(world, pl, s) {
+      const spare = (pl.items || []).map(id => world.items[id]).filter(it => it && D.slot(it) && it.id !== pl.weapon && it.id !== pl.armor && it.id !== pl.bow);
+      return spare.map(it => D.gift(world, pl, null, it, s)).filter(Boolean);
+    },
+    // A sentence for what happened to a gift.
+    giftLine(r) {
+      if (!r) return '';
+      const nm = r.it.name;
+      if (r.how === 'wears') return `${r.wearer.first} ${r.it.kind === 'armor' ? 'buckles on' : 'takes up'} ${nm} at once.`;
+      if (r.how === 'passed') return r.to ? `${r.to.first} already has better, and passes ${nm} to ${r.wearer.first} ${r.wearer.last}, who needs it.` : `${nm} goes to ${r.wearer.first} ${r.wearer.last} (${r.wearer.prof}), who needs it most.`;
+      return `Nobody in ${r.s ? r.s.name : 'town'} needs ${nm}; it is sold, and the coin goes to the town.`;
+    },
+
     // ------------------------------------------------------------ talking to them
     dialogue(world, npc, ent, pl, ui) {
-      if (!npc || npc.prof === 'child' || !KEEN[npc.prof] && !npc.lv && !(npc.gear && (npc.gear.weapon || npc.gear.armor))) return;
+      if (!npc || npc.prof === 'child') return;
+      D.giftOption(world, npc, ent, pl, ui);
+      if (!KEEN[npc.prof] && !npc.lv && !(npc.gear && (npc.gear.weapon || npc.gear.armor))) return;
       const L = D.lv(npc), w = D.weapon(world, npc), a = D.armor(world, npc), he = npc.sex === 'f' ? 'she' : 'he';
       ui.add('How strong are you these days?', () => {
         const kit = w || a ? `I carry ${w ? w.name.toLowerCase() : 'nothing much'}${a ? ` and wear ${a.name.toLowerCase()}` : ''}.` : 'Nothing worth the name to fight with, mind.';
         const went = npc.delves ? `I've been down into the dark ${npc.delves === 1 ? 'once' : npc.delves + ' times'}, and I came back stronger every time.` : KEEN[npc.prof] >= 2 ? 'One of these days I mean to go down into a dungeon and see what I\'m made of.' : 'Dungeons? Not for me. Not yet.';
         ui.say(`"${kit} ${went}"\n\n(${npc.first} is level ${L}.)`);
       });
-      const spare = (pl.items || []).map(id => world.items[id]).filter(it => it && D.slot(it) && it.kind !== 'bow' && it.id !== pl.weapon && it.id !== pl.armor && it.id !== pl.bow);
-      if (spare.length && npc.status === 'alive') ui.add('I have gear you could use.', () => {
+      void he;
+    },
+    giftOption(world, npc, ent, pl, ui) {
+      const spare = (pl.items || []).map(id => world.items[id]).filter(it => it && D.slot(it) && it.id !== pl.weapon && it.id !== pl.armor && it.id !== pl.bow);
+      if (!spare.length || npc.status !== 'alive') return;
+      ui.add('I have gear I don\'t use. Take it — no charge.', () => {
         ui.clear();
         ui.say(`${npc.first} looks over what you carry.`);
-        for (const it of spare.slice(0, 8)) ui.add(`↳ Give ${it.name} (${it.kind === 'armor' ? 'armour ' + (it.def || 0) : 'damage ' + (it.dmg || 0)})`, () => {
-          const cur = it.kind === 'armor' ? D.armor(world, npc) : D.weapon(world, npc);
-          if (cur && D.score(cur) >= D.score(it)) { ui.say(`"That's kind — but my ${cur.name.toLowerCase()} is better. Keep it, or sell it."`); return; }
-          pl.items = pl.items.filter(id => id !== it.id);
-          D.equip(world, npc, it, `given to ${npc.first} ${npc.last} by ${pl.first} ${pl.last}`);
-          const R = ECHO.Gear ? ECHO.Gear.rarity(it.rarity).mult : 1;
-          npc.op[pl.charId] = (npc.op[pl.charId] || 0) + Math.round(6 + R * 6);
-          P().remember(world, npc, `was given ${it.name.toLowerCase()} by ${pl.first} ${pl.last}`, 'gratitude', null, 3);
-          ui.say(`${npc.first} ${it.kind === 'armor' ? 'buckles it on' : 'weighs it in ' + (npc.sex === 'f' ? 'her' : 'his') + ' hand'} at once. "This is… thank you. I won't forget it."\n\n(${npc.first} now wears it, and fights the better for it.)`);
-          if (ent && ECHO.Spawner) { const e2 = ECHO.Spawner.makePerson(ECHO.Game, npc, ent.x, ent.y, ent.role); ent.hp = Math.max(ent.hp, e2.hp); ent.maxHp = e2.maxHp; ent.dmgMul = e2.dmgMul; ent.gear = Object.assign(ent.gear || {}, e2.gear); ent._plv = e2._plv; }
+        for (const it of spare.slice(0, 10)) ui.add(`↳ Give ${it.name} (${it.kind === 'armor' ? 'armour ' + (it.def || 0) : (it.kind === 'bow' ? 'bow ' : 'damage ') + (it.dmg || 0)})${D.benefit(world, npc, it) > 0 ? ' ★' : ''}`, () => {
+          const r = D.gift(world, pl, npc, it);
+          if (!r) return;
+          ui.say(r.how === 'wears' ? `${npc.first} ${it.kind === 'armor' ? 'buckles it on' : 'weighs it in ' + (npc.sex === 'f' ? 'her' : 'his') + ' hand'} at once. "This is… thank you. I won't forget it."\n\n(${npc.first} now ${it.kind === 'armor' ? 'wears' : 'carries'} it, and fights the better for it.)`
+            : r.how === 'passed' ? `"Mine's better, but I know who needs this — ${r.wearer.first} ${r.wearer.last}. I'll see it gets to ${r.wearer.sex === 'f' ? 'her' : 'him'} today. That's good of you."`
+              : `"Nobody here needs it, truth be told — but it'll fetch a fair price, and the coin will feed someone. Thank you."`);
+          if (r.how === 'wears' && ent && ECHO.Spawner) { const e2 = ECHO.Spawner.makePerson(ECHO.Game, npc, ent.x, ent.y, ent.role); ent.hp = Math.max(ent.hp, e2.hp); ent.maxHp = e2.maxHp; ent.dmgMul = e2.dmgMul; ent.gear = Object.assign(ent.gear || {}, e2.gear); ent._plv = e2._plv; }
           ui.render();
         });
         ui.add('↳ Never mind.', () => ui.render());
       });
-      void he;
     },
     // The strongest of them, for the guide's board.
     top(world, n) {

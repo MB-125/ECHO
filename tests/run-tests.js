@@ -636,6 +636,19 @@ function main() {
     const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
     const g = geared[0], g2 = g && W2.npcs[g.id];
     check('...and keep it through a save', g2 && Dv.lv(g2) === Dv.lv(g) && (Dv.weapon(W2, g2) || Dv.armor(W2, g2)));
+    // gifts: free, and always put to use
+    {
+      const pl = W.player || ECHO.Character.create(W, new ECHO.RNG(5), { first: 'Gift', homeId: W.settlements[0].id });
+      const rng = new ECHO.RNG(9), s = W.settlements.find(t => t.faction !== 'ashfang');
+      const mk = (k, L) => { const it = ECHO.Gear.make(W, rng, k, L, 'rare', 'test'); it.holder = 'player'; pl.items.push(it.id); return it; };
+      const big = mk('sword', 40), junk = mk('armor', 1), bow = mk('bow', 20);
+      const guard = ECHO.People.residents(W, s).find(n => n.prof === 'guard') || ECHO.People.residents(W, s)[0];
+      const op0 = guard.op[pl.charId] || 0;
+      const r1 = Dv.gift(W, pl, guard, big);
+      const res = Dv.shareAll(W, pl, s);
+      const left = pl.items.filter(id => [junk.id, bow.id, big.id].includes(id));
+      check('gear can be given away free, and always finds a use', r1 && r1.how === 'wears' && Dv.weapon(W, guard) === big && (guard.op[pl.charId] || 0) > op0 && res.length === 2 && !left.length && res.every(r => r.how !== 'wears' || r.wearer), res.map(r => r.it.name + ' → ' + r.how + (r.wearer ? ' ' + r.wearer.first : '')).join('; '));
+    }
   }
 
 

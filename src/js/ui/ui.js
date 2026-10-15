@@ -1547,7 +1547,7 @@
         ${pl.spells.length ? `<p class="gold">Secrets: ${pl.spells.map(k => ECHO.Mysteries.REWARDS[k].name).join(', ')}</p>` : ''}
         ${UI.prowessHtml(world, pl)}
         ${UI.equipHtml(world, pl)}
-        <h3 class="gold">Belongings</h3><div class="list">${items.map(it => `<div class="card" style="display:flex;gap:10px">${it.kind === 'sword' || it.kind === 'bow' || it.kind === 'armor' ? ECHO.GearArt.img(it, 'gear-ic small') : ''}<div style="flex:1"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}</div></div>`).join('')}</div>
+        <h3 class="gold">Belongings</h3>${UI.shareAllHtml(game)}<div class="list">${items.map(it => `<div class="card" style="display:flex;gap:10px">${it.kind === 'sword' || it.kind === 'bow' || it.kind === 'armor' ? ECHO.GearArt.img(it, 'gear-ic small') : ''}<div style="flex:1"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}${UI.canGive(pl, it) ? `<div class="row"><button class="small" data-give="${it.id}">Give away…</button></div>` : ''}</div></div>`).join('')}</div>
         ${ECHO.Gear.mats(pl).length ? `<h3 class="gold">Monster parts</h3><div>${ECHO.Gear.mats(pl).map(m => `<span style="color:${m.color}">◆</span> ${m.n} ${esc(m.name)}`).join(' · ')}</div><p class="dim" style="font-size:13px">Sell them at a market, or bring them to a smith to improve your gear.</p>` : ''}
         ${ECHO.Companions ? ECHO.Companions.card(world, pl) : ''}
         ${ECHO.Life ? ECHO.Life.card(world, pl) : ''}
@@ -1560,6 +1560,45 @@
       document.querySelectorAll('#panel button[data-dismiss]').forEach(b => b.addEventListener('click', () => { ECHO.Companions.dismiss(game); UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-bow]').forEach(b => b.addEventListener('click', () => { pl.bow = b.dataset.bow; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-arm]').forEach(b => b.addEventListener('click', () => { pl.armor = b.dataset.arm || null; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
+      document.querySelectorAll('#panel button[data-give]').forEach(b => b.addEventListener('click', () => UI.giveAway(world.items[b.dataset.give])));
+      document.querySelectorAll('#panel button[data-shareall]').forEach(b => b.addEventListener('click', () => {
+        const s0 = ECHO.Sim.settlement(world, b.dataset.shareall), res = ECHO.Delvers.shareAll(world, pl, s0);
+        if (!res.length) return;
+        const worn = res.filter(r => r.how !== 'sold').length;
+        UI.modal({ title: `Shared with ${s0.name}`, html: `<p>You hand over ${res.length} piece${res.length > 1 ? 's' : ''} of gear and ask nothing for ${res.length > 1 ? 'them' : 'it'}.</p><ul>${res.map(r => `<li>${esc(ECHO.Delvers.giftLine(r))}</li>`).join('')}</ul><p class="dim">${worn ? `${worn} ${worn > 1 ? 'people are' : 'person is'} better armed for it. ` : ''}Word of it will spread.</p>`, choices: [{ label: 'Good', onPick: () => UI.openCharacter() }] });
+      }));
+    },
+    // Spare gear you could give away (not what you wield, wear or shoot with).
+    canGive(pl, it) { return !!(ECHO.Delvers && it && ECHO.Delvers.slot(it) && it.id !== pl.weapon && it.id !== pl.armor && it.id !== pl.bow); },
+    // The town you are in (or right beside), if any.
+    townHere(game) {
+      const w = game.world, pe = game.pe;
+      if (ECHO.Interior && ECHO.Interior.cur) { const L = ECHO.Interior.cur; return L.s && L.s.faction !== 'ashfang' && L.type !== 'delve' ? L.s : null; }
+      const s = ECHO.World.nearestSettlement(w, pe.x, pe.y);
+      return s && s.faction !== 'ashfang' && U.dist(s.x, s.y, pe.x, pe.y) < (s.kind === 'village' ? 10 : 15) ? s : null;
+    },
+    shareAllHtml(game) {
+      const pl = game.pl, w = game.world;
+      const n = pl.items.map(id => w.items[id]).filter(it => UI.canGive(pl, it)).length, s = UI.townHere(game);
+      if (!n) return '';
+      return s ? `<div class="row" style="margin:4px 0 8px"><button class="small" data-shareall="${s.id}">Share all ${n} spare piece${n > 1 ? 's' : ''} with ${esc(s.name)} — free</button><span class="dim" style="font-size:12px">each goes to whoever needs it most</span></div>` : `<p class="dim" style="font-size:12px">In a town you can share the gear you don't use with its people, free.</p>`;
+    },
+    // Give one piece away: to someone near you, or to whoever in town needs it most.
+    giveAway(it) {
+      const game = ECHO.Game, world = game.world, pl = game.pl, pe = game.pe, Dv = ECHO.Delvers;
+      if (!it || !UI.canGive(pl, it)) return;
+      const near = game.ents.filter(e => e.type === 'person' && !e.dead && !e.hidden && e.npcId && !game.hostileTo(e, pe) && U.dist(e.x, e.y, pe.x, pe.y) < 10)
+        .map(e => ({ e, n: world.npcs[e.npcId] })).filter(o => o.n && o.n.status === 'alive' && o.n.prof !== 'child')
+        .sort((a, b) => Dv.benefit(world, b.n, it) - Dv.benefit(world, a.n, it) || U.dist(a.e.x, a.e.y, pe.x, pe.y) - U.dist(b.e.x, b.e.y, pe.x, pe.y)).slice(0, 7);
+      const s = UI.townHere(game);
+      const done = r => { if (!r) return; UI.toast(Dv.giftLine(r) + (r.how === 'sold' ? '' : ' They will remember it.'), 'mercy', 5); UI.openCharacter(); };
+      const choices = near.map(({ e, n }) => {
+        const b = Dv.benefit(world, n, it), w0 = it.kind === 'armor' ? Dv.armor(world, n) : Dv.weapon(world, n);
+        return { label: `${n.first} ${n.last}${b > 0 ? ' ★' : ''}`, sub: `${n.prof}, Lv ${Dv.lv(n)} · ${w0 ? 'has ' + w0.name : 'has none'}${b > 0 ? ' — would use it' : ' — would pass it on'}`, onPick: () => { const r = Dv.gift(world, pl, n, it); if (r && r.how === 'wears' && ECHO.Spawner) { const e2 = ECHO.Spawner.makePerson(game, n, e.x, e.y, e.role); e.maxHp = e2.maxHp; e.hp = Math.max(e.hp, e2.hp); e.dmgMul = e2.dmgMul; e.gear = Object.assign(e.gear || {}, e2.gear); e._plv = e2._plv; } done(r); } };
+      });
+      if (s) choices.push({ label: `Whoever in ${s.name} needs it most`, sub: 'the town finds them', onPick: () => done(Dv.gift(world, pl, null, it, s)) });
+      choices.push({ label: 'Keep it', onPick: () => UI.openCharacter() });
+      UI.modal({ title: `Give away ${it.name}`, html: `<p>Free, to anyone. ★ marks someone who would wear it; anyone else passes it to whoever needs it.</p>${!near.length && !s ? '<p class="dim">There is no one near you. Find someone, or go to a town.</p>' : ''}`, choices });
     }
   };
   ECHO.on('chronicle', e => UI.onChronicle(e));
