@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -620,6 +620,24 @@ function main() {
     const walk = W.sites.filter(s => s.starter).every(s => !ECHO.Solids || !ECHO.World.isBlocked || !ECHO.World.isBlocked(W, s.x, s.y));
     check('every old town has a gentle cave nearby', n1 > 0 && n1 === n2 && near && walk && before >= n1, `${n1} starter caves`);
   }
+  {
+    // townsfolk go down into the dungeons, grow stronger and wear what they find
+    const W = ECHO.generateWorld({ seed: 777, name: 'Delvers' }), Dv = ECHO.Delvers;
+    const lv0 = {}; for (const n of Object.values(W.npcs)) lv0[n.id] = Dv.lv(n);
+    let ok = true;
+    try { for (let d = 0; d < 150; d++) ECHO.Sim.dailyTick(W, true); } catch (e) { ok = false; console.log(e); }
+    const all = Object.values(W.npcs);
+    const went = all.filter(n => (n.delves || 0) > 0);
+    const rose = all.filter(n => n.status === 'alive' && Dv.lv(n) > (lv0[n.id] || 1));
+    const geared = all.filter(n => n.status === 'alive' && (Dv.weapon(W, n) || Dv.armor(W, n)));
+    const dangling = all.filter(n => n.gear && ((n.gear.weapon && !W.items[n.gear.weapon] && n.status === 'alive') || (n.gear.armor && !W.items[n.gear.armor] && n.status === 'alive')));
+    const stuck = all.filter(n => n.status === 'alive' && n.delving && W.day > n.delving.back + 4);
+    check('townsfolk delve, grow stronger and wear what they find', ok && went.length >= 3 && rose.length >= 3 && geared.length >= 2 && !dangling.length && !stuck.length, `${went.length} delved, ${rose.length} levelled, ${geared.length} geared, top ${Dv.top(W, 1).map(n => Dv.line(W, n)).join('')}`);
+    const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
+    const g = geared[0], g2 = g && W2.npcs[g.id];
+    check('...and keep it through a save', g2 && Dv.lv(g2) === Dv.lv(g) && (Dv.weapon(W2, g2) || Dv.armor(W2, g2)));
+  }
+
 
   console.log(`\n${passes} passed, ${failures} failed`);
   process.exit(failures ? 1 : 0);

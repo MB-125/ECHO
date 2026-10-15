@@ -187,6 +187,18 @@
         role, gear, look: S.look(npc), label: null
       });
       if (npc.carry) e.carrying = npc.carry;
+      // their level and what they wear: a seasoned delver hits harder and lasts longer
+      const Dv = ECHO.Delvers;
+      if (Dv && npc.lv != null) {
+        const L = Dv.lv(npc), L0 = Dv.baseLv(npc);
+        e._plv = L;
+        if (L > L0) { const a = ECHO.Prowess.foeMul(L), b = ECHO.Prowess.foeMul(L0); e.hp = e.maxHp = Math.round(e.maxHp * a.hp / b.hp); e.dmgMul = (e.dmgMul || 1) * a.dmg / b.dmg; }
+      }
+      if (Dv) {
+        const w = Dv.weapon(world, npc), a = Dv.armor(world, npc);
+        if (w) { e.dmgMul = (e.dmgMul || 1) * (1 + Math.min(2, (w.dmg || 0) / 80)); if (w.wclass === 'spear') e.gear.spear = true; if (w.kind === 'bow') e.gear.bow = true; e.wearing = w.id; }
+        if (a) { e.hp = e.maxHp = Math.round(e.maxHp + (a.def || 0) * 1.2); e.gear.helm = true; }
+      }
       void f;
       return e;
     },

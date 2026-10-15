@@ -210,6 +210,11 @@
       if (all.length > known.length) html += `<p class="dim">${all.length - known.length} more lie uncharted. The deeper into the wild, the worse they are.</p>`;
       // ---- rivals
       if (ECHO.Rivals) { const rows = ECHO.Rivals.board(world, pl); html += `<h3 class="gold">Rival adventurers</h3><p class="dim">Others go down into the dungeons too — and sometimes get there first.</p><table class="grid"><tr><th>#</th><th>Adventurer</th><th>Level</th><th>Renown</th><th>Dungeons</th></tr>${rows.map((r, i) => `<tr style="${r.you ? 'color:#ffe08a' : ''}"><td>${i + 1}</td><td>${esc(r.name)}</td><td>${r.lv} <span class="dim">${esc(ECHO.Prowess.rank(r.lv).title)}</span></td><td>${r.renown}</td><td>${r.cleared}</td></tr>`).join('')}</table>`; }
+      // ---- townsfolk who delve
+      if (ECHO.Delvers) {
+        const top = ECHO.Delvers.top(world, 8);
+        if (top.length) html += `<h3 class="gold">Townsfolk who delve</h3><p class="dim">Guards, hunters and the bold go down into the dungeons too, and come back stronger, wearing what they found. You can give them gear yourself (talk to them).</p><table class="grid"><tr><th>Who</th><th>Level</th><th>Gear</th><th>Dungeons</th></tr>${top.map(n => { const w = ECHO.Delvers.weapon(world, n), a = ECHO.Delvers.armor(world, n), t = ECHO.Sim.settlement(world, n.home); return `<tr><td><b>${esc(n.first + ' ' + n.last)}</b><div class="dim" style="font-size:12px">${esc(n.prof)}${t ? ' of ' + esc(t.name) : ''}${n.delving ? ' · below ground now' : ''}</div></td><td>${ECHO.Delvers.lv(n)}</td><td class="dim" style="font-size:12px">${[w, a].filter(Boolean).map(it => `<span style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}</span>`).join('<br>') || '—'}</td><td>${n.delves || 0}</td></tr>`; }).join('')}</table>`;
+      }
       // ---- bestiary
       const D = ECHO.Monsters.DEFS, best = pl.bestiary || {};
       const kinds = Object.keys(D).filter(k => k !== 'slimeling');

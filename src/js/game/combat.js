@@ -389,6 +389,12 @@
             game.dropItem(npc.carry, target.x, target.y);
             npc.carry = null;
           }
+          // and what they wore
+          if (ECHO.Delvers && npc.gear) for (const sl of ['weapon', 'armor']) {
+            const it = sl === 'weapon' ? ECHO.Delvers.weapon(world, npc) : ECHO.Delvers.armor(world, npc);
+            if (it) { it.delverLoot = false; game.dropItem(it.id, target.x + (sl === 'armor' ? 0.6 : -0.4), target.y + 0.3); }
+            npc.gear[sl] = null;
+          }
           const camp = npc.camp && world.camps.find(c => c.id === npc.camp);
           const wasLeader = camp && camp.leader === npc.id;
           if (camp) camp.members = camp.members.filter(id => id !== npc.id);

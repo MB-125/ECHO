@@ -190,6 +190,7 @@
       if (ECHO.Holding) ECHO.Holding.dailyTick(world, rng);
       if (ECHO.Explore) ECHO.Explore.dailyTick(world, rng);
       if (ECHO.Rivals) ECHO.Rivals.dailyTick(world, rng);
+      if (ECHO.Delvers) ECHO.Delvers.dailyTick(world);
       ECHO.Intel.dailyTick(world, rng);
       ECHO.Plights.dailyTick(world, rng);
       ECHO.Civ.dailyTick(world, rng);
