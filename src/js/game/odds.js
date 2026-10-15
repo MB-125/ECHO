@@ -32,7 +32,7 @@
       if (x.type === 'person') {
         const n = x.npcId && world.npcs[x.npcId], sk = n ? (n.skill.fight || 0) : 20;
         const bow = !!(x.gear && x.gear.bow);
-        const hit = bow ? (5 + sk * 0.11) : (5 + sk * 0.13 + (n ? n.rank * 3 : 0) + (n && n.carry ? 4 : 0));
+        const hit = Math.max(bow ? (5 + sk * 0.11) : (5 + sk * 0.13 + (n ? n.rank * 3 : 0) + (n && n.carry ? 4 : 0)), (x.wdmg || 0) * (0.55 + sk / 220));
         return { hp: Math.max(1, x.hp) * (x.isCompanion ? 1.4 : 1), dps: hit * (x.dmgMul || 1) / (bow ? 1.9 : 1.35), regen: 0, ranged: bow };
       }
       if (x.foe) {
@@ -74,11 +74,14 @@
     ableFighter(game, o) {
       if (o.role === 'guard' || o.role === 'soldier' || o.role === 'bandit') return true;
       const n = o.npcId && game.world.npcs[o.npcId];
-      return !!n && O.willingSort(n);
+      return !!n && O.willingSort(n, game.world);
     },
     // A townsperson who would take up a blade if the odds were good.
-    willingSort(n) {
-      if (!n || n.prof === 'child' || n.prof === 'elder' || ECHO.People.has(n, 'cowardly')) return false;
+    willingSort(n, world) {
+      if (!n || n.prof === 'child' || n.prof === 'elder') return false;
+      // a weapon in hand changes a person: anyone armed will stand and fight
+      if (world && ECHO.Delvers && ECHO.Delvers.weapon(world, n)) return true;
+      if (ECHO.People.has(n, 'cowardly')) return false;
       return (n.delves || 0) > 0 || (ECHO.Delvers && ECHO.Delvers.lv(n) >= 5) || ECHO.People.has(n, 'brave') || ((n.skill && n.skill.fight) || 0) >= 25;
     },
     // The chance (0–1) that e's side wins: how long each side needs to cut the
@@ -179,8 +182,19 @@
     },
     // When a willing townsperson takes up the fight instead of running.
     volunteer(game, e, npc, target) {
-      if (!O.willingSort(npc) || target === game.pe && !game.hostileTo(e, game.pe)) return false;
-      if (!e.volunteer && !(npc.delves > 0)) return false;
+      if (target === game.pe && !game.hostileTo(e, game.pe)) return false;
+      if (!npc || npc.prof === 'child') return false;
+      const armed = !!(ECHO.Delvers && ECHO.Delvers.weapon(game.world, npc));
+      // set upon: fight back, unless it is hopeless (an armed one always does)
+      if (e.hurtT > 0) e._hitAt = game.time;
+      const attacked = game.time - (e._hitAt || -99) < 5 || (target.target === e && U.dist(e.x, e.y, target.x, target.y) < 2.5);
+      if (attacked && (armed || O.willingSort(npc, game.world))) {
+        if (armed) return true;
+        if (e._defFor !== target || game.time - (e._defT || 0) > 1) { e._defFor = target; e._defT = game.time; e._def = O.odds(game, e, target, true) >= HOPELESS; }
+        return e._def;
+      }
+      if (!O.willingSort(npc, game.world)) return false;
+      if (!e.volunteer && !(npc.delves > 0) && !armed) return false;
       if (e._volFor !== target || game.time - (e._volT || 0) > 1) { e._volFor = target; e._volT = game.time; e._vol = O.odds(game, e, target, true) >= ENGAGE; }
       return e._vol;
     }

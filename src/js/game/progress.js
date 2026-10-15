@@ -73,7 +73,12 @@
         if (ECHO.Delvers) for (const e of game.ents) {
           if (e.type !== 'person' || !e.npcId || e.dead || U.dist(e.x, e.y, pe.x, pe.y) > 24) continue;
           const n = world.npcs[e.npcId], L = n && n.gear ? ECHO.Delvers.lookOf(world, n) : null;
-          if ((L && L.key) !== (e.gearLook && e.gearLook.key)) { e.gearLook = L; if (L && L.blade) { e.gear.spear = L.blade.wclass === 'spear'; e.gear.bow = false; } if (L && L.bow) e.gear.bow = true; }
+          if ((L && L.key) !== (e.gearLook && e.gearLook.key)) {
+            e.gearLook = L; if (L && L.blade) { e.gear.spear = L.blade.wclass === 'spear'; e.gear.bow = false; } if (L && L.bow) e.gear.bow = true;
+            // and their strength with it
+            const e2 = ECHO.Spawner.makePerson(game, n, e.x, e.y, e.role), frac = e.hp / Math.max(1, e.maxHp);
+            e.maxHp = e2.maxHp; e.hp = Math.max(1, Math.round(e2.maxHp * frac)); e.dmgMul = e2.dmgMul; e._plv = e2._plv; e.wdmg = e2.wdmg;
+          }
         }
         Pg.target = Pg.pickTarget(game);
         Pg.lordBar(game);

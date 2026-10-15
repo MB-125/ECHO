@@ -572,13 +572,13 @@
           if (e.readPlan && ECHO.Wits && ECHO.Wits.hold(game, e, dt)) return;
           e.state = 'attack'; e.t = 0;
           if (archer && !e.meleeWind) {
-            ECHO.Combat.shoot(e, e.aimAngle + (Math.random() - 0.5) * 0.12 * (e.aimMul || 1), { kind: e.gear.crossbow ? 'bolt' : 'arrow', speed: e.gear.crossbow ? 17 : 13, dmg: (5 + skill * 0.11 + (e.gear.crossbow ? 4 : 0)) * (e.dmgMul || 1), life: 1.3, type: 'ranged' });
+            ECHO.Combat.shoot(e, e.aimAngle + (Math.random() - 0.5) * 0.12 * (e.aimMul || 1), { kind: e.gear.crossbow ? 'bolt' : 'arrow', speed: e.gear.crossbow ? 17 : 13, dmg: Math.max(5 + skill * 0.11 + (e.gear.crossbow ? 4 : 0), (e.wdmg || 0) * (0.55 + skill / 220)) * (e.dmgMul || 1), life: 1.3, type: 'ranged' });
           } else {
             const reach = spear ? 2.1 : 1.25;
             // a sellsword's every third blow, once learned, cleaves wide
             const cleave = e.isCompanion && e.compCls === 'sellsword' && ECHO.Companions && npc.comp && npc.comp.lv >= 8 && (e.swings = (e.swings || 0) + 1) % 3 === 0;
             const arc = cleave ? 2.7 : spear ? 0.7 : 1.6;
-            let mo = { angle: e.aimAngle, arc, range: reach + (cleave ? 0.3 : 0), dmg: (5 + skill * 0.13 + npc.rank * 3 + (npc.carry ? 4 : 0)) * (e.dmgMul || 1) * (cleave ? 1.3 : 1), knock: cleave ? 0.3 : 0.12 };
+            let mo = { angle: e.aimAngle, arc, range: reach + (cleave ? 0.3 : 0), dmg: Math.max(5 + skill * 0.13 + npc.rank * 3 + (npc.carry ? 4 : 0), (e.wdmg || 0) * (0.55 + skill / 220)) * (e.dmgMul || 1) * (cleave ? 1.3 : 1), knock: cleave ? 0.3 : 0.12 };
             if (ECHO.Wits) mo = ECHO.Wits.blow(game, e, mo);
             const hits = ECHO.Combat.melee(e, mo);
             if (ECHO.Wits) ECHO.Wits.landed(game, e, mo, hits);

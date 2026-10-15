@@ -1603,7 +1603,7 @@
       const done = r => { if (!r) return; UI.toast(Dv.giftLine(r) + (r.how === 'sold' ? '' : ' They will remember it.'), 'mercy', 5); UI.openCharacter(); };
       const choices = near.map(({ e, n }) => {
         const b = Dv.benefit(world, n, it), w0 = it.kind === 'armor' ? Dv.armor(world, n) : Dv.weapon(world, n);
-        return { label: `${n.first} ${n.last}${b > 0 ? ' ★' : ''}`, sub: `${n.prof}, Lv ${Dv.lv(n)} · ${w0 ? 'has ' + w0.name : 'has none'}${b > 0 ? ' — would use it' : ' — would pass it on'}`, onPick: () => { const r = Dv.gift(world, pl, n, it); if (r && r.how === 'wears' && ECHO.Spawner) { const e2 = ECHO.Spawner.makePerson(game, n, e.x, e.y, e.role); e.maxHp = e2.maxHp; e.hp = Math.max(e.hp, e2.hp); e.dmgMul = e2.dmgMul; e.gear = Object.assign(e.gear || {}, e2.gear); e._plv = e2._plv; } done(r); } };
+        return { label: `${n.first} ${n.last}${b > 0 ? ' ★' : ''}`, sub: `${n.prof}, Lv ${Dv.lv(n)} · ${w0 ? 'has ' + w0.name : 'has none'}${b > 0 ? ' — would use it' : ' — would pass it on'}`, onPick: () => { const r = Dv.gift(world, pl, n, it); if (r && r.how === 'wears' && ECHO.Spawner) { const e2 = ECHO.Spawner.makePerson(game, n, e.x, e.y, e.role); e.maxHp = e2.maxHp; e.hp = Math.max(e.hp, e2.hp); e.dmgMul = e2.dmgMul; e.wdmg = e2.wdmg; e.gear = Object.assign(e.gear || {}, e2.gear); e._plv = e2._plv; e.gearLook = e2.gearLook; } done(r); } };
       });
       if (s) choices.push({ label: `Whoever in ${s.name} needs it most`, sub: 'the town finds them', onPick: () => done(Dv.gift(world, pl, null, it, s)) });
       choices.push({ label: 'Keep it', onPick: () => UI.openCharacter() });

@@ -271,7 +271,7 @@
           ui.say(r.how === 'wears' ? `${npc.first} ${it.kind === 'armor' ? 'buckles it on' : 'weighs it in ' + (npc.sex === 'f' ? 'her' : 'his') + ' hand'} at once. "This is… thank you. I won't forget it."\n\n(${npc.first} now ${it.kind === 'armor' ? 'wears' : 'carries'} it, and fights the better for it.)`
             : r.how === 'passed' ? `"Mine's better, but I know who needs this — ${r.wearer.first} ${r.wearer.last}. I'll see it gets to ${r.wearer.sex === 'f' ? 'her' : 'him'} today. That's good of you."`
               : `"Nobody here needs it, truth be told — but it'll fetch a fair price, and the coin will feed someone. Thank you."`);
-          if (r.how === 'wears' && ent && ECHO.Spawner) { const e2 = ECHO.Spawner.makePerson(ECHO.Game, npc, ent.x, ent.y, ent.role); ent.hp = Math.max(ent.hp, e2.hp); ent.maxHp = e2.maxHp; ent.dmgMul = e2.dmgMul; ent.gear = Object.assign(ent.gear || {}, e2.gear); ent._plv = e2._plv; }
+          if (r.how === 'wears' && ent && ECHO.Spawner) { const e2 = ECHO.Spawner.makePerson(ECHO.Game, npc, ent.x, ent.y, ent.role); ent.hp = Math.max(ent.hp, e2.hp); ent.maxHp = e2.maxHp; ent.dmgMul = e2.dmgMul; ent.wdmg = e2.wdmg; ent.gear = Object.assign(ent.gear || {}, e2.gear); ent._plv = e2._plv; ent.gearLook = e2.gearLook; }
           ui.render();
         });
         ui.add('↳ Never mind.', () => ui.render());
