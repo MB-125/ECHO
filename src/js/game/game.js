@@ -527,9 +527,14 @@
         Game.currentSid = sid;
         if (s) {
           const f = world.factions[s.faction];
-          ECHO.UI.banner(s.name, `${s.kind === 'capital' ? 'Capital of ' + f.short : s.kind === 'temple' ? 'Temple town of ' + f.short : 'Village of ' + f.short}`);
+          const mins = world.day * 1440 + world.minute;
+          Game._bannered = Game._bannered || {};
+          if (force || !s.visited || mins - (Game._bannered[s.id] || -1e9) > 360) ECHO.UI.banner(s.name, `${s.kind === 'capital' ? 'Capital of ' + f.short : s.kind === 'temple' ? 'Temple town of ' + f.short : 'Village of ' + f.short}`);
+          Game._bannered[s.id] = mins;
           const fresh = ECHO.Chronicle.learnAt(world, s);
-          if (fresh.length) ECHO.UI.toast(`You catch up on the news in ${s.name} (${fresh.length} new). Press Tab to read the journal.`, 'rumor', 5);
+          const big = fresh.filter(e => (e.imp || e.importance || 0) >= 2);
+          if (big.length) ECHO.UI.toast(`News in ${s.name}: ${big[0].text.length > 90 ? big[0].text.slice(0, 88) + '…' : big[0].text}${fresh.length > 1 ? ` (+${fresh.length - 1} more in your journal)` : ''}`, 'rumor', 6);
+          else if (fresh.length >= 4) ECHO.UI.toast(`${fresh.length} pieces of news in ${s.name} — in your journal (Tab).`, 'rumor', 4);
           s.visited = true;
           if (!force) ECHO.UI.deliverLetters(`A courier in ${s.name} has been waiting for you`);
           const fe = ECHO.Festivals && ECHO.Festivals.today(world);
@@ -543,7 +548,10 @@
       const region = ECHO.World.regionAt(world, pe.x, pe.y);
       if (region !== Game.currentRegion) {
         Game.currentRegion = region;
-        if (!s && !force) ECHO.UI.banner(U.cap(region.name), '', true);
+        // a region's name, the first time you walk into it (or after a long while away)
+        const mins = world.day * 1440 + world.minute;
+        Game._rbannered = Game._rbannered || {};
+        if (!s && !force && region && mins - (Game._rbannered[region.id || region.name] || -1e9) > 2880) { Game._rbannered[region.id || region.name] = mins; ECHO.UI.banner(U.cap(region.name), '', true); }
       }
       for (const r of world.ruins) if (!r.visited && U.dist(r.x, r.y, pe.x, pe.y) < 7) { r.visited = true; ECHO.UI.banner(U.cap(r.name), 'Ancient ruin'); }
       for (const c of world.camps) if (c.alive && !c.seen && U.dist(c.x, c.y, pe.x, pe.y) < 14) { c.seen = true; ECHO.UI.toast(`You spot the fires of an Ashfang camp: ${c.name}.`, 'warn', 4); }

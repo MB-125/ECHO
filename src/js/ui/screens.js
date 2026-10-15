@@ -164,7 +164,7 @@
     },
     help() {
       const el = Scr.show(`${Scr.logo()}<div class="panel-inner" style="margin:0 auto"><div class="panel-body prose" style="font-size:18px">
-<b>Controls.</b> WASD to move. Left mouse strikes, right mouse draws and looses the bow (hold to draw), Q casts flame (hold to pour more into it — at your peril). Shift raises your guard; tap it just as a blow lands for a perfect guard. Space dodges. R (or the middle mouse button) locks onto a foe so you always face it; press again to release. Hold Ctrl to sneak (you must sneak to strike someone who isn't your enemy). F studies a creature. E interacts. H eats, G uses herbs. Tab opens the journal, M the map, K your character, Esc the menu.
+<b>Controls.</b> WASD to move. Left mouse strikes, right mouse draws and looses the bow (hold to draw), Q casts flame (hold to pour more into it — at your peril). Shift raises your guard; tap it just as a blow lands for a perfect guard. Space dodges. R (or the middle mouse button) locks onto a foe so you always face it; press again to release. Hold Ctrl to sneak (you must sneak to strike someone who isn't your enemy). F studies a creature. E interacts. H eats, G uses herbs. Tab opens the journal, M the map, N "where to?" (pick what to head for — a golden trail on the ground leads the way), K your character, Esc the menu.
 
 <b>The world.</b> Everyone in ECHO is a real, persistent person who lives whether or not you're watching. Kingdoms grow hungry and go to war. Outlaws raid and take captives. Merchants chase profit and flee danger. Beasts multiply or starve. Your actions ripple — but no one will tell you which ripple was yours.
 
@@ -268,7 +268,7 @@
       const home = ECHO.Sim.settlement(world, pl.homeId);
       setTimeout(() => ECHO.Purpose.calling(ECHO.Game, k => {
         if (ECHO.Tutorial && !ECHO.UI.settings.tutorialDone) ECHO.Tutorial.begin(ECHO.Game);
-        ECHO.UI.toast(k ? `You are ${pl.first} ${pl.last} of ${home.name}. The line at the top of the screen shows the next step on your road, and points the way. Tab opens your journal.` : `You are ${pl.first} ${pl.last} of ${home.name}. Talk to people. Read the notice board. Or walk out into the world and see what it does.`, 'world', 10);
+        ECHO.UI.toast(k ? `You are ${pl.first} ${pl.last} of ${home.name}. The line at the top of the screen shows the next step on your road, and the golden trail leads the way. N picks where to go; Tab opens your journal.` : `You are ${pl.first} ${pl.last} of ${home.name}. Talk to people. Read the notice board. Or walk out into the world and see what it does.`, 'world', 10);
       }), 1800);
     },
 

@@ -12,7 +12,7 @@
 
   const Pu = ECHO.Purpose = {
     t: 0, glows: [], goal: null,
-    reset() { Pu.t = 0; Pu.glows = []; Pu.goal = null; Pu._html = null; },
+    reset() { Pu.t = 0; Pu.glows = []; Pu.goal = null; Pu._html = null; if (ECHO.Nav) ECHO.Nav.reset(); },
 
     // ------------------------------------------------------------ what we point at
     // A tracked quest, if any, or the next step of the chosen ambition.
@@ -74,6 +74,7 @@
       Pu.t -= dt;
       if (Pu.t <= 0) {
         Pu.t = 1.2;
+        if (ECHO.Nav) ECHO.Nav.autoTrack(game);
         Pu.goal = Pu.current(game);
         // ceremonies
         if (!UI().paused() && !game.defeating && !(game.combatT != null && game.time - game.combatT < 6) && !game.ents.some(e => e.boss2 && !e.dead && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 12)) {
@@ -81,6 +82,7 @@
           for (const r of up) Pu.ceremony(game, r);
         }
       }
+      if (ECHO.Nav) ECHO.Nav.update(game, dt);
       Pu.hud(game);
       // a beacon over the place, once it is close enough to see
       const g = Pu.goal;
@@ -102,11 +104,17 @@
       if (g.where && !ECHO.Interior.cur) {
         const dx = g.where.x - pe.x, dy = g.where.y - pe.y, d = Math.hypot(dx, dy);
         ang = Math.atan2(dy, dx);
+        const R = ECHO.Nav && ECHO.Nav.route;
         if (d < 4) dirTxt = 'here';
+        else if (R && R.ok && R.steer) {
+          // along the planned way, not through the lake
+          ang = Math.atan2(R.steer.y - pe.y, R.steer.x - pe.x);
+          dirTxt = `${R.leg ? R.leg + ' · ' : ''}${g.where.vague ? 'somewhere ' : ''}${Math.max(1, Math.round(R.left / 2) * 2)} leagues`;
+        }
         else if (g.where.vague) dirTxt = `${d > 60 ? 'far ' : ''}to the ${DIRS[((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8]}`;
         else dirTxt = `${Math.round(d)} leagues`;
       }
-      const html = `<span class="gl">${esc(g.label)}</span>${g.where ? `<span class="gw">${ang != null && dirTxt !== 'here' ? `<i class="arrow" style="transform:rotate(${Math.round(ang * 180 / Math.PI)}deg)">➤</i>` : ''}${esc(g.where.name || '')}${dirTxt ? ' · ' + dirTxt : ''}</span>` : ''}${g.kind === 'track' ? '<span class="gt">tracked</span>' : ''}<span class="gk">J · how?</span>`;
+      const html = `<span class="gl">${esc(g.label)}</span>${g.where ? `<span class="gw">${ang != null && dirTxt !== 'here' ? `<i class="arrow" style="transform:rotate(${Math.round(ang * 180 / Math.PI)}deg)">➤</i>` : ''}${esc(g.where.name || '')}${dirTxt ? ' · ' + dirTxt : ''}</span>` : ''}${g.kind === 'track' ? '<span class="gt">tracked</span>' : ''}<span class="gk">J · how? · N · where to?</span>`;
       if (Pu._html !== html) { Pu._html = html; el.innerHTML = html; el.classList.remove('hidden'); }
     },
 

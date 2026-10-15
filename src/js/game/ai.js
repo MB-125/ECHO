@@ -533,13 +533,13 @@
         return true;
       }
       // Admiration (or a cold stare): they stop and look at you.
-      if (sees && d < 3.2 && Math.abs(op) > 45 && !e._lookT) e._lookT = 4 + Math.random() * 3;
+      if (sees && d < 3.2 && Math.abs(op) > 45 && !e._lookT && npc._staredDay !== world.day && !(performance.now() < (ECHO._lookGate || 0))) { e._lookT = 4 + Math.random() * 3; npc._staredDay = world.day; ECHO._lookGate = performance.now() + 9000; }
       if (e._lookT > 0) {
         e._lookT -= dt;
         if (e._lookT <= 0) { e._lookT = -20; return false; }
         e.moving = false; e.dir = Math.atan2(pe.y - e.y, pe.x - e.x);
         if (op > 45) say(Dialogue().praise(world, npc, pl), 2.6);
-        else say(['Hmph.', 'We know what you are.', 'Keep walking.', '…'][ECHO.hashStr(npc.id) % 4], 2);
+        else say(['We know what you are.', 'Keep walking.', 'I know your face.', 'Move along.'][ECHO.hashStr(npc.id) % 4], 2);
         return true;
       }
       if (e._lookT < 0) e._lookT = Math.min(0, e._lookT + dt);

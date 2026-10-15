@@ -44,17 +44,19 @@
         if (In.pressed.has('m')) UI.openMap();
         if (In.pressed.has('c') && !In.down.has('Control')) { /* c also sneaks; character sheet on K */ }
         if (In.pressed.has('k')) UI.openCharacter();
+        if (In.pressed.has('n') && ECHO.Nav) ECHO.Nav.openPicker(game);
         if (In.pressed.has('F1') || In.pressed.has('/') || In.pressed.has('?')) UI.toggleHelp();
       } else if (UI.panelOpen) {
         if ((In.pressed.has('Tab') || In.pressed.has('j')) && UI.panelKind === 'journal') UI.closePanel();
         else if (In.pressed.has('m') && UI.panelKind === 'map') UI.closePanel();
+        else if (In.pressed.has('n') && UI.panelKind === 'nav') UI.closePanel();
         else if (In.pressed.has('k') && UI.panelKind === 'char') UI.closePanel();
       }
       UI.hud(game, dt);
     },
     // The controls card: shown until the player hides it (F1), remembered.
     toggleHelp(force) {
-      UI.settings.hideHelp = force != null ? !force : !UI.settings.hideHelp;
+      UI.settings.hideHelp = force != null ? !force : !(UI.settings.hideHelp !== false);
       try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ }
       UI.applyHelp();
     },
@@ -75,7 +77,7 @@
     },
     overHud(x0, y0, x1, y1, dpr) { return UI.hudRects(dpr).some(h => x0 < h[2] && x1 > h[0] && y0 < h[3] && y1 > h[1]); },
     applyHelp() {
-      const hide = !!UI.settings.hideHelp;
+      const hide = UI.settings.hideHelp !== false;   // folded away unless you open it (F1); the tutorial teaches the basics
       $('#hud-help').classList.toggle('hidden', hide);
       $('#hud-help-tab').classList.toggle('hidden', !hide);
       $('#hud-keys').classList.toggle('hidden', !hide);
@@ -131,14 +133,69 @@
     minimap(game) { ECHO.WorldMap.mini(game, $('#minimap')); },
 
     // ------------------------------------------------------------ Toasts & banners
+    // Messages: only what matters, once. The same message isn't repeated within a
+    // couple of minutes; idle chatter (news, tips) gives way when the screen is
+    // busy; never more than three at once, the important ones staying longest.
+    TOAST_HIGH: new Set(['warn', 'boss', 'legend', 'mercy', 'crime', 'intel']),
     toast(text, kind = 'info', secs = 4) {
       if (!UI.toastsEl) return;
+      const now = performance.now(), key = String(text).replace(/\d+/g, '#').slice(0, 80);
+      UI._seen = UI._seen || new Map();
+      const last = UI._seen.get(key);
+      if (last && now - last < (UI.TOAST_HIGH.has(kind) ? 45000 : 150000)) return;
+      UI._seen.set(key, now);
+      if (UI._seen.size > 200) for (const [k, t] of UI._seen) if (now - t > 300000) UI._seen.delete(k);
+      const high = UI.TOAST_HIGH.has(kind);
+      const live = [...UI.toastsEl.children].filter(c => !c.classList.contains('out'));
+      if (!high && live.length >= 2) {
+        // the screen is busy: it waits its turn (and is dropped if it goes stale)
+        UI._q = (UI._q || []).filter(q => now - q.t < 20000);
+        if (UI._q.length < 4) UI._q.push({ text, kind, secs, t: now });
+        clearTimeout(UI._qt); UI._qt = setTimeout(() => UI.flushToasts(), 2500);
+        UI._seen.delete(key);
+        return;
+      }
       const el = document.createElement('div');
       el.className = 'toast ' + kind;
       el.textContent = text;
+      UI.shown = (UI.shown || 0) + 1;
       UI.toastsEl.prepend(el);
-      while (UI.toastsEl.children.length > 6) UI.toastsEl.lastChild.remove();
-      setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 700); }, secs * 1000);
+      while (UI.toastsEl.children.length > 3) UI.toastsEl.lastChild.remove();
+      const t = high ? Math.max(secs, 4) : Math.min(secs, 4.5);
+      setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 700); }, t * 1000);
+    },
+    flushToasts() {
+      const q = UI._q || [];
+      if (!q.length) return;
+      const live = [...UI.toastsEl.children].filter(c => !c.classList.contains('out'));
+      if (live.length < 2) { const n = q.shift(); if (performance.now() - n.t < 20000) UI.toast(n.text, n.kind, n.secs); }
+      if (q.length) { clearTimeout(UI._qt); UI._qt = setTimeout(() => UI.flushToasts(), 2500); }
+    },
+    // Speech: a handful of voices at a time — the ones that matter to you —
+    // and no empty grunts.
+    TRIVIAL: new Set(['…', '...', 'Hmph.', 'Hm.', '*yip*', '…RISE…']),
+    bubbleOk(game, e) {
+      const t = performance.now();
+      if (!UI._bub || t - UI._bubT > 250) {
+        UI._bubT = t;
+        const pe = game.pe, cand = [];
+        for (const o of game.ents) {
+          if (!o.say || !(o.sayT > 0) || o.dead || o.hidden) continue;
+          if (UI.TRIVIAL.has(o.say)) continue;
+          const d = U.dist(o.x, o.y, pe.x, pe.y);
+          if (d > 14) continue;
+          const urgent = o.isCompanion || o.target === pe || o.aggro || o.type === 'boss' || o.boss2 || /!$/.test(o.say) && d < 6;
+          cand.push({ o, s: d - (urgent ? 20 : 0) - (o.npcId && ECHO.UI.dlgNpc === o.npcId ? 30 : 0) });
+        }
+        cand.sort((a, b) => a.s - b.s);
+        UI._bub = new Set(cand.slice(0, 4).map(c => c.o));
+      }
+      return UI._bub.has(e);
+    },
+    // How much of a shop sign to show: nothing far off, the name nearer, the wares close by.
+    signLevel(game, b) {
+      const d = U.dist(b.x + b.w / 2, b.y + b.h / 2, game.pe.x, game.pe.y);
+      return d <= 6 ? 2 : d <= 11 ? 1 : 0;
     },
     banner(title, sub, small) {
       const b = $('#banner');

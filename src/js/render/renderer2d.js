@@ -1024,18 +1024,21 @@
       ctx.font = `${fs}px "Pixelify Sans", monospace`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       const mouse = game.screenToWorld(ECHO.Input.mx, ECHO.Input.my);
+      // the trail to wherever you're headed, on the ground
+      if (!ECHO.Interior.cur && ECHO.Nav) { ECHO.Nav.drawTrail(ctx, game, (x, y) => R.toScreen(game, x, y), R.dpr); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
       // shop signs
       const st = ECHO.World.settlementAt(world, game.pe.x, game.pe.y, 26);
       if (st) for (const b of st.buildings) {
-        const info = ECHO.UI.shopInfo(b, st);
-        if (!info || U.dist(b.x + b.w / 2, b.y + b.h / 2, game.pe.x, game.pe.y) > 18) continue;
+        const info = ECHO.UI.shopInfo(b, st), lvl = info ? ECHO.UI.signLevel(game, b) : 0;
+        if (!lvl) continue;
         const p = R.toScreen(game, b.x + b.w / 2, b.y - 0.3);
-        const t1 = info.icon + ' ' + info.title, w = Math.max(ctx.measureText(t1).width, ctx.measureText(info.sub).width) + 12 * R.dpr;
-        if (ECHO.UI.overHud(p.x - w / 2, p.y - fs * 2 - 10 * R.dpr, p.x + w / 2, p.y, R.dpr)) continue;
-        ctx.fillStyle = 'rgba(28,20,12,0.82)'; ctx.fillRect(p.x - w / 2, p.y - fs * 2 - 10 * R.dpr, w, fs * 2 + 8 * R.dpr);
-        ctx.strokeStyle = 'rgba(230,192,106,0.85)'; ctx.strokeRect(p.x - w / 2, p.y - fs * 2 - 10 * R.dpr, w, fs * 2 + 8 * R.dpr);
-        ctx.fillStyle = '#f2d47a'; ctx.fillText(t1, p.x, p.y - fs - 6 * R.dpr);
-        ctx.fillStyle = '#e8dcc0'; ctx.fillText(info.sub, p.x, p.y - 4 * R.dpr);
+        const t1 = info.icon + ' ' + info.title, full = lvl >= 2, w = Math.max(ctx.measureText(t1).width, full ? ctx.measureText(info.sub).width : 0) + 12 * R.dpr;
+        const hh = full ? fs * 2 + 8 * R.dpr : fs + 6 * R.dpr;
+        if (ECHO.UI.overHud(p.x - w / 2, p.y - hh - 2 * R.dpr, p.x + w / 2, p.y, R.dpr)) continue;
+        ctx.fillStyle = 'rgba(28,20,12,0.82)'; ctx.fillRect(p.x - w / 2, p.y - hh - 2 * R.dpr, w, hh);
+        ctx.strokeStyle = 'rgba(230,192,106,0.85)'; ctx.strokeRect(p.x - w / 2, p.y - hh - 2 * R.dpr, w, hh);
+        ctx.fillStyle = '#f2d47a'; ctx.fillText(t1, p.x, full ? p.y - fs - 6 * R.dpr : p.y - 4 * R.dpr);
+        if (full) { ctx.fillStyle = '#e8dcc0'; ctx.fillText(info.sub, p.x, p.y - 4 * R.dpr); }
       }
       const placed = [];
       // avoid: keep this text clear of the other labels and numbers already drawn this frame
@@ -1060,7 +1063,7 @@
         const p = R.toScreen(game, e.x, e.y);
         const top = p.y - (e.type === 'boss' ? 48 : e.type === 'creature' ? 18 : 28) * R.Z;
         const hover = U.dist(mouse.x, mouse.y, e.x, e.y - 0.5) < 0.8;
-        if (e.say && e.sayT > 0) {
+        if (e.say && e.sayT > 0 && ECHO.UI.bubbleOk(game, e)) {
           const w = ctx.measureText(e.say).width;
           // bubbles stack instead of covering each other
           let topb = top;

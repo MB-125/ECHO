@@ -74,7 +74,9 @@
           snow: 'Snow: the cold is in the ground; the shallows may freeze.',
           blizzard: 'Blizzard: you can hardly see your own hand. Neither can anything else.'
         }[w.today];
-        if (!first && msg) ECHO.UI.toast(msg, 'info', 6);
+        // each kind of weather is told at most once a day (regions differ; crossing between them isn't news)
+        Cl.told = Cl.told || {};
+        if (!first && msg && Cl.told[w.today] !== world.day) { Cl.told[w.today] = world.day; ECHO.UI.toast(msg, 'info', 6); }
         if (!first && Cl.frozen(world, pe.x, pe.y, false)) ECHO.UI.toast('The ponds and river shallows have frozen over. You can walk on the ice — carefully.', 'info', 6);
       }
       // footprints and hoofprints in mud and snow

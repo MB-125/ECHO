@@ -233,9 +233,13 @@ npm install
 npm start
 ```
 
+**Finding your way.** Press **N** (*Where to?*) for everything you could head for: your road, the story, promises you've taken, jobs, open cases, an expedition, the two dungeons best suited to your level, and any spot you marked on the map. Pick one, and you're led there by the best way, not in a straight line. Roads and bridges are preferred, deep water, cliffs and walls are avoided, and so are gaps too narrow to walk through. A trail of golden chevrons on the ground shows the next few steps; it can be switched off in the same panel. The line at the top says what the next stretch is ("follow the road south", "cross the bridge, east", "through the woods") and how far is left, and its arrow points where to walk now, not at the goal over the hills. The route is drawn on the minimap and the map. Stray from it and it is re-planned. When you take a new promise or job and nothing else is being followed, it is followed for you. When you arrive you're told; places only roughly known tell you to search the area.
+
+**Only what matters, when it matters.** The game keeps its voice down. Notices that say the same thing again are folded together, and routine ones wait their turn behind important ones (danger, bosses, crimes, news that matters); no more than three are shown at once. Town and region banners appear on first visits and after long absences, not every time you cross a border. Each town's news arrives as one line: the headline if something important happened, otherwise a count, with the rest in your journal. The weather is mentioned once a day. Only the four most relevant people nearby speak aloud at a time: companions, anyone after you, and anything urgent come first, and idle mutters are dropped. Shop signs show their name from a distance and their wares only up close. The controls card starts folded (F1 shows it).
+
 ### Controls
 
-A see-through controls card sits on the left of the screen while you play (it dims during fights); **F1** hides or shows it.
+A see-through controls card sits on the left of the screen (folded away at first; it dims during fights); **F1** shows or hides it.
 
 | | |
 |---|---|
@@ -255,6 +259,7 @@ A see-through controls card sits on the left of the screen while you play (it di
 | **T** | orders for your companion — in a fight, attack your target; otherwise follow / hold here / stay back |
 | **Tab** · **M** · **K** | journal (promises, places, the realm…) · map (zoom, drag, click a place to be guided there) · character (choose which techniques to carry) |
 | **J** | the guide — what to do next and how, your dungeons, the bestiary |
+| **N** | where to? — pick what to head for; a golden trail and the top line lead you there by the best way |
 | **Esc** | menu · **F11** fullscreen |
 
 A gamepad works too; the mapping is in the Esc menu.

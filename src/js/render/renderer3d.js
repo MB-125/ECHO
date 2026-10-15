@@ -2395,12 +2395,13 @@
       const s = ECHO.World.settlementAt(world, pe.x, pe.y, 26);
       if (!s) return;
       for (const b of s.buildings) {
-        const info = ECHO.UI.shopInfo(b, s);
+        let info = ECHO.UI.shopInfo(b, s);
         if (!info) continue;
         const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-        const d = U.dist(cx, cy, pe.x, pe.y);
-        if (d > 20) continue;
-        const a = d < 11 ? 1 : 1 - (d - 11) / 9;
+        const d = U.dist(cx, cy, pe.x, pe.y), lvl = ECHO.UI.signLevel(game, b);
+        if (!lvl) continue;
+        const a = d < 8 ? 1 : 1 - (d - 8) / 4;
+        if (lvl < 2) info = { ...info, sub: '' };
         if (!R.onScreen(game, cx, cy)) continue;
         const p = R.project(cx, cy, R.SIGN_H[b.type] || 3);
         if (p.z > 1) continue;
@@ -2410,7 +2411,7 @@
         const w1 = ctx.measureText(t1).width;
         ctx.font = `${small}px "Pixelify Sans", monospace`;
         const w2 = ctx.measureText(info.sub).width;
-        const W = Math.max(w1, w2) + 16 * R.dpr, H = big + small + 14 * R.dpr;
+        const W = Math.max(w1, w2) + 16 * R.dpr, H = info.sub ? big + small + 14 * R.dpr : big + 10 * R.dpr;
         const x0 = p.x - W / 2, y0 = p.y - H;
         if (ECHO.UI.overHud(x0, y0, x0 + W, y0 + H + 6 * R.dpr, R.dpr)) continue;
         ctx.globalAlpha = a;
@@ -2452,6 +2453,8 @@
         ctx.fillStyle = col; ctx.fillText(t, x, y);
       };
       // Shop signs: what each building is and what it sells
+      // the trail to wherever you're headed, on the ground
+      if (!ECHO.Interior.cur && game.pe && ECHO.Nav) { ECHO.Nav.drawTrail(ctx, game, (x, y) => R.project(x, y, 0.06), R.dpr); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
       if (!ECHO.Interior.cur && game.pe) R.drawShopSigns(game, ctx, fs);
       if (!ECHO.Interior.cur && game.pe && ECHO.Marvels) {
         ECHO.Marvels.drawSky(ctx, game, R.cw, R.ch);
@@ -2475,7 +2478,7 @@
           ctx.fillStyle = game.hostileTo(game.pe, e) ? '#d8463a' : '#c8b46a'; ctx.fillRect(p.x - w / 2, p.y - bh, w * Math.max(0, e.hp / e.maxHp), bh);
         }
         const ty = p.y - 6 * R.dpr;
-        if (e.say && e.sayT > 0) {
+        if (e.say && e.sayT > 0 && ECHO.UI.bubbleOk(game, e)) {
           const w = ctx.measureText(e.say).width;
           // bubbles stack instead of covering each other
           let tyb = ty;

@@ -415,3 +415,8 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 /* what a person wears, in the conversation panel */
 .npc-gear { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
 .npc-gear-it { display: flex; gap: 8px; align-items: center; }
+
+/* where to? (N) */
+.nav-row { flex-shrink: 0; display: flex; gap: 10px; align-items: center; }
+.nav-row.on { border-color: #ffd36a; box-shadow: 0 0 0 1px rgba(255, 211, 106, .25); }
+.nav-ic { width: 26px; text-align: center; font-size: 18px; color: #ffe08a; }

@@ -289,9 +289,10 @@
         g.font = `italic ${Math.round(U.clamp(V.z * 4.2, 12, 22))}px "Cormorant Garamond", Georgia, serif`;
         for (const r of WM.regions) { const p = WM.toScreen(c, r.x, r.y); g.fillStyle = 'rgba(58,42,24,0.55)'; g.fillText(U.cap(r.name), p.x, p.y); }
       }
-      // waypoint line
+      // the way there: the planned route, or a straight line if there is none yet
       const goal = ECHO.Purpose && ECHO.Purpose.current(game);
-      if (goal && goal.where && goal.where.x != null) {
+      if (goal && goal.where && goal.where.x != null && ECHO.Nav && ECHO.Nav.drawOnMap(g, (x, y) => WM.toScreen(c, x, y), null, 3)) { /* drawn */ }
+      else if (goal && goal.where && goal.where.x != null) {
         const a = WM.toScreen(c, pl.x, pl.y), b = WM.toScreen(c, goal.where.x, goal.where.y);
         g.strokeStyle = 'rgba(255,224,138,0.85)'; g.lineWidth = 2; g.setLineDash([6, 5]); g.lineDashOffset = -now * 12; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); g.setLineDash([]);
       }
@@ -408,6 +409,8 @@
         if (!inView(p)) continue;
         WM.icon(g, f.kind, p.x, p.y, f.color, f.layer === 'dungeons' ? 0.62 : 0.55, 0);
       }
+      // the way ahead
+      if (ECHO.Nav && !ECHO.Interior.cur) ECHO.Nav.drawOnMap(g, P, 120, 2);
       // where you are headed: on the map, or an arrow at the edge
       const goal = ECHO.Purpose && ECHO.Purpose.goal;
       if (goal && goal.where && goal.where.x != null && !goal.where.vague) {
