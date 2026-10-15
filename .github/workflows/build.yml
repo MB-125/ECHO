@@ -14,6 +14,85 @@ on:
     tags: ['v*']
   pull_request:
   release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Simulation tests
+        run: node tests/run-tests.js
+
+  smoke:
+    # Launch the real Electron app headless: create a world, play, save, reload.
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Launch the desktop app
+        run: timeout 240 xvfb-run -a -s '-screen 0 1440x900x24' npx electron . --no-sandbox --ignore-gpu-blocklist --use-angle=swiftshader --enable-unsafe-swiftshader
+        env:
+          ECHO_SMOKE: '1'
+      - name: Screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screenshot
+          path: smoke.png
+          if-no-files-found: ignore
+
+  build:
+    needs: [test, smoke]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: --win
+          - os: macos-latest
+            target: --mac
+          - os: ubuntu-latest
+            target: --linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npx electron-builder ${{ matrix.target }} --publish never
+        env:
+          # No code-signing certificate: produce unsigned builds.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ECHO-${{ runner.os }}
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.AppImage
+            release/*.deb
+          if-no-files-found: error
+
+  release:
     # A published Release, a pushed v* tag, or simply a push to main with a new
     # version in package.json: the release is made here, with everything attached,
     # and installed apps pick the game up from it by themselves.
