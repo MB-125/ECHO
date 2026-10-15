@@ -240,10 +240,56 @@
       const nTrap = Math.min(ctiles.length, 2 + depth * 2 + (small ? -1 : 0));
       const fire = K === 'forge' || K === 'sanctum';
       for (let i = 0; i < nTrap; i++) { const t = ctiles.splice(rng.int(0, ctiles.length - 1), 1)[0]; if (t) L.traps.push({ x: t.x + 0.5, y: t.y + 0.5, phase: rng.next() * 3, kind: fire ? 'flame' : 'spikes', cycle: -1 }); }
+      Q.unblock(L, G.doorX + 1, H - 3);
       L.inside = { x: BASE + G.doorX + 1, y: H - 2.2 };
       L.outside = { x: site.x, y: site.y + 1.6 };
       L.name = U.cap(site.name) + (floors > 1 ? ` — ${depth === floors - 1 ? 'the deepest floor' : 'floor ' + (depth + 1) + ' of ' + floors}` : '') + ` · Lv ${X().floorLevel(site, depth)}`;
       return L;
+    },
+    // Nothing on a floor may wall you off: every room, the iron door and
+    // everything you need to use must be reachable from the way in. Anything
+    // in the way is taken out (a boulder, a pillar, a crate) or, if it is
+    // something you use (stairs, a chest), made something you can step onto.
+    unblock(L, sx, sy) {
+      const W = L.W, H = L.H, B = L.blocked;
+      const tilesOf = o => { const out = []; for (let ty = Math.floor(o.y - o.h / 2 + 0.05); ty <= Math.floor(o.y + o.h / 2 - 0.05); ty++) for (let tx = Math.floor(o.x - o.w / 2 + 0.05); tx <= Math.floor(o.x + o.w / 2 - 0.05); tx++) if (tx > 0 && ty > 0 && tx < W - 1 && ty < H - 1) out.push(ty * W + tx); return out; };
+      const doors = new Set(); for (const o of L.furn) if (o.tag === 'door') for (const i of tilesOf(o)) doors.add(i);
+      const flood = (extra) => {
+        const seen = new Uint8Array(W * H), st = [sy * W + sx]; seen[st[0]] = 1;
+        while (st.length) {
+          const i = st.pop(), x = i % W, y = (i / W) | 0;
+          for (const j of [i + 1, i - 1, i + W, i - W]) {
+            const nx = j % W, ny = (j / W) | 0;
+            if (j < 0 || j >= W * H || Math.abs(nx - x) + Math.abs(ny - y) !== 1 || seen[j]) continue;
+            if (B[j] && !doors.has(j) && !(extra && extra.has(j))) continue;
+            seen[j] = 1; st.push(j);
+          }
+        }
+        return seen;
+      };
+      const reach = (seen, o) => { const rad = 1.1 + Math.max(o.w, o.h) / 2 + 0.2; for (let ty = Math.floor(o.y - rad); ty <= Math.floor(o.y + rad); ty++) for (let tx = Math.floor(o.x - rad); tx <= Math.floor(o.x + rad); tx++) { if (tx < 0 || ty < 0 || tx >= W || ty >= H) continue; if (seen[ty * W + tx] && Math.hypot(tx + 0.5 - o.x, ty + 0.5 - o.y) <= rad) return true; } return false; };
+      const problems = seen => {
+        let n = 0;
+        for (const r of L.G.rooms) { let any = false; for (let y = r.y0; y < r.y1 && !any; y++) for (let x = r.x0; x < r.x1; x++) if (seen[y * W + x]) { any = true; break; } if (!any) n += 10; }
+        for (const o of L.furn) if (o.action && !reach(seen, o)) n++;
+        return n;
+      };
+      for (let it = 0; it < 12; it++) {
+        const seen = flood(null), p0 = problems(seen);
+        if (!p0) return;
+        // the object whose removal helps the most
+        let best = null, bg = 0;
+        for (const o of L.furn) {
+          if (!o.solid || o.tag === 'door') continue;
+          const ts = tilesOf(o), s2 = flood(new Set(ts));
+          const gain = p0 - problems(s2);
+          if (gain > bg) { bg = gain; best = o; }
+        }
+        if (!best) return;
+        for (const i of tilesOf(best)) if (!L.rock[i]) B[i] = 0;
+        if (best.action) best.solid = false;          // stairs or a chest: step onto it
+        else L.furn = L.furn.filter(o => o !== best); // a boulder or pillar: gone
+      }
     },
     populate(game, L) {
       const world = game.world, site = L.site, BASE = ECHO.Interior.BASE, depth = L.depth || 0, G = L.G;

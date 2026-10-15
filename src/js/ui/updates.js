@@ -7,6 +7,7 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.2.9', items: ['No more dungeon floors walled off by chests, stairs, boulders or pillars: every room, iron door, stair and chest can now be reached.'] },
     { v: '0.2.8', items: ['Your hero no longer dies for good: a fall costs a few days and some coin, never your level or gear. (Legacy, where heroes die for good, is now a choice in the Esc menu.)'] },
     { v: '0.2.7', items: ['Updates now install themselves: the app downloads each new version in the background and plays it the next time you open it, or at once with Restart now.'] },
     { v: '0.2.6', items: ['When you fall to beasts or monsters, you wake in a town with a dungeon of your level close by, and can head straight for it.'] },
