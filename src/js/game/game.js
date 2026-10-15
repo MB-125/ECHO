@@ -135,6 +135,7 @@
       ECHO.Purpose.update(Game, dt);
       ECHO.Progress.update(Game, dt);
       if (ECHO.Companions) { ECHO.Companions.tick(Game, dt); ECHO.Companions.hud(Game); }
+      if (ECHO.Fellow) ECHO.Fellow.tick(Game);
       if (ECHO.Tutorial) ECHO.Tutorial.update(Game, dt);
       if (ECHO.Saga) ECHO.Saga.update(Game, dt);
       if (ECHO.Life) ECHO.Life.update(Game, dt);

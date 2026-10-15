@@ -1559,6 +1559,7 @@
         <h3 class="gold">Belongings</h3>${UI.shareAllHtml(game)}<div class="list">${items.map(it => `<div class="card" style="display:flex;gap:10px">${it.kind === 'sword' || it.kind === 'bow' || it.kind === 'armor' ? ECHO.GearArt.img(it, 'gear-ic small') : ''}<div style="flex:1"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}${UI.canGive(pl, it) ? `<div class="row"><button class="small" data-give="${it.id}">Give away…</button></div>` : ''}</div></div>`).join('')}</div>
         ${ECHO.Gear.mats(pl).length ? `<h3 class="gold">Monster parts</h3><div>${ECHO.Gear.mats(pl).map(m => `<span style="color:${m.color}">◆</span> ${m.n} ${esc(m.name)}`).join(' · ')}</div><p class="dim" style="font-size:13px">Sell them at a market, or bring them to a smith to improve your gear.</p>` : ''}
         ${ECHO.Companions ? ECHO.Companions.card(world, pl) : ''}
+        ${ECHO.Fellow ? ECHO.Fellow.html(game) : ''}
         ${ECHO.Life ? ECHO.Life.card(world, pl) : ''}
         ${ECHO.Tech.pageHtml(pl)}
         ${reps.length ? `<h3 class="gold">Standing</h3><div class="dim">${reps.join(' · ')}</div>` : ''}</div>
@@ -1569,6 +1570,7 @@
       document.querySelectorAll('#panel button[data-dismiss]').forEach(b => b.addEventListener('click', () => { ECHO.Companions.dismiss(game); UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-bow]').forEach(b => b.addEventListener('click', () => { pl.bow = b.dataset.bow; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-arm]').forEach(b => b.addEventListener('click', () => { pl.armor = b.dataset.arm || null; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
+      if (ECHO.Fellow) ECHO.Fellow.bind(document.querySelector('#panel'), game);
       document.querySelectorAll('#panel button[data-give]').forEach(b => b.addEventListener('click', () => UI.giveAway(world.items[b.dataset.give])));
       document.querySelectorAll('#panel button[data-shareall]').forEach(b => b.addEventListener('click', () => {
         const s0 = ECHO.Sim.settlement(world, b.dataset.shareall), res = ECHO.Delvers.shareAll(world, pl, s0);

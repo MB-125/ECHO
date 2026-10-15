@@ -121,6 +121,7 @@
       pl.companion = null;
       if (!npc) return;
       npc.loc = npc.home; npc.journey = null;
+      C.st(npc).parted = world.day;
       for (const e of game.ents) if (e.npcId === npc.id && e.isCompanion) { e.isCompanion = false; e.role = 'villager'; e.faction = npc.faction; }
       if (!quiet) ECHO.UI.toast(`${npc.first} heads back to ${(ECHO.Sim.settlement(world, npc.home) || {}).name || 'town'}.`, 'info', 3);
     },
