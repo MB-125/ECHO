@@ -9,9 +9,10 @@
 (function () {
   const { U } = ECHO;
 
-  // Levels run from 1 to 150: the old island's dungeons reach the teens, the
-  // far lands past it go all the way up.
-  const MAX = 150;
+  // Levels run from 1 to 1500: the old island's dungeons reach the teens, the
+  // far lands past it go up to 150, and beyond that only the three gates
+  // (monsters of 150 to 1500) can teach you anything.
+  const MAX = 1500;
   const RANKS = [
     { lv: 1, title: 'Novice', color: '#c8c0b0', desc: 'You know which end of the sword to hold.' },
     { lv: 3, title: 'Fighter', color: '#8fe08a', desc: 'You have killed things that wanted to kill you.' },
@@ -27,7 +28,15 @@
     { lv: 80, title: 'Demigod', color: '#ffd84a', desc: 'The old gods would have been jealous.' },
     { lv: 100, title: 'Eternal', color: '#ff9a3a', desc: 'Your name will outlast the kingdoms.' },
     { lv: 125, title: 'Worldbreaker', color: '#ff4a4a', desc: 'Mountains have less weight than you.' },
-    { lv: 150, title: 'the Undying', color: '#ffffff', desc: 'There is nothing deeper left to fear.' }
+    { lv: 150, title: 'the Undying', color: '#ffffff', desc: 'Nothing in the world can hurt you now. Only the gates are left.' },
+    { lv: 200, title: 'Gatewalker', color: '#ff8a6a', desc: 'You have walked through a gate and walked back out.' },
+    { lv: 300, title: 'Breachwarden', color: '#ff6aa8', desc: 'The things beyond the gates have learned your scent.' },
+    { lv: 450, title: 'Voidtempered', color: '#b07aff', desc: 'The menace of the gates is a breeze to you now.' },
+    { lv: 600, title: 'Titan', color: '#6ac8ff', desc: 'Your footsteps are felt in the next valley.' },
+    { lv: 800, title: 'Starforged', color: '#7affd8', desc: 'Something of the stars burns in you.' },
+    { lv: 1000, title: 'Godslayer', color: '#ffe46a', desc: 'You have killed things that were worshipped.' },
+    { lv: 1250, title: 'Worldwarden', color: '#ffb0e8', desc: 'The world sleeps easier because you are awake.' },
+    { lv: 1500, title: 'the Eternal Sentinel', color: '#ffffff', desc: 'Nothing beyond any gate can stand before you.' }
   ];
   // How a foe compares to you.
   const DIFF = [
@@ -143,7 +152,9 @@
     // A kill by the player: experience, and the record of the strongest thing you have beaten.
     onKill(pl, e) {
       const s = P.st(pl);
-      const xp = Math.round(P.xpFor(pl, e) * (pl._xpMul || 1));
+      // beyond the gates every kill teaches more (it has to: the road is long)
+      const gx = e.gateXp || 1;
+      const xp = Math.round(P.xpFor(pl, e) * (pl._xpMul || 1) * gx);
       s.kills++;
       const L = P.foeLevel(e);
       if (L > s.best) s.best = L;

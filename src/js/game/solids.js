@@ -69,6 +69,8 @@
         }
       }
       for (const c of world.caches || []) { if (c.kind === 'cairn') C(c.x, c.y, 0.18); else if (c.kind === 'hollow') C(c.x, c.y, 0.48); }
+      // the pillars of the gates
+      if (world.gates) for (const g of world.gates.list) { C(g.x - 2.4, g.y, 0.75); C(g.x + 2.4, g.y, 0.75); B(g.x - 1.9, g.y - 0.35, g.x + 1.9, g.y - 0.05); }
       const EX = world.expedition;
       if (EX && EX.camp) { M(EX.camp.x - 1.6, EX.camp.y - 1.2, 'tent', 0.85); M(EX.camp.x + 1.4, EX.camp.y - 0.6, 'crate', 0.8); }
       // caves, shrines, wrecks, stone circles and huts
@@ -111,7 +113,7 @@
       const s = pl && pl.stead;
       const key = [world.W, world.H, (world.sites || []).length, world.secrets ? world.secrets.list.length : 0, (world.caches || []).length, world.ruins.length, world.structures.length,
         world.camps.map(c => (c.alive ? 1 : 0) + (c.captives.length ? 2 : 0)).join(''), world.expedition && world.expedition.camp ? 1 : 0,
-        s ? s.x + ',' + s.y + ':' + Object.keys(s.builds).sort().join('.') : '', (world.sites || []).filter(x => x.secret).length].join('|');
+        s ? s.x + ',' + s.y + ':' + Object.keys(s.builds).sort().join('.') : '', (world.sites || []).filter(x => x.secret).length, world.gates ? world.gates.list.length : 0].join('|');
       if (G && G.world === world && G.key === key) { G.t = now; return G; }
       const CS = 8, cells = new Map();
       for (const sh of So.shapesOf(world, pl)) {

@@ -49,7 +49,7 @@
       const w = world.items[pl.weapon], a = pl.armor && world.items[pl.armor];
       const dmg = w ? w.dmg : 10, def = a ? a.def || 0 : 0;
       const lv = ECHO.Prowess ? ECHO.Prowess.level(pl) : 1;
-      return U.clamp(Math.round(lv + Math.max(0, dmg - 16 - lv * 3.7) / 8 + Math.max(0, def - 4.6 * lv) / 15), 1, 150);
+      return U.clamp(Math.round(lv + Math.max(0, dmg - 16 - lv * 3.7) / 8 + Math.max(0, def - 4.6 * lv) / 15), 1, ECHO.Prowess.MAX);
     },
     dungeons(world) { return X().sites(world).filter(s => s.cat === 'delve'); },
     // The dungeon worth going to next: known, not cleared, near your strength, not far.
@@ -214,6 +214,11 @@
       if (ECHO.Delvers) {
         const top = ECHO.Delvers.top(world, 8);
         if (top.length) html += `<h3 class="gold">Townsfolk who delve</h3><p class="dim">Guards, hunters and the bold go down into the dungeons too, and come back stronger, wearing what they found. You can give them gear yourself (talk to them).</p><table class="grid"><tr><th>Who</th><th>Level</th><th>Gear</th><th>Dungeons</th></tr>${top.map(n => { const w = ECHO.Delvers.weapon(world, n), a = ECHO.Delvers.armor(world, n), t = ECHO.Sim.settlement(world, n.home); return `<tr><td><b>${esc(n.first + ' ' + n.last)}</b><div class="dim" style="font-size:12px">${esc(n.prof)}${t ? ' of ' + esc(t.name) : ''}${n.delving ? ' · below ground now' : ''}</div></td><td>${ECHO.Delvers.lv(n)}</td><td class="dim" style="font-size:12px">${[w, a].filter(Boolean).map(it => `<span style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}</span>`).join('<br>') || '—'}</td><td>${n.delves || 0}</td></tr>`; }).join('')}</table>`;
+      }
+      // ---- the gates
+      if (ECHO.Gates && world.gates) {
+        const G = ECHO.Gates, lv = ECHO.Prowess.level(pl);
+        html += `<h3 class="gold">The gates</h3><p class="dim">Three gates stand alone in the wild. Below level ${G.MIN} their menace kills you as you come near (the inner ring on the ground kills, the outer one hurts). Beyond each is a world of its own, level ${G.MIN} at the door to ${G.TOP} at its heart, where a sovereign waits. The beasts there hunt each other, and grow on what they kill. The National Guard — six wardens — holds them: join at level ${G.MIN} by speaking to one, and they take you through and train you.${lv < G.MIN ? ` You are level ${lv}: keep away for now.` : ''}</p><table class="grid"><tr><th>Gate</th><th>Beyond</th><th>Wardens</th><th>Where</th></tr>${G.list(world).map(g => { const th = G.THEMES[g.theme]; return `<tr><td><b style="color:${th.color}">${esc(U.cap(g.name))}</b></td><td>${esc(U.cap(th.world))}</td><td class="dim" style="font-size:12px">${G.atGate(world, g).map(n => esc(n.first + ' ' + n.ng.title)).join('<br>')}</td><td>${Math.round(U.dist(g.x, g.y, pl.x, pl.y))} leagues ${esc(ECHO.Purpose.dirTo(world, pl, g))}</td></tr>`; }).join('')}</table>`;
       }
       // ---- bestiary
       const D = ECHO.Monsters.DEFS, best = pl.bestiary || {};

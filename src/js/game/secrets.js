@@ -67,7 +67,7 @@
       const S = world.secrets;
       const first = S.list.length;
       const free = (x, y, r = 2) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (ECHO.World.isSolid(world, x + dx, y + dy)) return false; return !(ECHO.Water && ECHO.Water.kind(world, x, y)); };
-      const farFromAll = (x, y) => !ECHO.World.settlementAt(world, x, y, 14) && !S.list.some(o => U.dist(o.x, o.y, x, y) < 9) && !ECHO.Explore.sites(world).some(o => U.dist(o.x, o.y, x, y) < 6);
+      const farFromAll = (x, y) => !ECHO.World.settlementAt(world, x, y, 14) && !S.list.some(o => U.dist(o.x, o.y, x, y) < 9) && !ECHO.Explore.sites(world).some(o => U.dist(o.x, o.y, x, y) < 6) && !(ECHO.Gates && ECHO.Gates.inMenace(world, x, y));
       const tile = (x, y) => ECHO.World.tile(world, Math.floor(x), Math.floor(y));
       const nearWater = (x, y) => { for (let k = 0; k < 8; k++) { const a = k * 0.785; if (ECHO.Water && ECHO.Water.kind(world, x + Math.cos(a) * 2, y + Math.sin(a) * 2)) return true; } return false; };
       const place = (kind, want, n, extra) => {

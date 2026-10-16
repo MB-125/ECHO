@@ -382,6 +382,7 @@
         if (ECHO.Pastimes) ECHO.Pastimes.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         if (ECHO.Comrade) ECHO.Comrade.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         if (ECHO.Secrets) ECHO.Secrets.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
+        if (ECHO.Guard) ECHO.Guard.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         if (ECHO.Delvers) ECHO.Delvers.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         if (ECHO.Jobs && npc.id !== pl.companion) ECHO.Jobs.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         add('Any tales of heroes?', () => say(ECHO.Dialogue.aboutLegends(world, npc)));
@@ -680,13 +681,13 @@
     prowessHtml(world, pl) {
       const Pw = ECHO.Prowess, st = Pw.st(pl), L = st.lv, R = Pw.rank(L), nx = Pw.nextRank(L), need = Pw.need(L);
       const pow = Pw.power(world, pl);
-      return `<h3 class="gold">Prowess</h3><div class="prowess-card"><div style="text-align:center;min-width:96px"><div class="pv-level" style="border-color:${R.color};box-shadow:0 0 10px ${R.color}55"><small>LEVEL</small><b>${L}</b></div><div style="color:${R.color};margin-top:6px">${esc(R.title)}</div></div>
+      return `<h3 class="gold">Prowess</h3><div class="prowess-card"><div style="text-align:center;min-width:96px"><div class="pv-level" style="border-color:${R.color};box-shadow:0 0 10px ${R.color}55"><small>LEVEL</small><b class="${L >= 1000 ? 'd4' : ''}">${L}</b></div><div style="color:${R.color};margin-top:6px">${esc(R.title)}</div></div>
         <div style="flex:1"><div class="xp"><i style="width:${L >= Pw.MAX ? 100 : Math.round(st.xp / need * 100)}%"></i></div>
         <div class="dim" style="font-size:13px">${L >= Pw.MAX ? 'You have reached the height of your strength.' : `${U.fmt(Math.floor(st.xp))} / ${U.fmt(need)} experience to level ${L + 1}`}${nx ? ` · ${esc(nx.title)} at level ${nx.lv}` : ''}</div>
         <div style="font-size:13px;margin-top:4px">Power <b class="gold">${pow.total}</b> · sword <b>${pow.melee}</b> a blow · bow <b>${pow.bow}</b> a shot · armour <b>${pow.def}</b></div>
         <div class="dim" style="font-size:12px">From your level: +${Math.round((Pw.dmgMult(pl) - 1) * 100)}% damage, +${Pw.hpBonus(pl)} life, +${Pw.staBonus(pl)} stamina. Strongest foe beaten: ${st.best ? 'level ' + st.best : 'none yet'}.</div>
         <div class="rank-ladder" style="margin-top:4px">${Pw.RANKS.map(r => `<span style="color:${L >= r.lv ? r.color : '#5a5248'}">${L >= r.lv ? '◆' : '◇'} ${esc(r.title)}</span>`).join('')}</div>
-        <div class="dim" style="font-size:12px">You grow by defeating foes. The stronger they are than you, the more you learn; things far beneath you teach you nothing.</div></div></div>`;
+        <div class="dim" style="font-size:12px">You grow by defeating foes. The stronger they are than you, the more you learn; things far beneath you teach you nothing.</div></div></div>${ECHO.Guard ? ECHO.Guard.cardHtml(world, pl) : ''}`;
     },
     // What you carry and wear, drawn so that every upgrade shows.
     equipHtml(world, pl) {

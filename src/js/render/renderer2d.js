@@ -281,6 +281,12 @@
           objs.push({ y, draw: () => { const g = R.art(game, x, y); g.fillStyle = '#6a4a2c'; g.fillRect(-1, -14, 3, 14); g.fillStyle = '#8a6a44'; g.fillRect(-1, -15, 3, 2); R.ctx.setTransform(1, 0, 0, 1, 0, 0); } });
         }
       }
+      if (world.gates) for (const g of world.gates.list) {
+        if (Math.abs(g.x - cam.x) > halfW + 18 || Math.abs(g.y - cam.y) > halfH + 18) continue;
+        R.gateGround(game, g);
+        objs.push({ y: g.y + 0.2, draw: () => R.gate(game, g) });
+        game.light(g.x, g.y - 1, 8, 1, ECHO.Gates.THEMES[g.theme].glow);
+      }
       if (world.rift && Math.abs(world.rift.x - cam.x) < halfW + 6 && Math.abs(world.rift.y - cam.y) < halfH + 6) {
         objs.push({ y: world.rift.y + 1, draw: () => R.rift(game, world.rift) });
         game.light(world.rift.x + 0.5, world.rift.y, 6, 0.9, '#b48aff');
@@ -357,22 +363,26 @@
     },
 
     // Simple top-down room view for the 2D renderer.
-    FURN_COL: { bed: '#8a3a3a', table: '#7a5634', chair: '#6a4a2c', stool: '#6a4a2c', counter: '#5a3e26', barrel: '#6e4a28', crate: '#8a6a3a', hearth: '#5a554e', shelf: '#4a3420', desk: '#6a4a2c', lectern: '#5a3e26', altar: '#d8d0c0', throne: '#c8a040', bench: '#6a4a2c', rug: '#7a2e2e', anvil: '#3a3a40', forge: '#4a4440', rack: '#5a4a3a', chest: '#7a5a2a', candles: '#f0e0b0', standard: '#6f8fc4', pillar: '#a8a094', stairs: '#2a282e', door: '#4a4a54', tablet: '#8a867c', campfire: '#ff9a4a', boulder: '#6a655c', rock: '#c8c0b0' },
+    FURN_COL: { bed: '#8a3a3a', table: '#7a5634', chair: '#6a4a2c', stool: '#6a4a2c', counter: '#5a3e26', barrel: '#6e4a28', crate: '#8a6a3a', hearth: '#5a554e', shelf: '#4a3420', desk: '#6a4a2c', lectern: '#5a3e26', altar: '#d8d0c0', throne: '#c8a040', bench: '#6a4a2c', rug: '#7a2e2e', anvil: '#3a3a40', forge: '#4a4440', rack: '#5a4a3a', chest: '#7a5a2a', candles: '#f0e0b0', standard: '#6f8fc4', pillar: '#a8a094', stairs: '#2a282e', door: '#4a4a54', tablet: '#8a867c', campfire: '#ff9a4a', boulder: '#6a655c', rock: '#c8c0b0', rift: '#c8a8ff', oakbare: '#2a1e1a', bush: '#3a2a4a' },
     drawRoom(game, L) {
       const ctx = R.ctx, B = ECHO.Interior.BASE, Z = R.Z;
-      const floorCol = { wood: '#6e4c2e', stone: '#6a655d', marble: '#cfc8ba', cave: '#4a443c', crypt: '#55524c' }[L.floor];
-      const wallCol = { plaster: '#b8a47e', stone: '#5e5850', marble: '#bdb5a6', rock: '#3e3a33' }[L.wall];
+      const floorCol = L.pal ? L.pal.floor[0] : { wood: '#6e4c2e', stone: '#6a655d', marble: '#cfc8ba', cave: '#4a443c', crypt: '#55524c' }[L.floor];
+      const wallCol = L.pal ? L.pal.rock[0] : { plaster: '#b8a47e', stone: '#5e5850', marble: '#bdb5a6', rock: '#3e3a33' }[L.wall];
+      // only what is on the screen (the worlds beyond the gates are big)
+      const hw = R.cw / 2 / (TS * Z) + 2, hh = R.ch / 2 / (TS * Z) + 2, cx = game.cam.x - B, cy = game.cam.y;
+      const X0 = Math.max(0, Math.floor(cx - hw)), X1 = Math.min(L.W, Math.ceil(cx + hw)), Y0 = Math.max(0, Math.floor(cy - hh)), Y1 = Math.min(L.H, Math.ceil(cy + hh));
       if (L.carved && !L._wall2d) {
         const k = L._wall2d = new Uint8Array(L.W * L.H), rk = (x, y) => x < 0 || y < 0 || x >= L.W || y >= L.H || L.rock[y * L.W + x];
         for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) { if (!rk(x, y)) { k[y * L.W + x] = 0; continue; } let w = 2; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!rk(x + dx, y + dy)) w = 1; k[y * L.W + x] = w; }
       }
-      for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) {
+      for (let y = Y0; y < Y1; y++) for (let x = X0; x < X1; x++) {
         const p = R.toScreen(game, B + x, y);
         if (L.carved) {
           const k = L._wall2d[y * L.W + x];
           if (k === 2) continue;
+          if (L.liquid && L.liquid[y * L.W + x]) { ctx.fillStyle = (x * 13 + y * 7 + Math.floor(game.time * 2)) % 5 ? L.pal.liquid : L.pal.liquid2; ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(TS * Z), Math.ceil(TS * Z)); continue; }
           const inR = r => r && x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1;
-          ctx.fillStyle = k === 1 ? wallCol : inR(L.lordRoom) ? ((x + y) % 2 ? '#6a5a50' : '#5e5048') : ((x + y) % 2 ? floorCol : R.shade(floorCol));
+          ctx.fillStyle = k === 1 ? wallCol : L.fcol ? L.fcol[y * L.W + x] : inR(L.lordRoom) ? ((x + y) % 2 ? '#6a5a50' : '#5e5048') : ((x + y) % 2 ? floorCol : R.shade(floorCol));
           ctx.fillRect(Math.round(p.x), Math.round(p.y), Math.ceil(TS * Z), Math.ceil(TS * Z));
           continue;
         }
@@ -418,7 +428,7 @@
       if (L.cave) {
         // below ground: dark, but for the torches and whatever you carry
         const l = R.lctx; l.setTransform(1, 0, 0, 1, 0, 0); l.globalCompositeOperation = 'source-over'; l.clearRect(0, 0, R.cw, R.ch);
-        l.fillStyle = 'rgba(4,4,10,0.72)'; l.fillRect(0, 0, R.cw, R.ch); l.globalCompositeOperation = 'destination-out';
+        l.fillStyle = L.type === 'gate' ? 'rgba(4,4,10,0.5)' : 'rgba(4,4,10,0.72)'; l.fillRect(0, 0, R.cw, R.ch); l.globalCompositeOperation = 'destination-out';
         const lights = L.lights.concat([{ x: game.pe.x, y: game.pe.y, r: 5, a: 0.9 }], game._updLights || []);
         for (const Lg of lights) { const p = R.toScreen(game, Lg.x, Lg.y), rr = Lg.r * TS * R.Z; const g = l.createRadialGradient(p.x, p.y, 0, p.x, p.y, rr); g.addColorStop(0, `rgba(0,0,0,${Math.min(1, Lg.a)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); l.fillStyle = g; l.fillRect(p.x - rr, p.y - rr, rr * 2, rr * 2); }
         ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(R.light, 0, 0);
@@ -649,6 +659,31 @@
       }
       R.ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
+    // the ring on the ground where the menace begins, and where it kills
+    gateGround(game, g) {
+      const ctx = R.ctx, th = ECHO.Gates.THEMES[g.theme], p = R.toScreen(game, g.x, g.y), Z = R.Z, k = TS * Z, t = game.time;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.save();
+      ctx.globalAlpha = 0.5; ctx.fillStyle = th.dark; ctx.beginPath(); ctx.ellipse(p.x, p.y, 5 * k, 3.6 * k, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.45 + Math.sin(t * 2) * 0.15; ctx.strokeStyle = th.color; ctx.lineWidth = 2 * Z; ctx.setLineDash([6 * Z, 4 * Z]); ctx.lineDashOffset = -t * 20;
+      ctx.beginPath(); ctx.arc(p.x, p.y, ECHO.Gates.R_HURT * k, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 0.6 + Math.sin(t * 3) * 0.2; ctx.strokeStyle = th.glow; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(p.x, p.y, ECHO.Gates.R_KILL * k, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+      if (Math.random() < 0.25) { const a = Math.random() * 6.28, r = 3 + Math.random() * (ECHO.Gates.R_HURT - 2); ECHO.Combat.fx.push({ kind: 'p', x: g.x + Math.cos(a) * r, y: g.y + Math.sin(a) * r, vx: -Math.cos(a) * 1.2, vy: -Math.sin(a) * 1.2, t: 0, life: 1.4, color: th.color, size: 2 }); }
+    },
+    // two black pillars, a door of turning light, a beam into the sky
+    gate(game, g) {
+      const th = ECHO.Gates.THEMES[g.theme], gg = R.art(game, g.x, g.y + 0.2), t = game.time;
+      gg.fillStyle = 'rgba(0,0,0,0.35)'; gg.fillRect(-46, -2, 92, 6);
+      gg.globalAlpha = 0.18 + Math.sin(t * 1.3) * 0.06; gg.fillStyle = th.glow; gg.fillRect(-10, -900, 20, 820); gg.globalAlpha = 1;
+      gg.fillStyle = th.dark; gg.fillRect(-28, -104, 56, 100);
+      for (let i = 0; i < 26; i++) { const a = t * (i % 2 ? 1.6 : -1.1) + i * 0.7, r = 4 + (i * 7) % 24; gg.fillStyle = i % 3 === 0 ? '#ffffff' : i % 3 === 1 ? th.glow : th.color; gg.globalAlpha = 0.75; gg.fillRect(Math.cos(a) * r * 0.9 - 2, -54 + Math.sin(a) * r * 1.6 - 2, 4, 4); }
+      gg.globalAlpha = 1;
+      for (const sx of [-40, 28]) { gg.fillStyle = '#16121a'; gg.fillRect(sx, -122, 14, 122); gg.fillStyle = '#2a2430'; gg.fillRect(sx, -122, 3, 122); gg.fillStyle = th.glow; for (let k = 0; k < 4; k++) gg.fillRect(sx + 5, -20 - k * 26, 3, 10); }
+      gg.fillStyle = '#16121a'; gg.fillRect(-46, -132, 92, 14); gg.fillStyle = th.color; gg.fillRect(-46, -120, 92, 2);
+      R.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    },
     rift(game, rf) {
       const g = R.art(game, rf.x + 0.5, rf.y + 1);
       const t = game.time;
@@ -668,8 +703,28 @@
       const s = e.scale || 1;
       ctx.save(); ctx.scale(s, s);
       if (e.flip) ctx.scale(-1, 1);
-      if (e.shape === 'spider') {
-        const col = e.species === 'queen' ? '#3a1a2a' : '#2a2228', mv = e.moving ? Math.sin(t * 18) * 2 : 0;
+      const Fd = e.foe || {};
+      if (e.shape === 'serpent') {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(-9, 0, 18, 2);
+        for (let i = 8; i >= 0; i--) { const r = 3.2 - i * 0.22; ctx.fillStyle = i % 2 ? Fd.col || '#10202a' : '#16303a'; ctx.beginPath(); ctx.arc(-6 + i * 1.6, -3 + Math.sin(t * 8 - i * 0.7) * (e.moving ? 1.2 : 0.4), r, 0, Math.PI * 2); ctx.fill(); }
+        ctx.fillStyle = Fd.em || '#2ad8c8'; ctx.fillRect(-8, -4, 1, 1);
+      } else if (e.shape === 'horror') {
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(-8, 0, 16, 2);
+        ctx.strokeStyle = Fd.col || '#0a1e24'; ctx.lineWidth = 1.5;
+        for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI + Math.sin(t * 3 + i) * 0.2; ctx.beginPath(); ctx.moveTo(0, -6); ctx.lineTo(Math.cos(a) * 8, 0); ctx.stroke(); }
+        ctx.fillStyle = Fd.col || '#0a1e24'; ctx.beginPath(); ctx.ellipse(0, -9, 6, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = Fd.em || '#2ad8c8'; ctx.beginPath(); ctx.arc(-3, -9, 1.6, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(-7, -17 + Math.sin(t * 4), 2, 2);
+      } else if (e.shape === 'drake') {
+        ctx.scale(1.7, 1.7);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(-12, 0, 24, 3);
+        ctx.fillStyle = Fd.col || '#5a1a0a'; ctx.fillRect(-9, -9, 16, 7); ctx.fillRect(-14, -12, 6, 5); ctx.fillRect(6, -7, 7, 3);
+        ctx.fillStyle = Fd.belly || '#ff8a3a'; ctx.fillRect(-7, -4, 12, 2);
+        const w = Math.sin(t * (e.moving ? 9 : 2)) * 3; ctx.fillStyle = Fd.col || '#5a1a0a'; ctx.beginPath(); ctx.moveTo(-3, -9); ctx.lineTo(2, -17 - w); ctx.lineTo(6, -9); ctx.fill();
+        for (const lx of [-7, -3, 2, 5]) ctx.fillRect(lx, -2, 2, 2 + (e.moving ? Math.abs(Math.sin(t * 10 + lx)) : 0));
+        ctx.fillStyle = Fd.em || '#ff5a1a'; ctx.fillRect(-13, -11, 1, 1);
+        if (e.state === 'cast') { ctx.fillStyle = '#ffb347'; ctx.fillRect(-20, -11, 6, 2); }
+      } else if (e.shape === 'spider') {
+        const col = Fd.col || (e.species === 'queen' ? '#3a1a2a' : '#2a2228'), mv = e.moving ? Math.sin(t * 18) * 2 : 0;
         ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(-7, 0, 14, 2);
         ctx.strokeStyle = col; ctx.lineWidth = 1;
         for (let i = 0; i < 4; i++) { const x = -3 + i * 2; ctx.beginPath(); ctx.moveTo(x, -4); ctx.lineTo(x - 4 + (i % 2 ? mv : -mv), 0); ctx.moveTo(x, -4); ctx.lineTo(x + 4 + (i % 2 ? -mv : mv), 0); ctx.stroke(); }
@@ -679,7 +734,7 @@
       } else {
         const q = Math.sin(t * (e.moving ? 9 : 3) + e.id) * 0.1;
         ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(-6, 0, 12, 2);
-        ctx.fillStyle = e.species === 'slimeling' ? 'rgba(160,232,160,0.85)' : e.elite ? 'rgba(232,200,74,0.85)' : 'rgba(111,208,138,0.85)';
+        ctx.fillStyle = Fd.col || (e.species === 'slimeling' ? 'rgba(160,232,160,0.85)' : e.elite ? 'rgba(232,200,74,0.85)' : 'rgba(111,208,138,0.85)');
         ctx.beginPath(); ctx.ellipse(0, -4, 7 * (1 + q), 5 * (1 - q), 0, Math.PI, 0); ctx.lineTo(7, 0); ctx.lineTo(-7, 0); ctx.fill();
         ctx.fillStyle = '#103010'; ctx.fillRect(-3, -6, 1, 1); ctx.fillRect(1, -6, 1, 1);
       }
@@ -753,7 +808,8 @@
         ctx.restore();
         ctx.translate(0, r.seat + 7.5);
       }
-      if (e.shape === 'spider' || e.shape === 'slime') R.drawShape(ctx, e, game.time);
+      if (e.shape === 'spider' || e.shape === 'slime' || e.shape === 'serpent' || e.shape === 'horror' || e.shape === 'drake') R.drawShape(ctx, e, game.time);
+      else if (e.shape === 'hound' || e.shape === 'stag') { ctx.scale(e.scale || 1, e.scale || 1); ctx.filter = (e.foe && e.foe.f2d) || 'none'; S.creature(ctx, { ...e, species: e.shape === 'hound' ? 'wolf' : 'deer', stag: true }, game.time); }
       else if (e.shape === 'rat') { ctx.scale(e.scale || 1, e.scale || 1); if (e.elite) ctx.filter = 'sepia(1) hue-rotate(-30deg)'; S.creature(ctx, { ...e, species: 'gnawer' }, game.time); }
       else if (e.humanoid && e.foe && e.foe.vis) {
         const V = e.foe.vis;

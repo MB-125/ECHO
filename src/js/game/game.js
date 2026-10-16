@@ -30,6 +30,8 @@
       if (ECHO.Purpose) ECHO.Purpose.reset();
       if (ECHO.Progress) ECHO.Progress.reset();
       if (ECHO.Explore) ECHO.Explore.sites(world);
+      if (ECHO.Gates) ECHO.Gates.ensure(world);
+      if (ECHO.GateWorld) ECHO.GateWorld.reset();
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
       Game.pl.explored = Game.pl.explored || new Array(Math.ceil(world.W / 4) * Math.ceil(world.H / 4)).fill(0);
@@ -163,6 +165,8 @@
       if (ECHO.Secrets) ECHO.Secrets.update(Game, dt);
       if (ECHO.Homestead) ECHO.Homestead.update(Game, dt);
       if (ECHO.Frontier) ECHO.Frontier.tick(Game, dt);
+      if (ECHO.GateWorld) ECHO.GateWorld.update(Game, dt);
+      if (ECHO.Guard) ECHO.Guard.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -299,7 +303,7 @@
       const sa = side(a), sb = side(b);
       if (sa === 'prey' || sb === 'prey') return sa === 'player' || sb === 'player' ? false : (sa === 'beast' || sb === 'beast') && false;
       if (sa === 'player' && sb === 'player') return false;
-      if (sa === 'beast' && sb === 'beast') return false;
+      if (sa === 'beast' && sb === 'beast') return !!(a.gateMon && b.gateMon && (a.prey === b || b.prey === a));
       if ((sa === 'beast') !== (sb === 'beast')) return true; // beasts vs everyone else
       if (a.yielded || b.yielded || a.role === 'captive' || b.role === 'captive') return false;
       if (sa === 'player' || sb === 'player') {
@@ -625,6 +629,7 @@
       if (ECHO.Stealth) out.push(...ECHO.Stealth.interactables(Game));
       if (ECHO.Camp) out.push(...ECHO.Camp.interactables(Game));
       if (ECHO.Pastimes) out.push(...ECHO.Pastimes.interactables(Game));
+      if (ECHO.GateWorld) out.push(...ECHO.GateWorld.interactables(Game));
       out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game), ...ECHO.Patrol.interactables(Game), ...ECHO.Finds.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;

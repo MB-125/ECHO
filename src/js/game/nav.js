@@ -31,6 +31,8 @@
       const M = N.room(world);
       if (M[i] === 0) M[i] = ECHO.Ent.fits(world, x + 0.5, y + 0.5, 0.32) ? 1 : 2;
       const extra = M[i] === 2 ? 5 : 0;
+      // below level 150, the menace of a gate is a wall: go round it
+      if (world.gates && N._weak) for (const g of world.gates.list) { const dx = x + 0.5 - g.x, dy = y + 0.5 - g.y; if (dx * dx + dy * dy < N._weakR2) return Infinity; }
       return N.baseCost(world, world.tiles[i]) + extra;
     },
     // room-to-pass memo for the whole world, rebuilt when the land changes
@@ -59,6 +61,9 @@
     // Plan the way from (sx,sy) to (tx,ty). Long journeys are planned on a coarser
     // grid first and the near stretch refined, so it stays quick on a grown world.
     plan(world, sx, sy, tx, ty) {
+      const pl = ECHO.Game && ECHO.Game.pl, G = ECHO.Gates;
+      N._weak = !!(G && pl && ECHO.Prowess.level(pl) < G.MIN && !G.list(world).some(g => U.dist(g.x, g.y, tx, ty) < G.R_HURT + 3));
+      N._weakR2 = G ? (G.R_HURT + 1.5) ** 2 : 0;
       const d = U.dist(sx, sy, tx, ty);
       const k = d > 380 ? 4 : d > 110 ? 2 : 1;
       const W = world.W || 200, H = world.H || 150, cw = Math.ceil(W / k), ch = Math.ceil(H / k);
@@ -241,6 +246,8 @@
       if (world.expedition && world.expedition.next && pl.expedition) { const g = Pu.trackedGoal(world, pl, 'expedition'); if (g) add('expedition', '⌖', g.label, g.where, 'story'); }
       // a dungeon your size
       if (ECHO.Guide && ECHO.Guide.forYou) for (const f of ECHO.Guide.forYou(world, pl, 2)) add('site:' + f.s.id, '▼', `${f.s.found || f.s.seen ? f.s.name : 'An uncharted dungeon'} — floor ${f.f + 1} is Lv ${f.fl}`, { x: f.s.x, y: f.s.y, name: f.s.found || f.s.seen ? f.s.name : 'an uncharted dungeon', vague: !(f.s.found || f.s.seen) }, 'dungeon');
+      // the gates, once you are strong enough to stand before them
+      if (ECHO.Gates && world.gates && ECHO.Prowess.level(pl) >= ECHO.Gates.MIN) for (const g of world.gates.list) { const id = `mark:${g.x.toFixed(1)}:${(g.y + 3).toFixed(1)}:${U.cap(g.name)}`; add(id, '⛩', `${U.cap(g.name)} — the National Guard${pl.guard ? '' : ' (join at level 150)'}`, { x: g.x, y: g.y + 3, name: U.cap(g.name) }, 'gate'); }
       // your own marks
       if (pl.tracked && pl.tracked.startsWith('mark:') && !out.some(o => o.id === pl.tracked)) { const g = Pu.trackedGoal(world, pl, pl.tracked); if (g) add(pl.tracked, '⚑', String(g.label).replace(/^⚑\s*/, ''), g.where, 'mark'); }
       // nearest first, but what you're tracking on top

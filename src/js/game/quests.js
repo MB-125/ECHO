@@ -36,6 +36,7 @@
       e.cd = Math.max(0, (e.cd || 0) - dt); e.t += dt;
       if (e.stagger > 0) { e.stagger -= dt; e.state = 'stagger'; return; }
       if (e.state === 'stagger') e.state = 'chase';
+      if (e.gateMon && ECHO.GateWorld && ECHO.GateWorld.think(game, e, dt)) return;
       const d = U.dist(e.x, e.y, pe.x, pe.y);
       const hostile = !pe.dead && !game.pl.capture && !game.defeating;
       const range = e.indoor ? 14 : 9;
@@ -46,7 +47,7 @@
         if (los && d < 16) e.lastSeen = { x: pe.x, y: pe.y, t: game.time };
         else if (e.lastSeen && game.time - e.lastSeen.t > (ECHO.PlayerCtl.sneaking ? 3 : 7)) { e.aggro = false; e.sus = 0.4; ECHO.Senses.lost(game, e, e.lastSeen.x, e.lastSeen.y); e.lastSeen = null; return; }
       }
-      if (sees && !e.aggro) { e.search = null; e.aggro = true; for (const o of game.ents) if (o !== e && o.foe && !o.aggro && !o.dead && o.floor === e.floor && U.dist(o.x, o.y, e.x, e.y) < (e.ab && e.ab.pack ? 12 : 7)) o.aggro = true; if (ECHO.Tactics && !e.giant) ECHO.Tactics.shout(game, e, pe); }
+      if (sees && !e.aggro) { e.search = null; e.aggro = true; for (const o of game.ents) if (o !== e && o.foe && !o.aggro && !o.dead && o.floor === e.floor && (!e.gateMon || o.species === e.species) && U.dist(o.x, o.y, e.x, e.y) < (e.ab && e.ab.pack ? (e.gateMon ? 8 : 12) : 7)) o.aggro = true; if (ECHO.Tactics && !e.giant) ECHO.Tactics.shout(game, e, pe); }
       if (e.rout && ECHO.Tactics) { ECHO.Tactics.flee(game, e, dt); return; }
       if (!e.aggro || !hostile || d > 22) {
         e.state = 'idle'; e.moving = false;
@@ -58,7 +59,7 @@
       }
       // a companion close at hand draws some of the blows
       let T = pe, dT = d;
-      const comp = game.ents.find(o => o.isCompanion && !o.dead && !o.hidden);
+      const comp = game.ents.find(o => (o.isCompanion || o.mentor) && !o.dead && !o.hidden);
       if (comp) { const dc = U.dist(e.x, e.y, comp.x, comp.y); if ((dc < d - 1.2 && dc < 4) || (comp.tauntT > 0 && dc < 8)) { T = comp; dT = dc; } }
       const ang = Math.atan2(T.y - e.y, T.x - e.x);
       e.target = T;
@@ -124,6 +125,7 @@
     onKill(target, from) {
       if (target.keybearer && !target._keyDropped) { target._keyDropped = true; ECHO.Game.loot.push({ x: target.x, y: target.y, kind: 'key', qty: 1, site: target.delve, depth: target.floor || 0 }); }
       const game = ECHO.Game, world = game.world;
+      if (target.gateMon && ECHO.GateWorld && ECHO.GateWorld.onKill(game, target, from)) return;
       if (ECHO.Monsters && ECHO.Monsters.DEFS[target.species]) ECHO.Monsters.onKill(game, target);
       else {
         const gold = target.foe ? (target.foe.elite ? 30 + Math.floor(Math.random() * 40) : Math.floor(Math.random() * 8)) : 0;

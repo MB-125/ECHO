@@ -99,7 +99,7 @@
       const T = ECHO.TILE, sites = world.sites;
       const near = (x, y, r, set) => { let n = 0; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (set.includes(ECHO.World.tile(world, x + dx, y + dy))) n++; return n; };
       let relax = 0;
-      const far = (x, y) => world.settlements.every(s => U.dist(s.x, s.y, x, y) > 16 - relax * 4) && world.camps.every(c => U.dist(c.x, c.y, x, y) > 9) && world.lairs.every(l => U.dist(l.x, l.y, x, y) > 10) && world.ruins.every(r => U.dist(r.x, r.y, x, y) > 8) && sites.every(o => U.dist(o.x, o.y, x, y) > 14 - relax * 5);
+      const far = (x, y) => world.settlements.every(s => U.dist(s.x, s.y, x, y) > 16 - relax * 4) && world.camps.every(c => U.dist(c.x, c.y, x, y) > 9) && world.lairs.every(l => U.dist(l.x, l.y, x, y) > 10) && world.ruins.every(r => U.dist(r.x, r.y, x, y) > 8) && sites.every(o => U.dist(o.x, o.y, x, y) > 14 - relax * 5) && !(ECHO.Gates && ECHO.Gates.inMenace(world, x, y));
       const scale = ECHO.World.scale ? ECHO.World.scale(world) : 1;
       const used = new Set(sites.map(s => s.name));
       for (const [kind, n0] of DUNGEONS) for (let k = 0; k < n0 * scale; k++) {
@@ -147,7 +147,7 @@
           const a = rng.next() * Math.PI * 2, d = rng.range(13, 28);
           const x = Math.round(t.x + Math.cos(a) * d), y = Math.round(t.y + Math.sin(a) * d);
           if (!OK.includes(ECHO.World.tile(world, x, y)) || ECHO.World.isSolid(world, x + 0.5, y + 0.5)) continue;
-          if (world.settlements.some(o => U.dist(o.x, o.y, x, y) < 11) || sites.some(o => U.dist(o.x, o.y, x, y) < 9) || world.lairs.some(l => U.dist(l.x, l.y, x, y) < 12) || world.camps.some(c => U.dist(c.x, c.y, x, y) < 10)) continue;
+          if (world.settlements.some(o => U.dist(o.x, o.y, x, y) < 11) || sites.some(o => U.dist(o.x, o.y, x, y) < 9) || world.lairs.some(l => U.dist(l.x, l.y, x, y) < 12) || world.camps.some(c => U.dist(c.x, c.y, x, y) < 10) || (ECHO.Gates && ECHO.Gates.inMenace(world, x, y))) continue;
           let wet = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (ECHO.World.isSolid(world, x + dx + 0.5, y + dy + 0.5)) wet++;
           if (wet > 2) continue;
           spot = { x, y };

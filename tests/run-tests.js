@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/gates.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -504,8 +504,11 @@ function main() {
     check('great beasts leave hide and fangs worth having', ECHO.Gear.MATS.greathide && ECHO.Gear.MATS.greatfang && ECHO.Gear.CRAFT.some(c => c.mats.greathide));
     const lv = Pw.level(pl), x0 = Pw.st(pl).xp, xp = Pw.onKill(pl, { lvl: 1 }).xp;
     check('things far beneath you teach you almost nothing', xp <= 3 && Pw.level(pl) === lv, `${xp} xp`);
-    Pw.gain(pl, 1e7);
-    check('there is a height to reach', Pw.level(pl) === Pw.MAX && Pw.MAX === 150 && Pw.title(pl) === 'the Undying' && Pw.gain(pl, 100).length === 0);
+    Pw.gain(pl, 1e12);
+    check('there is a height to reach', Pw.level(pl) === Pw.MAX && Pw.MAX === 1500 && Pw.title(pl) === 'the Eternal Sentinel' && Pw.gain(pl, 100).length === 0);
+    check('level 150 is still the summit of the world outside the gates', Pw.rank(150).title === 'the Undying' && Pw.rank(149).title !== 'the Undying');
+    const f150 = Pw.foeMul(150), f600 = Pw.foeMul(600), f1500 = Pw.foeMul(1500);
+    check('foes keep growing all the way to 1500', f600.hp > f150.hp * 3 && f1500.hp > f600.hp * 2 && f1500.dmg > f600.dmg * 2, `hp ×${Math.round(f150.hp)} → ×${Math.round(f1500.hp)}`);
     void x0;
     const Gr = ECHO.Gear;
     const a = Gr.look({ kind: 'sword', rarity: 'common', plus: 0 }), b = Gr.look({ kind: 'sword', rarity: 'legendary', plus: 5, affix: 'ember' });
@@ -649,6 +652,44 @@ function main() {
       const left = pl.items.filter(id => [junk.id, bow.id, big.id].includes(id));
       check('gear can be given away free, and always finds a use', r1 && r1.how === 'wears' && Dv.weapon(W, guard) === big && (guard.op[pl.charId] || 0) > op0 && res.length === 2 && !left.length && res.every(r => r.how !== 'wears' || r.wearer), res.map(r => r.it.name + ' → ' + r.how + (r.wearer ? ' ' + r.wearer.first : '')).join('; '));
     }
+  }
+
+  console.log('\nThe gates and the National Guard');
+  {
+    const W = ECHO.generateWorld({ seed: 4242, name: 'Gates' }), Gt = ECHO.Gates;
+    const S = Gt.ensure(W), gates = S.list;
+    const minTown = Math.min(...gates.map(g => Math.min(...W.settlements.map(s => ECHO.U.dist(s.x, s.y, g.x, g.y)))));
+    const apart = Math.min(...gates.flatMap((a, i) => gates.slice(i + 1).map(b => ECHO.U.dist(a.x, a.y, b.x, b.y))));
+    check('three gates stand alone in the wild, each a different world', gates.length === 3 && new Set(gates.map(g => g.theme)).size === 3 && minTown >= 24 && apart >= 24, `nearest town ${minTown.toFixed(0)}, apart ${apart.toFixed(0)}`);
+    const dSite = Math.min(...gates.map(g => Math.min(...(W.sites || []).map(o => ECHO.U.dist(o.x, o.y, g.x, g.y)))));
+    check('nothing of the world sits at the door of a gate', dSite >= Gt.R_KILL + 2, `nearest site ${dSite.toFixed(1)} (menace hurts within ${Gt.R_HURT})`);
+    const ms = Gt.members(W);
+    check('the National Guard is six, each strong enough for level 1500', ms.length === 6 && ms.every(n => ECHO.Delvers.lv(n) >= 1250 && ECHO.Delvers.weapon(W, n) && ECHO.Delvers.armor(W, n)) && new Set(ms.map(n => n.ng.key)).size === 6 && ms.filter(n => n.ng.rank === 'Commander').length === 1, ms.map(n => ECHO.People.fullTitle(W, n) + ' Lv ' + ECHO.Delvers.lv(n)).join('; '));
+    check('two wardens at every gate', gates.every(g => Gt.atGate(W, g).length === 2));
+    check('the menace kills close, hurts nearer, is felt further out', Gt.aura(W, gates[0].x + 3, gates[0].y).k === 3 && Gt.aura(W, gates[0].x + 10, gates[0].y).k === 2 && Gt.aura(W, gates[0].x + 18, gates[0].y).k === 1);
+    const pl = ECHO.Character.create(W, new ECHO.RNG(3), { first: 'Oath', homeId: W.settlements[0].id });
+    ECHO.Prowess.st(pl).lv = 149;
+    check('below level 150 the Guard will not take you', Gt.canJoin(W, pl) === 'level' && !Gt.join(W, pl, ms[0]));
+    ECHO.Prowess.st(pl).lv = 150;
+    const rec = Gt.join(W, pl, ms[0]);
+    check('at level 150 you can take the oath, with a warden as mentor', rec && pl.guard && Gt.mentorOf(W, pl) === ms[0] && Gt.canJoin(W, pl) === 'already');
+    // someone of the world who gets to 150
+    const heroes = Object.values(W.npcs).filter(n => n.status === 'alive' && n.loc && n.prof === 'guard').slice(0, 5);
+    for (const h of heroes) { h.lv = 150; h.traits = ['brave', 'loyal']; }
+    for (let i = 0; i < 40; i++) ECHO.Sim.dailyTick(W, true);
+    const tr = S.guard.trainees.map(x => W.npcs[x.id]).filter(n => n && n.status === 'alive');
+    check('anyone of the world who reaches 150 may join, and is trained to grow stronger', tr.length >= 2 && tr.every(n => n.ngTrainee) && tr.some(n => n.lv > 165), tr.map(n => n.first + ' Lv ' + n.lv).join(', '));
+    // a warden falls: the Guard is six again
+    const fallen = ms[3]; ECHO.People.kill(W, fallen, 'test');
+    ECHO.Sim.dailyTick(W, true);
+    const ms2 = Gt.members(W);
+    check('a fallen warden is replaced', ms2.length === 6 && !ms2.includes(fallen) && ms2.some(n => n.ng.key === fallen.ng.key));
+    const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
+    check('the gates and the Guard survive a save', W2.gates && W2.gates.list.length === 3 && Gt.members(W2).length === 6 && W2.gates.list[0].x === gates[0].x);
+    // an old world, saved before there were gates, gets them when it loads
+    const W3 = ECHO.generateWorld({ seed: 99, name: 'Old' }); delete W3.gates;
+    const W4 = ECHO.Save.deserialize(ECHO.Save.serialize(W3));
+    check('old worlds get their gates', !W4.gates && Gt.ensure(W4) && W4.gates.list.length === 3 && Gt.members(W4).length === 6);
   }
 
 

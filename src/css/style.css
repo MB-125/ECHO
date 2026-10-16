@@ -244,6 +244,9 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 #hud-rank .lvb { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 44px; height: 44px; padding: 0 4px; box-sizing: border-box; border: 2px solid #c8c0b0; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #3a2e22, #120d09 75%); line-height: 1; }
 #hud-rank .lvb small { font-size: 8px; letter-spacing: 1px; color: #d8c9a0; margin-bottom: 1px; }
 #hud-rank .lvb b { font-size: 20px; font-weight: 600; color: #fff6e0; letter-spacing: 0.5px; }
+#hud-rank .lvb b.d3 { font-size: 18px; letter-spacing: 0; }
+#hud-rank .lvb b.d4 { font-size: 13px; letter-spacing: 0; }
+.pv-level b.d4 { font-size: 24px; }
 #hud-rank .rkc { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 #hud-rank .rk { font-size: 14px; font-weight: 600; letter-spacing: 0.5px; white-space: nowrap; }
 #hud-rank .xprow { display: flex; align-items: center; gap: 7px; }
@@ -420,3 +423,5 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 .nav-row { flex-shrink: 0; display: flex; gap: 10px; align-items: center; }
 .nav-row.on { border-color: #ffd36a; box-shadow: 0 0 0 1px rgba(255, 211, 106, .25); }
 .nav-ic { width: 26px; text-align: center; font-size: 18px; color: #ffe08a; }
+/* the menace of a gate, at the edge of your sight */
+#gate-veil { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.4s; z-index: 5; mix-blend-mode: multiply; }

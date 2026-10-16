@@ -173,7 +173,7 @@
     damage(target, amount, src) {
       const game = G();
       const world = game.world;
-      if (target.dead || amount <= 0) return 0;
+      if (target.dead || amount <= 0 || target.submerged) return 0;
       if (target === game.pe && (game.defeating || game.pl.capture)) return 0;
       if (target.iframes > 0) { if (target === game.pe) { C.floater(target.x, target.y - 0.8, 'dodged', '#9fd3ff'); if (src.from && src.from !== game.pe) ECHO.Tech.onDodgedHit(game); } return 0; }
       const from = src.from;
@@ -266,6 +266,8 @@
       // Your own fire can hurt you badly, but never below 15% of your life.
       if (target === game.pe && (from === game.pe || (!from && type !== 'drown'))) { const floor = Math.max(1, target.maxHp * 0.15); if (target.hp - dmg < floor) dmg = Math.max(0, Math.floor(target.hp - floor)); }
       if (dmg <= 0) { if (target === game.pe) target.burn = 0; return 0; }
+      // the wardens of the Guard give ground, but are not brought down
+      if (target.ngWard) { dmg = Math.max(0, Math.min(Math.round(dmg * 0.35), Math.floor(target.hp - 1))); if (dmg <= 0) return 0; }
       const wasStaggered = target.stagger > 0;
       target.hp -= dmg;
       target.hurtT = 0.18;
@@ -287,7 +289,7 @@
       }
       if (src.knock && src.angle != null && target.type !== 'boss') { target.kbx += Math.cos(src.angle) * src.knock; target.kby += Math.sin(src.angle) * src.knock; }
       const col = target === game.pe ? '#ff6b6b' : type === 'fire' ? '#ffb347' : crit ? '#ffe066' : '#ffffff';
-      C.floater(target.x + (Math.random() - 0.5) * 0.4, target.y - 0.9, (crit ? '✦' : '') + dmg, col, crit);
+      C.floater(target.x + (Math.random() - 0.5) * 0.4, target.y - 0.9, (crit ? '✦' : '') + (dmg >= 10000 ? U.short(dmg) : dmg), col, crit);
       C.burst(target.x, target.y - 0.2, target.type === 'person' || target === game.pe ? '#a8323a' : target.species === 'gnawer' ? '#6b5a3a' : '#7b2a2a', 4 + Math.min(10, dmg / 3), 2.5, 0.4, 2);
       if (target === game.pe) {
         game.shake(Math.min(0.5, 0.12 + dmg / 40));

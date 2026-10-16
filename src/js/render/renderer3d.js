@@ -669,9 +669,26 @@
       stone: (x, y) => ['#6f6a62', '#77726a', '#68635c', '#7d776d'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4],
       marble: (x, y) => ((x + y) % 2 ? '#d8d2c6' : '#bfb7a8'),
       cave: (x, y) => ['#4a443c', '#524b42', '#453f37', '#5a5246'][((x * 37 + y * 11) * 2654435761 >>> 0) % 4],
-      crypt: (x, y) => ['#55524c', '#5d5a53', '#4e4b45', '#625e56'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4]
+      crypt: (x, y) => ['#55524c', '#5d5a53', '#4e4b45', '#625e56'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4],
+      // the worlds beyond the gates
+      ember: (x, y) => ECHO.GateWorld.PAL.ember.floor[((x * 37 + y * 11) * 2654435761 >>> 0) % 4],
+      abyss: (x, y) => ECHO.GateWorld.PAL.abyss.floor[((x * 37 + y * 11) * 2654435761 >>> 0) % 4],
+      thorn: (x, y) => ECHO.GateWorld.PAL.thorn.floor[((x * 37 + y * 11) * 2654435761 >>> 0) % 4]
     },
-    WALLS: { plaster: ['#cbb894', '#5a3e26'], stone: ['#7c766c', '#5a554e'], marble: ['#e0d9cc', '#a89e8c'], rock: ['#5a544a', '#3e3a33'] },
+    WALLS: { plaster: ['#cbb894', '#5a3e26'], stone: ['#7c766c', '#5a554e'], marble: ['#e0d9cc', '#a89e8c'], rock: ['#5a544a', '#3e3a33'], ember: ['#3a2a24', '#ff6a1a'], abyss: ['#2a4448', '#2ad8c8'], thorn: ['#2a1e30', '#9a4aff'] },
+    // Many boxes as one mesh: a dungeon's walls in a single draw.
+    mergeBoxes(boxes, mat) {
+      const n = boxes.length, pos = new Float32Array(n * 108), nor = new Float32Array(n * 108);
+      const F = [[[1, 0, 0], [[1, -1, -1], [1, 1, -1], [1, 1, 1], [1, -1, -1], [1, 1, 1], [1, -1, 1]]], [[-1, 0, 0], [[-1, -1, 1], [-1, 1, 1], [-1, 1, -1], [-1, -1, 1], [-1, 1, -1], [-1, -1, -1]]],
+        [[0, 1, 0], [[-1, 1, -1], [-1, 1, 1], [1, 1, 1], [-1, 1, -1], [1, 1, 1], [1, 1, -1]]], [[0, -1, 0], [[-1, -1, 1], [-1, -1, -1], [1, -1, -1], [-1, -1, 1], [1, -1, -1], [1, -1, 1]]],
+        [[0, 0, 1], [[-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, -1, 1], [1, 1, 1], [-1, 1, 1]]], [[0, 0, -1], [[1, -1, -1], [-1, -1, -1], [-1, 1, -1], [1, -1, -1], [-1, 1, -1], [1, 1, -1]]]];
+      let o = 0;
+      for (const b of boxes) for (const [nn, vs] of F) for (const v of vs) { pos[o] = b.x + v[0] * b.w / 2; pos[o + 1] = b.y + v[1] * b.h / 2; pos[o + 2] = b.z + v[2] * b.d / 2; nor[o] = nn[0]; nor[o + 1] = nn[1]; nor[o + 2] = nn[2]; o += 3; }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+      const m = new THREE.Mesh(g, mat); m.castShadow = true; m.receiveShadow = true; m.userData.own = true;
+      return m;
+    },
     // A dungeon floor cut from the rock: floor only where it is open, walls
     // where rock meets air (low on the side facing the camera), and the traps.
     buildCarved(game, L, g, B) {
@@ -686,8 +703,8 @@
       const lord = L.lordRoom, tre = L.treasureRoom;
       for (const [x, y] of quads) {
         const inR = r => r && x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1;
-        tmp.set(inR(lord) ? R.FLOORS[L.floor === 'cave' ? 'stone' : 'marble'](x, y) : inR(tre) ? R.FLOORS.stone(x, y) : R.FLOORS[L.floor](x, y)).convertSRGBToLinear();
-        const j = 0.94 + ((x * 13 + y * 7) % 5) * 0.03;
+        tmp.set(L.fcol ? L.fcol[y * W + x] : inR(lord) ? R.FLOORS[L.floor === 'cave' ? 'stone' : 'marble'](x, y) : inR(tre) ? R.FLOORS.stone(x, y) : R.FLOORS[L.floor](x, y)).convertSRGBToLinear();
+        const j = L.fcol ? 0.97 + ((x * 13 + y * 7) % 3) * 0.02 : 0.94 + ((x * 13 + y * 7) % 5) * 0.03;
         const X = B + x;
         for (const [qx, qy] of [[X, y], [X, y + 1], [X + 1, y], [X + 1, y], [X, y + 1], [X + 1, y + 1]]) { pos[o] = qx; pos[o + 1] = 0; pos[o + 2] = qy; col[o] = tmp.r * j; col[o + 1] = tmp.g * j; col[o + 2] = tmp.b * j; o += 3; }
       }
@@ -695,21 +712,37 @@
       fg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); fg.setAttribute('color', new THREE.BufferAttribute(col, 3)); fg.computeVertexNormals();
       const floor = new THREE.Mesh(fg, R.mat.terrain); floor.receiveShadow = true; floor.userData.own = true; g.add(floor);
       const [wc, tc] = R.WALLS[L.wall] || R.WALLS.stone;
-      const wallMat = new THREE.MeshStandardMaterial({ color: C(wc).multiplyScalar(1.25), roughness: 0.92, flatShading: true });
+      const wallMat = new THREE.MeshStandardMaterial({ color: C(wc).multiplyScalar(L.type === 'gate' ? 1.6 : 1.25), roughness: 0.92, flatShading: true });
       const capMat = new THREE.MeshStandardMaterial({ color: C(tc), roughness: 0.9 });
-      // walls: rock touching open floor; merged along each row
+      // walls: rock touching open floor; merged along each row, and all of it one mesh
+      const walls = [], caps = [];
+      const tall = L.type === 'gate' ? 1.25 : 1.15;
       for (let y = 0; y < H; y++) {
         let run = null;
-        const flush = () => { if (!run) return; const w = run.x1 - run.x0 + 1, h = run.h; const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1), wallMat); m.position.set(B + run.x0 + w / 2, h / 2, y + 0.5); m.castShadow = true; m.receiveShadow = true; m.userData.own = true; g.add(m); const cap = new THREE.Mesh(new THREE.BoxGeometry(w, 0.08, 1.02), capMat); cap.position.set(B + run.x0 + w / 2, h + 0.04, y + 0.5); cap.userData.own = true; g.add(cap); run = null; };
+        const flush = () => { if (!run) return; const w = run.x1 - run.x0 + 1, h = run.h; walls.push({ x: B + run.x0 + w / 2, y: h / 2, z: y + 0.5, w, h, d: 1 }); caps.push({ x: B + run.x0 + w / 2, y: h + 0.04, z: y + 0.5, w, h: 0.08, d: 1.02 }); run = null; };
         for (let x = 0; x < W; x++) {
           let wall = false;
           if (solidRock(x, y)) for (let dy = -1; dy <= 1 && !wall; dy++) for (let dx = -1; dx <= 1; dx++) if (!solidRock(x + dx, y + dy)) { wall = true; break; }
           if (!wall) { flush(); continue; }
-          const h = !solidRock(x, y - 1) ? 0.45 : 1.15 + ((x * 7 + y * 3) % 3) * 0.1;
+          const h = !solidRock(x, y - 1) ? 0.45 : tall + ((x * 7 + y * 3) % 3) * (L.type === 'gate' ? 0.22 : 0.1);
           if (run && run.h === h && run.x1 === x - 1) run.x1 = x; else { flush(); run = { x0: x, x1: x, h }; }
         }
         flush();
       }
+      if (walls.length) { g.add(R.mergeBoxes(walls, wallMat)); const cm = R.mergeBoxes(caps, L.type === 'gate' ? new THREE.MeshStandardMaterial({ color: C(wc).multiplyScalar(0.8), emissive: C(tc).multiplyScalar(0.12), roughness: 0.9 }) : capMat); cm.castShadow = false; g.add(cm); }
+      // what flows in the worlds beyond the gates: fire, black water, rot — glowing
+      if (L.liquid) {
+        const lq = [];
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (L.liquid[y * W + x]) lq.push([x, y]);
+        if (lq.length) {
+          const lp = new Float32Array(lq.length * 18), lc = new Float32Array(lq.length * 18), c1 = C(L.pal.liquid), c2 = C(L.pal.liquid2);
+          let k = 0;
+          for (const [x, y] of lq) { const t = ((x * 13 + y * 7) % 7) / 7, cc = c1.clone().lerp(c2, t * (L.theme === 'ember' ? 0.6 : 0.25)); for (const [qx, qy] of [[B + x, y], [B + x, y + 1], [B + x + 1, y], [B + x + 1, y], [B + x, y + 1], [B + x + 1, y + 1]]) { lp[k] = qx; lp[k + 1] = 0.02; lp[k + 2] = qy; lc[k] = cc.r; lc[k + 1] = cc.g; lc[k + 2] = cc.b; k += 3; } }
+          const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(lp, 3)); lg.setAttribute('color', new THREE.BufferAttribute(lc, 3));
+          const lm = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({ vertexColors: true })); lm.userData.own = true; g.add(lm);
+          R.roomLiquid = lm;
+        } else R.roomLiquid = null;
+      } else R.roomLiquid = null;
       // the way out
       const exit = new THREE.Mesh(new THREE.PlaneGeometry(2, 1.2), new THREE.MeshBasicMaterial({ color: '#fff0c0', transparent: true, opacity: 0.3, depthWrite: false }));
       exit.rotation.x = -Math.PI / 2; exit.position.set(L.inside.x, 0.02, L.inside.y + 0.6); exit.userData.own = true; g.add(exit);
@@ -878,6 +911,16 @@
       R.moon.intensity = 0;
       R.scene.background = R.bgDark = R.bgDark || new THREE.Color('#050407');
       R.scene.fog.color.set('#050407'); R.scene.fog.near = 60; R.scene.fog.far = 120;
+      if (L.type === 'gate') {
+        // another sky: dim, tinted, and close
+        const P = L.pal;
+        R.hemi.intensity = 0.55; R.hemi.color.set(P.hemi).convertSRGBToLinear(); R.hemi.groundColor.set(P.ground).convertSRGBToLinear();
+        R.sun.intensity = 0.35; R.sun.color.set(P.hemi).convertSRGBToLinear();
+        R.sun.position.set(game.pe.x - 6, 16, game.pe.y - 8); R.sun.target.position.set(game.pe.x, 0, game.pe.y);
+        R.scene.background = R._gateBg || (R._gateBg = new THREE.Color()); R.scene.background.set(P.fog);
+        R.scene.fog.color.set(P.fog); R.scene.fog.near = 26; R.scene.fog.far = 62;
+        if (R.roomLiquid) { const k = 0.85 + Math.sin(R.time * 2) * 0.15; R.roomLiquid.material.color.setScalar(k); }
+      }
       R.renderer.toneMappingExposure = 1.15;
       R.mat.window.emissiveIntensity = 0.6;
       if (R.roomWinMat) R.roomWinMat.color.copy(lerpC(C('#1a2440'), C('#e8f0ff'), dl));
@@ -910,8 +953,11 @@
       let v = R.views.get(e);
       if (v) return v;
       let inst = null, kind = e.type;
-      if (e.shape === 'spider' || e.shape === 'slime') inst = R.procMonster(e);
+      if (e.shape === 'spider' || e.shape === 'slime' || e.shape === 'serpent' || e.shape === 'horror') inst = R.procMonster(e);
       else if (e.shape === 'rat') inst = ECHO.Models.instance('gnawer');
+      else if (e.shape === 'hound') inst = ECHO.Models.instance('wolf');
+      else if (e.shape === 'drake') inst = ECHO.Models.instance('drake');
+      else if (e.shape === 'stag') inst = ECHO.Models.instance('stag');
       else if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) inst = ECHO.Models.instance('person');
       else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' || e.species === 'deer' ? 'stag' : e.species === 'dog' || e.species === 'fox' ? 'wolf' : e.species);
       else if (e.type === 'boss') inst = ECHO.Models.instance(e.boss.kind);
@@ -934,8 +980,13 @@
     configure(game, e, v) {
       const M = ECHO.Models, inst = v.inst, world = game.world;
       if (e.shape) {
+        const Fd = e.foe || {}, em = e.rage ? '#ff3a0a' : Fd.em || null;
+        const glow = () => { for (const m of inst.mats) if (m.emissive) m.emissive.set(em || '#000000').multiplyScalar(e.rage ? 0.8 : 0.45); };
         if (e.shape === 'rat') { M.recolor(inst, 'rat', e.elite ? '#4a2a2a' : '#5a4a42'); inst.root.scale.setScalar(1.15 * (e.scale || 1)); }
-        else inst.root.scale.setScalar(e.scale || 1);
+        else if (e.shape === 'hound') { M.recolor(inst, 'fur', Fd.col || '#2a2a2a'); M.recolor(inst, 'eyeglow', Fd.em || '#ff3a2a'); M.show(inst, 'horn', !!e.elite); glow(); inst.root.scale.setScalar(1.05 * (e.scale || 1)); }
+        else if (e.shape === 'drake') { for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false); M.recolor(inst, 'drake', Fd.col || '#5a1a0a'); M.recolor(inst, 'drakebelly', Fd.belly || '#ff8a3a'); glow(); inst.root.scale.setScalar(e.scale || 1); }
+        else if (e.shape === 'stag') { M.recolor(inst, 'stag', Fd.col || '#1a1420'); M.recolor(inst, 'cloth2', '#0e0a12'); M.recolor(inst, 'darkwood', Fd.em || '#c86aff'); M.recolor(inst, 'white', '#2a2030'); M.recolor(inst, 'eyeglow', Fd.em || '#c86aff'); for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false); M.show(inst, 'antlers', true); glow(); inst.root.scale.setScalar(0.52 * (e.scale || 1)); }
+        else { inst.root.scale.setScalar(e.scale || 1); if (inst.mats && Fd.em) for (const m of inst.mats) if (m.emissive && !(m.userData && m.userData.keep)) m.emissive.set(e.rage ? '#ff3a0a' : Fd.em).multiplyScalar(e.rage ? 0.5 : 0.18); }
         return;
       }
       if (e.humanoid && e.foe && e.foe.vis) {
@@ -1529,9 +1580,33 @@
     procMonster(e) {
       const root = new THREE.Group(), mats = [], parts = {};
       const mat = (c, o) => { const m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, flatShading: true, transparent: o != null, opacity: o == null ? 1 : o }); mats.push(m); return m; };
+      const Fd = e.foe || {};
+      if (e.shape === 'serpent' || e.shape === 'horror') {
+        const bodyM = mat(Fd.col || '#10202a'); bodyM.emissive = new THREE.Color(Fd.em || '#2ad8c8').multiplyScalar(0.18);
+        const glowM = new THREE.MeshBasicMaterial({ color: Fd.em || '#2ad8c8' });
+        if (e.shape === 'serpent') {
+          parts.segs = [];
+          for (let i = 0; i < 9; i++) { const r = 0.2 - i * 0.015; const s = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), bodyM); s.position.set(-0.3 + i * 0.22, r + 0.02, 0); s.userData.r = r; root.add(s); parts.segs.push(s); }
+          for (const z of [-0.08, 0.08]) { const ey = new THREE.Mesh(new THREE.SphereGeometry(0.035, 5, 4), glowM); ey.position.set(-0.46, 0.27, z); root.add(ey); }
+          for (let i = 1; i < 8; i += 2) { const fin = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.22, 4), glowM); fin.position.set(-0.3 + i * 0.22, 0.38 - i * 0.012, 0); root.add(fin); }
+        } else {
+          // a hanging bulk of a body, a lure, and arms
+          const body = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 9), bodyM); body.position.y = 0.72; body.scale.set(1, 0.85, 1); root.add(body); parts.body = body;
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.14, 9, 7), glowM); eye.position.set(-0.36, 0.78, 0); root.add(eye);
+          const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.6, 4), bodyM); stalk.position.set(-0.3, 1.2, 0); stalk.rotation.z = 0.6; root.add(stalk);
+          const lure = new THREE.Mesh(new THREE.SphereGeometry(0.08, 7, 5), glowM); lure.position.set(-0.52, 1.42, 0); root.add(lure); parts.lure = lure;
+          parts.arms = [];
+          for (let i = 0; i < 6; i++) {
+            const a = i / 6 * Math.PI * 2, pv = new THREE.Group(); pv.position.set(Math.cos(a) * 0.25, 0.5, Math.sin(a) * 0.25); pv.rotation.y = -a; root.add(pv);
+            const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.02, 0.62, 5), bodyM); arm.position.set(0.18, -0.24, 0); arm.rotation.z = 0.6; pv.add(arm); parts.arms.push(pv);
+          }
+        }
+        root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+        return { root, mats, parts };
+      }
       if (e.shape === 'spider') {
         const queen = e.species === 'queen';
-        const bodyM = mat(queen ? '#3a1a2a' : e.elite ? '#3a2a1a' : '#2a2228'), eyeM = new THREE.MeshBasicMaterial({ color: '#ff3a2a' });
+        const bodyM = mat(Fd.col || (queen ? '#3a1a2a' : e.elite ? '#3a2a1a' : '#2a2228')), eyeM = new THREE.MeshBasicMaterial({ color: Fd.em || '#ff3a2a' });
         const body = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), bodyM); body.position.set(-0.05, 0.3, 0); root.add(body);
         const abd = new THREE.Mesh(new THREE.SphereGeometry(0.3, 9, 7), bodyM); abd.position.set(0.32, 0.36, 0); abd.scale.set(1.2, 0.9, 1); root.add(abd); parts.abd = abd;
         if (queen) { const mark = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 4), mat('#c83a3a')); mark.position.set(0.36, 0.6, 0); mark.scale.set(1.4, 0.3, 1); root.add(mark); }
@@ -1547,8 +1622,8 @@
           parts.legs.push(pivot);
         }
       } else {
-        const col = e.species === 'slimeling' ? '#9fe8a0' : e.elite ? '#e8c84a' : '#6fd08a';
-        const skin = mat(col, 0.72); skin.emissive = new THREE.Color('#0e3a1a');
+        const col = Fd.col || (e.species === 'slimeling' ? '#9fe8a0' : e.elite ? '#e8c84a' : '#6fd08a');
+        const skin = mat(col, 0.72); skin.emissive = new THREE.Color(Fd.em || '#0e3a1a'); if (Fd.em) skin.emissive.multiplyScalar(0.25);
         const blob = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 9, 0, Math.PI * 2, 0, Math.PI * 0.62), skin); blob.position.y = 0.05; root.add(blob); parts.blob = blob;
         const core = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 5), mat('#2a5a3a')); core.position.y = 0.2; root.add(core);
         for (const z of [-0.12, 0.12]) { const ey = new THREE.Mesh(new THREE.SphereGeometry(0.045, 5, 4), new THREE.MeshBasicMaterial({ color: '#102010' })); ey.position.set(-0.3, 0.3, z); root.add(ey); }
@@ -1561,6 +1636,8 @@
       v.tell = e.state === 'windup' || e.state === 'cast' || e.state === 'slam' ? 1 : 0;
       if (P.legs) { const ph = R.time * 18; P.legs.forEach((g, i) => { g.rotation.z = e.dead ? 0.6 : Math.sin(ph + i * 1.7) * 0.35 * mv; }); if (P.abd) P.abd.position.y = 0.36 + Math.sin(R.time * 3) * 0.015; v.yOff = 0; }
       if (P.blob) { const q = Math.sin(R.time * (mv > 0.5 ? 9 : 3) + v.bob); P.blob.scale.set(1 + q * 0.08, 1 - q * 0.1, 1 + q * 0.08); v.yOff = mv > 0.5 ? Math.abs(Math.sin(R.time * 9)) * 0.08 : 0; }
+      if (P.segs) { P.segs.forEach((s, i) => { s.position.z = Math.sin(R.time * (mv > 0.5 ? 9 : 2.5) - i * 0.7) * (mv > 0.5 ? 0.16 : 0.06); s.position.y = s.userData.r + 0.02 + (e.state === 'windup' || e.state === 'cast' ? Math.max(0, 0.3 - i * 0.05) : 0); }); v.yOff = 0; }
+      if (P.arms) { P.arms.forEach((a, i) => { a.rotation.z = Math.sin(R.time * 3 + i * 1.1) * 0.25 + (e.state === 'windup' ? -0.4 : 0); }); if (P.body) P.body.position.y = 0.72 + Math.sin(R.time * 2 + v.bob) * 0.05; if (P.lure) P.lure.scale.setScalar(1 + Math.sin(R.time * 5) * 0.2); v.yOff = 0.05; }
     },
     animateBoss(game, e, v) {
       const P = v.inst.parts;
@@ -1608,6 +1685,9 @@
         const wantMv = e.moving || v.spd > 0.35 ? 1 : 0;
         if (dt > 0) v.mv = (v.mv == null ? wantMv : v.mv + (wantMv - v.mv) * Math.min(1, dt * 7));
         if (e.shape === 'rat') R.animateCreature(game, { ...e, species: 'gnawer' }, v);
+        else if (e.shape === 'hound') R.animateCreature(game, { ...e, species: 'wolf' }, v);
+        else if (e.shape === 'stag') R.animateCreature(game, { ...e, species: 'deer' }, v);
+        else if (e.shape === 'drake') R.animateBoss(game, { ...e, state: e.state === 'cast' ? 'roar' : e.state }, v);
         else if (e.shape) R.animateProc(game, e, v, dt);
         else if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) R.animatePerson(game, e, v, dt);
         else if (e.type === 'creature') R.animateCreature(game, e, v);
@@ -1866,6 +1946,82 @@
       R.henGroup.children.forEach((g, i) => { const b = hens[i]; g.visible = !!b; if (!b) return; g.position.set(b.x, R.groundH(b.x, b.y) + (b.peck > 0 ? -0.04 : Math.abs(Math.sin(R.time * 9 + i)) * 0.02), b.y); g.rotation.y = -b.dir; g.rotation.z = b.peck > 0 ? -0.5 : 0; });
     },
     // Caves, wayside shrines, wrecks, stone circles and hermits' huts.
+    // The three gates: black pillars, a door of swirling light, a beam you can
+    // see from far away, and the ring on the ground where the menace begins.
+    updateGates(game, room, dt) {
+      const world = game.world;
+      if (!world.gates) return;
+      const key = world.seed + ':' + world.gates.list.map(g => g.x + ',' + g.y).join('|') + ':' + (world._tileEpoch || 0);
+      if (R.gateKey !== key) {
+        if (R.gateGroup) { R.scene.remove(R.gateGroup); R.gateGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+        R.gateGroup = new THREE.Group(); R.scene.add(R.gateGroup); R.gateKey = key; R.gateFx = [];
+        const G = ECHO.Gates;
+        for (const g of world.gates.list) {
+          const th = G.THEMES[g.theme], grp = new THREE.Group(), gh = R.groundH(g.x, g.y);
+          grp.position.set(g.x, gh, g.y); R.gateGroup.add(grp);
+          const stone = new THREE.MeshStandardMaterial({ color: C('#16121a'), roughness: 0.55, metalness: 0.25, flatShading: true });
+          const rune = new THREE.MeshBasicMaterial({ color: C(th.glow) });
+          // the pillars, the lintel, the steps
+          for (const sx of [-2.4, 2.4]) {
+            const p = new THREE.Mesh(new THREE.BoxGeometry(1.15, 7.6, 1.15), stone); p.position.set(sx, 3.8, 0); p.castShadow = true; grp.add(p);
+            const cap = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.6, 4), stone); cap.position.set(sx, 8.4, 0); cap.rotation.y = Math.PI / 4; grp.add(cap);
+            for (let k = 0; k < 4; k++) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.7, 0.04), rune); r.position.set(sx + (sx < 0 ? 0.3 : -0.3), 1.2 + k * 1.5, 0.6); grp.add(r); }
+          }
+          const lin = new THREE.Mesh(new THREE.BoxGeometry(6.6, 0.9, 1.4), stone); lin.position.set(0, 7.5, 0); lin.castShadow = true; grp.add(lin);
+          const step = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.3, 2.4), stone); step.position.set(0, 0.15, 0.4); step.receiveShadow = true; grp.add(step);
+          // the door itself: two layers of light, turning against each other
+          const cv = document.createElement('canvas'); cv.width = cv.height = 128;
+          const cx = cv.getContext('2d'), grd = cx.createRadialGradient(64, 64, 4, 64, 64, 64);
+          grd.addColorStop(0, '#ffffff'); grd.addColorStop(0.25, th.glow); grd.addColorStop(0.7, th.color); grd.addColorStop(1, 'rgba(0,0,0,0)');
+          cx.fillStyle = grd; cx.fillRect(0, 0, 128, 128);
+          cx.globalCompositeOperation = 'destination-out';
+          for (let a = 0; a < 6; a++) { cx.beginPath(); for (let r = 6; r < 64; r += 2) { const t = a / 6 * Math.PI * 2 + r * 0.09; cx.lineTo(64 + Math.cos(t) * r, 64 + Math.sin(t) * r); } cx.lineWidth = 5; cx.strokeStyle = 'rgba(0,0,0,0.55)'; cx.stroke(); }
+          const tex = new THREE.CanvasTexture(cv); tex.center.set(0.5, 0.5);
+          const tex2 = tex.clone(); tex2.needsUpdate = true; tex2.center.set(0.5, 0.5);
+          const mk = (t, o, z) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 6.7), new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: o, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); m.position.set(0, 3.55, z); grp.add(m); return m; };
+          const back = new THREE.Mesh(new THREE.PlaneGeometry(3.7, 6.6), new THREE.MeshBasicMaterial({ color: C(th.dark) })); back.position.set(0, 3.55, -0.02); grp.add(back);
+          const d1 = mk(tex, 0.95, 0.02), d2 = mk(tex2, 0.6, 0.05);
+          // a beam into the sky, seen from leagues away
+          const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.6, 90, 14, 1, true), new THREE.MeshBasicMaterial({ color: C(th.glow), transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+          beam.position.set(0, 45, 0); grp.add(beam);
+          // stones that float round it
+          const shards = [];
+          for (let i = 0; i < 7; i++) { const s = new THREE.Mesh(new THREE.OctahedronGeometry(0.22 + (i % 3) * 0.08), i % 2 ? stone : rune); grp.add(s); shards.push({ m: s, a: i / 7 * Math.PI * 2, r: 3.6 + (i % 3) * 0.7, h: 2.5 + (i % 4) * 1.6, sp: 0.3 + (i % 3) * 0.12 }); }
+          // where the menace begins, and where it kills: rings that follow the ground
+          const ribbon = (rad, w, col, op) => {
+            const N = 96, pos = [];
+            for (let i = 0; i < N; i++) {
+              const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2;
+              const P = (a, r) => { const x = g.x + Math.cos(a) * r, y = g.y + Math.sin(a) * r; return [x - g.x, R.groundH(x, y) - gh + 0.07, y - g.y]; };
+              const a = P(a0, rad - w), b = P(a0, rad + w), c = P(a1, rad - w), d = P(a1, rad + w);
+              pos.push(...a, ...b, ...c, ...c, ...b, ...d);
+            }
+            const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+            const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: C(col), transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide })); grp.add(m); return m;
+          };
+          const r1 = ribbon(G.R_HURT, 0.12, th.color, 0.55), r2 = ribbon(G.R_KILL, 0.18, th.glow, 0.75);
+          // the dead ground round it
+          const scorch = new THREE.Mesh(new THREE.CircleGeometry(4.6, 32), new THREE.MeshBasicMaterial({ color: C(th.dark), transparent: true, opacity: 0.7, depthWrite: false }));
+          scorch.rotation.x = -Math.PI / 2; scorch.position.y = 0.05; grp.add(scorch);
+          R.gateFx.push({ g, d1, d2, beam, shards, r1, r2 });
+        }
+      }
+      R.gateGroup.visible = !room;
+      R.gateLights = [];
+      if (room) return;
+      const pe = game.pe;
+      for (const f of R.gateFx) {
+        const near = Math.abs(f.g.x - pe.x) < 70 && Math.abs(f.g.y - pe.y) < 70;
+        f.d1.material.map.rotation += dt * 0.9; f.d2.material.map.rotation -= dt * 1.4;
+        f.d2.material.opacity = 0.45 + Math.sin(R.time * 2.3) * 0.15;
+        f.beam.material.opacity = 0.16 + Math.sin(R.time * 1.3 + f.g.x) * 0.06;
+        f.r1.material.opacity = 0.35 + Math.sin(R.time * 2) * 0.15; f.r2.material.opacity = 0.55 + Math.sin(R.time * 3) * 0.2;
+        if (near) for (const s of f.shards) { s.a += dt * s.sp; s.m.position.set(Math.cos(s.a) * s.r, s.h + Math.sin(R.time * 1.5 + s.a * 3) * 0.3, Math.sin(s.a) * s.r * 0.6); s.m.rotation.y += dt; s.m.rotation.x += dt * 0.7; }
+        if (near) R.gateLights.push({ x: f.g.x, y: f.g.y + 0.6, r: 11, a: 2.2, color: ECHO.Gates.THEMES[f.g.theme].glow, h: 3.4 });
+        // the menace drifts toward the gate
+        if (near && Math.random() < dt * 14) { const a = Math.random() * 6.28, r = 3 + Math.random() * (ECHO.Gates.R_HURT - 2); ECHO.Combat.fx.push({ kind: 'p', x: f.g.x + Math.cos(a) * r, y: f.g.y + Math.sin(a) * r, vx: -Math.cos(a) * 1.2, vy: -Math.sin(a) * 1.2, t: 0, life: 1.4, color: ECHO.Gates.THEMES[f.g.theme].color, size: 2 }); }
+      }
+    },
     updateSecrets(game, room) {
       const Sc = ECHO.Secrets, world = game.world, pe = game.pe;
       if (!Sc || !world.secrets) return;
@@ -2236,6 +2392,7 @@
         for (const t of Object.values(R.towns)) for (const l of t.lamps) push(l.x, l.y, l.era >= 4 ? 8 : 4.5, l.era >= 4 ? 1.3 : 1.0, l.arcane && l.era >= 4 ? '#bfe8ff' : '#ffc070', 1.7);
       }
       for (const l of R.siteLights || []) push(l.x, l.y, l.r, l.a, l.color, l.h);
+      for (const l of R.gateLights || []) push(l.x, l.y, l.r, l.a, l.color, l.h);
       for (const e of game.ents) {
         if (e.dead || e.hidden) continue;
         if (e.gear && e.gear.torch && night) push(e.x, e.y, 4.5, 0.9, '#ffb060', 1.2);
@@ -2347,6 +2504,7 @@
       R.updateGlows(game);
       R.updateTownFires(game, room);
       R.updateSecrets(game, room);
+      R.updateGates(game, room, dt);
       R.updateHomestead(game, room);
       if (!room) R.updateFestival(game); else if (R.festGroup) R.festGroup.visible = false;
       if (room) R.updateInteriorLighting(game, room); else R.updateLighting(game, dt);

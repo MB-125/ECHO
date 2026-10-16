@@ -72,6 +72,7 @@
     // Returns true when the monster spent this frame on an ability.
     tick(game, e, dt, d, ang) {
       const ab = e.ab, world = game.world, pe = game.pe;
+      if ((e.gab || (e.foe && e.foe.gab)) && ECHO.GateWorld && ECHO.GateWorld.ability(game, e, dt, d, ang)) return true;
       if (!ab) return false;
       e.abT = e.abT || {};
       for (const k in e.abT) e.abT[k] -= dt;
@@ -227,7 +228,7 @@
       const L = ECHO.Interior.cur;
       if (L && L.webs) for (const w of L.webs) if (U.dist(ECHO.Interior.BASE + w.x, w.y, pe.x, pe.y) < 0.9) { pl.slowT = Math.max(pl.slowT || 0, 0.4); break; }
     },
-    slowMul() { const pl = ECHO.Game.pl; return pl && pl.slowT > 0 ? 0.55 : 1; },
+    slowMul() { const pl = ECHO.Game.pl; return pl && pl.rootT > 0 ? 0.06 : pl && pl.slowT > 0 ? 0.55 : 1; },
     // Resistances and weaknesses, and a word about them the first time.
     resist(game, target, type, dmg, from) {
       const r = target.resist && target.resist[type];
@@ -270,7 +271,7 @@
       const drop = (kind, qty) => game.loot.push({ x: e.x + (r() - 0.5) * 0.8, y: e.y + (r() - 0.5) * 0.8, kind, qty });
       for (const [k, ch, a, b] of D.loot || []) if (r() < ch * (e.elite ? 1.4 : 1)) drop(k, a + Math.floor(r() * (b - a + 1)) + (L >= 4 && r() < 0.4 ? 1 : 0));
       const [g0, g1] = D.gold || [0, 3];
-      const gold = Math.round((g0 + r() * (g1 - g0)) * (1 + (L - 1) * 0.3) * (e.elite ? 2 : 1));
+      const gold = Math.round((g0 + r() * (g1 - g0)) * (1 + (Math.min(L, 150) - 1) * 0.3) * (e.elite ? 2 : 1));   // coin stops growing past 150 (or the gates would buy the realm)
       if (gold > 0) drop('gold', gold);
       // finished gear
       const gearChance = e.boss2 ? 1 : e.elite ? 0.35 : Math.min(0.22, 0.04 + L * 0.012);

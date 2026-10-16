@@ -140,7 +140,7 @@
         for (const m of party) {
           const L0 = D.lv(m);
           const up = fl >= L0 - 1 ? 1 + (fl > L0 + 1 && rng.chance(0.5) ? 1 : 0) : rng.chance(0.3) ? 1 : 0;
-          m.lv = Math.min(MAX_LV, L0 + up);
+          m.lv = L0 >= MAX_LV ? L0 : Math.min(MAX_LV, L0 + up);
           m.skill.fight = Math.min(100, (m.skill.fight || 0) + up * 1.5);
           m.wealth = (m.wealth || 0) + 8 + Math.round(fl * 2.5);
           m.renown = (m.renown || 0) + 2;

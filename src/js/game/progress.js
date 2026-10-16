@@ -155,7 +155,7 @@
       const el = document.getElementById('hud-rank');
       if (!el) return;
       // a badge with your level in big figures, then your rank and how far to the next level
-      el.innerHTML = `<span class="lvb" style="border-color:${R.color};box-shadow:0 0 8px ${R.color}55" title="Your level"><small>LEVEL</small><b>${L}</b></span><span class="rkc"><span class="rk" style="color:${R.color}">${R.title}</span><span class="xprow"><span class="xp"><i style="width:${Math.round(frac * 100)}%"></i></span><span class="xpn">${L >= Pw().MAX ? 'max level' : `${U.short(Math.floor(s.xp))} / ${U.short(need)} xp`}</span></span></span>`;
+      el.innerHTML = `<span class="lvb" style="border-color:${R.color};box-shadow:0 0 8px ${R.color}55" title="Your level"><small>LEVEL</small><b class="${L >= 1000 ? 'd4' : L >= 100 ? 'd3' : ''}">${L}</b></span><span class="rkc"><span class="rk" style="color:${R.color}">${R.title}</span><span class="xprow"><span class="xp"><i style="width:${Math.round(frac * 100)}%"></i></span><span class="xpn">${L >= Pw().MAX ? 'max level' : `${U.short(Math.floor(s.xp))} / ${U.short(need)} xp`}</span></span></span>`;
     },
     targetHud(game) {
       const el = document.getElementById('hud-target');
@@ -197,6 +197,14 @@
         if (d > 32) continue;
         const L = ECHO.Explore.level(game.world, s), D = Pw().diff(L, Pw().level(pl)), fl = ECHO.Explore.floors(s);
         out.push({ x: s.x, y: s.y - (s.secret ? 1.6 : 0), text: `▼ ${U.cap(s.name)} · ${s.cleared ? 'cleared ✓' : ECHO.Explore.stars(s)}${fl > 1 ? ` · ${fl} floors` : ''}`, color: s.cleared ? '#9a9080' : D.color, a: U.clamp(1.3 - d / 32, 0.45, 1) });
+      }
+      // the gates, named from far off — and how they stand with you
+      const G = ECHO.Gates;
+      if (G && game.world.gates) for (const g of game.world.gates.list) {
+        const d = U.dist(g.x, g.y, pe.x, pe.y);
+        if (d > 46) continue;
+        const weak = Pw().level(pl) < G.MIN;
+        out.push({ x: g.x, y: g.y - 6.5, text: `⛩ ${U.cap(g.name)} · ${weak ? `deadly below Lv ${G.MIN}` : `Lv ${G.MIN}–${G.TOP} beyond`}`, color: weak ? '#ff5a4a' : G.THEMES[g.theme].glow, a: U.clamp(1.4 - d / 46, 0.5, 1) });
       }
       return out;
     },

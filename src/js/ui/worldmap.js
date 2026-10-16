@@ -8,7 +8,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const T = () => ECHO.TILE;
   const PARCH = '#d8c7a0', INK = '#3a2a18';
-  const LAYERS = [['dungeons', 'Dungeons'], ['towns', 'Towns'], ['danger', 'Camps & lairs'], ['places', 'Landmarks'], ['wonders', 'Wonders & ruins'], ['quests', 'Quests'], ['regions', 'Region names']];
+  const LAYERS = [['dungeons', 'Dungeons'], ['towns', 'Towns'], ['gates', 'Gates'], ['danger', 'Camps & lairs'], ['places', 'Landmarks'], ['wonders', 'Wonders & ruins'], ['quests', 'Quests'], ['regions', 'Region names']];
   const DIRS = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'];
 
   const WM = ECHO.WorldMap = {
@@ -94,6 +94,11 @@
       for (const l of world.lairs) if (l.seen) out.push({ layer: 'danger', kind: l.boss.alive ? 'lair' : 'lair-dead', x: l.x, y: l.y, name: `The lair of ${l.boss.name}`, color: l.boss.alive ? '#ff6a4a' : '#9a9080', pri: 8, ref: l, sub: l.boss.alive ? 'A great beast sleeps here' : 'Its master is dead' });
       for (const r of world.ruins) if (r.visited || seen(r.x, r.y)) out.push({ layer: 'wonders', kind: 'ruin', x: r.x + 0.5, y: r.y + 0.5, name: r.name || 'Ruins', color: '#c8c0b0', pri: 3, ref: r, sub: r.visited ? 'Ruins you have read' : 'Old ruins' });
       if (world.lang && world.lang.vault && world.lang.vault.revealed && !world.lang.vault.opened) out.push({ layer: 'wonders', kind: 'vault', x: world.lang.vault.x, y: world.lang.vault.y, name: 'The sealed vault', color: '#9fd3ff', pri: 8, sub: 'Its door waits for the words' });
+      // the gates: everyone knows where they are
+      if (world.gates) for (const g of world.gates.list) {
+        const th = ECHO.Gates.THEMES[g.theme], weak = me < ECHO.Gates.MIN;
+        out.push({ layer: 'gates', kind: 'gate', x: g.x, y: g.y, name: U.cap(g.name), color: th.color, pri: 11, ref: g, sub: `A gate to ${th.world} · held by the National Guard`, diff: weak ? `Deadly: below level ${ECHO.Gates.MIN} its menace kills (within ${ECHO.Gates.R_HURT} leagues)` : `Beasts of level ${ECHO.Gates.MIN}–${ECHO.Gates.TOP} beyond it` });
+      }
       const wst = world.wonders;
       if (wst) {
         for (const e of wst.echoes || []) if (e.revealed && !e.found) out.push({ layer: 'wonders', kind: 'echo', x: e.x, y: e.y, name: 'An echo of the old world', color: '#bfe8ff', pri: 5, sub: 'Shown to you by the wisps' });
@@ -105,7 +110,7 @@
     // ------------------------------------------------------------ open the map
     open(game) {
       const world = game.world, pl = game.pl, UI = ECHO.UI;
-      WM.layers = WM.layers || Object.fromEntries(LAYERS.map(([k]) => [k, true]));
+      WM.layers = WM.layers || Object.fromEntries(LAYERS.map(([k]) => [k, true])); if (WM.layers.gates == null) WM.layers.gates = true;
       if (ECHO.Tutorial) ECHO.Tutorial.flag('map');
       const body = UI.openPanel(`Map of ${world.name}`, `<div class="wmap"><div class="wmap-main"><canvas id="worldmap"></canvas><div id="map-tip" class="hidden"></div>
           <div class="wmap-ctl"><button data-z="1" title="Zoom in">＋</button><button data-z="-1" title="Zoom out">－</button><button data-me="1" title="Centre on you">◎</button></div>
@@ -218,7 +223,7 @@
     key(body) {
       const el = body.querySelector('#map-key');
       const items = [['dungeon', '#ffc04a', 'Dungeon (ring: danger to you)'], ['dungeon-cleared', '#9a9080', 'Cleared dungeon'], ['dungeon-unknown', '#a89c88', 'Seen, not yet charted'], ['capital', '#c8a85a', 'Capital'], ['town', '#6f8fc4', 'Town or village'],
-        ['camp', '#e0563c', 'Outlaw camp'], ['lair', '#ff6a4a', 'Lair of a great beast'], ['landmark', '#a8e0c0', 'Landmark'], ['wonder', '#ffd38a', 'Wonder'], ['ruin', '#c8c0b0', 'Ruins'], ['player', '#ffffff', 'You'], ['flag', '#ffe08a', 'Where you are headed']];
+        ['gate', '#c86aff', 'A gate (level 150+)'], ['camp', '#e0563c', 'Outlaw camp'], ['lair', '#ff6a4a', 'Lair of a great beast'], ['landmark', '#a8e0c0', 'Landmark'], ['wonder', '#ffd38a', 'Wonder'], ['ruin', '#c8c0b0', 'Ruins'], ['player', '#ffffff', 'You'], ['flag', '#ffe08a', 'Where you are headed']];
       el.innerHTML = items.map(([k, col, t]) => { const c = document.createElement('canvas'); c.width = 26; c.height = 26; const g = c.getContext('2d'); WM.icon(g, k, 13, 14, col, 1, 0); return `<div class="kr"><img src="${c.toDataURL()}" alt="">${t}</div>`; }).join('')
         + `<div class="kr dim" style="font-size:12px">Danger rings: <span style="color:#8fe08a">easy</span> · <span style="color:#f0e6d0">even</span> · <span style="color:#ffc04a">hard</span> · <span style="color:#ff7a4a">deadly</span> · <span style="color:#ff3a3a">run</span></div>`;
     },
@@ -262,6 +267,13 @@
           g.closePath(); g.fill(); g.stroke(); break;
         }
         case 'ruin': case 'vault': g.fillStyle = col; line(1.5); g.beginPath(); g.moveTo(0, -6); g.lineTo(6, 0); g.lineTo(0, 6); g.lineTo(-6, 0); g.closePath(); g.fill(); g.stroke(); break;
+        case 'gate': {
+          if (t) { g.globalAlpha = 0.3 + 0.25 * Math.sin(t * 3); g.fillStyle = col; g.beginPath(); g.arc(0, 0, 14, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1; }
+          g.fillStyle = '#120c14'; g.beginPath(); g.arc(0, 0, 10, 0, Math.PI * 2); g.fill(); g.lineWidth = 2.5; g.strokeStyle = col; g.stroke();
+          g.fillStyle = '#e8e0f0'; g.fillRect(-6, -6, 2.4, 11); g.fillRect(3.6, -6, 2.4, 11); g.fillRect(-6.5, -7.5, 13, 2.2);
+          g.fillStyle = col; g.fillRect(-3.4, -4.5, 6.8, 9.5);
+          break;
+        }
         case 'mark': case 'flag': g.strokeStyle = 'rgba(20,14,8,0.95)'; g.lineWidth = 3; g.beginPath(); g.moveTo(-3, 8); g.lineTo(-3, -8); g.stroke(); g.strokeStyle = '#f0e6d0'; g.lineWidth = 1.5; g.stroke(); g.fillStyle = col; line(1.5); g.beginPath(); g.moveTo(-3, -8); g.lineTo(7, -4.5); g.lineTo(-3, -1); g.closePath(); g.fill(); g.stroke(); break;
         case 'player': g.rotate(t); g.fillStyle = '#ffffff'; line(2.5); g.beginPath(); g.moveTo(9, 0); g.lineTo(-6, 6.5); g.lineTo(-3, 0); g.lineTo(-6, -6.5); g.closePath(); g.stroke(); g.fill(); break;
       }
@@ -387,7 +399,33 @@
       mark(L.inside.x - B, L.inside.y + 0.5, '#fff0c0', 2.6);
       WM.icon(g, 'player', ox + (pe.x - B) * s, oy + pe.y * s, '#fff', 0.55, pe.dir || 0);
     },
+    // the world beyond a gate: its regions, you, your mentor, the way home
+    miniGate(game, c) {
+      const L = ECHO.Interior.cur, g = c.getContext('2d'), B = ECHO.Interior.BASE, pe = game.pe;
+      if (!L._mini) {
+        const cv = L._mini = document.createElement('canvas'); cv.width = L.W; cv.height = L.H;
+        const x = cv.getContext('2d'), img = x.createImageData(L.W, L.H), P = L.pal;
+        const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+        const fl = hex(P.floor[1]), rk = hex('#0a0806'), lq = hex(P.liquid2);
+        for (let i = 0; i < L.W * L.H; i++) {
+          const c0 = L.rock[i] ? rk : L.liquid[i] ? lq : fl, z = L.zone[i], k = L.rock[i] ? 1 : 1 + z * 0.12;
+          img.data[i * 4] = Math.min(255, c0[0] * k); img.data[i * 4 + 1] = Math.min(255, c0[1] * k); img.data[i * 4 + 2] = Math.min(255, c0[2] * k); img.data[i * 4 + 3] = 255;
+        }
+        x.putImageData(img, 0, 0);
+      }
+      const s = Math.min((c.width - 6) / L.W, (c.height - 6) / L.H), ox = (c.width - L.W * s) / 2, oy = (c.height - L.H * s) / 2;
+      g.fillStyle = '#0a0806'; g.fillRect(0, 0, c.width, c.height);
+      g.imageSmoothingEnabled = false; g.drawImage(L._mini, ox, oy, L.W * s, L.H * s);
+      const dot = (x, y, col, r) => { g.fillStyle = col; g.beginPath(); g.arc(ox + x * s, oy + y * s, r, 0, Math.PI * 2); g.fill(); };
+      dot(L.inside.x - B, L.inside.y + 2, '#fff0c0', 2.6);
+      dot(L.heart.x, L.heart.y, '#ff5a3a', 2.8);
+      for (const e of game.ents) if (!e.dead && !e.hidden && e.gateMon && U.dist(e.x, e.y, pe.x, pe.y) < 14) dot(e.x - B, e.y, e.sovereign ? '#ffcf5a' : '#e05a4a', 1.4);
+      const m = game.ents.find(e => e.mentor && !e.dead);
+      if (m) dot(m.x - B, m.y, '#8fd0ff', 2.4);
+      WM.icon(g, 'player', ox + (pe.x - B) * s, oy + pe.y * s, '#fff', 0.5, pe.dir || 0);
+    },
     mini(game, c) {
+      if (ECHO.Interior.cur && ECHO.Interior.cur.type === 'gate') return WM.miniGate(game, c);
       if (ECHO.Interior.cur && ECHO.Interior.cur.carved) return WM.miniDungeon(game, c);
       const world = game.world, pl = game.pl, g = c.getContext('2d');
       const pe = ECHO.Interior.cur ? { x: pl.x, y: pl.y, dir: game.pe ? game.pe.dir : 0 } : game.pe;
@@ -404,7 +442,7 @@
       const inView = p => p.x > -8 && p.y > -8 && p.x < c.width + 8 && p.y < c.height + 8;
       if (!WM._mf || game.time - WM._mfT > 1 || game.time < WM._mfT) { WM._mf = WM.features(game); WM._mfT = game.time; }
       for (const f of WM._mf) {
-        if (f.layer !== 'towns' && f.layer !== 'dungeons' && f.layer !== 'danger') continue;
+        if (f.layer !== 'towns' && f.layer !== 'dungeons' && f.layer !== 'danger' && f.layer !== 'gates') continue;
         const p = P(f.x, f.y);
         if (!inView(p)) continue;
         WM.icon(g, f.kind, p.x, p.y, f.color, f.layer === 'dungeons' ? 0.62 : 0.55, 0);

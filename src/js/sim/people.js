@@ -39,6 +39,7 @@
     name(n) { return n.first + ' ' + n.last; },
     fullTitle(world, n) {
       let t = '';
+      if (n.ng) return (n.ng.rank === 'Commander' ? 'Commander ' : 'Warden ') + P.name(n) + ' ' + n.ng.title;
       if (n.title) t = n.title + ' ';
       else if (n.rank && n.prof === 'guard') t = RANKS[n.rank] + ' ';
       else if (n.rank && n.prof === 'bandit') t = n.rank >= 2 ? 'Chieftain ' : '';
@@ -46,6 +47,7 @@
     },
     role(world, n) {
       if (n.status === 'dead') return 'deceased';
+      if (n.ng) return (n.ng.rank === 'Commander' ? 'commander' : 'warden') + ' of the National Guard';
       if (n.title) return n.title.toLowerCase();
       if (n.prof === 'guard' && n.rank) return RANKS[n.rank].toLowerCase() + ' of ' + world.factions[n.faction].short;
       if (n.prof === 'bandit' && n.rank >= 2) return 'Ashfang chieftain';

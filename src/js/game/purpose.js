@@ -94,6 +94,7 @@
     hud(game) {
       const el = document.getElementById('hud-goal');
       if (!el) return;
+      if (ECHO.GateWorld && ECHO.GateWorld.hud(game, el)) return;
       const g = Pu.goal, pe = game.pe;
       if (!g) {
         const html = game.pl.focus ? '' : '<span class="gl">No road chosen yet — <b>Tab</b> → Ambitions</span>';

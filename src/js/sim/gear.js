@@ -153,7 +153,8 @@
     value(it) {
       if (!it) return 0;
       const R = G.rarity(it.rarity);
-      const stat = it.kind === 'armor' ? (it.def || 0) * 2 : it.dmg || 0;
+      const raw = it.kind === 'armor' ? (it.def || 0) * 2 : it.dmg || 0;
+      const stat = raw > 600 ? 600 + (raw - 600) * 0.15 : raw;   // the gear of the gates is priceless — merchants pay what they can
       return Math.round(stat * 2.2 * R.mult * R.mult + (it.plus || 0) * 18 + (it.affix ? 25 : 0) + (it.legend ? 80 : 0));
     },
     // Armour between you and the blow.
@@ -165,6 +166,7 @@
       if (a && a.affix === 'warding' && (type === 'fire' || type === 'magic')) m *= 0.6;
       if (bf.stone > 0) m *= 0.67;
       if (pl._cward > 0) m *= 0.7; // a companion's ward
+      if (pl._aegis > 0) m *= 0.33; // a warden's Aegis Wall
       if (bf.ward > 0 && (type === 'fire' || type === 'magic')) m *= 0.4;
       void now;
       return m;

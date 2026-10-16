@@ -47,6 +47,7 @@
     },
     layout(game, b, s) {
       if (b.type === 'delve') return ECHO.Quests.layout(game, b, s, BASE);
+      if (b.type === 'gate') return ECHO.GateWorld.layout(game, b, s, BASE);
       const world = game.world, pl = game.pl;
       const sizes = { house: [9, 7], inn: [15, 10], smithy: [11, 8], archive: [13, 9], shrine: [9, 9], temple: [15, 11], keep: [17, 12] };
       const [W, H] = sizes[b.type];
@@ -209,6 +210,7 @@
         ECHO.UI.fadeIn(350);
         ECHO.UI.banner(L.name, '', true);
         if (b.type === 'delve') ECHO.Quests.populate(game, L);
+        if (b.type === 'gate') ECHO.GateWorld.populate(game, L);
         if (b.type === 'house' && !I.isMine(b, game.pl) && !b.legend) {
           const home = I.householdHere(game);
           if (home.length && home.every(n => !I.isAsleep(game, n))) {
@@ -369,6 +371,7 @@
       return out;
     },
     use(game, it) {
+      if (ECHO.GateWorld && ECHO.GateWorld.use(game, it)) return;
       const L = I.cur, world = game.world, pl = game.pl, UI = ECHO.UI;
       const s = L.s, b = L.b;
       switch (it.action) {
