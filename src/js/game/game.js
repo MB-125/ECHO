@@ -308,6 +308,7 @@
       if (a.yielded || b.yielded || a.role === 'captive' || b.role === 'captive') return false;
       if (sa === 'player' || sb === 'player') {
         const p = sa === 'player' ? b : a;
+        if (p.ngWard) return false;
         if (p.role === 'bandit') return true;
         if (p.aggro) return true;
         if ((p.role === 'guard' || p.role === 'soldier') && (pl.wanted[p.faction] || 0) > 20) return true;
@@ -324,7 +325,7 @@
       return false;
     },
     canPlayerHit(e) {
-      if (e.isCompanion) return false;
+      if (e.isCompanion || e.ngWard) return false;   // your companion, and the wardens of the Guard, are on your side
       if (e.criminal) return true;
       if (e.type === 'creature' || e.type === 'boss') return true;
       if (Game.hostileTo(Game.pe, e)) return true;

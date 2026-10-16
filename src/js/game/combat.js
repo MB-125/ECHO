@@ -147,7 +147,7 @@
             if (e === p.from || e.dead || e.hidden || e.ghost) continue;
             if (p.contest && e.type !== 'creature') continue; // contest arrows fly over the crowd
             if (U.dist(p.x, p.y, e.x, e.y - 0.15) > e.r + 0.15) continue;
-            const canHit = p.from === game.pe ? !e.isCompanion : game.hostileTo(p.from, e);
+            const canHit = p.from === game.pe ? !e.isCompanion && !e.ngWard : game.hostileTo(p.from, e);
             if (!canHit) continue;
             p.done = true;
             if (p.kind === 'fire') C.explode(p);

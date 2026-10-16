@@ -350,7 +350,7 @@
 
     // ---- Target lock
     lockable(game, e) {
-      return e && !e.dead && !e.vanish && !e.hidden && !e.ghost && e !== game.pe && !e.isCompanion &&
+      return e && !e.dead && !e.vanish && !e.hidden && !e.ghost && e !== game.pe && !e.isCompanion && !e.ngWard &&
         (e.type === 'boss' || (e.type === 'creature' && e.species !== 'hare') || game.hostileTo(game.pe, e));
     },
     lockValid(game, e) {
