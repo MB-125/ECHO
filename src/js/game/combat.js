@@ -265,7 +265,9 @@
       dmg = Math.max(1, Math.round(dmg));
       // Your own fire can hurt you badly, but never below 15% of your life.
       if (target === game.pe && (from === game.pe || (!from && type !== 'drown'))) { const floor = Math.max(1, target.maxHp * 0.15); if (target.hp - dmg < floor) dmg = Math.max(0, Math.floor(target.hp - floor)); }
+      if (target === game.pe && from !== game.pe) dmg = game.grit(dmg);
       if (dmg <= 0) { if (target === game.pe) target.burn = 0; return 0; }
+      if (target === game.pe) game.logHit(from, dmg, type === 'melee' ? '' : type);
       // the wardens of the Guard give ground, but are not brought down
       if (target.ngWard) { dmg = Math.max(0, Math.min(Math.round(dmg * 0.35), Math.floor(target.hp - 1))); if (dmg <= 0) return 0; }
       const wasStaggered = target.stagger > 0;

@@ -73,6 +73,7 @@
       const comp = pl.companion && world.npcs[pl.companion];
       const pool = home ? P().residents(world, home).filter(n => ['hunter', 'herbalist', 'woodcutter', 'priest', 'guard', 'farmer'].includes(n.prof)) : [];
       const rescuer = comp && comp.status === 'alive' ? comp : pool.length ? rng.pick(pool) : null;
+      const recap = game.recapHtml ? game.recapHtml() : '';
       const days = rng.int(2, 4);
       const lost = Math.floor(pl.gold * 0.2);
       pl.gold -= lost;
@@ -96,7 +97,7 @@
           title: 'You wake',
           html: `<p>${rescuer ? `<b>${P().name(rescuer)}</b>, ${P().role(world, rescuer)} of ${home ? home.name : 'nowhere'}, found you in ${region.name} and carried you ${home ? 'to ' + home.name : 'to safety'}.` : `You crawl to ${home ? home.name : 'safety'} on your own.`}</p>
                  <p>${days} days have passed.${lost ? ` Some of your coin (${lost}) is gone.` : ''}</p>
-                 ${dLine}<p class="dim">${fateLine}</p>${ECHO.UI.eventsDigest(events, 'While you lay senseless')}`,
+                 ${recap}${dLine}<p class="dim">${fateLine}</p>${ECHO.UI.eventsDigest(events, 'While you lay senseless')}`,
           choices: [...go, { label: 'Get up', onPick: () => Cap.finish(game) }]
         });
       });

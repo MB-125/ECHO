@@ -268,6 +268,35 @@
     kick(angle, amt) { Game.camKick.x += Math.cos(angle) * amt; Game.camKick.y += Math.sin(angle) * amt; },
     punch(amt) { Game.camPunch = Math.min(1.2, Game.camPunch + amt); },
     hurtFlash(a) { Game.hurtFlashT = Math.max(Game.hurtFlashT, a); },
+    // One blow never takes you from your feet to the ground: if a hit would kill you
+    // while you still had a quarter of your life, you are left standing, barely, for a
+    // breath — once in a while. After that, you have seen it coming.
+    grit(dmg) {
+      const pe = Game.pe, pl = Game.pl;
+      if (dmg < pe.hp || pe.hp < pl.maxHp * 0.25 || Game.time - (Game._gritT || -99) < 25) return dmg;
+      Game._gritT = Game.time;
+      pe.iframes = Math.max(pe.iframes || 0, 1.1);
+      ECHO.Combat.floater(pe.x, pe.y - 1.4, 'STILL STANDING', '#ffe08a', true);
+      ECHO.Combat.ring(pe.x, pe.y, 1.4, 'rgba(255,224,138,0.9)', 0.6);
+      Game.slowMo(0.35, 0.6); Game.hurtFlash(1);
+      if (!pl.tips || !pl.tips.grit) { pl.tips = pl.tips || {}; pl.tips.grit = 1; setTimeout(() => ECHO.UI.toast('That blow should have killed you. You are still standing — barely. Get away, eat (H) or use herbs (G). This only saves you once in a while.', 'warn', 8), 300); }
+      return Math.max(0, Math.floor(pe.hp - Math.max(1, pl.maxHp * 0.05)));
+    },
+    // what hurt you, and how much, in the last few seconds (for the moment you fall)
+    logHit(from, dmg, kind) {
+      const L = Game.hitLog = (Game.hitLog || []).filter(h => Game.time - h.t < 10);
+      const who = from && from.gateAura ? 'the menace of ' + from.gateAura.name : from && from !== Game.pe ? (ECHO.Progress ? ECHO.Progress.nameOf(Game, from) : 'something') : from === Game.pe ? 'your own fire' : kind || 'something';
+      const last = L[L.length - 1];
+      if (last && last.who === who && last.kind === kind && Game.time - last.t < 1.2 && dmg < Game.pl.maxHp * 0.12 && last.dmg / last.n < Game.pl.maxHp * 0.12) { last.dmg += dmg; last.t = Game.time; last.n++; }
+      else L.push({ t: Game.time, who, kind: kind || '', dmg, n: 1, of: Game.pl.maxHp });
+      if (L.length > 8) L.shift();
+    },
+    recapHtml() {
+      const L = (Game.hitLog || []).filter(h => Game.time - h.t < 10);
+      if (!L.length) return '';
+      const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      return `<div class="card recap"><b>What brought you down</b> <span class="dim">(the last ${Math.max(1, Math.round(Game.time - L[0].t))} seconds)</span>${L.slice(-6).map(h => `<div>${esc(U.cap(h.who))}${h.kind && !/melee/.test(h.kind) ? ` <span class="dim">(${esc(h.kind)})</span>` : ''}${h.n > 1 ? ` <span class="dim">×${h.n}</span>` : ''} — <b style="color:#ff8a7a">${U.short(Math.round(h.dmg))}</b> <span class="dim">(${Math.round(h.dmg / h.of * 100)}% of your life)</span></div>`).join('')}</div>`;
+    },
     // Camera springs back; runs every frame even during hit-stop.
     feel(dt) {
       const k = Math.exp(-dt * 14);

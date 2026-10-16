@@ -103,7 +103,20 @@
       set('#hud-hero', pl.first + ' ' + pl.last);
       const hon = pl.honor || (ECHO.Ambition && ECHO.Ambition.honor(pl));
       set('#hud-title', hon ? `${hon} · ${ECHO.Character.title(pl)}` : ECHO.Character.title(pl));
-      $('#hud-left .hp .fill').style.transform = `scaleX(${U.clamp(pl.hp / pl.maxHp, 0, 1)})`;
+      const hpF = U.clamp(pl.hp / pl.maxHp, 0, 1);
+      $('#hud-left .hp .fill').style.transform = `scaleX(${hpF})`;
+      // what a blow took: a pale piece of the bar that drains away after it
+      if (UI._chip == null || hpF > UI._chip) UI._chip = hpF;
+      else if (game.time - (game.lastHurtTime || 0) > 0.45) UI._chip = Math.max(hpF, UI._chip - dt * 0.6);
+      const chip = $('#hud-left .hp .chip'); if (chip) chip.style.transform = `scaleX(${UI._chip})`;
+      // low on life: the bar beats, the edges of the world go red
+      const low = hpF < 0.3 && !game.defeating;
+      if (low !== UI._low) { UI._low = low; $('#hud-left .hp').classList.toggle('low', low); }
+      let lv = UI._lowEl;
+      if (!lv) { lv = UI._lowEl = document.createElement('div'); lv.id = 'low-hp'; document.body.appendChild(lv); }
+      const want = low ? (0.35 + (0.3 - hpF) * 1.6) * (0.75 + 0.25 * Math.sin(game.time * (hpF < 0.15 ? 9 : 6))) : 0;
+      lv.style.opacity = want.toFixed(2);
+      if (low && ECHO.Sfx && (UI._beatT = (UI._beatT || 0) - dt) <= 0) { UI._beatT = hpF < 0.15 ? 0.55 : 0.85; ECHO.Sfx.play('stomp', { vol: 0.18, pitch: 1.6 }); }
       set('#hud-left .hp span', U.fmt(Math.ceil(pl.hp)) + ' / ' + U.fmt(pl.maxHp));
       $('#hud-left .sta .fill').style.transform = `scaleX(${U.clamp(pl.stamina / pl.maxSta, 0, 1)})`;
       $('#hud-left .mana .fill').style.transform = `scaleX(${U.clamp(pl.mana / pl.maxMana, 0, 1)})`;

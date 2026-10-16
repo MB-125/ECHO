@@ -346,6 +346,8 @@
       if (game.defeating || pl.capture || pe.dead) return;
       let dmg = pl.maxHp * frac;
       if (pl._aegis > 0) dmg *= 0.33;
+      if (why !== 'menace') dmg = game.grit(dmg);
+      game.logHit(from && from.foe ? from : from, dmg, why === 'spore' ? 'rot cloud' : why === 'ash' ? 'ash cloud' : why === 'flood' ? 'dragged under' : why === 'burst' ? 'eruption' : why === 'menace' ? '' : 'burning ground');
       pe.hp -= dmg; pl.hp = pe.hp;
       GW._ft = (GW._ft || 0) - 1;
       if (GW._ftT == null || game.time - GW._ftT > 0.5) { GW._ftT = game.time; ECHO.Combat.floater(pe.x, pe.y - 1, why === 'spore' ? 'rot' : why === 'ash' ? 'choking' : why === 'flood' ? 'dragged under' : why === 'menace' ? 'the menace' : 'burning', '#ff8a6a'); game.hurtFlash(0.25); }
@@ -613,6 +615,7 @@
       }
       const lost = Math.floor(pl.gold * 0.1);
       pl.gold -= lost;
+      const recap = game.recapHtml ? game.recapHtml() : '';
       ECHO.Capture.place(game, g.x, g.y + 4);
       pl.hp = pl.maxHp * 0.5; game.pe.hp = pl.hp; pl.stamina = pl.maxSta; pl.rootT = 0; pl.slowT = 0; pl.poisonT = 0;
       GW.hz = [];
@@ -621,7 +624,7 @@
       ECHO.UI.fadeIn(500);
       ECHO.UI.modal({
         title: 'Pulled back through',
-        html: `<p>${killer ? `${esc(U.cap(killer))} brought you down. ` : ''}${rescuer ? `<b>${esc(ECHO.People.fullTitle(world, rescuer))}</b> got to you before it could finish you, and dragged you back out of ${esc(th.world)}.` : 'You crawl back through the gate on your own.'}</p><p>${lost ? `Some of your coin (${lost}) stayed behind. ` : ''}Your level and gear are yours.</p><p class="dim">${rescuer ? `"${pl.guard ? 'Again tomorrow. Smaller beasts first.' : 'Do not go in there alone.'}"` : ''}</p>`,
+        html: `<p>${killer ? `${esc(U.cap(killer))} brought you down. ` : ''}${rescuer ? `<b>${esc(ECHO.People.fullTitle(world, rescuer))}</b> got to you before it could finish you, and dragged you back out of ${esc(th.world)}.` : 'You crawl back through the gate on your own.'}</p><p>${lost ? `Some of your coin (${lost}) stayed behind. ` : ''}Your level and gear are yours.</p>${recap}<p class="dim">${rescuer ? `"${pl.guard ? 'Again tomorrow. Smaller beasts first.' : 'Do not go in there alone.'}"` : ''}</p>`,
         choices: [{ label: 'Get up', onPick: () => ECHO.Capture.finish(game) }]
       });
     },

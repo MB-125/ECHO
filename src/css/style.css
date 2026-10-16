@@ -53,6 +53,10 @@ input:focus { border-color: var(--gold); }
 .bar .fill { position: absolute; inset: 0; transform-origin: left; }
 .bar.hp { height: 16px; }
 .bar.hp .fill { background: linear-gradient(#e0605a, var(--hp)); }
+.bar .chip { position: absolute; inset: 0; transform-origin: left; background: #ffe6b0; opacity: 0.85; }
+.bar.hp.low { animation: hpbeat 0.8s ease-in-out infinite; border-color: #8a1a14; }
+@keyframes hpbeat { 0%, 100% { box-shadow: 0 0 0 rgba(255,60,40,0); } 50% { box-shadow: 0 0 10px rgba(255,60,40,0.9); } }
+#low-hp { position: fixed; inset: 0; pointer-events: none; opacity: 0; z-index: 5; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(150,0,0,0.75) 100%); }
 .bar.sta .fill { background: linear-gradient(#ead27a, var(--sta)); }
 .bar.mana .fill { background: linear-gradient(#7aa8f0, var(--mana)); }
 .bar span { position: absolute; right: 6px; top: -1px; font-size: 13px; color: #fff; text-shadow: 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 1px 0 #000; letter-spacing: 0.5px; }
@@ -425,3 +429,4 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 .nav-ic { width: 26px; text-align: center; font-size: 18px; color: #ffe08a; }
 /* the menace of a gate, at the edge of your sight */
 #gate-veil { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.4s; z-index: 5; mix-blend-mode: multiply; }
+.card.recap { margin: 8px 0; font-size: 14px; line-height: 1.45; border-color: #5a2a22; }
