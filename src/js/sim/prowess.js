@@ -28,7 +28,7 @@
     { lv: 80, title: 'Demigod', color: '#ffd84a', desc: 'The old gods would have been jealous.' },
     { lv: 100, title: 'Eternal', color: '#ff9a3a', desc: 'Your name will outlast the kingdoms.' },
     { lv: 125, title: 'Worldbreaker', color: '#ff4a4a', desc: 'Mountains have less weight than you.' },
-    { lv: 150, title: 'the Undying', color: '#ffffff', desc: 'Nothing in the world can hurt you now. Only the gates are left.' },
+    { lv: 150, title: 'the Undying', color: '#ffffff', desc: 'Little in the world can hurt you now — only the titans, who grow as you do, and what waits beyond the gates.' },
     { lv: 200, title: 'Gatewalker', color: '#ff8a6a', desc: 'You have walked through a gate and walked back out.' },
     { lv: 300, title: 'Breachwarden', color: '#ff6aa8', desc: 'The things beyond the gates have learned your scent.' },
     { lv: 450, title: 'Voidtempered', color: '#b07aff', desc: 'The menace of the gates is a breeze to you now.' },
@@ -114,15 +114,26 @@
       if (e.elite) return 'elite';
       return 'common';
     },
+    // How far apart two levels really are. A level is a big step at 5 and a
+    // small one at 500 (each adds less, proportionally), so gaps are measured in
+    // "steps" of a tenth of your level (never less than one level): +4 at level
+    // 10 is four levels; at level 300 it is forty. Labels, experience and the
+    // titans all go by this, so "Deadly" means the same danger at every level.
+    step(plL) { return Math.max(1, (plL || 1) / 10); },
+    gap(foeL, plL) { return (foeL - plL) / P.step(plL); },
+    above(plL, steps) { return Math.round(plL + steps * P.step(plL)); },
+    // What a level's gear hits for, against level 1: flame and other powers that
+    // carry no weapon grow by this, so they keep pace with what you wield.
+    gearScale(L) { return (12 + 3.68 * Math.max(1, L)) / 15.68; },
     diff(foeL, plL) {
-      const d = foeL - plL;
+      const d = P.gap(foeL, plL);
       return DIFF.find(x => d <= x.max) || DIFF[DIFF.length - 1];
     },
     // Experience for a kill: grows with the foe's level and rank, and with how far above you it stood.
     xpFor(pl, e) {
       const L = P.foeLevel(e), me = P.level(pl);
       const R = FOE_RANK[P.foeRank(e)];
-      const gap = L - me;
+      const gap = P.gap(L, me);
       // foes well below you teach little
       const scale = gap <= -6 ? 0.05 : U.clamp(1 + 0.2 * gap, 0.25, 2.5);
       // no single kill carries you too far: about two levels, three for a lord or a great beast

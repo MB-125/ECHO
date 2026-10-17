@@ -557,13 +557,15 @@
     // a titan grows with the world: it is never beneath you
     raise(g, t) {
       if (t.bound) return;
-      const idx = Ti().ORDER.indexOf(t.sp), want = ECHO.Prowess.level(g.pl) + 4 + Math.max(0, idx) * 3;
+      // in steps (a tenth of your level each): Gorehorn two steps above you, Nyxathar twenty-one
+      const idx = Ti().ORDER.indexOf(t.sp), want = ECHO.Prowess.above(ECHO.Prowess.level(g.pl), 2 + Math.max(0, idx) * 2.1);
       if (want > t.lvl) t.lvl = Math.min(ECHO.Prowess.MAX || 1500, want);
     },
     ents(game) { return game.ents.filter(e => e.titan && !e.dead); },
     entOf(game, id) { return game.ents.find(e => e.titan === id && !e.dead && !e.vanish) || null; },
     // How strong a bound beast fights for you: never more than a little past your own level.
-    effLv(game, t) { return Math.min(t.lvl, ECHO.Prowess.level(game.pl) + 15); },
+    // (two steps above you: a strong ally, never one that does the fighting for you)
+    effLv(game, t) { return Math.min(t.lvl, ECHO.Prowess.above(ECHO.Prowess.level(game.pl), 2)); },
 
     // ------------------------------------------------------------ bodies
     make(game, t, x, y, tamed) {
@@ -977,7 +979,7 @@
       pl.beastOut = t.id; pl.beastLast = t.id;
       if (pl.horse && !pl.horseAway && ECHO.Life) ECHO.Life.sendHome(game);
       const ne = A.spawnTamed(game, t, false); if (ne) { ne.x = e.x; ne.y = e.y; ne.alt = 0; ne.altGoal = 0; ne.hp = ne.maxHp * 0.6; }
-      setTimeout(() => UI().toast(`${t.name} follows you now and fights at your side (at most 15 levels above your own). ${Ti().sp(t).flies ? 'Stand by it and press V to fly. ' : ''}Y switches between your animals (horse and beasts); U shows all of them.`, 'legend', 9), 800);
+      setTimeout(() => UI().toast(`${t.name} follows you now and fights at your side (a little above your own level, growing as you do). ${Ti().sp(t).flies ? 'Stand by it and press V to fly. ' : ''}Y switches between your animals (horse and beasts); U shows all of them.`, 'legend', 9), 800);
     },
     finish(game, e, t) {
       const world = game.world, pl = game.pl, r = Math.random, L = e.lvl;

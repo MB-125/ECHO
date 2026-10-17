@@ -476,7 +476,7 @@ function main() {
     check('monster parts and coin hone a blade', !why && plain.plus === 1 && plain.dmg > d0 && pl.gold === 70 && pl.inv.bonedust === 0, why || `${d0} → ${plain.dmg}`);
     pl.inv.hide = 4; pl.gold = 30;
     const cr = Gr.craft(B, pl, 'leather');
-    check('a smith makes armour from what you bring', cr.item && cr.item.def === 6 && pl.inv.hide === 0 && pl.items.includes(cr.item.id), cr.error);
+    check('a smith makes armour from what you bring', cr.item && cr.item.def >= 6 && cr.item.def === Gr.craftStat(pl, Gr.CRAFT[0]) && pl.inv.hide === 0 && pl.items.includes(cr.item.id), cr.error);
     pl.inv.silk = 4; pl.inv.tusk = 1; pl.gold = 0;
     const s0 = B.settlements[0], sold = Gr.sellMats(pl, s0);
     check('monster parts sell at market', sold.total > 0 && pl.gold === sold.total && !pl.inv.silk && !pl.inv.tusk, `${sold.out.join(', ')} → ${sold.total} crowns`);
@@ -712,6 +712,28 @@ function main() {
     check('they eat, and towns pay when the game runs out', W.chronicle.some(c => /came down on the herds|ate its fill|Catastrophe/.test(c.text)) || Ti.wild(W).every(t => t.fed >= W.day - 3));
     const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
     check('titans and bound beasts survive a save', W2.titans && W2.titans.list.length === Ti.list(W).length && Ti.bound(W2).length === Ti.bound(W).length);
+  }
+
+  console.log('\nLevels, gear and power agree');
+  {
+    const P = ECHO.Prowess, Gr = ECHO.Gear;
+    const pow = L => { const e = P.expect(L); return e.dmg * e.tough; };
+    // the same label means about the same danger at every level
+    const r = [10, 50, 150, 600, 1200].map(L => pow(P.above(L, 4)) / pow(L));
+    check('"Deadly" is about as deadly at level 10 as at level 1200', Math.max(...r) / Math.min(...r) < 2.2 && P.diff(P.above(300, 4), 300).k === 'deadly' && ['even', 'hard'].includes(P.diff(305, 300).k), r.map(x => x.toFixed(2)).join(' '));
+    check('nothing within a step of your level reads as Run', [20, 200, 1000].every(L => P.diff(L + Math.floor(P.step(L)), L).skulls <= 1));
+    // what carries no weapon keeps pace with what does
+    const flameVsBlade = [1, 50, 600].map(L => (19 * P.gearScale(L)) / Gr.statFor('sword', L, 'rare'));
+    check('fire keeps pace with the blade at every level', Math.max(...flameVsBlade) / Math.min(...flameVsBlade) < 1.6, flameVsBlade.map(x => x.toFixed(2)).join(' '));
+    // the smith makes for you
+    const W = ECHO.generateWorld({ seed: 77, name: 'Smith' }), pl = ECHO.Character.create(W, new ECHO.RNG(3), { first: 'Smith', homeId: W.settlements[0].id });
+    P.st(pl).lv = 120; pl.gold = 99999; Object.assign(pl.inv, { dragonscale: 9, heartstone: 9, grave: 9, sigil: 9, queensilk: 9 });
+    const mail = Gr.craft(W, pl, 'dragon').item, blade = Gr.forge(W, pl, 'heartblade').item, drop = Gr.statFor('armor', 120, 'rare');
+    check('dragonscale mail and the Heartblade made at level 120 beat a rare drop of that level', mail && mail.def > drop && blade.dmg > Gr.statFor('sword', 120, 'rare'), `mail ${mail && mail.def} vs a rare drop ${drop}; heartblade ${blade && blade.dmg}`);
+    const before = blade.dmg; Object.assign(pl.inv, { bonedust: 9 }); Gr.hone(W, pl, blade);
+    check('honing matters at any level', blade.dmg - before >= before * 0.045);
+    P.st(pl).lv = 3; const low = Gr.forge(W, pl, 'heartblade').item;
+    check('a recipe is never weaker than it was', low.dmg === 40);
   }
 
 

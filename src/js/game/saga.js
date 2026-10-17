@@ -45,8 +45,8 @@
       if (N) return Sg.announce(game, N, C);
       // the end
       if (R.legendary) {
-        const it = ECHO.Character.makeItem(world, { kind: 'sword', name: 'Crownbreaker', dmg: 52, holder: 'player', history: [{ d: world.day, t: `taken from the ruin of the Hollow King's crown by ${pl.first} ${pl.last}` }] });
-        it.rarity = 'legendary'; it.affix = 'thirst'; it.plus = 0; it.legend = true; it.level = 10;
+        const it = ECHO.Character.makeItem(world, { kind: 'sword', name: 'Crownbreaker', dmg: Math.max(52, Math.round(ECHO.Gear.statFor('sword', ECHO.Prowess.level(pl), 'legendary') * 1.1)), holder: 'player', history: [{ d: world.day, t: `taken from the ruin of the Hollow King's crown by ${pl.first} ${pl.last}` }] });
+        it.rarity = 'legendary'; it.affix = 'thirst'; it.plus = 0; it.legend = true; it.level = Math.max(10, ECHO.Prowess.level(pl));
         pl.items.push(it.id); pl.weapon = it.id; ECHO.PlayerCtl.derivedT = 0;
       }
       pl.honor = 'Rift-sealer';

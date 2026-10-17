@@ -68,12 +68,12 @@
   const CRAFT = [
     { id: 'leather', name: 'Hide jerkin', def: 6, gold: 25, mats: { hide: 4 }, desc: 'Wolf hides, boiled and stitched.' },
     { id: 'silk', name: 'Silkweave coat', def: 10, gold: 60, mats: { silk: 5, hide: 2 }, desc: 'Spider silk as tough as mail and half the weight.' },
-    { id: 'troll', name: 'Troll-hide brigandine', def: 15, gold: 120, mats: { trollhide: 4, bonedust: 4 }, desc: 'It closes over small cuts as if it were still alive.', affix: 'vigor' },
-    { id: 'grave', name: 'Grave-iron hauberk', def: 20, gold: 220, mats: { grave: 3, sigil: 3 }, desc: 'Black iron from the tombs. Spells slide off it.', affix: 'warding' },
-    { id: 'beast', name: 'Beastlord\'s mantle', def: 24, gold: 260, mats: { greathide: 2, greatfang: 1 }, desc: 'Cut from the hide of a great beast. Wolves go quiet when you pass.', affix: 'vigor' },
-    { id: 'golem', name: 'Golemplate', def: 26, gold: 360, mats: { core: 3, tusk: 2 }, desc: 'Plates of living stone.', affix: 'thorns' },
-    { id: 'winter', name: 'Winterwolf cloak', def: 14, gold: 120, mats: { winterpelt: 1, hide: 3 }, desc: 'White fur from the Winter Wolf. The cold barely touches you.', affix: 'vigor' },
-    { id: 'dragon', name: 'Dragonscale mail', def: 32, gold: 500, mats: { dragonscale: 3, heartstone: 1 }, desc: 'Scales from a dragon\'s flank. Fire runs off it like water.', affix: 'warding' }
+    { id: 'troll', rarity: 'rare', name: 'Troll-hide brigandine', def: 15, gold: 120, mats: { trollhide: 4, bonedust: 4 }, desc: 'It closes over small cuts as if it were still alive.', affix: 'vigor' },
+    { id: 'grave', rarity: 'rare', name: 'Grave-iron hauberk', def: 20, gold: 220, mats: { grave: 3, sigil: 3 }, desc: 'Black iron from the tombs. Spells slide off it.', affix: 'warding' },
+    { id: 'beast', rarity: 'epic', name: 'Beastlord\'s mantle', def: 24, gold: 260, mats: { greathide: 2, greatfang: 1 }, desc: 'Cut from the hide of a great beast. Wolves go quiet when you pass.', affix: 'vigor' },
+    { id: 'golem', rarity: 'epic', name: 'Golemplate', def: 26, gold: 360, mats: { core: 3, tusk: 2 }, desc: 'Plates of living stone.', affix: 'thorns' },
+    { id: 'winter', rarity: 'rare', name: 'Winterwolf cloak', def: 14, gold: 120, mats: { winterpelt: 1, hide: 3 }, desc: 'White fur from the Winter Wolf. The cold barely touches you.', affix: 'vigor' },
+    { id: 'dragon', rarity: 'legendary', name: 'Dragonscale mail', def: 32, gold: 500, mats: { dragonscale: 3, heartstone: 1 }, desc: 'Scales from a dragon\'s flank. Fire runs off it like water.', affix: 'warding' }
   ];
 
   // Kinds of melee weapon: each with its own feel.
@@ -111,8 +111,9 @@
       if (!r) return { error: 'No such work.' };
       if (!G.canPay(pl, r)) return { error: 'You lack what the smith needs.' };
       G.pay(pl, r);
-      const it = ECHO.Character.makeItem(world, { kind: r.kind, name: r.name, dmg: r.dmg, holder: 'player', history: [{ d: world.day, t: 'forged to your order by a smith' }] });
-      it.rarity = r.rarity; it.affix = r.affix || null; it.plus = 0; it.level = 3; it.forged = r.id; if (r.wclass) it.wclass = r.wclass;
+      const L = G.madeLevel(pl), dmg = G.forgeStat(pl, r);
+      const it = ECHO.Character.makeItem(world, { kind: r.kind, name: r.name, dmg, holder: 'player', history: [{ d: world.day, t: 'forged to your order by a smith' }] });
+      it.rarity = r.rarity; it.affix = r.affix || null; it.plus = 0; it.level = Math.max(3, L); it.forged = r.id; if (r.wclass) it.wclass = r.wclass;
       pl.items.push(it.id);
       return { item: it };
     },
@@ -125,6 +126,19 @@
       return null;
     },
     rarity(k) { return RARITY.find(r => r.k === k) || RARITY[0]; },
+    // What a piece of a given kind, level and rarity is worth in power (armour for armour).
+    statFor(kind, level, rarity) {
+      const R = G.rarity(rarity), L = Math.max(1, level || 1);
+      return kind === 'armor' ? Math.round((4 + L * 4) * R.mult) : Math.round((kind === 'bow' ? 13 : 12) + L * 3.2 * R.mult + (R.mult - 1) * 10);
+    },
+    // Smith's work is made for the one who will carry it: never weaker than its
+    // recipe, and as strong as gear of their level and its quality.
+    madeLevel(pl) { return ECHO.Prowess ? ECHO.Prowess.level(pl) : 1; },
+    forgeStat(pl, r) { return Math.max(r.dmg, G.statFor(r.kind, G.madeLevel(pl), r.rarity)); },
+    craftRarity(r) { return r.rarity || (r.def >= 20 ? 'rare' : r.def >= 10 ? 'fine' : 'common'); },
+    craftStat(pl, r) { return Math.max(r.def, G.statFor('armor', G.madeLevel(pl), G.craftRarity(r))); },
+    // what the next step at the smith adds
+    honeAdd(it) { const c = G.honeCost(it); if (!c) return 0; return it.kind === 'armor' ? Math.max(c.add + 1, Math.round((it.def || 0) * 0.05)) : Math.max(c.add, Math.round((it.dmg || 0) * 0.05)); },
     // Roll a rarity: deeper and stronger foes roll better.
     rollRarity(rng, level, boost = 0) {
       // the first levels count for most; past 30 luck still grows, slowly
@@ -185,8 +199,10 @@
       if (!c) return 'It can be made no finer.';
       if (!G.canPay(pl, c)) return 'You lack what the smith needs.';
       G.pay(pl, c);
+      const add = G.honeAdd(it);
       it.plus = (it.plus || 0) + 1;
-      if (it.kind === 'armor') it.def = (it.def || 0) + c.add + 1; else it.dmg += c.add;
+      // each step adds a fixed amount or a twentieth of the piece, whichever is more
+      if (it.kind === 'armor') it.def = (it.def || 0) + add; else it.dmg += add;
       it.history.push({ d: world.day, t: `${it.kind === 'armor' ? 'reinforced' : it.kind === 'bow' ? 'restrung and tillered' : 'honed'} to +${it.plus}` });
       return null;
     },
@@ -196,7 +212,9 @@
       if (!G.canPay(pl, r)) return { error: 'You lack what the smith needs.' };
       G.pay(pl, r);
       const it = ECHO.Character.makeItem(world, { kind: 'armor', name: r.name, holder: 'player', history: [{ d: world.day, t: 'made to your measure by a smith' }] });
-      it.def = r.def; it.rarity = r.def >= 20 ? 'rare' : r.def >= 10 ? 'fine' : 'common'; it.affix = r.affix || null; it.plus = 0; it.level = 1; it.craft = r.id;
+      const rar = G.craftRarity(r), L = G.madeLevel(pl);
+      it.def = G.craftStat(pl, r);
+      it.rarity = rar; it.affix = r.affix || null; it.plus = 0; it.level = L; it.craft = r.id;
       pl.items.push(it.id);
       if (!pl.armor || G.def(world, pl) < it.def) pl.armor = it.id;
       return { item: it };

@@ -128,9 +128,14 @@
     // Their strength follows their level and their skills.
     apply(game, e, npc) {
       const s = C.st(npc), K = CLASSES[s.cls], sk = s.sk;
-      e.maxHp = Math.round((45 + (npc.skill.fight || 20) * 0.6) * K.hp * (1 + 0.14 * (s.lv - 1)) * (1 + sk.guard / 350));
+      // up to 12 they grow as they always did; beyond it, on the same curves as you
+      // (and as what you fight), so a companion of your level stays worth having
+      const Pw = ECHO.Prowess, L12 = Math.min(s.lv, 12), hi = s.lv > 12 && Pw;
+      const hpS = (1 + 0.14 * (L12 - 1)) * (hi ? Pw.expect(s.lv).tough / Pw.expect(12).tough : 1);
+      const dmS = (1 + 0.12 * (L12 - 1)) * (hi ? Pw.expect(s.lv).dmg / Pw.expect(12).dmg : 1);
+      e.maxHp = Math.round((45 + (npc.skill.fight || 20) * 0.6) * K.hp * hpS * (1 + sk.guard / 350));
       e.hp = Math.min(e.hp || e.maxHp, e.maxHp);
-      e.dmgMul = K.dmg * (1 + 0.12 * (s.lv - 1)) * (1 + sk.weapon / 180);
+      e.dmgMul = K.dmg * dmS * (1 + sk.weapon / 180);
       e.cdMul = Math.max(0.6, 1 - sk.agility / 300 - (s.cls === 'hunter' ? sk.weapon / 600 : 0));
       if (e.baseSpeed == null) e.baseSpeed = e.speed;
       e.speed = e.baseSpeed * (1 + sk.agility / 450);
@@ -199,7 +204,7 @@
       if (C.technique(game, e, npc, s, dt, target)) return true;
       // the hedge-mage closes your wounds
       if (s.cls === 'mender' && e.healT <= 0 && pl.hp < pl.maxHp * (e.healAt || 0.5) && U.dist(e.x, e.y, pe.x, pe.y) < 7) {
-        e.healT = 16 * (e.cdMul || 1); const amt = Math.round(pl.maxHp * (0.18 + s.lv * 0.012 + s.sk.tactics / 600)); C.train(npc, 'tactics', 0.4);
+        e.healT = 16 * (e.cdMul || 1); const amt = Math.round(pl.maxHp * (0.18 + Math.min(12, s.lv) * 0.012 + s.sk.tactics / 600)); C.train(npc, 'tactics', 0.4);
         pl.hp = Math.min(pl.maxHp, pl.hp + amt); pe.hp = pl.hp;
         ECHO.Combat.floater(pe.x, pe.y - 1.4, `+${amt} (${npc.first})`, '#9fe0c8'); ECHO.Combat.burst(pe.x, pe.y, '#9fe0c8', 14, 2, 0.7, 2); C.say(e, npc, 'heal', 0.5);
         e.moving = false; return true;
@@ -209,7 +214,7 @@
         const d = U.dist(e.x, e.y, target.x, target.y);
         if (d < 8 + (e.rangeBonus || 0) && ECHO.Ent.lineOfSight(game.world, e.x, e.y, target.x, target.y)) {
           e.cT = 2.6 * (e.cdMul || 1); C.train(npc, 'weapon', 0.05); const a = Math.atan2(target.y - e.y, target.x - e.x); e.dir = a;
-          ECHO.Combat.shoot(e, a, { kind: 'orb', speed: 9, dmg: (8 + s.lv * 2.2) * (e.dmgMul || 1), life: 1.2, type: 'fire', color: '#ff9a3c', effect: 'burn' });
+          ECHO.Combat.shoot(e, a, { kind: 'orb', speed: 9, dmg: (8 + Math.min(12, s.lv) * 2.2) * (e.dmgMul || 1), life: 1.2, type: 'fire', color: '#ff9a3c', effect: 'burn' });
           if (d < 3) { const b = a + Math.PI; ECHO.Ent.travel(game.world, e, e.x + Math.cos(b) * 2, e.y + Math.sin(b) * 2, e.speed, dt); } else e.moving = false;
           return true;
         }
@@ -239,7 +244,7 @@
         }
         if (ready('bash') && d < 1.7 && e.state !== 'windup') {
           use('bash', 7, 'Shield bash!'); e.dir = ang;
-          ECHO.Combat.melee(e, { angle: ang, arc: 1.4, range: 1.7, dmg: (6 + s.lv * 1.5) * (e.dmgMul || 1), knock: 0.45, stagger: 1.1 });
+          ECHO.Combat.melee(e, { angle: ang, arc: 1.4, range: 1.7, dmg: (6 + Math.min(12, s.lv) * 1.5) * (e.dmgMul || 1), knock: 0.45, stagger: 1.1 });
           ECHO.Sfx.play('shieldBlock', { pitch: 0.8 }); ECHO.Combat.sparks(target.x, target.y - 0.3, ang + Math.PI, '#ffe0a0', 10);
           e.state = 'attack'; e.t = 0; e.cd = Math.max(e.cd || 0, 0.6);
           return true;
@@ -247,7 +252,7 @@
       }
       if (s.cls === 'hunter' && target && los && d > 2 && d < 10 + (e.rangeBonus || 0)) {
         const foes = C.foesNear(game, target.x, target.y, 5);
-        const arrow = (a, m) => ECHO.Combat.shoot(e, a, { kind: 'arrow', speed: 16, dmg: (6 + s.lv * 1.8) * (e.dmgMul || 1) * m, life: 1.5, type: 'ranged' });
+        const arrow = (a, m) => ECHO.Combat.shoot(e, a, { kind: 'arrow', speed: 16, dmg: (6 + Math.min(12, s.lv) * 1.8) * (e.dmgMul || 1) * m, life: 1.5, type: 'ranged' });
         if (ready('volley') && foes.length >= 2) { use('volley', 12, 'Volley!'); for (const da of [-0.2, 0, 0.2]) arrow(ang + da, 0.9); ECHO.Sfx.play('bowRelease'); e.dir = ang; e.state = 'attack'; e.t = 0; return true; }
         if (ready('aimed')) { use('aimed', 8, 'Aimed shot!'); const p = arrow(ang, 2.2); p.crit = true; p.speed = 20; ECHO.Sfx.play('bowRelease', { pitch: 0.8 }); e.dir = ang; e.state = 'attack'; e.t = 0; return true; }
       }
@@ -265,12 +270,12 @@
         }
         if (target && los && d < 9 && U.dist(target.x, target.y, pe.x, pe.y) > 3.4 && ready('firestorm')) {
           use('firestorm', 20, 'Firestorm!');
-          for (let i = 0; i < 3; i++) { const a = i * 2.1 + Math.random(), r = i ? 1.4 : 0; const p = ECHO.Combat.shoot(e, ang, { kind: 'fire', speed: 0, dmg: (10 + s.lv * 2.5) * (e.dmgMul || 1), life: 0.25 + i * 0.35, radius: 1.2, type: 'fire' }); p.x = target.x + Math.cos(a) * r; p.y = target.y + Math.sin(a) * r; p.vx = p.vy = 0; }
+          for (let i = 0; i < 3; i++) { const a = i * 2.1 + Math.random(), r = i ? 1.4 : 0; const p = ECHO.Combat.shoot(e, ang, { kind: 'fire', speed: 0, dmg: (10 + Math.min(12, s.lv) * 2.5) * (e.dmgMul || 1), life: 0.25 + i * 0.35, radius: 1.2, type: 'fire' }); p.x = target.x + Math.cos(a) * r; p.y = target.y + Math.sin(a) * r; p.vx = p.vy = 0; }
           e.dir = ang; e.state = 'attack'; e.t = 0; return true;
         }
         if (target && los && d < 9 && U.dist(target.x, target.y, pe.x, pe.y) > 2.8 && ready('fireball')) {
           use('fireball', 9, 'Fireball!');
-          ECHO.Combat.shoot(e, ang, { kind: 'fire', speed: 11, dmg: (12 + s.lv * 3) * (e.dmgMul || 1), life: 1.2, radius: 1.3, type: 'fire' });
+          ECHO.Combat.shoot(e, ang, { kind: 'fire', speed: 11, dmg: (12 + Math.min(12, s.lv) * 3) * (e.dmgMul || 1), life: 1.2, radius: 1.3, type: 'fire' });
           ECHO.Sfx.play('fireCast', { vol: 0.6 }); e.dir = ang; e.state = 'attack'; e.t = 0; return true;
         }
       }
