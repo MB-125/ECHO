@@ -1762,6 +1762,11 @@
           if (flash === 2) { r = 1.4; g2 = 1.3; b = 1.2; } else if (flash === 1) { r = 0.9; g2 = 0.15; b = 0.1; }
           for (const m of v.inst.mats) if (m.emissive) m.emissive.setRGB(r, g2, b);
         }
+        // a titan's state shows on its body: shielded, laid open, or burning with its last strength
+        if (e.titan && !flash && !tell && !(e.burn > 0)) {
+          const c = e.shield ? [0.12, 0.3, 0.6] : (e.exposedUntil || 0) > game.time ? [0.5, 0.12, 0.02] : e.ph === 3 ? [0.22 + Math.sin(R.time * 5) * 0.08, 0.04, 0] : null;
+          if (c || v.shW) { v.shW = !!c; for (const m of v.inst.mats) if (m.emissive) m.emissive.setRGB(...(c || [0, 0, 0])); }
+        }
         // ghosts and the White Hind fade in and out, and glow faintly
         if ((e.type === 'ghost' || e.species === 'hind') && !e.dead) {
           const a = Math.max(0, Math.min(1, e.alpha == null ? 1 : e.alpha)) * (e.type === 'ghost' ? 0.9 + Math.sin(R.time * 3 + e.id) * 0.1 : 1);
@@ -2262,7 +2267,7 @@
       }
       // Shapes: telegraphs, slashes, rings
       for (const f of fx) {
-        if (f.kind !== 'tele' && f.kind !== 'slash' && f.kind !== 'ring') continue;
+        if (f.kind !== 'tele' && f.kind !== 'slash' && f.kind !== 'ring' && f.kind !== 'zone' && f.kind !== 'wave' && f.kind !== 'beam' && f.kind !== 'rock') continue;
         live.add(f);
         let m = R.fxMeshes.get(f);
         if (!m) { m = R.makeFxMesh(f); if (!m) continue; R.fxMeshes.set(f, m); R.groups.fx.add(m); }
@@ -2273,6 +2278,22 @@
           m.position.set(cx, R.groundH(cx, cy) + 0.05, cy);
           if (m.userData.inner) m.userData.inner.scale.setScalar(Math.max(0.01, prog));
           if (f.done) m.visible = false;
+        } else if (f.kind === 'zone') {
+          m.position.set(f.x, R.groundH(f.x, f.y) + 0.07, f.y);
+          const fade = Math.min(1, f.t * 3, (f.life - f.t) * 2);
+          m.material.opacity = Math.max(0, (0.38 + Math.sin(R.time * 4 + f.x) * 0.08) * fade);
+          m.userData.edge.material.opacity = 0.8 * fade;
+        } else if (f.kind === 'wave') {
+          m.position.set(f.x, R.groundH(f.x, f.y) + 0.12, f.y);
+          m.scale.setScalar(Math.max(0.01, f.radius));
+          m.material.opacity = 0.9 * (1 - 0.5 * prog);
+        } else if (f.kind === 'beam') {
+          m.position.set(f.x, R.groundH(f.x, f.y) + 0.9, f.y);
+          m.rotation.y = -f.angle;
+          m.material.opacity = 0.75 + Math.sin(R.time * 30) * 0.15;
+        } else if (f.kind === 'rock') {
+          m.position.set(f.x, R.groundH(f.x, f.y) + f.radius, f.y);
+          m.rotation.x += dt * 6; m.rotation.z += dt * 3;
         } else if (f.kind === 'slash') {
           m.position.set(f.x, R.groundH(f.x, f.y) + 0.55, f.y);
           m.material.opacity = 0.95 * (1 - prog * prog);
@@ -2284,7 +2305,7 @@
           m.material.opacity = 0.9 * (1 - prog);
         }
       }
-      for (const [f, m] of R.fxMeshes) if (!live.has(f) || f.done && f.kind !== 'tele') { R.groups.fx.remove(m); m.geometry.dispose(); m.material.dispose(); if (m.userData.inner) { m.userData.inner.geometry.dispose(); } R.fxMeshes.delete(f); }
+      for (const [f, m] of R.fxMeshes) if (!live.has(f) || f.done && f.kind !== 'tele') { R.groups.fx.remove(m); m.geometry.dispose(); m.material.dispose(); if (m.userData.inner) { m.userData.inner.geometry.dispose(); } if (m.userData.edge) { m.userData.edge.geometry.dispose(); m.userData.edge.material.dispose(); } R.fxMeshes.delete(f); }
       // Target-lock marker: a turning ring of four arrowheads under the target
       const lk = ECHO.PlayerCtl.lock;
       if (!R.lockMesh) {
@@ -2363,6 +2384,30 @@
         m.add(inner);
         m.userData.inner = inner;
         m.renderOrder = 2;
+        return m;
+      }
+      if (f.kind === 'zone') {
+        const pc = R.parseColor(f.color);
+        const m = flat(new THREE.CircleGeometry(f.radius, 32).rotateX(-Math.PI / 2), pc.c, 0.3);
+        const edge = new THREE.Mesh(new THREE.RingGeometry(f.radius * 0.93, f.radius, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: pc.c, transparent: true, opacity: 0.8, depthWrite: false }));
+        m.add(edge); m.userData.edge = edge; m.renderOrder = 2;
+        return m;
+      }
+      if (f.kind === 'wave') {
+        const pc = R.parseColor(f.color);
+        const m = flat(new THREE.RingGeometry(0.9, 1, 64).rotateX(-Math.PI / 2), pc.c, 0.9);
+        m.material.blending = THREE.AdditiveBlending; m.renderOrder = 3;
+        return m;
+      }
+      if (f.kind === 'beam') {
+        const pc = R.parseColor(f.color);
+        const geo = new THREE.BoxGeometry(f.len, 0.5, f.width); geo.translate(f.len / 2, 0, 0);
+        const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: pc.c, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending }));
+        return m;
+      }
+      if (f.kind === 'rock') {
+        const m = new THREE.Mesh(new THREE.DodecahedronGeometry(f.radius, 0), new THREE.MeshStandardMaterial({ color: C(f.color), roughness: 0.95, flatShading: true }));
+        m.castShadow = true;
         return m;
       }
       if (f.kind === 'slash') {

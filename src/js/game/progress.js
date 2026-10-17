@@ -172,7 +172,7 @@
       Pg._tgt = key;
       el.classList.remove('hidden'); document.getElementById('hud').classList.add('has-target');
       el.innerHTML = `<div class="tn"><b>${esc(name)}</b></div>
-        <div class="tl"><span style="color:${D.color}">Lv ${L}</span> · <span style="color:${RK.color}">${RK.name}</span> · <span style="color:${D.color}">${'☠'.repeat(D.skulls)}${D.skulls ? ' ' : ''}${D.word}</span></div>
+        <div class="tl"><span style="color:${D.color}">Lv ${L}</span> · <span style="color:${RK.color}">${e.titan ? (e.flies ? 'Dragon' : 'Great beast') + (e.ph > 1 ? (e.ph === 2 ? ' · enraged' : ' · desperate') : '') : RK.name}</span> · <span style="color:${D.color}">${'☠'.repeat(D.skulls)}${D.skulls ? ' ' : ''}${D.word}</span></div>
         <div class="tb"><i style="width:${Math.max(0, Math.round(e.hp / e.maxHp * 100))}%;background:${D.color}"></i></div>
         <div class="td"><b>${U.fmt(Math.max(0, Math.ceil(e.hp)))} / ${U.fmt(e.maxHp)}</b> life · ${gap > 0 ? `${gap} level${gap > 1 ? 's' : ''} above you` : gap < 0 ? `${-gap} level${gap < -1 ? 's' : ''} below you` : 'your equal'} · worth ~${U.fmt(Pw().xpFor(pl, e))} xp</div>
         ${known ? `<div class="tw">Weak: ${esc(def.weak)}</div>` : def ? '<div class="tw dim">Kill one to learn its weakness (J → bestiary)</div>' : ''}`;

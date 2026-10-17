@@ -152,6 +152,7 @@
       } else if (e.state === 'flee') {
         const hw = game.ents.find(o => o.hunt && o.hunt.prey === e && !o.dead);
         if (hw) e.from = { x: hw.x, y: hw.y };
+        if (!e.from) e.from = { x: pe.x, y: pe.y };   // set running by something other than a panic (a titan, a blast)
         const a = Math.atan2(e.y - e.from.y, e.x - e.from.x) + Math.sin(e.t * 1.7 + e.id) * (hw ? 0.6 : 0.25);
         // run down: jinking, and tiring
         ECHO.Ent.seek(world, e, e.x + Math.cos(a) * 3, e.y + Math.sin(a) * 3, e.speed * (hw ? Math.max(0.62, 0.85 - e.t * 0.02) : 1), dt, 0.1);

@@ -225,7 +225,7 @@
       if (!e) { bb.classList.add('hidden'); return; }
       bb.classList.remove('hidden');
       const L = ECHO.Prowess ? ECHO.Prowess.foeLevel(e) : 0, D = ECHO.Prowess && ECHO.Prowess.diff(L, ECHO.Prowess.level(ECHO.Game.pl));
-      $('#bossbar .name').innerHTML = `${esc(e.boss ? `${e.boss.name} ${e.boss.title}` : U.cap(e.label || 'a lord of the deep'))}${L ? ` <span style="color:${D.color}">· Lv ${L} ${e.type === 'boss' ? (e.flies || e.dragon ? 'Dragon' : 'Great beast') : 'Lord'} ${'☠'.repeat(D.skulls)}</span>` : ''}`;
+      $('#bossbar .name').innerHTML = `${esc(e.boss ? `${e.boss.name} ${e.boss.title}` : U.cap(e.label || 'a lord of the deep'))}${L ? ` <span style="color:${D.color}">· Lv ${L} ${e.type === 'boss' ? (e.flies || e.dragon ? 'Dragon' : 'Great beast') : 'Lord'} ${'☠'.repeat(D.skulls)}</span>` : ''}${e.titan && e.ph > 1 ? ` <span style="color:#ff8a6a">· ${e.ph === 2 ? 'Enraged' : 'Desperate'}</span>` : ''}`;
     },
     onNewDay(world) {
       const d = T.dateOf(world.day);
