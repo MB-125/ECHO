@@ -797,6 +797,11 @@
       }
       if (e.swimming) ctx.translate(0, 10 + Math.sin(game.time * 3) * 0.6);
       if (e.inBoat && !e.dead && e.inBoat !== 'passenger') { ctx.save(); if (e.flip) ctx.scale(-1, 1); R.boat2d(ctx, e.inBoat === 'ferry' ? 'ferry' : 'row', e === game.pe && e.rowing, game.time); ctx.restore(); ctx.translate(0, 3); }
+      // high in the air: a shadow on the ground, the body above it
+      if (e.alt > 0.05) {
+        ctx.save(); ctx.globalAlpha *= 0.3; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(0, 2, 14 * (e.tscale || 1), 5 * (e.tscale || 1), 0, 0, 6.28); ctx.fill(); ctx.restore();
+        ctx.translate(0, -e.alt * 10);
+      }
       const mountedHere = (e === game.pe && e.mounted && game.pl.horse) || (e !== game.pe && e.mounted && !e.dead);
       if (mountedHere) {
         const me = e === game.pe;
@@ -825,7 +830,7 @@
         if (!e.flip) S.person(ctx, e, fake, world, game.time, e.foe && e.foe.elite ? 1.15 : 1);
         else { ctx.scale(-1, 1); S.person(ctx, { ...e, flip: false }, fake, world, game.time, e.foe && e.foe.elite ? 1.15 : 1); }
       } else if (e.type === 'creature') { if (e.scale) ctx.scale(e.scale, e.scale); S.creature(ctx, e, game.time); }
-      else if (e.type === 'boss') S.boss(ctx, e, game.time);
+      else if (e.type === 'boss') { if (e.tscale) ctx.scale(e.tscale * 0.8, e.tscale * 0.8); S.boss(ctx, e, game.time); }
       else {
         const npc = e.npcId ? world.npcs[e.npcId] : null;
         if (e.gear && e.gear.cart) { ctx.save(); ctx.translate(e.flip ? 9 : -9, 0); S.cart(ctx); ctx.restore(); }
@@ -1117,7 +1122,7 @@
         if (e.dead || e.hidden || e === game.pe) continue;
         if (!R.onScreen(game, e.x, e.y)) continue;
         const p = R.toScreen(game, e.x, e.y);
-        const top = p.y - (e.type === 'boss' ? 48 : e.type === 'creature' ? 18 : 28) * R.Z;
+        const top = p.y - ((e.type === 'boss' ? 48 * (e.tscale ? e.tscale * 0.8 : 1) : e.type === 'creature' ? 18 : 28) + (e.alt || 0) * 10) * R.Z;
         const hover = U.dist(mouse.x, mouse.y, e.x, e.y - 0.5) < 0.8;
         if (e.say && e.sayT > 0 && ECHO.UI.bubbleOk(game, e)) {
           const w = ctx.measureText(e.say).width;

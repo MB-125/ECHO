@@ -344,6 +344,7 @@
     hurtPlayer(game, frac, from, type, why) {
       const pe = game.pe, pl = game.pl;
       if (game.defeating || pl.capture || pe.dead) return;
+      if (pl.flying && why !== 'menace') return;   // burning ground and floods are far below a dragon's back
       let dmg = pl.maxHp * frac;
       if (pl._aegis > 0) dmg *= 0.33;
       if (why !== 'menace') dmg = game.grit(dmg);

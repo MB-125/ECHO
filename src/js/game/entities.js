@@ -310,6 +310,7 @@
         for (let j = i + 1; j < n; j++) {
           const b = ents[j];
           if (b.dead || b.hidden || b.ghost || b.seated || (b.sleeping && b.indoor)) continue;
+          if ((a.alt || 0) > 1 || (b.alt || 0) > 1) continue;
           const dx = b.x - a.x, dy = b.y - a.y;
           if (Math.abs(dx) > 1.5 || Math.abs(dy) > 1.5) continue;
           const min = (a.r + b.r) * 0.9;

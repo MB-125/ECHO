@@ -129,7 +129,7 @@
       if (lock && !lock.dead) return lock;
       let best = null, bd = 9;
       for (const e of game.ents) {
-        if (e === pe || e.dead || e.hidden || e.marvel || e.type === 'ghost' || NOXP.has(e.species)) continue;
+        if (e === pe || e.dead || e.hidden || e.marvel || e.tamed || e.type === 'ghost' || NOXP.has(e.species)) continue;
         if (!game.hostileTo(pe, e) && !e.foe && !e.lvl && e.type !== 'boss') continue;
         const d = U.dist(e.x, e.y, pe.x, pe.y);
         if (d < bd) { bd = d; best = e; }
@@ -210,6 +210,7 @@
     },
     // A label for the world: "Cave spider · Lv 3", coloured by how it measures against you.
     label(game, e) {
+      if (e.tamed) return { text: `${e.boss ? e.boss.name : 'Your beast'} · yours`, color: '#9fe08a' };
       const L = Pw().foeLevel(e), D = Pw().diff(L, Pw().level(game.pl)), rk = Pw().foeRank(e);
       const tag = rk === 'elite' ? '◆ ' : rk === 'champion' ? '◆◆ ' : rk === 'lord' ? '♛ ' : rk === 'great' ? '♛ ' : '';
       return { text: `${tag}${Pg.nameOf(game, e)} · Lv ${L}${D.skulls ? ' ' + '☠'.repeat(D.skulls) : ''}`, color: D.color };

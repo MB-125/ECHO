@@ -93,6 +93,7 @@
     },
 
     update(game, e, dt) {
+      if (e.titan && ECHO.Apex) return ECHO.Apex.think(game, e, dt);
       const world = game.world;
       const b = e.boss, mem = b.memory, k = KIND[b.kind];
       const pe = game.pe;

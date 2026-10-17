@@ -31,7 +31,9 @@
       if (ECHO.Progress) ECHO.Progress.reset();
       if (ECHO.Explore) ECHO.Explore.sites(world);
       if (ECHO.Gates) ECHO.Gates.ensure(world);
+      if (ECHO.Titans) ECHO.Titans.ensure(world);
       if (ECHO.GateWorld) ECHO.GateWorld.reset();
+      if (ECHO.Apex) ECHO.Apex.reset(Game);
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
       Game.pl.explored = Game.pl.explored || new Array(Math.ceil(world.W / 4) * Math.ceil(world.H / 4)).fill(0);
@@ -167,6 +169,7 @@
       if (ECHO.Frontier) ECHO.Frontier.tick(Game, dt);
       if (ECHO.GateWorld) ECHO.GateWorld.update(Game, dt);
       if (ECHO.Guard) ECHO.Guard.update(Game, dt);
+      if (ECHO.Apex) ECHO.Apex.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
@@ -328,7 +331,7 @@
       if (!a || !b || a === b || a.dead || b.dead) return false;
       if (a.pet || b.pet || a.stray || b.stray) return false;
       const pl = Game.pl;
-      const side = e => (e.type === 'player' || e.isCompanion) ? 'player' : e.type === 'boss' ? 'beast' : e.type === 'creature' ? (e.species === 'hare' || e.species === 'hind' || e.species === 'fox' ? 'prey' : 'beast') : 'person';
+      const side = e => (e.type === 'player' || e.isCompanion || e.tamed) ? 'player' : e.type === 'boss' ? 'beast' : e.type === 'creature' ? (e.species === 'hare' || e.species === 'hind' || e.species === 'fox' ? 'prey' : 'beast') : 'person';
       const sa = side(a), sb = side(b);
       if (sa === 'prey' || sb === 'prey') return sa === 'player' || sb === 'player' ? false : (sa === 'beast' || sb === 'beast') && false;
       if (sa === 'player' && sb === 'player') return false;
@@ -354,7 +357,7 @@
       return false;
     },
     canPlayerHit(e) {
-      if (e.isCompanion || e.ngWard) return false;   // your companion, and the wardens of the Guard, are on your side
+      if (e.isCompanion || e.ngWard || e.tamed) return false;   // your companion, and the wardens of the Guard, are on your side
       if (e.criminal) return true;
       if (e.type === 'creature' || e.type === 'boss') return true;
       if (Game.hostileTo(Game.pe, e)) return true;
@@ -596,6 +599,7 @@
     interactables() {
       const world = Game.world, pe = Game.pe;
       const out = [];
+      if (Game.pl.flying) return out;   // nothing on the ground is in reach from a dragon's back
       const near = (x, y, r = 1.7) => U.dist(x, y, pe.x, pe.y) < r;
       for (const e of Game.ents) {
         if (e.dead || e.hidden || e.type !== 'person') continue;
@@ -660,6 +664,7 @@
       if (ECHO.Camp) out.push(...ECHO.Camp.interactables(Game));
       if (ECHO.Pastimes) out.push(...ECHO.Pastimes.interactables(Game));
       if (ECHO.GateWorld) out.push(...ECHO.GateWorld.interactables(Game));
+      if (ECHO.Apex) out.push(...ECHO.Apex.interactables(Game));
       out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game), ...ECHO.Patrol.interactables(Game), ...ECHO.Finds.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;

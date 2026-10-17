@@ -44,6 +44,7 @@
         if (In.pressed.has('m')) UI.openMap();
         if (In.pressed.has('c') && !In.down.has('Control')) { /* c also sneaks; character sheet on K */ }
         if (In.pressed.has('k')) UI.openCharacter();
+        if (In.pressed.has('y') && ECHO.Apex) ECHO.Apex.yKey(game);
         if (In.pressed.has('n') && ECHO.Nav) ECHO.Nav.openPicker(game);
         if (In.pressed.has('F1') || In.pressed.has('/') || In.pressed.has('?')) UI.toggleHelp();
       } else if (UI.panelOpen) {
@@ -224,7 +225,7 @@
       if (!e) { bb.classList.add('hidden'); return; }
       bb.classList.remove('hidden');
       const L = ECHO.Prowess ? ECHO.Prowess.foeLevel(e) : 0, D = ECHO.Prowess && ECHO.Prowess.diff(L, ECHO.Prowess.level(ECHO.Game.pl));
-      $('#bossbar .name').innerHTML = `${esc(e.boss ? `${e.boss.name} ${e.boss.title}` : U.cap(e.label || 'a lord of the deep'))}${L ? ` <span style="color:${D.color}">· Lv ${L} ${e.type === 'boss' ? 'Great beast' : 'Lord'} ${'☠'.repeat(D.skulls)}</span>` : ''}`;
+      $('#bossbar .name').innerHTML = `${esc(e.boss ? `${e.boss.name} ${e.boss.title}` : U.cap(e.label || 'a lord of the deep'))}${L ? ` <span style="color:${D.color}">· Lv ${L} ${e.type === 'boss' ? (e.flies || e.dragon ? 'Dragon' : 'Great beast') : 'Lord'} ${'☠'.repeat(D.skulls)}</span>` : ''}`;
     },
     onNewDay(world) {
       const d = T.dateOf(world.day);
@@ -1631,6 +1632,7 @@
         ${ECHO.Gear.mats(pl).length ? `<h3 class="gold">Monster parts</h3><div>${ECHO.Gear.mats(pl).map(m => `<span style="color:${m.color}">◆</span> ${m.n} ${esc(m.name)}`).join(' · ')}</div><p class="dim" style="font-size:13px">Sell them at a market, or bring them to a smith to improve your gear.</p>` : ''}
         ${ECHO.Companions ? ECHO.Companions.card(world, pl) : ''}
         ${ECHO.Fellow ? ECHO.Fellow.html(game) : ''}
+        ${ECHO.Apex ? ECHO.Apex.html(game) : ''}
         ${ECHO.Life ? ECHO.Life.card(world, pl) : ''}
         ${ECHO.Tech.pageHtml(pl)}
         ${reps.length ? `<h3 class="gold">Standing</h3><div class="dim">${reps.join(' · ')}</div>` : ''}</div>
@@ -1642,6 +1644,7 @@
       document.querySelectorAll('#panel button[data-bow]').forEach(b => b.addEventListener('click', () => { pl.bow = b.dataset.bow; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-arm]').forEach(b => b.addEventListener('click', () => { pl.armor = b.dataset.arm || null; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
       if (ECHO.Fellow) ECHO.Fellow.bind(document.querySelector('#panel'), game);
+      if (ECHO.Apex) ECHO.Apex.bindUi(document.querySelector('#panel'), game);
       document.querySelectorAll('#panel button[data-give]').forEach(b => b.addEventListener('click', () => UI.giveAway(world.items[b.dataset.give])));
       document.querySelectorAll('#panel button[data-shareall]').forEach(b => b.addEventListener('click', () => {
         const s0 = ECHO.Sim.settlement(world, b.dataset.shareall), res = ECHO.Delvers.shareAll(world, pl, s0);

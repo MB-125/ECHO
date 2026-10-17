@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/gates.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/gates.js', 'sim/titans.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -690,6 +690,28 @@ function main() {
     const W3 = ECHO.generateWorld({ seed: 99, name: 'Old' }); delete W3.gates;
     const W4 = ECHO.Save.deserialize(ECHO.Save.serialize(W3));
     check('old worlds get their gates', !W4.gates && Gt.ensure(W4) && W4.gates.list.length === 3 && Gt.members(W4).length === 6);
+  }
+
+  console.log('\nTitans: dragons and great beasts');
+  {
+    const W = ECHO.generateWorld({ seed: 5151, name: 'Titans' }), Ti = ECHO.Titans;
+    const pl = ECHO.Character.create(W, new ECHO.RNG(4), { first: 'Tamer', homeId: W.settlements[0].id });
+    const L = Ti.list(W);
+    const minTown = Math.min(...L.map(t => Math.min(...W.settlements.map(s => ECHO.U.dist(s.x, s.y, t.x, t.y)))));
+    check('ten titans roam the world, each on its own range', L.length >= 8 && new Set(L.map(t => t.sp)).size === L.length && minTown >= 18 && L.filter(t => Ti.sp(t).flies).length >= 5, `${L.length} titans, nearest town ${minTown.toFixed(0)}: ${L.map(t => t.name + ' Lv ' + t.lvl).join(', ')}`);
+    check('from a young dragon to a catastrophe', Math.min(...L.map(t => t.lvl)) < 60 && Math.max(...L.map(t => t.lvl)) >= 1000);
+    const ok = L.slice(0, 4).map(t => Ti.bind(W, t, pl));
+    const fifth = L[4];
+    check('you can bind four, and no more', ok.every(Boolean) && Ti.bound(W).length === 4 && !Ti.bind(W, fifth, pl) && pl.beasts.length === 4);
+    Ti.release(W, L[0], pl);
+    check('a beast set free goes back to the wild, and makes room', !L[0].bound && Ti.bound(W).length === 3 && Ti.bind(W, fifth, pl));
+    // a slain titan's range is claimed again
+    const dead = L.find(t => !t.bound); Ti.slain(W, dead, 'a test'); dead.diedDay = W.day - 40;
+    for (let i = 0; i < 40; i++) ECHO.Sim.dailyTick(W, true);
+    check('an empty range is claimed by another of the kind', Ti.list(W).some(t => t.sp === dead.sp && t.alive && t !== dead));
+    check('they eat, and towns pay when the game runs out', W.chronicle.some(c => /came down on the herds|ate its fill|Catastrophe/.test(c.text)) || Ti.wild(W).every(t => t.fed >= W.day - 3));
+    const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
+    check('titans and bound beasts survive a save', W2.titans && W2.titans.list.length === Ti.list(W).length && Ti.bound(W2).length === Ti.bound(W).length);
   }
 
 

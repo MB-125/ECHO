@@ -174,6 +174,7 @@
       const game = G();
       const world = game.world;
       if (target.dead || amount <= 0 || target.submerged) return 0;
+      if (target === game.pe && game.pl.flying) return 0;   // on a dragon's back, nothing on the ground can reach you
       if (target === game.pe && (game.defeating || game.pl.capture)) return 0;
       if (target.iframes > 0) { if (target === game.pe) { C.floater(target.x, target.y - 0.8, 'dodged', '#9fd3ff'); if (src.from && src.from !== game.pe) ECHO.Tech.onDodgedHit(game); } return 0; }
       const from = src.from;
@@ -270,6 +271,7 @@
       if (target === game.pe) game.logHit(from, dmg, type === 'melee' ? '' : type);
       // the wardens of the Guard give ground, but are not brought down
       if (target.ngWard) { dmg = Math.max(0, Math.min(Math.round(dmg * 0.35), Math.floor(target.hp - 1))); if (dmg <= 0) return 0; }
+      if (target.titan && ECHO.Apex) { dmg = Math.round(ECHO.Apex.preDamage(game, target, dmg, src)); if (dmg <= 0) return 0; }
       const wasStaggered = target.stagger > 0;
       target.hp -= dmg;
       target.hurtT = 0.18;
@@ -333,6 +335,7 @@
       const world = game.world;
       if (target.dead) return;
       if (target === game.pe) { target.hp = 0; game.playerDefeated(from); return; }
+      if (target.titan && ECHO.Apex) { if (target.tamed) ECHO.Apex.spent(game, target); else if (target.state !== 'subdued') { target.hp = Math.max(1, target.maxHp * 0.1); ECHO.Apex.subdue(game, target); } return; }
       if (target.mounted && ECHO.Riders) ECHO.Riders.fell(game, target);
       target._xpOk = ECHO.Progress && ECHO.Progress.counts(game, target);
       target.dead = true;

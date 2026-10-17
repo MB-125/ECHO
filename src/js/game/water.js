@@ -45,7 +45,7 @@
       // everyone in the water: spray, rings, and fire put out
       for (const e of game.ents) {
         if (e.dead || e.hidden || U.dist(e.x, e.y, pe.x, pe.y) > 26) continue;
-        if (e.inBoat) { e._inWater = null; e.swimming = false; continue; }
+        if (e.inBoat || (e.alt || 0) > 0.5) { e._inWater = null; e.swimming = false; continue; }   // in a boat, or in the sky
         const k = Wt.kind(world, e.x, e.y);
         const was = e._inWater;
         e._inWater = k;

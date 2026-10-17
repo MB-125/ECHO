@@ -1057,6 +1057,15 @@
           if (e.boss.belly) M.recolor(inst, 'drakebelly', e.boss.belly);
           inst.root.scale.setScalar(1.8);
         }
+        if (e.titan) {
+          for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false);
+          const kd = e.boss.kind;
+          if (e.boss.color) M.recolor(inst, kd, e.boss.color);
+          if (e.boss.belly) M.recolor(inst, kd === 'stag' ? 'antler' : kd + 'belly', e.boss.belly);
+          const el = ECHO.Apex && ECHO.Apex.ELEM[e.elem];
+          if (el) M.recolor(inst, 'eyeglow', el.col);
+          inst.root.scale.setScalar(1.05 * (e.tscale || 1) * (kd === 'drake' ? 1.4 : 1.1));
+        }
         return;
       }
       // People
@@ -1563,7 +1572,7 @@
       const sp = e.species === 'gnawer' ? 22 : e.species === 'hare' ? 14 : 13;
       const ph = e.anim * sp;
       const sw = e.dead ? 0 : Math.sin(ph) * 0.7 * (v.mv || 0);
-      if (P.legFL) { P.legFL.rotation.z = sw; P.legBR.rotation.z = sw; P.legFR.rotation.z = -sw; P.legBL.rotation.z = -sw; }
+      if (P.legFL) { const tuck = (e.alt || 0) > 0.6 ? 0.9 : 0; P.legFL.rotation.z = sw + tuck; P.legBR.rotation.z = sw + tuck; P.legFR.rotation.z = -sw + tuck; P.legBL.rotation.z = -sw + tuck; }
       if (P.tail) P.tail.rotation.y = Math.sin(R.time * 5 + v.bob) * 0.3;
       v.yOff = 0;
       if (e.species === 'hare') v.yOff = Math.abs(Math.sin(ph * 0.5)) * 0.18 * (v.mv || 0);
@@ -1649,11 +1658,11 @@
       v.tell = e.state === 'windup' ? 1 : 0;
       if (P.jaw) P.jaw.rotation.z = -0.6 * open;
       if (P.head) P.head.rotation.z = e.state === 'roar' ? -0.4 : e.state === 'windup' ? -0.2 : 0;
-      if (P.wingL) { const f = e.state === 'roar' ? Math.sin(R.time * 14) * 0.6 : 0.1 * Math.sin(R.time * 2); P.wingL.rotation.x = f; P.wingR.rotation.x = -f; }
+      if (P.wingL) { const f = (e.alt || 0) > 0.3 ? Math.sin(R.time * (e.moving ? 6 : 4.5)) * 0.75 : e.state === 'roar' ? Math.sin(R.time * 14) * 0.6 : 0.1 * Math.sin(R.time * 2); P.wingL.rotation.x = f; P.wingR.rotation.x = -f; }
       if (P.seg0) for (let i = 0; i < 8; i++) { const s = P['seg' + i]; if (!s) continue; s.position.z = Math.sin(R.time * (moving ? 7 : 2) - i * 0.8) * (moving ? 0.35 : 0.12); }
       if (P.tail) P.tail.rotation.y = Math.sin(R.time * 2) * 0.25;
       v.yOff = 0;
-      if (e.state === 'charge' && e.chargePhase === 'go') v.inst.root.rotation.z = 0.12; else v.inst.root.rotation.z = 0;
+      if (e.state === 'charge' && e.chargePhase === 'go') v.inst.root.rotation.z = 0.12; else if (e.state === 'subdued') { v.inst.root.rotation.z = 0.5; v.yOff = 0.2; } else v.inst.root.rotation.z = 0;
     },
     updateEntities(game, dt) {
       const seen = new Set();
@@ -1711,7 +1720,7 @@
           v.horse = e.mounted && !ECHO.Interior.cur && !e.dead ? R.driveHorse(game, R.horseFor('ent:' + (e.npcId || e.id), e.horseBreed || 'pony'), dt, v.px, v.py, v.dir, v.spd || 0, { ridden: true, quiet: true }) : null;
           if (v.horse) hy = v.horse.seat - gy - 0.4;
         }
-        root.position.set(v.horse && e.mounted ? v.horse.sx : v.px, gy + (v.yOff || 0) + hy, v.horse && e.mounted ? v.horse.sz : v.py);
+        root.position.set(v.horse && e.mounted ? v.horse.sx : v.px, gy + (v.yOff || 0) + hy + (e.alt || 0), v.horse && e.mounted ? v.horse.sz : v.py);
         // hurt: squash and recoil
         const base = v.baseScale || (v.baseScale = root.scale.x);
         const hk = e.hurtT > 0 && !e.dead ? e.hurtT / 0.18 : 0;
@@ -1948,6 +1957,30 @@
     // Caves, wayside shrines, wrecks, stone circles and hermits' huts.
     // The three gates: black pillars, a door of swirling light, a beam you can
     // see from far away, and the ring on the ground where the menace begins.
+    // A titan's roost: scorched or frozen or rotted ground, boulders, the bones of what it ate.
+    updateRoosts(game, room) {
+      const world = game.world;
+      if (!world.titans) return;
+      const key = world.seed + ':' + world.titans.list.map(t => t.x + ',' + t.y + (t.bound ? 'b' : '')).join('|') + ':' + (world._tileEpoch || 0);
+      if (R.roostKey !== key) {
+        if (R.roostGroup) { R.scene.remove(R.roostGroup); R.roostGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+        R.roostGroup = new THREE.Group(); R.scene.add(R.roostGroup); R.roostKey = key;
+        const bone = new THREE.MeshStandardMaterial({ color: C('#e0d6bc'), roughness: 0.8, flatShading: true });
+        const rock = new THREE.MeshStandardMaterial({ color: C('#5a544c'), roughness: 0.95, flatShading: true });
+        for (const t of world.titans.list) {
+          if (t.bound) continue;
+          const sp = ECHO.Titans.sp(t), el = (ECHO.Apex && ECHO.Apex.ELEM[sp.element]) || { col: '#8d8576' };
+          const grp = new THREE.Group(); grp.position.set(t.x, R.groundH(t.x, t.y), t.y); R.roostGroup.add(grp);
+          let h = ECHO.hashStr(t.id); const rnd = () => ((h = (h * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+          const disc = new THREE.Mesh(new THREE.CircleGeometry(4.2 + sp.scale, 28), new THREE.MeshBasicMaterial({ color: lerpC(C(el.col), C('#1a1410'), 0.6), transparent: true, opacity: 0.55, depthWrite: false }));
+          disc.rotation.x = -Math.PI / 2; disc.position.y = 0.04; grp.add(disc);
+          for (let i = 0; i < 7; i++) { const a = rnd() * 6.28, rr = 3.2 + rnd() * 2.6, s = 0.5 + rnd() * 0.9, m = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rock); m.position.set(Math.cos(a) * rr, s * 0.45, Math.sin(a) * rr); m.rotation.set(rnd() * 3, rnd() * 3, 0); m.castShadow = true; grp.add(m); }
+          for (let i = 0; i < 9; i++) { const a = rnd() * 6.28, rr = 0.8 + rnd() * 3, m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.6 + rnd() * 0.7, 5), bone); m.position.set(Math.cos(a) * rr, 0.08, Math.sin(a) * rr); m.rotation.set(Math.PI / 2, 0, rnd() * 3); grp.add(m); }
+          const skull = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28, 0), bone); skull.position.set(1.2, 0.2, -0.6); grp.add(skull);
+        }
+      }
+      R.roostGroup.visible = !room;
+    },
     updateGates(game, room, dt) {
       const world = game.world;
       if (!world.gates) return;
@@ -2465,7 +2498,8 @@
         const cx = ECHO.Interior.BASE + rm.W / 2, cy = rm.H / 2;
         tx = U.lerp(tx, cx, rm.W > 12 ? 0.25 : 0.6); ty = U.lerp(ty, cy, 0.55) + 0.6;
       }
-      const gh = R.groundH(tx, ty);
+      R.flyK = U.lerp(R.flyK || 0, game.pl && game.pl.flying ? 1 : 0, Math.min(1, dt * 2));
+      const gh = R.groundH(tx, ty) + (pe && pe.alt ? pe.alt * 0.75 : 0);
       R.camTarget = R.camTarget || new THREE.Vector3(tx, gh, ty);
       if (Math.abs(R.camTarget.x - tx) + Math.abs(R.camTarget.z - ty) > 12) { R.camTarget.set(tx, gh, ty); R.firstFrame = true; R.sitesT = 0; }
       const k = Math.min(1, dt * 7);
@@ -2474,7 +2508,7 @@
       R.setInteriorMode(!!room);
       if (room && (R.roomKey !== room || R.roomRev !== (room.rev || 0))) { const fresh = R.roomKey !== room; R.roomKey = room; R.roomRev = room.rev || 0; R.roomFlames = []; R.buildRoom(game, room); if (fresh) R.camTarget.set(tx, 0, ty); }
       const punch = game.camPunch || 0;
-      const D = R.camDistNow = R.camDist * (1 + R.zoomExtra) * (room ? (room.carved ? 0.82 : U.clamp(0.5 + room.H * 0.035, 0.72, 0.95)) : 1) * (1 - Math.min(0.12, punch * 0.07));
+      const D = R.camDistNow = R.camDist * (1 + R.zoomExtra) * (room ? (room.carved ? 0.82 : U.clamp(0.5 + room.H * 0.035, 0.72, 0.95)) : 1) * (1 - Math.min(0.12, punch * 0.07)) * (1 + 0.8 * (R.flyK || 0));
       let sx = 0, sy = 0;
       if (game.shakeT > 0) { sx = (Math.random() - 0.5) * game.shakeA * 0.4; sy = (Math.random() - 0.5) * game.shakeA * 0.4; }
       const kk = game.camKick || { x: 0, y: 0 };
@@ -2505,6 +2539,7 @@
       R.updateTownFires(game, room);
       R.updateSecrets(game, room);
       R.updateGates(game, room, dt);
+      R.updateRoosts(game, room);
       R.updateHomestead(game, room);
       if (!room) R.updateFestival(game); else if (R.festGroup) R.festGroup.visible = false;
       if (room) R.updateInteriorLighting(game, room); else R.updateLighting(game, dt);
@@ -2626,7 +2661,7 @@
       for (const e of game.ents) {
         if (e.dead || e.hidden || e === game.pe) continue;
         if (!R.onScreen(game, e.x, e.y)) continue;
-        const h = e.type === 'creature' ? (e.species === 'wolf' ? 1.0 : 0.65) : (heights[e.type] || 1.2);
+        const h = (e.type === 'creature' ? (e.species === 'wolf' ? 1.0 : 0.65) : (heights[e.type] || 1.2)) * (e.titan ? (e.tscale || 1) * 0.9 : 1) + (e.alt || 0);
         const p = R.project(e.x, e.y, h);
         const hover = U.dist(mouse.x, mouse.y, e.x, e.y) < 0.9;
         // health bar for wounded foes

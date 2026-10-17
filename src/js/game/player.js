@@ -85,6 +85,8 @@
       if (len) { mx /= len; my /= len; }
       // sitting: any step gets you up; until then you stay put
       if (pe.seated) { if (len && ECHO.Home) ECHO.Home.stand(game); else { mx = 0; my = 0; len = 0; } }
+      // on a dragon's back: the sky instead of the road
+      if (pl.flying && ECHO.Apex) { ECHO.Apex.flyTick(game, dt, mx, my, len); if (In.hit('v')) ECHO.Apex.vKey(game); PC.sneaking = pe.sneaking = false; pe.blocking = false; pe.hp = pl.hp; return; }
 
       pe.blocking = !pl.mounted && In.key('Shift') && pl.stamina > 4 && PC.dodgeT <= 0 && !PC.drawing && !(pe.attackT > 0);
       if (In.hit('Shift')) { game.blockStart = game.time; if (ECHO.Wits && !pl.mounted) ECHO.Wits.note(game, 'block'); }
@@ -333,7 +335,7 @@
       } else { PC.studyT = 0; PC.studyTarget = null; }
 
       // ---- Eat / herbs
-      if (In.hit('v') && ECHO.Life) ECHO.Life.mount(game);
+      if (In.hit('v')) { if (!(ECHO.Apex && ECHO.Apex.vKey(game)) && ECHO.Life) ECHO.Life.mount(game); }
       if (In.hit('h')) PC.eat(game);
       if (In.hit('b') && ECHO.Camp) ECHO.Camp.make(game);
       if (In.hit('g')) PC.useHerbs(game);
@@ -350,7 +352,7 @@
 
     // ---- Target lock
     lockable(game, e) {
-      return e && !e.dead && !e.vanish && !e.hidden && !e.ghost && e !== game.pe && !e.isCompanion && !e.ngWard &&
+      return e && !e.dead && !e.vanish && !e.hidden && !e.ghost && e !== game.pe && !e.isCompanion && !e.ngWard && !e.tamed &&
         (e.type === 'boss' || (e.type === 'creature' && e.species !== 'hare') || game.hostileTo(game.pe, e));
     },
     lockValid(game, e) {
