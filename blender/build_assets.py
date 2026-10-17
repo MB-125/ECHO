@@ -56,6 +56,15 @@ def hex2rgba(h):
 
 
 MATS = {}
+METALLIC = {'metal': 0.9, 'darkmetal': 0.85, 'gold': 1.0, 'iron': 0.75}
+
+# ----------------------------------------------------------------- realism
+# One place decides how finely things are made: edges are bevelled so they
+# catch the light, curves get enough sides to read as round, and surfaces are
+# shaded smooth except across real creases. (ECHO_LOWPOLY=1 builds the old
+# faceted look.)
+LOWPOLY = os.environ.get('ECHO_LOWPOLY') == '1'
+CREASE = math.radians(42)
 
 
 def mat(name):
@@ -68,6 +77,9 @@ def mat(name):
     rgba = hex2rgba(col)
     bsdf.inputs['Base Color'].default_value = rgba
     bsdf.inputs['Roughness'].default_value = rough
+    # the metals are metal: with the sky lighting the world they pick up its colour
+    if name in METALLIC:
+        bsdf.inputs['Metallic'].default_value = METALLIC[name]
     if emit:
         bsdf.inputs['Emission Color'].default_value = rgba
         bsdf.inputs['Emission Strength'].default_value = emit
@@ -108,10 +120,20 @@ class Part:
     def box(self, size, at, m, rot=(0, 0, 0)):
         v, f = self._new(bmesh.ops.create_cube, size=1.0)
         self._place(v, f, size, at, rot, m)
+        # a small chamfer on every edge: real things are never razor-sharp
+        small = min(abs(s) for s in size)
+        if not LOWPOLY and small > 0.03:
+            edges = list({e for face in f for e in face.edges})
+            res = bmesh.ops.bevel(self.bm, geom=edges + list(v), offset=min(0.035, small * 0.12), segments=1, affect='EDGES', profile=0.5, clamp_overlap=True)
+            mi = self._mi(m)
+            for nf in res.get('faces', []):
+                nf.material_index = mi
         return self
 
     def cyl(self, r, h, at, m, seg=8, r2=None, rot=(0, 0, 0), scale=(1, 1)):
         r2 = r if r2 is None else r2
+        if not LOWPOLY and seg >= 6:
+            seg = min(24, max(seg, int(8 + 40 * max(r, r2 or 0))))   # round enough to read as round, more for bigger things
         v, f = self._new(bmesh.ops.create_cone, cap_ends=True, cap_tris=False, segments=seg,
                          radius1=r, radius2=r2, depth=h)
         self._place(v, f, (scale[0], scale[1], 1), at, rot, m)
@@ -121,6 +143,8 @@ class Part:
         return self.cyl(r, h, at, m, seg=seg, r2=0.0, rot=rot, scale=scale)
 
     def ball(self, r, at, m, sub=1, scale=(1, 1, 1), rot=(0, 0, 0)):
+        if not LOWPOLY and sub >= 1 and r * max(scale) > 0.1:
+            sub = min(3, sub + 1)
         v, f = self._new(bmesh.ops.create_icosphere, subdivisions=sub, radius=r)
         self._place(v, f, scale, at, rot, m)
         return self
@@ -145,8 +169,20 @@ class Part:
         self.bm.free()
         for m in self.mats:
             me.materials.append(mat(m))
+        # smooth shading, sharp only across real creases
         for p in me.polygons:
-            p.use_smooth = False
+            p.use_smooth = not LOWPOLY
+        if not LOWPOLY:
+            sharp = me.attributes.get('sharp_edge') or me.attributes.new('sharp_edge', 'BOOLEAN', 'EDGE')
+            nrm = [p.normal for p in me.polygons]
+            ef = {}
+            for p in me.polygons:
+                for ek in p.edge_keys:
+                    ef.setdefault(ek, []).append(p.index)
+            ek_index = {e.key: e.index for e in me.edges}
+            for ek, fs in ef.items():
+                s = len(fs) != 2 or nrm[fs[0]].angle(nrm[fs[1]], 0) > CREASE or me.polygons[fs[0]].material_index != me.polygons[fs[1]].material_index
+                sharp.data[ek_index[ek]].value = s
         ob = bpy.data.objects.new(self.name, me)
         bpy.context.scene.collection.objects.link(ob)
         return ob

@@ -104,6 +104,9 @@
         plank: new THREE.MeshStandardMaterial({ color: C('#7a5a36'), roughness: 0.9 }),
         loot: new THREE.MeshStandardMaterial({ color: C('#f2d47a'), emissive: C('#7a5a10'), roughness: 0.4, metalness: 0.4 })
       };
+      // the ground and everything built on it has a grain of its own
+      R.detail(R.mat.terrain, 0.34, 1.3);
+      R.detail(R.mat.prop, 0.12, 2.5);
       // See-through versions for buildings that stand between the camera and the player.
       R.mat.propFade = R.mat.prop.clone(); R.mat.propFade.transparent = true; R.mat.propFade.opacity = 0.28; R.mat.propFade.depthWrite = false;
       R.mat.windowFade = R.mat.window.clone(); R.mat.windowFade.transparent = true; R.mat.windowFade.opacity = 0.28; R.mat.windowFade.depthWrite = false;
@@ -115,9 +118,42 @@
       window.addEventListener('resize', R.resize);
       R.canvas.addEventListener('wheel', e => { R.zoomExtra = U.clamp(R.zoomExtra + Math.sign(e.deltaY) * 0.08, -0.35, 0.6); }, { passive: true });
       R.applyQuality();
+      if (ECHO.Post) ECHO.Post.init(R);
+    },
+    // Surface detail without textures: patches and grain drawn from the place
+    // itself (a few octaves of noise on the world position), so a stone square,
+    // a meadow or a plastered wall is never one flat colour — and a little
+    // variation in how rough it is, so the light catches it unevenly.
+    detail(mat, k, scale) {
+      if (!mat || mat.userData.detail) return mat;
+      mat.userData.detail = true;
+      const key = 'detail' + k + ':' + scale;
+      mat.customProgramCacheKey = () => key;
+      mat.onBeforeCompile = (sh) => {
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vDetailW;')
+          .replace('#include <project_vertex>', `#include <project_vertex>
+          vec4 dw = vec4(transformed, 1.0);
+          #ifdef USE_INSTANCING
+            dw = instanceMatrix * dw;
+          #endif
+          vDetailW = (modelMatrix * dw).xyz;`);
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+          varying vec3 vDetailW;
+          float dHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+          float dNoise(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f);
+            return mix(mix(dHash(i), dHash(i + vec2(1.0, 0.0)), u.x), mix(dHash(i + vec2(0.0, 1.0)), dHash(i + vec2(1.0, 1.0)), u.x), u.y); }`)
+          .replace('#include <color_fragment>', `#include <color_fragment>
+          vec2 dp = vDetailW.xz * ${scale.toFixed(2)} + vDetailW.y * 0.37;
+          float dN = dNoise(dp * 0.11) * 0.5 + dNoise(dp * 0.53) * 0.3 + dNoise(dp * 2.7) * 0.2;
+          diffuseColor.rgb *= 1.0 + (dN - 0.5) * ${(k * 2).toFixed(3)};`)
+          .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+          roughnessFactor = clamp(roughnessFactor * (0.9 + dN * 0.2), 0.04, 1.0);`);
+      };
+      mat.needsUpdate = true;
+      return mat;
     },
     // Graphics quality: how sharp, how far, how many lights and shadows.
-    QUALITY: { low: { dpr: 0.7, chunk: 1, lights: 4, shadows: false, map: 512 }, medium: { dpr: 1, chunk: 2, lights: 6, shadows: true, map: 1024 }, high: { dpr: 1.5, chunk: 2, lights: 8, shadows: true, map: 2048 } },
+    QUALITY: { low: { dpr: 0.7, chunk: 1, lights: 4, shadows: false, map: 512, shadowEvery: 1 }, medium: { dpr: 1, chunk: 2, lights: 6, shadows: true, map: 1024, shadowEvery: 2 }, high: { dpr: 1.25, chunk: 2, lights: 8, shadows: true, map: 2048, shadowEvery: 1 } },
     lightN: 8, chunkR: CHUNK_RADIUS,
     applyQuality() {
       const q = R.QUALITY[(ECHO.UI && ECHO.UI.settings.quality) || 'high'] || R.QUALITY.high;
@@ -128,6 +164,7 @@
       if (R.sun) { R.sun.shadow.mapSize.set(q.map, q.map); if (R.sun.shadow.map) { R.sun.shadow.map.dispose(); R.sun.shadow.map = null; } }
       if (was !== q.shadows && R.scene) R.scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
       R.resize();
+      if (ECHO.Post && ECHO.Post.R) { ECHO.Post.aoOff = false; ECHO.Post.bloomOff = false; ECHO.Post.scale = 1; ECHO.Post.setup(); }
     },
     resize() {
       const q = R.QUALITY[(ECHO.UI && ECHO.UI.settings.quality) || 'high'] || R.QUALITY.high;
@@ -141,6 +178,7 @@
       R.overlay.style.width = window.innerWidth + 'px'; R.overlay.style.height = window.innerHeight + 'px';
       R.camera.aspect = window.innerWidth / Math.max(1, window.innerHeight);
       R.camera.updateProjectionMatrix();
+      if (ECHO.Post && ECHO.Post.active) ECHO.Post.resize();
       const zoomPref = (ECHO.UI && ECHO.UI.settings && ECHO.UI.settings.zoom) || 0;
       R.camDist = 15 * (1 + zoomPref * 0.15);
     },
@@ -2594,7 +2632,11 @@
       R.updateHomestead(game, room);
       if (!room) R.updateFestival(game); else if (R.festGroup) R.festGroup.visible = false;
       if (room) R.updateInteriorLighting(game, room); else R.updateLighting(game, dt);
-      R.renderer.render(R.scene, R.camera);
+      // shadows: every frame on high, every other frame on medium (the eye does not notice; the card does)
+      const every = (R.Q && R.Q.shadowEvery) || 1;
+      R.renderer.shadowMap.autoUpdate = false;
+      R.renderer.shadowMap.needsUpdate = every <= 1 || ((R.frameNo || 0) % every) === 0;
+      if (ECHO.Post && ECHO.Post.R) ECHO.Post.render(game, dt); else R.renderer.render(R.scene, R.camera);
       R.drawOverlay(game);
     },
 

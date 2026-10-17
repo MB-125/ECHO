@@ -58,13 +58,14 @@
         if (!list.length) return null;
         let n = 0;
         for (const p of list) n += p.pos.length;
-        const pos = new Float32Array(n), col = new Float32Array(n);
-        let o = 0;
-        for (const p of list) { pos.set(p.pos, o); col.set(p.col, o); o += p.pos.length; }
+        const pos = new Float32Array(n), col = new Float32Array(n), nor = new Float32Array(n);
+        let o = 0, haveN = list.every(p => p.nor);
+        for (const p of list) { pos.set(p.pos, o); col.set(p.col, o); if (haveN) nor.set(p.nor, o); o += p.pos.length; }
         const g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
         g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-        g.computeVertexNormals();
+        // the normals the model was made with: smooth where it is round, sharp at its creases
+        if (haveN) g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); else g.computeVertexNormals();
         g.computeBoundingSphere();
         return g;
       };
@@ -90,10 +91,11 @@
             m = new THREE.MeshBasicMaterial({ color: base.color.clone() });
             m.color.multiplyScalar(1.4);
           } else {
-            m = new THREE.MeshStandardMaterial({ color: base.color.clone(), roughness: Math.max(0.5, base.roughness || 0.85), metalness: mname === 'metal' || mname === 'gold' ? 0.35 : 0, flatShading: true });
+            m = new THREE.MeshStandardMaterial({ color: base.color.clone(), roughness: Math.max(0.5, base.roughness || 0.85), metalness: ({ metal: 0.5, darkmetal: 0.45, gold: 0.6, iron: 0.4 })[mname] || 0, flatShading: false });
           }
           m.name = mname;
           if (colors && colors[mname]) m.color.copy(M.srgb(colors[mname]));
+          if (m.isMeshStandardMaterial && ECHO.Renderer3D && ECHO.Renderer3D.detail) ECHO.Renderer3D.detail(m, 0.1, 3.5);
           o.material = m;
           o.castShadow = true;
           o.receiveShadow = false;
