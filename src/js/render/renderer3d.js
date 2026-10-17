@@ -4,7 +4,7 @@
 // towns that wear their faction's colours and light their windows at night;
 // animated people, beasts and bosses whose armour shows what they learned;
 // a real sun and shadows, lanterns and campfires that light the dark, fog.
-// The game logic is untouched — it is still a 2D world of tiles; this file
+// The game logic is a world of tiles on a flat grid; this file
 // only decides how it looks.
 (function () {
   const { U } = ECHO;
@@ -977,6 +977,12 @@
       return v;
     },
     PROF: null,
+    PROF_COL: {
+      farmer: ['#7a8a4a', '#5a4a30'], hunter: ['#5a6a3a', '#4a3a2a'], miner: ['#6a6058', '#3a3430'], woodcutter: ['#8a4a3a', '#4a3a2a'],
+      smith: ['#4a4a4a', '#6a4a2a'], herbalist: ['#5a8a6a', '#4a3a2a'], merchant: ['#7a4a8a', '#3a2a4a'], innkeeper: ['#9a7a5a', '#5a4030'],
+      priest: ['#e8dcc0', '#c8a85a'], scholar: ['#4a5a8a', '#2a3050'], ruler: ['#8a2a3a', '#d8b84a'], reeve: ['#6a5a3a', '#3a3020'],
+      child: ['#b8885a', '#5a4a3a'], elder: ['#8a8070', '#5a5040'], bandit: ['#5a2a24', '#2a1a18'], wanderer: ['#5a5a6a', '#3a3a3a'], inventor: ['#8a6a3a', '#4a4a5a'], guard: ['#6f8fc4', '#3a3a3a']
+    },
     configure(game, e, v) {
       const M = ECHO.Models, inst = v.inst, world = game.world;
       if (e.shape) {
@@ -1072,7 +1078,7 @@
       const npc = e.npcId ? world.npcs[e.npcId] : null;
       const look = e.look || {};
       const prof = npc ? npc.prof : 'player';
-      const S = ECHO.Sprites.PROF_COL;
+      const S = R.PROF_COL;
       let cols = S[prof] || ['#7a8a4a', '#4a3a2a'];
       if (prof === 'guard' && npc) { const f = world.factions[npc.faction]; cols = [f ? f.color : '#6f8fc4', f ? f.banner : '#2b3f66']; }
       if (prof === 'child' && npc) { const kc = ['#c8574a', '#4a8ac8', '#d8b84a', '#6aa85a', '#9a5ac8', '#d87a3a']; cols = [kc[ECHO.hashStr(npc.id) % kc.length], '#4a3a2a']; }
@@ -2771,17 +2777,42 @@
       }
     },
 
-    mapImage(world) { return ECHO.Renderer2D.mapImage(world); }
+    // A head-and-shoulders picture of someone, from their own 3D model in their own clothes and gear.
+    portrait(game, e, w, h) {
+      try {
+        const P = R._port || (R._port = (() => {
+          const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+          r.outputEncoding = THREE.sRGBEncoding; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.1;
+          const sc = new THREE.Scene();
+          sc.add(new THREE.HemisphereLight('#fff2e0', '#30261c', 0.8));
+          const key = new THREE.DirectionalLight('#ffe8c8', 1.3); key.position.set(1.6, 2.6, 2.4); sc.add(key);
+          const rim = new THREE.DirectionalLight('#9fc0ff', 0.7); rim.position.set(-2, 2.2, -2); sc.add(rim);
+          return { r, sc, cam: new THREE.PerspectiveCamera(28, 1, 0.05, 40) };
+        })());
+        if (P.w !== w || P.h !== h) { P.r.setSize(w, h, false); P.cam.aspect = w / h; P.cam.updateProjectionMatrix(); P.w = w; P.h = h; }
+        const inst = ECHO.Models.instance('person');
+        R.configure(game, { ...e, dead: false, hurtT: 0 }, { inst, kind: e.type, cfgT: 0, dir: 0, bob: 0 });
+        for (const k of ['torch', 'lantern']) ECHO.Models.show(inst, k, false);
+        inst.root.position.set(0, 0, 0); inst.root.rotation.set(0, Math.PI / 2 + 0.38, 0);
+        P.sc.add(inst.root);
+        inst.root.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(inst.root), top = box.max.y, H = top - box.min.y;
+        const fy = top - H * 0.24;
+        P.cam.position.set(0.2, fy + H * 0.04, H * 1.3); P.cam.lookAt(0, fy - H * 0.02, 0);
+        P.r.render(P.sc, P.cam);
+        P.sc.remove(inst.root);
+        return P.r.domElement;
+      } catch (err) { console.error(err); return null; }
+    }
   };
 
-  // Choose the renderer: 3D when WebGL and the models are available, otherwise the classic 2D one.
+  // ECHO is drawn in 3D only: WebGL and the models must load.
   ECHO.chooseRenderer = async function () {
-    const want2d = ECHO.UI && ECHO.UI.settings && ECHO.UI.settings.graphics === '2d';
     let ok = false;
-    if (!want2d && typeof THREE !== 'undefined' && R.supported()) {
+    if (typeof THREE !== 'undefined' && R.supported()) {
       try { ok = await ECHO.Models.load(); } catch (e) { console.error(e); ok = false; }
     }
-    ECHO.Renderer = ok ? R : ECHO.Renderer2D;
+    ECHO.Renderer = R;
     ECHO.render3d = ok;
     return ok;
   };

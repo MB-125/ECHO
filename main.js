@@ -91,7 +91,7 @@ function smokeTest(win) {
         const loaded = await ECHO.Save.load('smoke');
         await window.echoNative.deleteWorld('smoke');
         const fonts = document.fonts ? document.fonts.check('16px "Pixelify Sans"') : null;
-        return { renderer: ECHO.render3d ? '3d' : '2d', ok: ents > 5 && list.some(m => m.id === 'smoke') && !!loaded && !!loaded.player && loaded.player.first === 'Tester', ents, kinds, rafFrames: raf, worlds: list.length, day: loaded && loaded.day, minute: Math.round(ECHO.Game.world.minute), fonts };
+        return { renderer: ECHO.render3d ? '3d' : '2d', ok: ECHO.render3d && ents > 5 && list.some(m => m.id === 'smoke') && !!loaded && !!loaded.player && loaded.player.first === 'Tester', ents, kinds, rafFrames: raf, worlds: list.length, day: loaded && loaded.day, minute: Math.round(ECHO.Game.world.minute), fonts };
       })()`);
     } catch (err) { result = { ok: false, why: String(err) }; }
     const ok = result && result.ok && errors.length === 0;

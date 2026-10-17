@@ -5,9 +5,15 @@
     ECHO.Input.attach(canvas);
     ECHO.Sfx.init();
     ECHO.UI.init();
-    await ECHO.chooseRenderer();
+    if (!(await ECHO.chooseRenderer())) {
+      // no WebGL (or the models failed to load): ECHO is a 3D game and cannot run here
+      const el = document.createElement('div');
+      el.className = 'screen';
+      el.innerHTML = '<div class="scr" style="max-width:560px;margin:12vh auto;text-align:center"><h1>ECHO</h1><p class="prose">ECHO needs 3D graphics (WebGL), and this browser or computer is not giving it any.</p><p class="dim">Turn on hardware acceleration in your browser settings, update your graphics drivers, or try another browser, then reload. Your worlds are safe and will be here when you come back.</p></div>';
+      document.body.appendChild(el);
+      return;
+    }
     ECHO.Renderer.init(canvas);
-    if (!ECHO.render3d) document.getElementById('overlay').style.display = 'none';
     // Keep the frame loop alive behind menus so screens animate.
     ECHO.Game.running = true;
     ECHO.Game.lastFrame = performance.now();

@@ -309,10 +309,11 @@
       const c = document.createElement('canvas');
       c.width = 120; c.height = 140; c.className = 'portrait';
       const g = c.getContext('2d');
-      g.imageSmoothingEnabled = false;
-      g.fillStyle = '#0f0c09'; g.fillRect(0, 0, 120, 140);
-      g.setTransform(5, 0, 0, 5, 60, 130);
-      ECHO.Sprites.person(g, { ...npcEnt, moving: false, flip: false, attackT: 0, sleeping: false, yielded: false }, npc, ECHO.Game.world, 0);
+      const grd = g.createRadialGradient(60, 60, 8, 60, 70, 95);
+      grd.addColorStop(0, '#2e2418'); grd.addColorStop(1, '#0f0c09');
+      g.fillStyle = grd; g.fillRect(0, 0, 120, 140);
+      const img = ECHO.Renderer && ECHO.Renderer.portrait ? ECHO.Renderer.portrait(ECHO.Game, npcEnt, 240, 280) : null;
+      if (img) g.drawImage(img, 0, 0, 120, 140);
       return c;
     },
     openDialogue(ent) {
