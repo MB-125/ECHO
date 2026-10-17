@@ -315,7 +315,8 @@ A see-through controls card sits on the left of the screen (folded away at first
 | **H / G** | eat / use herbs |
 | **1–4** | drink a healing, might, stoneskin or warding draught |
 | **V** | mount or dismount your horse; from further off, whistle for it. Beside a dragon you have bound: climb on and fly (V again to come down) |
-| **Y** | call your bound beast to your side, or send it away |
+| **Y** | call your bound beast to your side, or send it away (your horse goes home while a beast is with you; V whistles it back) |
+| **U** | your animals: your beasts, your horse and your dog — where they are, how they are, and buttons to call them, send them away or home |
 | **T** | orders for your companion — in a fight, attack your target; otherwise follow / hold here / stay back |
 | **Tab** · **M** · **K** | journal (promises, places, the realm…) · map (zoom, drag, click a place to be guided there) · character (choose which techniques to carry) |
 | **J** | the guide — what to do next and how, your dungeons, the bestiary |

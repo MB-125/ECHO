@@ -159,7 +159,7 @@
     buyHorse(pl, k) {
       const B = BREEDS[k]; if (!B) return 'No such horse.';
       if (pl.gold < B.price) return `${B.name}: ${B.price} crowns.`;
-      pl.gold -= B.price; pl.horseAt = null; pl.horse = { breed: k, name: ['Ash', 'Bramble', 'Clover', 'Dusk', 'Ember', 'Flint', 'Hazel', 'Juniper', 'Mallow', 'Rook', 'Sorrel', 'Thistle'][Math.floor(Math.random() * 12)] };
+      pl.gold -= B.price; pl.horseAt = null; pl.horseAway = false; pl.horse = { breed: k, name: ['Ash', 'Bramble', 'Clover', 'Dusk', 'Ember', 'Flint', 'Hazel', 'Juniper', 'Mallow', 'Rook', 'Sorrel', 'Thistle'][Math.floor(Math.random() * 12)] };
       return null;
     },
     // V: mount when your horse is beside you; otherwise whistle and it comes to you.
@@ -167,6 +167,7 @@
       const pl = game.pl, pe = game.pe;
       if (!pl.horse) return ECHO.UI.toast('You have no horse. Stables sell them.', 'warn', 3);
       if (on == null) on = !pl.mounted;
+      if (on && pl.horseAway) return Lf.callHorse(game);
       if (on && ECHO.Interior.cur) return ECHO.UI.toast('Not indoors.', 'warn', 2);
       if (on && game.pe.inBoat) return ECHO.UI.toast('Not from a boat.', 'warn', 2);
       if (on) {
@@ -188,6 +189,23 @@
       if (on) ECHO.Combat.burst(pe.x, pe.y, '#b8a888', 8, 1.5, 0.4, 2);
       ECHO.Sfx.play('dodge', { pitch: on ? 0.7 : 1.1 });
     },
+    // Gone home: it leaves while you have a beast with you, and comes back when you whistle (V).
+    sendHome(game, quiet) {
+      const pl = game.pl;
+      if (!pl.horse || pl.horseAway) return;
+      if (pl.mounted) Lf.mount(game, false);
+      pl.horseAway = true;
+      if (pl.horseAt) { pl.horseAt.call = false; pl.horseAt.leaving = true; }
+      if (!quiet) ECHO.Combat.floater(game.pe.x, game.pe.y - 1.4, `${pl.horse.name} canters off home — V to whistle for it`, '#e8d9a0');
+    },
+    callHorse(game) {
+      const pl = game.pl;
+      if (!pl.horse) return;
+      if (ECHO.Interior.cur) return ECHO.UI.toast(`${pl.horse.name} can't hear you in here. Whistle outside.`, 'info', 3);
+      pl.horseAway = false;
+      if (pl.horseAt && pl.horseAt.leaving) pl.horseAt.leaving = false; else pl.horseAt = null;   // too far off to hear the first time: it comes from wherever it went
+      return Lf.whistle(game);
+    },
     whistle(game) {
       const pl = game.pl, pe = game.pe, h = pl.horseAt;
       ECHO.Sfx.play('whistle');
@@ -205,6 +223,21 @@
     horseTick(game, dt) {
       const pl = game.pl, pe = game.pe, world = game.world;
       if (!pl.horse || pl.mounted) return;
+      if (pl.horseAway) {
+        // trotting off out of sight, then gone until you whistle
+        const h = pl.horseAt;
+        if (!h || ECHO.Interior.cur) { pl.horseAt = null; return; }
+        const d = U.dist(h.x, h.y, pe.x, pe.y);
+        if (d > 24) { pl.horseAt = null; return; }
+        const a = Math.atan2(h.y - pe.y, h.x - pe.x) + 0.3;
+        h.v += U.clamp(7 - h.v, -dt * 7, dt * 4.5);
+        h.dir += U.clamp(U.angleDiff(h.dir, a), -dt * 4, dt * 4);
+        const body = Lf.body(h), s = h.v * dt;
+        ECHO.Ent.move(world, body, Math.cos(h.dir) * s, Math.sin(h.dir) * s);
+        if (Math.hypot(body.x - h.x, body.y - h.y) < s * 0.2) h.dir += 1.2 * dt * 6;   // turned away by a wall: try another way
+        h.x = body.x; h.y = body.y;
+        return;
+      }
       if (!pl.horseAt) { const a = pe.dir + Math.PI / 2; pl.horseAt = { x: pe.x + Math.cos(a) * 1.2, y: pe.y + Math.sin(a) * 1.2, dir: pe.dir, v: 0 }; }
       const h = pl.horseAt;
       if (ECHO.Interior.cur) { h.v = 0; return; }

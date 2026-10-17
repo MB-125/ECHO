@@ -45,6 +45,7 @@
         if (In.pressed.has('c') && !In.down.has('Control')) { /* c also sneaks; character sheet on K */ }
         if (In.pressed.has('k')) UI.openCharacter();
         if (In.pressed.has('y') && ECHO.Apex) ECHO.Apex.yKey(game);
+        if (In.pressed.has('u') && ECHO.Apex) UI.openJournal('animals');
         if (In.pressed.has('n') && ECHO.Nav) ECHO.Nav.openPicker(game);
         if (In.pressed.has('F1') || In.pressed.has('/') || In.pressed.has('?')) UI.toggleHelp();
       } else if (UI.panelOpen) {
@@ -52,6 +53,7 @@
         else if (In.pressed.has('m') && UI.panelKind === 'map') UI.closePanel();
         else if (In.pressed.has('n') && UI.panelKind === 'nav') UI.closePanel();
         else if (In.pressed.has('k') && UI.panelKind === 'char') UI.closePanel();
+        else if (In.pressed.has('u') && UI.panelKind === 'journal') UI.closePanel();
       }
       UI.hud(game, dt);
     },
@@ -1464,9 +1466,10 @@
       const body = UI.openPanel('Journal', '', 'journal');
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
-        const tabs = [['guide', 'Guide'], ['nearby', 'Nearby'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
+        const tabs = [['guide', 'Guide'], ['nearby', 'Nearby'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['animals', 'Animals'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-        if (tab === 'guide') { html += ECHO.Guide.html(game); if (ECHO.Tutorial) ECHO.Tutorial.flag('guide'); }
+        if (tab === 'animals') html += ECHO.Apex ? ECHO.Apex.animalsHtml(game) : '';
+        else if (tab === 'guide') { html += ECHO.Guide.html(game); if (ECHO.Tutorial) ECHO.Tutorial.flag('guide'); }
         else if (tab === 'nearby') html += ECHO.Jobs ? ECHO.Jobs.nearbyHtml(game) : '';
         else if (tab === 'story') html += ECHO.Saga.html(world, pl);
         else if (tab === 'ambition') html += ECHO.Purpose.journalHtml(world, pl);
@@ -1573,6 +1576,7 @@
         body.querySelectorAll('button[data-focus]').forEach(b => b.addEventListener('click', () => { pl.focus = b.dataset.focus; pl.tracked = null; ECHO.Purpose._html = null; ECHO.Purpose.t = 0; render(); }));
         body.querySelectorAll('button[data-track]').forEach(b => b.addEventListener('click', () => { pl.tracked = pl.tracked === b.dataset.track ? null : b.dataset.track; ECHO.Purpose._html = null; ECHO.Purpose.t = 0; render(); }));
         body.querySelectorAll('button[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
+        if (tab === 'animals' && ECHO.Apex) ECHO.Apex.animalsBind(body, game, render);
         body.querySelectorAll('button[data-k]').forEach(b => b.addEventListener('click', () => { kind = b.dataset.k; render(); }));
         body.querySelectorAll('[data-letter]').forEach(c => c.addEventListener('click', () => { const l = ECHO.Letters.list(world).find(x => x.id === c.dataset.letter); if (l) { l.read = true; openLetter = openLetter === l.id ? null : l.id; render(); } }));
         const lamp = body.querySelector('button[data-lamp]');

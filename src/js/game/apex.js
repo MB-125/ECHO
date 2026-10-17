@@ -975,6 +975,7 @@
       if (ECHO.Music) ECHO.Music.stinger('echo');
       UI().banner(`${t.name} is yours`, `${t.title} · level ${t.lvl}`, false);
       pl.beastOut = t.id; pl.beastLast = t.id;
+      if (pl.horse && !pl.horseAway && ECHO.Life) ECHO.Life.sendHome(game);
       const ne = A.spawnTamed(game, t, false); if (ne) { ne.x = e.x; ne.y = e.y; ne.alt = 0; ne.altGoal = 0; ne.hp = ne.maxHp * 0.6; }
       setTimeout(() => UI().toast(`${t.name} follows you now and fights at your side (at most 15 levels above your own). ${Ti().sp(t).flies ? 'Stand by it and press V to fly. ' : ''}Y calls or sends away your beast; your character page (K) shows all of them.`, 'legend', 9), 800);
     },
@@ -1058,6 +1059,7 @@
       if ((t.restUntil || 0) > world.day) return UI().toast(`${t.name} is still resting. Tomorrow.`, 'info', 3);
       if (pl.beastOut && pl.beastOut !== id) A.dismiss(game, true);
       pl.beastOut = id; pl.beastLast = id;
+      if (pl.horse && !pl.horseAway && ECHO.Life) ECHO.Life.sendHome(game);
       if (!A.entOf(game, id)) A.spawnTamed(game, t, false);
       ECHO.Combat.floater(game.pe.x, game.pe.y - 1.6, `${t.name} comes`, '#ffe08a');
     },
@@ -1140,24 +1142,80 @@
       if (F.v > 8 && Math.random() < dt * F.v * 0.6) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + (Math.random() - 0.5) * 6, y: pe.y + (Math.random() - 0.5) * 4, vx: -Math.cos(F.dir) * F.v * 0.8, vy: -Math.sin(F.dir) * F.v * 0.8, t: 0, life: 0.5, color: 'rgba(255,255,255,0.5)', size: 2 });
     },
 
+    // ------------------------------------------------------------ the Animals page (U, or Journal → Animals)
+    // Everything that answers to you: your horse, your beasts, your dog.
+    animalsHtml(game) {
+      const world = game.world, pl = game.pl, pe = game.pe, Lf = ECHO.Life, T = Ti();
+      const where = o => `${Math.round(U.dist(o.x, o.y, pe.x, pe.y))} leagues ${ECHO.Purpose.dirTo(world, pl, o)}`;
+      const bar = (f, col) => `<span style="display:inline-block;width:120px;height:7px;background:rgba(0,0,0,.45);border-radius:3px;overflow:hidden;vertical-align:middle"><i style="display:block;height:100%;width:${Math.round(U.clamp(f, 0, 1) * 100)}%;background:${col}"></i></span>`;
+      const mine = world.titans ? T.bound(world) : [];
+      let h = `<p class="dim">Every animal that answers to you. <b>U</b> opens this page. One beast walks with you at a time; when it comes, your horse goes home until you whistle for it (V).</p>`;
+      // the beasts
+      h += `<h3 class="gold">Beasts (${mine.length}/${T.MAX_BOUND})</h3>`;
+      if (!mine.length) {
+        const near = world.titans ? T.list(world).filter(t => t.alive && !t.bound).sort((a, b) => U.dist(a.x, a.y, pe.x, pe.y) - U.dist(b.x, b.y, pe.x, pe.y)).slice(0, 3) : [];
+        h += `<p class="dim">None yet. Beat a dragon or a great beast down on its range and bind it (E) — you can keep four.${near.length ? ' The nearest: ' + near.map(t => `<b>${esc(t.name)}</b> (level ${t.lvl}, ${where(t)})`).join(', ') + '.' : ''}</p>`;
+      } else h += `<div class="list">${mine.map(t => {
+        const sp = T.sp(t), S = SIG[t.sp] || { arts: [] }, out = pl.beastOut === t.id, rest = (t.restUntil || 0) > world.day, flying = pl.flying === t.id;
+        const e = out && A.entOf(game, t.id), hp = e ? e.hp / e.maxHp : (t.hp == null ? 1 : t.hp), fights = A.effLv(game, t);
+        const status = flying ? '<span class="gold">carrying you through the sky</span>' : out ? `<span class="gold">with you</span>${e ? ` · ${e.state === 'fight' ? 'fighting' : 'at your side'}` : ''}` : rest ? 'resting — it answers again tomorrow' : 'in the wild places, waiting for your call';
+        const arts = S.arts.filter(a => a.tamed).map(a => esc(a.name));
+        return `<div class="card"><h4>${sp.flies ? '🐉' : '🦬'} ${esc(t.name)} <span class="dim">· ${esc(t.title)}</span></h4>
+          <div class="dim" style="font-size:13px">${sp.flies ? 'Dragon' : 'Great beast'} of ${esc(ELEM[sp.element] ? ELEM[sp.element].word : sp.element)} · level ${t.lvl}${fights < t.lvl ? ` (fights at ${fights} for you — it grows as you do)` : ''} · yours since day ${t.boundDay || '?'}</div>
+          <div class="row" style="gap:10px;font-size:13px"><span style="width:52px">Life</span>${bar(hp, hp > 0.5 ? '#9fe08a' : hp > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hp * 100)}%</span><span class="dim">· ${status}</span></div>
+          <div style="font-size:13px">${arts.length ? `Uses for you: <b>${arts.join(', ')}</b>.` : ''} ${S.passive ? `<span class="dim">${esc(S.passive)}.</span>` : ''}${sp.flies ? ' <span class="gold">It can carry you: stand beside it and press V.</span>' : ''}</div>
+          <div class="row">${flying ? '' : out ? `<button class="small" data-an-dismiss="1">Send away (Y)</button>` : `<button class="small" data-an-call="${t.id}" ${rest ? 'disabled' : ''}>Call (Y)</button>`}<button class="small" data-an-free="${t.id}" ${flying ? 'disabled' : ''}>Set free…</button></div></div>`;
+      }).join('')}</div>`;
+      // the horse
+      h += `<h3 class="gold">Horse</h3>`;
+      if (!pl.horse) h += `<p class="dim">No horse yet. Stables in the towns sell them, and you can catch a loose one after knocking its rider down.</p>`;
+      else {
+        const H = pl.horse, B = Lf.BREEDS[H.breed] || { name: 'horse' }, T0 = Lf.bondTier(H), hz = pl.horseAt;
+        const status = pl.mounted ? '<span class="gold">you are riding it</span>' : pl.horseAway ? (hz ? 'cantering off home' : 'gone home — whistle (V) and it comes') : hz ? (hz.call ? 'coming to you' : `grazing ${U.dist(hz.x, hz.y, pe.x, pe.y) < 4 ? 'beside you' : where(hz)}`) : 'nearby';
+        h += `<div class="card"><h4>🐎 ${esc(H.name)} <span class="dim">· ${esc(B.name.toLowerCase())}</span></h4>
+          <div class="row" style="gap:10px;font-size:13px"><span style="width:52px">Trust</span>${bar((H.bond || 0) / 100, '#f0b8c8')}<b>${esc(T0.name)}</b></div>
+          <div class="row" style="gap:10px;font-size:13px"><span style="width:52px">Wind</span>${bar((H.sta == null ? 100 : H.sta) / 100, '#9fe0c8')}<span>${H.blown ? 'blown' : Math.round(H.sta == null ? 100 : H.sta) + '%'}</span></div>
+          <div style="font-size:13px">${status}</div>
+          <div class="row">${pl.mounted ? '' : `<button class="small" data-an-whistle="1">Whistle for ${esc(H.name)} (V)</button>`}${!pl.horseAway ? `<button class="small" data-an-home="1">Send ${esc(H.name)} home</button>` : ''}</div></div>`;
+      }
+      // the dog
+      h += `<h3 class="gold">Dog</h3>`;
+      if (!pl.pet) h += `<p class="dim">No dog yet. Strays hang about the towns — offer one food a few times and it may decide you're worth following.</p>`;
+      else {
+        const P0 = pl.pet, home = Lf.home ? Lf.home(world, pl) : null;
+        const status = P0.stay === 'home' ? `waiting by the fire at home${home ? ' in ' + esc(home.s.name) : ''}` : P0.stay && P0.at ? `waiting where you left it, ${where(P0.at)}` : '<span class="gold">at your heel</span>';
+        h += `<div class="card"><h4>🐕 ${esc(P0.name)}</h4><div style="font-size:13px">${status}</div>
+          <div class="row">${P0.stay ? `<button class="small" data-an-heel="1">Call ${esc(P0.name)} to heel</button>` : ''}${home && P0.stay !== 'home' ? `<button class="small" data-an-dog-home="1">Send ${esc(P0.name)} home</button>` : ''}</div></div>`;
+      }
+      return h;
+    },
+    animalsBind(root, game, redraw) {
+      const pl = game.pl, again = () => setTimeout(redraw, 60);
+      const on = (sel, fn) => root.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { fn(b); again(); }));
+      on('button[data-an-call]', b => A.call(game, b.dataset.anCall));
+      on('button[data-an-dismiss]', () => A.dismiss(game));
+      on('button[data-an-whistle]', () => ECHO.Life.callHorse(game));
+      on('button[data-an-home]', () => ECHO.Life.sendHome(game));
+      on('button[data-an-heel]', () => { pl.pet.stay = null; pl.pet.at = null; for (const e of game.ents) if (e.pet && e.mine && !e.dead) { e.dead = true; e.vanish = true; } ECHO.Combat.floater(game.pe.x, game.pe.y - 1.4, `you whistle for ${pl.pet.name}`, '#e8d9a0'); });
+      on('button[data-an-dog-home]', () => { pl.pet.stay = 'home'; pl.pet.at = null; for (const e of game.ents) if (e.pet && e.mine && !e.dead) { e.dead = true; e.vanish = true; } UI().toast(`${pl.pet.name} trots off toward home.`, 'info', 3); });
+      root.querySelectorAll('button[data-an-free]').forEach(b => b.addEventListener('click', () => {
+        const t = Ti().byId(game.world, b.dataset.anFree);
+        UI().modal({ title: `Set ${t.name} free?`, html: `<p>${esc(t.name)} goes back to its old range, wild again — and as strong as any wild titan. You could beat it down and bind it again.</p>`, choices: [{ label: `Set ${t.name} free`, onPick: () => { if (pl.beastOut === t.id) A.dismiss(game, true); Ti().release(game.world, t, pl); UI().openJournal('animals'); } }, { label: 'Keep it', onPick: () => UI().openJournal('animals') }] });
+      }));
+    },
     // ------------------------------------------------------------ the character page
     html(game) {
       const world = game.world, pl = game.pl, mine = world.titans ? Ti().bound(world) : [];
-      if (!mine.length) return world.titans && Ti().list(world).some(t => t.seen) ? `<h3 class="gold">Your beasts (0/${Ti().MAX_BOUND})</h3><p class="dim" style="font-size:13px">Beat a dragon or a great beast down on its range and bind it. You can keep four.</p>` : '';
-      return `<h3 class="gold">Your beasts (${mine.length}/${Ti().MAX_BOUND})</h3><p class="dim" style="font-size:13px">One at a time walks (or flies) with you and fights for you, at most 15 levels above your own. Y calls or sends away your beast. Stand by a dragon and press V to fly.</p><div class="list">${mine.map(t => {
-        const sp = Ti().sp(t), out = pl.beastOut === t.id, rest = (t.restUntil || 0) > world.day;
-        return `<div class="card"><h4>${sp.flies ? '🐉' : '🦬'} ${esc(t.name)} <span class="dim">· ${esc(t.title)}</span></h4><div class="dim" style="font-size:13px">${sp.flies ? 'Dragon' : 'Great beast'} of ${esc(ELEM[sp.element] ? ELEM[sp.element].word : sp.element)} · level ${t.lvl}${t.lvl > A.effLv(game, t) ? ` (fights at ${A.effLv(game, t)} for you, for now)` : ''} · bound on day ${t.boundDay}${rest ? ' · resting until tomorrow' : out ? ' · <span class="gold">with you</span>' : ''}${sp.flies ? ' · can carry you' : ''}</div>
-          <div class="row">${out ? `<button class="small" data-beast-dismiss="1">Send away</button>` : `<button class="small" data-beast-call="${t.id}" ${rest ? 'disabled' : ''}>Call</button>`}<button class="small" data-beast-free="${t.id}">Set free…</button></div></div>`;
-      }).join('')}</div>`;
+      if (!mine.length && !pl.horse && !pl.pet) return '';
+      const parts = [];
+      if (mine.length) parts.push(`${mine.length} beast${mine.length > 1 ? 's' : ''} (${mine.map(t => esc(t.name) + (pl.beastOut === t.id ? ' — with you' : '')).join(', ')})`);
+      if (pl.horse) parts.push(`${esc(pl.horse.name)} the horse${pl.horseAway ? ' (gone home)' : ''}`);
+      if (pl.pet) parts.push(`${esc(pl.pet.name)} the dog`);
+      return `<h3 class="gold">Your animals</h3><div class="card"><div style="font-size:13px">${parts.join(' · ')}</div><div class="row"><button class="small" data-an-open="1">See all your animals (U)</button></div></div>`;
     },
     bindUi(root, game) {
-      root.querySelectorAll('button[data-beast-call]').forEach(b => b.addEventListener('click', () => { A.call(game, b.dataset.beastCall); UI().openCharacter(); }));
-      root.querySelectorAll('button[data-beast-dismiss]').forEach(b => b.addEventListener('click', () => { A.dismiss(game); UI().openCharacter(); }));
-      root.querySelectorAll('button[data-beast-free]').forEach(b => b.addEventListener('click', () => {
-        const t = Ti().byId(game.world, b.dataset.beastFree);
-        UI().modal({ title: `Set ${t.name} free?`, html: `<p>${esc(t.name)} goes back to its old range, wild again. You could beat it down and bind it again.</p>`, choices: [{ label: `Set ${t.name} free`, onPick: () => { if (game.pl.beastOut === t.id) A.dismiss(game, true); Ti().release(game.world, t, game.pl); UI().openCharacter(); } }, { label: 'Keep it', onPick: () => UI().openCharacter() }] });
-      }));
-    }
+      root.querySelectorAll('button[data-an-open]').forEach(b => b.addEventListener('click', () => UI().openJournal('animals')));
+    },
   };
   A.install();
 })();

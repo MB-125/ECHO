@@ -246,7 +246,7 @@
     catch(game, h) {
       const pl = game.pl, B = ECHO.Life.BREEDS[h.breed];
       pl.horse = { breed: h.breed, name: NAMES[Math.floor(Math.random() * NAMES.length)], bond: 0, sta: h.sta };
-      pl.horseAt = { x: h.x, y: h.y, dir: h.dir, v: 0 };
+      pl.horseAt = { x: h.x, y: h.y, dir: h.dir, v: 0 }; pl.horseAway = false;
       h.gone = true; Rd.loose = Rd.loose.filter(x => !x.gone);
       ECHO.Sfx.play('snort');
       ECHO.UI.toast(`You catch the ${B.name.toLowerCase()} by its reins and call it ${pl.horse.name}. It is wary of you — ride it, feed it, groom it, and it will come to trust you.`, 'legend', 7);
