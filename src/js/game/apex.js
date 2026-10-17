@@ -977,7 +977,7 @@
       pl.beastOut = t.id; pl.beastLast = t.id;
       if (pl.horse && !pl.horseAway && ECHO.Life) ECHO.Life.sendHome(game);
       const ne = A.spawnTamed(game, t, false); if (ne) { ne.x = e.x; ne.y = e.y; ne.alt = 0; ne.altGoal = 0; ne.hp = ne.maxHp * 0.6; }
-      setTimeout(() => UI().toast(`${t.name} follows you now and fights at your side (at most 15 levels above your own). ${Ti().sp(t).flies ? 'Stand by it and press V to fly. ' : ''}Y calls or sends away your beast; your character page (K) shows all of them.`, 'legend', 9), 800);
+      setTimeout(() => UI().toast(`${t.name} follows you now and fights at your side (at most 15 levels above your own). ${Ti().sp(t).flies ? 'Stand by it and press V to fly. ' : ''}Y switches between your animals (horse and beasts); U shows all of them.`, 'legend', 9), 800);
     },
     finish(game, e, t) {
       const world = game.world, pl = game.pl, r = Math.random, L = e.lvl;
@@ -1070,6 +1070,35 @@
       if (!quiet && pl.beastOut) { const t = Ti().byId(game.world, pl.beastOut); if (t) ECHO.Combat.floater(game.pe.x, game.pe.y - 1.6, `${t.name} goes back to the wild places`, '#c8c0b0'); }
       pl.beastOut = null;
     },
+    // U: the next of your animals — your horse, then each beast in turn — comes; the one with you goes
+    cycle(game) {
+      const pl = game.pl, world = game.world;
+      if (pl.flying) return UI().toast('Not while you are in the sky — land first (V).', 'info', 2.5);
+      if (ECHO.Interior.cur) return UI().toast('Call your animals outside.', 'info', 2.5);
+      const beasts = world.titans ? Ti().bound(world) : [];
+      const order = (pl.horse ? ['horse'] : []).concat(beasts.map(t => t.id));
+      if (!order.length) return UI().toast('You have no animals to call yet: buy a horse at a stable, or beat a titan down and bind it.', 'info', 3.5);
+      const cur = pl.beastOut || (pl.horse && !pl.horseAway ? 'horse' : null);
+      // the next one that can come (a spent beast is resting until tomorrow)
+      let i = order.indexOf(cur), next = null;
+      for (let k = 1; k <= order.length; k++) {
+        const id = order[(i + k + order.length) % order.length];
+        if (id === cur && order.length > 1) continue;
+        if (id !== 'horse') { const t = Ti().byId(world, id); if ((t.restUntil || 0) > world.day) continue; }
+        next = id; break;
+      }
+      if (!next || next === cur) return UI().toast(cur ? 'No other animal can come just now.' : 'None of your animals can come just now.', 'info', 2.5);
+      const n = order.indexOf(next) + 1;
+      if (next === 'horse') {
+        if (pl.beastOut) A.dismiss(game);
+        ECHO.Life.callHorse(game);
+        UI().toast(`🐎 ${pl.horse.name} is coming (${n}/${order.length}) — Y for the next.`, 'info', 2.5);
+      } else {
+        const t = Ti().byId(world, next);
+        A.call(game, next);
+        UI().toast(`${Ti().sp(t).flies ? '🐉' : '🦬'} ${t.name} comes to you (${n}/${order.length}) — Y for the next.`, 'info', 2.5);
+      }
+    },
     // Y: call your beast, or send it away
     yKey(game) {
       const pl = game.pl;
@@ -1149,7 +1178,7 @@
       const where = o => `${Math.round(U.dist(o.x, o.y, pe.x, pe.y))} leagues ${ECHO.Purpose.dirTo(world, pl, o)}`;
       const bar = (f, col) => `<span style="display:inline-block;width:120px;height:7px;background:rgba(0,0,0,.45);border-radius:3px;overflow:hidden;vertical-align:middle"><i style="display:block;height:100%;width:${Math.round(U.clamp(f, 0, 1) * 100)}%;background:${col}"></i></span>`;
       const mine = world.titans ? T.bound(world) : [];
-      let h = `<p class="dim">Every animal that answers to you. <b>U</b> opens this page. One beast walks with you at a time; when it comes, your horse goes home until you whistle for it (V).</p>`;
+      let h = `<p class="dim">Every animal that answers to you. <b>U</b> opens this page; <b>Y</b> switches to your next animal (your horse, then each beast in turn). One animal rides with you at a time: when a beast comes your horse goes home, and when your horse comes the beast goes back to the wild.</p>`;
       // the beasts
       h += `<h3 class="gold">Beasts (${mine.length}/${T.MAX_BOUND})</h3>`;
       if (!mine.length) {
@@ -1164,7 +1193,7 @@
           <div class="dim" style="font-size:13px">${sp.flies ? 'Dragon' : 'Great beast'} of ${esc(ELEM[sp.element] ? ELEM[sp.element].word : sp.element)} · level ${t.lvl}${fights < t.lvl ? ` (fights at ${fights} for you — it grows as you do)` : ''} · yours since day ${t.boundDay || '?'}</div>
           <div class="row" style="gap:10px;font-size:13px"><span style="width:52px">Life</span>${bar(hp, hp > 0.5 ? '#9fe08a' : hp > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hp * 100)}%</span><span class="dim">· ${status}</span></div>
           <div style="font-size:13px">${arts.length ? `Uses for you: <b>${arts.join(', ')}</b>.` : ''} ${S.passive ? `<span class="dim">${esc(S.passive)}.</span>` : ''}${sp.flies ? ' <span class="gold">It can carry you: stand beside it and press V.</span>' : ''}</div>
-          <div class="row">${flying ? '' : out ? `<button class="small" data-an-dismiss="1">Send away (Y)</button>` : `<button class="small" data-an-call="${t.id}" ${rest ? 'disabled' : ''}>Call (Y)</button>`}<button class="small" data-an-free="${t.id}" ${flying ? 'disabled' : ''}>Set free…</button></div></div>`;
+          <div class="row">${flying ? '' : out ? `<button class="small" data-an-dismiss="1">Send away</button>` : `<button class="small" data-an-call="${t.id}" ${rest ? 'disabled' : ''}>Call</button>`}<button class="small" data-an-free="${t.id}" ${flying ? 'disabled' : ''}>Set free…</button></div></div>`;
       }).join('')}</div>`;
       // the horse
       h += `<h3 class="gold">Horse</h3>`;
