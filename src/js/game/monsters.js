@@ -166,7 +166,7 @@
       const pe = game.pe, ab = e.ab;
       const ang = Math.atan2(pe.y - e.y, pe.x - e.x);
       if (e.castKind === 'web') ECHO.Combat.shoot(e, ang, { kind: 'orb', speed: 9, dmg: 2, life: 1.4, type: 'magic', color: '#f4f4ff', effect: 'web' });
-      else ECHO.Combat.shoot(e, ang + (Math.random() - 0.5) * 0.08, { kind: 'orb', speed: 10, dmg: e.foe.dmg * e.dmgMul * ab.bolt.dmg, life: 1.5, type: ab.bolt.type, color: ab.bolt.color, effect: ab.bolt.type === 'fire' ? 'burn' : null });
+      else ECHO.Combat.shoot(e, (ECHO.Aware ? ECHO.Aware.lead(game, e, pe, 10, ang) : ang) + (Math.random() - 0.5) * 0.08, { kind: 'orb', speed: 10, dmg: e.foe.dmg * e.dmgMul * ab.bolt.dmg, life: 1.5, type: ab.bolt.type, color: ab.bolt.color, effect: ab.bolt.type === 'fire' ? 'burn' : null });
       e.state = 'chase'; e.cd = 0.8;
     },
     // A projectile from a monster lands on someone.

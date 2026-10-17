@@ -102,10 +102,13 @@
       if (ECHO.Interior.cur) { Game.pl.x = ECHO.Interior.cur.outside.x; Game.pl.y = ECHO.Interior.cur.outside.y; }
       else { Game.pl.x = Game.pe.x; Game.pl.y = Game.pe.y; }
       // Others
+      if (ECHO.Aware) ECHO.Aware.tick(Game, dt);
       for (const e of Game.ents) {
         if (e === Game.pe || e.dead) continue;
         try {
-          if (e.marvel) ECHO.Marvels.updateEnt(Game, e, dt);
+          ECHO.Combat.thinker = e;
+          if (ECHO.Aware && ECHO.Aware.preempt(Game, e, dt)) { /* stepping out of harm's way this moment */ }
+          else if (e.marvel) ECHO.Marvels.updateEnt(Game, e, dt);
           else if (e.humanoid) ECHO.Quests.updateFoe(Game, e, dt);
           else if (e.type === 'creature') ECHO.AI.Creature.update(Game, e, dt);
           else if (e.type === 'person') ECHO.AI.Person.update(Game, e, dt);
@@ -117,6 +120,7 @@
           if (!Game._aiErrSeen) { Game._aiErrSeen = true; console.error('ECHO: an entity update failed (the game carries on):', e.type, e.species || e.role || '', err); }
           if (e._errs > 30 && e.type !== 'boss' && !e.isCompanion) { e.dead = true; e.vanish = true; }
         }
+        ECHO.Combat.thinker = null;
         e.hurtT = Math.max(0, e.hurtT - dt);
         e.anim += dt * (e.moving ? 1 : 0.3);
         if (e.attackT) e.attackT = Math.max(0, e.attackT - dt);

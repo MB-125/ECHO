@@ -737,6 +737,42 @@ function main() {
   }
 
 
+  console.log('\nAwareness');
+  {
+    // a small world of its own: open ground, a few minds, and the awareness module
+    const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite };
+    ctx.globalThis = ctx; vm.createContext(ctx);
+    for (const f of ['core.js', 'game/aware.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx, { filename: f });
+    const E = ctx.ECHO, U = E.U;
+    E.World = { isSolid: () => false }; E.Water = { kind: () => null };
+    E.Ent = { fits: () => true, lineOfSight: () => true, seek(w, e, x, y, sp, dt) { const d = U.dist(e.x, e.y, x, y); if (d > 0.01) { const s = Math.min(d, sp * dt); e.x += (x - e.x) / d * s; e.y += (y - e.y) / d * s; } }, travel(w, e, x, y, sp, dt) { this.seek(w, e, x, y, sp, dt); } };
+    E.Combat = { fx: [], proj: [] }; E.PlayerCtl = { heavyHold: false };
+    const pe = { type: 'player', x: 0, y: 0, r: 0.33, hp: 100, maxHp: 100 };
+    const side = e => e === pe || e.isCompanion ? 'you' : 'them';
+    const game = E.Game = { time: 0, world: { npcs: {} }, pe, ents: [], hostileTo: (a, b) => side(a) !== side(b), shake() {}, light() {} };
+    const comp = { type: 'person', isCompanion: true, compLv: 5, x: 2, y: 0, r: 0.34, speed: 3.5, hp: 50, maxHp: 100, state: 'chase', gear: {} };
+    const mender = { type: 'person', isCompanion: true, compCls: 'mender', x: 3, y: 1, r: 0.34, speed: 3.5, hp: 40, maxHp: 100, state: 'chase', gear: {} };
+    const foe = { type: 'creature', humanoid: true, foe: { elite: true }, aggro: true, x: 5, y: 0, r: 0.36, speed: 3.8, hp: 50, maxHp: 50, state: 'chase', gear: {} };
+    game.ents = [pe, comp, mender, foe];
+    // a blow marked under the companion, made by the foe
+    E.Combat.fx.push({ kind: 'tele', shape: 'circle', cx: 2, cy: 0, x: 2, y: 0, radius: 1.5, t: 0, life: 1.2, by: foe });
+    let moved = false;
+    for (let i = 0; i < 20 && !moved; i++) { game.time += 0.1; E.Aware.tick(game, 0.1); E.Aware.preempt(game, comp, 0.1); moved = U.dist(comp.x, comp.y, 2, 0) > 1.5; }
+    check('a companion steps out of a marked blow before it lands', moved, `now ${U.dist(comp.x, comp.y, 2, 0).toFixed(1)} from its centre`);
+    check('a foe does not flee its own side\'s blow', E.Aware.danger(game, foe, 2, 0) === 0 && E.Aware.danger(game, comp, 2, 0) > 0);
+    // who it goes for
+    game.time += 5; foe._tgPick = null;
+    const t = E.Aware.target(game, foe, pe);
+    check('a clever foe goes for the wounded healer before you', t === mender);
+    const slime = { type: 'creature', species: 'slime', foe: {}, aggro: true, x: 1.6, y: 0, r: 0.4, hp: 30, maxHp: 30, gear: {} };
+    check('a slime just goes for whatever is nearest', E.Aware.target(game, slime, pe) === comp || E.Aware.target(game, slime, pe) === pe);
+    // aiming ahead
+    const archer = { ...foe, x: 0, y: 6 }; pe._vx = 4; pe._vy = 0;
+    const a = E.Aware.lead(game, archer, pe, 13, -Math.PI / 2), ax = Math.cos(a);
+    check('an archer aims ahead of a running target', ax > 0.1, `aims ${(Math.atan2(Math.sin(a), Math.cos(a)) * 180 / Math.PI).toFixed(0)}° instead of -90°`);
+  }
+
+
   console.log(`\n${passes} passed, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 }

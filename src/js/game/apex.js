@@ -430,7 +430,7 @@
       const live = e => e && !e.dead && !e.vanish && e.state !== 'subdued';
       if (A.later.length) {
         const due = A.later.filter(l => l.at <= now);
-        if (due.length) { A.later = A.later.filter(l => l.at > now); for (const l of due) { if (!live(l.e) || (l.e.castId || 0) !== l.cid) continue; try { l.fn(); } catch (err) { console.error(err); } } }
+        if (due.length) { A.later = A.later.filter(l => l.at > now); for (const l of due) { if (!live(l.e) || (l.e.castId || 0) !== l.cid) continue; ECHO.Combat.thinker = l.e; try { l.fn(); } catch (err) { console.error(err); } ECHO.Combat.thinker = null; } }
       }
       for (const z of A.zones) {
         z.t += dt;

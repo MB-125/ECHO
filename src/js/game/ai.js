@@ -177,7 +177,7 @@
           let tx = target.x - Math.cos(ang + e.circleDir * 0.6) * want, ty = target.y - Math.sin(ang + e.circleDir * 0.6) * want;
           // a pack spreads round its prey; the ones without a turn hang back on the far side
           if (e.slotA != null && (e.squadN || 1) >= 2) { const r = e.token ? want : want + 1.4; tx = target.x + Math.cos(e.slotA) * r; ty = target.y + Math.sin(e.slotA) * r; }
-          if ((e.stuck || 0) > 0.4 || d > 7) ECHO.Ent.travel(world, e, target.x, target.y, speed, dt);
+          if ((e.stuck || 0) > 0.4 || d > 7) { const I = ECHO.Aware && d > 7 ? ECHO.Aware.intercept(game, e, target) : target; ECHO.Ent.travel(world, e, I.x, I.y, speed, dt); }
           else ECHO.Ent.seek(world, e, tx, ty, speed * (d > 6 ? 1 : 0.75), dt, 0.3);
           e.state = 'stalk';
           // and bites from behind, if it can
@@ -566,14 +566,14 @@
       const archer = e.gear.bow;
       const spear = e.gear.spear;
       // Shields come up when the player winds up a strike nearby.
-      e.blocking = !!(e.gear.shield && target === game.pe && game.pe.cd > 0.3 && d < 2.2 && e.state !== 'attack');
+      e.blocking = !!(e.gear.shield && ((target === game.pe && game.pe.cd > 0.3 && d < 2.2) || (e._blockUntil || 0) > game.time) && e.state !== 'attack');
       if (e.state === 'windup') {
         if (e.t > e.windEnd) {
           // a reader holds the blow while you're still rolling
           if (e.readPlan && ECHO.Wits && ECHO.Wits.hold(game, e, dt)) return;
           e.state = 'attack'; e.t = 0;
           if (archer && !e.meleeWind) {
-            ECHO.Combat.shoot(e, e.aimAngle + (Math.random() - 0.5) * 0.12 * (e.aimMul || 1), { kind: e.gear.crossbow ? 'bolt' : 'arrow', speed: e.gear.crossbow ? 17 : 13, dmg: Math.max(5 + skill * 0.11 + (e.gear.crossbow ? 4 : 0), (e.wdmg || 0) * (0.55 + skill / 220)) * (e.dmgMul || 1), life: 1.3, type: 'ranged' });
+            ECHO.Combat.shoot(e, (ECHO.Aware ? ECHO.Aware.lead(game, e, target, e.gear.crossbow ? 17 : 13, e.aimAngle) : e.aimAngle) + (Math.random() - 0.5) * 0.12 * (e.aimMul || 1), { kind: e.gear.crossbow ? 'bolt' : 'arrow', speed: e.gear.crossbow ? 17 : 13, dmg: Math.max(5 + skill * 0.11 + (e.gear.crossbow ? 4 : 0), (e.wdmg || 0) * (0.55 + skill / 220)) * (e.dmgMul || 1), life: 1.3, type: 'ranged' });
           } else {
             const reach = spear ? 2.1 : 1.25;
             // a sellsword's every third blow, once learned, cleaves wide
@@ -611,7 +611,8 @@
       const reach = spear ? 1.9 : 1.15;
       if (d > reach + target.r) {
         if (spear && d < reach + 1.4 && e.cd > 0) { ECHO.Ent.seek(world, e, e.x - Math.cos(ang), e.y - Math.sin(ang), sp * 0.5, dt); return; }
-        ECHO.Ent.travel(world, e, target.x, target.y, sp * (punish ? 1.35 : 1), dt);
+        const I = ECHO.Aware && d > reach + target.r + 1.5 ? ECHO.Aware.intercept(game, e, target) : target;
+        ECHO.Ent.travel(world, e, I.x, I.y, sp * (punish ? 1.35 : 1), dt);
       } else {
         e.moving = false;
         if (e.cd <= 0 && (punish || e.isCompanion || !ECHO.Tactics || ECHO.Tactics.mayStrike(e))) {

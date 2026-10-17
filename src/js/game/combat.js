@@ -33,7 +33,8 @@
       }
     },
     ring(x, y, radius, color, life = 0.4) { C.fx.push({ kind: 'ring', x, y, radius, t: 0, life, color }); },
-    telegraph(o) { const f = { kind: 'tele', t: 0, ...o }; C.fx.push(f); return f; },
+    // (whoever was thinking when it was marked made it — so those on their side know it's not meant for them)
+    telegraph(o) { const f = { kind: 'tele', t: 0, by: C.thinker || null, ...o }; C.fx.push(f); return f; },
 
     // ------------------------------------------------------------ Melee
     melee(att, o) {
@@ -273,6 +274,7 @@
       if (target.ngWard) { dmg = Math.max(0, Math.min(Math.round(dmg * 0.35), Math.floor(target.hp - 1))); if (dmg <= 0) return 0; }
       if (target.titan && ECHO.Apex) { dmg = Math.round(ECHO.Apex.preDamage(game, target, dmg, src)); if (dmg <= 0) return 0; }
       const wasStaggered = target.stagger > 0;
+      if (ECHO.Aware && from) ECHO.Aware.hurtBy(target, from, dmg);
       target.hp -= dmg;
       target.hurtT = 0.18;
       target.hurtDir = src.angle != null ? src.angle : target.hurtDir;

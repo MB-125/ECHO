@@ -59,8 +59,11 @@
       }
       // a companion close at hand draws some of the blows
       let T = pe, dT = d;
-      const comp = game.ents.find(o => (o.isCompanion || o.mentor) && !o.dead && !o.hidden);
-      if (comp) { const dc = U.dist(e.x, e.y, comp.x, comp.y); if ((dc < d - 1.2 && dc < 4) || (comp.tauntT > 0 && dc < 8)) { T = comp; dT = dc; } }
+      if (ECHO.Aware) { T = ECHO.Aware.target(game, e, pe); dT = U.dist(e.x, e.y, T.x, T.y); }
+      else {
+        const comp = game.ents.find(o => (o.isCompanion || o.mentor) && !o.dead && !o.hidden);
+        if (comp) { const dc = U.dist(e.x, e.y, comp.x, comp.y); if ((dc < d - 1.2 && dc < 4) || (comp.tauntT > 0 && dc < 8)) { T = comp; dT = dc; } }
+      }
       const ang = Math.atan2(T.y - e.y, T.x - e.x);
       e.target = T;
       if (ECHO.Monsters && ECHO.Monsters.tick(game, e, dt, dT, ang)) return;
@@ -83,7 +86,7 @@
             if (e.readPlan && ECHO.Wits && ECHO.Wits.hold(game, e, dt)) return;
             if (ECHO.Monsters && ECHO.Monsters.afterWindup(game, e)) return;
             e.state = 'attack'; e.t = 0; e.attackT = 0.2; e.attackDur = 0.2; e.attackKind = 'fore';
-            if (e.shooter) ECHO.Combat.shoot(e, e.aim + (Math.random() - 0.5) * 0.1, { kind: 'arrow', speed: 13, dmg: F.dmg * 0.8 * dmul, life: 1.3, type: 'ranged' });
+            if (e.shooter) ECHO.Combat.shoot(e, (ECHO.Aware ? ECHO.Aware.lead(game, e, e.target, 13, e.aim) : e.aim) + (Math.random() - 0.5) * 0.1, { kind: 'arrow', speed: 13, dmg: F.dmg * 0.8 * dmul, life: 1.3, type: 'ranged' });
             else {
               let mo = { angle: e.aim, arc: F.elite ? 2.2 : 1.6, range: F.reach, dmg: F.dmg * dmul * (0.9 + Math.random() * 0.2), knock: F.elite || e.boss2 ? 0.3 : 0.15 };
               if (ECHO.Wits) mo = ECHO.Wits.blow(game, e, mo);
@@ -97,6 +100,8 @@
         case 'attack': if (e.t > 0.25) e.state = 'chase'; return;
         default: {
           e.state = 'chase';
+          // badly hurt, with friends at hand: a breath behind them first
+          if (ECHO.Aware && ECHO.Aware.fallBack(game, e, T, dt)) return;
           e.shooter = (e.gear.bow || (e.ab && e.ab.ranged)) && dT > 3;
           const want = e.shooter ? 6 : F.reach + 0.3;
           if (T === pe && !e.boss2 && !e.giant && ECHO.Wits && ECHO.Wits.move(game, e, T, dT, ang, e.speed, dt, { archer: e.shooter })) return;
@@ -105,7 +110,7 @@
             if (e.shooter && e.cd <= 0 && dT < 9 && dT >= 3.2 && !e.blockedShot) { e.state = 'windup'; e.t = 0; e.aim = ang; e.windEnd = 0.7; }
             return;
           }
-          if (dT > want) ECHO.Ent.travel(world, e, T.x, T.y, e.speed * (punish ? 1.35 : 1), dt);
+          if (dT > want) { const I = ECHO.Aware && !e.shooter && dT > want + 1 ? ECHO.Aware.intercept(game, e, T) : T; ECHO.Ent.travel(world, e, I.x, I.y, e.speed * (punish ? 1.35 : 1), dt); }
           else if (e.shooter && dT < 4) ECHO.Ent.seek(world, e, e.x - Math.cos(ang) * 2, e.y - Math.sin(ang) * 2, e.speed * 0.8, dt);
           else e.moving = false;
           e.dir = ang; e.flip = Math.cos(ang) < 0;
