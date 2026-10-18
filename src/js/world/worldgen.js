@@ -50,7 +50,7 @@
       if (world.blocked[i] === 1) return true;
       const t = world.tiles[i];
       // A tree only blocks at its trunk, so you can thread between them.
-      if (t === TILE.TREE) { const tr = World.trunk(world, x, y); return (fx - tr.x) ** 2 + (fy - tr.y) ** 2 < 0.2 * 0.2; }
+      if (t === TILE.TREE) { const tx = x + 0.5 + (ECHO.hash2(x, y, world.seed + 32) - 0.5) * 0.5, ty = y + 0.5 + (ECHO.hash2(x, y, world.seed + 33) - 0.5) * 0.5; return (fx - tx) ** 2 + (fy - ty) ** 2 < 0.2 * 0.2; }   // (World.trunk, without making an object)
       return SOLID_TILES.has(t);
     },
     // Where the trunk stands in a tree tile (the 3D renderer plants it here too).
@@ -149,21 +149,26 @@
       const gen = ++B.gen, g = B.g, came = B.came, stamp = B.stamp, closed = B.closed;
       if (gen > 4e9) { B.stamp.fill(0); B.closed.fill(0); B.gen = 1; }
       const G = i => stamp[i] === gen ? g[i] : Infinity;
-      const heap = [];
+      // the open list: a binary heap on flat typed arrays (no garbage per step —
+      // this runs while you ride, and garbage is what makes a frame stall later)
+      let hf = B.hf, hi = B.hi, hn = 0;
+      if (!hf) { hf = B.hf = new Float64Array(4096); hi = B.hi = new Int32Array(4096); }
       const push = (i, f) => {
-        heap.push([f, i]);
-        let c = heap.length - 1;
-        while (c > 0) { const p = (c - 1) >> 1; if (heap[p][0] <= heap[c][0]) break; [heap[p], heap[c]] = [heap[c], heap[p]]; c = p; }
+        if (hn === hf.length) { const nf = new Float64Array(hn * 2), ni = new Int32Array(hn * 2); nf.set(hf); ni.set(hi); hf = B.hf = nf; hi = B.hi = ni; }
+        let c = hn++;
+        hf[c] = f; hi[c] = i;
+        while (c > 0) { const p = (c - 1) >> 1; if (hf[p] <= hf[c]) break; const tf = hf[p], ti = hi[p]; hf[p] = hf[c]; hi[p] = hi[c]; hf[c] = tf; hi[c] = ti; c = p; }
       };
       const pop = () => {
-        const top = heap[0], last = heap.pop();
-        if (heap.length) {
-          heap[0] = last; let c = 0;
+        const top = hi[0];
+        hn--;
+        if (hn > 0) {
+          hf[0] = hf[hn]; hi[0] = hi[hn]; let c = 0;
           for (;;) {
             const l = 2 * c + 1, r = l + 1; let m = c;
-            if (l < heap.length && heap[l][0] < heap[m][0]) m = l;
-            if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
-            if (m === c) break; [heap[m], heap[c]] = [heap[c], heap[m]]; c = m;
+            if (l < hn && hf[l] < hf[m]) m = l;
+            if (r < hn && hf[r] < hf[m]) m = r;
+            if (m === c) break; const tf = hf[m], ti = hi[m]; hf[m] = hf[c]; hi[m] = hi[c]; hf[c] = tf; hi[c] = ti; c = m;
           }
         }
         return top;
@@ -171,20 +176,21 @@
       const start = sy * W + sx, goal = ty * W + tx;
       stamp[start] = gen; g[start] = 0; came[start] = -1; push(start, 0);
       let iter = 0, found = start === goal;
-      while (heap.length && iter++ < maxIter) {
-        const [, cur] = pop();
+      const DX = [1, -1, 0, 0], DY = [0, 0, 1, -1];
+      while (hn && iter++ < maxIter) {
+        const cur = pop();
         if (cur === goal) { found = true; break; }
         if (closed[cur] === gen) continue;
         closed[cur] = gen;
-        const cx = cur % W, cy = (cur / W) | 0;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          const nx = cx + dx, ny = cy + dy;
+        const cx = cur % W, cy = (cur / W) | 0, gc = G(cur);
+        for (let d = 0; d < 4; d++) {
+          const nx = cx + DX[d], ny = cy + DY[d];
           if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
           const ni = ny * W + nx;
           if (closed[ni] === gen) continue;
           const c = costFn(nx, ny, ni, cx, cy);
           if (!isFinite(c)) continue;
-          const ng = G(cur) + c;
+          const ng = gc + c;
           if (ng < G(ni)) { stamp[ni] = gen; g[ni] = ng; came[ni] = cur; push(ni, ng + (Math.abs(nx - tx) + Math.abs(ny - ty)) * 0.9); }
         }
       }

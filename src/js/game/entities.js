@@ -169,8 +169,8 @@
     // in smooth straight lines instead of tile-by-tile zigzags.
     // Would a body of radius r fit standing here?
     fits(world, x, y, r = 0.3) {
-      const S = (a, b) => ECHO.World.isSolid(world, a, b);
-      return !S(x, y) && !S(x - r, y - r) && !S(x + r, y - r) && !S(x - r, y + r) && !S(x + r, y + r) && !S(Math.floor(x) + 0.5, Math.floor(y) + 0.5) && !(x < 9000 && ECHO.Solids && ECHO.Solids.hit(world, x, y, r));
+      const W = ECHO.World;   // (no little helper function made on every call: this runs thousands of times a second)
+      return !W.isSolid(world, x, y) && !W.isSolid(world, x - r, y - r) && !W.isSolid(world, x + r, y - r) && !W.isSolid(world, x - r, y + r) && !W.isSolid(world, x + r, y + r) && !W.isSolid(world, Math.floor(x) + 0.5, Math.floor(y) + 0.5) && !(x < 9000 && ECHO.Solids && ECHO.Solids.hit(world, x, y, r));
     },
     // The nearest place to (x, y) where a body can actually stand — a goal
     // inside a wall, a tree or a pond is moved to the closest open ground.

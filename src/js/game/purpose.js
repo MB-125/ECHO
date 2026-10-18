@@ -113,9 +113,9 @@
           dirTxt = `${R.leg ? R.leg + ' · ' : ''}${g.where.vague ? 'somewhere ' : ''}${Math.max(1, Math.round(R.left / 2) * 2)} leagues`;
         }
         else if (g.where.vague) dirTxt = `${d > 60 ? 'far ' : ''}to the ${DIRS[((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8]}`;
-        else dirTxt = `${Math.round(d)} leagues`;
+        else dirTxt = `${d < 20 ? Math.round(d) : Math.round(d / 2) * 2} leagues`;   // (every odd league would rewrite the panel twenty times a second on a dragon)
       }
-      const html = `<span class="gl">${esc(g.label)}</span>${g.where ? `<span class="gw">${ang != null && dirTxt !== 'here' ? `<i class="arrow" style="transform:rotate(${Math.round(ang * 180 / Math.PI)}deg)">➤</i>` : ''}${esc(g.where.name || '')}${dirTxt ? ' · ' + dirTxt : ''}</span>` : ''}${g.kind === 'track' ? '<span class="gt">tracked</span>' : ''}<span class="gk">J · how? · N · where to?</span>`;
+      const html = `<span class="gl">${esc(g.label)}</span>${g.where ? `<span class="gw">${ang != null && dirTxt !== 'here' ? `<i class="arrow" style="transform:rotate(${Math.round(ang * 60 / Math.PI) * 3}deg)">➤</i>` : ''}${esc(g.where.name || '')}${dirTxt ? ' · ' + dirTxt : ''}</span>` : ''}${g.kind === 'track' ? '<span class="gt">tracked</span>' : ''}<span class="gk">J · how? · N · where to?</span>`;
       if (Pu._html !== html) { Pu._html = html; el.innerHTML = html; el.classList.remove('hidden'); }
     },
 

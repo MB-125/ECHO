@@ -65,6 +65,13 @@ METALLIC = {'metal': 0.9, 'darkmetal': 0.85, 'gold': 1.0, 'iron': 0.75}
 # faceted look.)
 LOWPOLY = os.environ.get('ECHO_LOWPOLY') == '1'
 CREASE = math.radians(42)
+# The far versions: the trees, bushes, crops and stones that fill the land are
+# drawn by the thousand, so each also gets a plain, faceted "_lo" version that the
+# game uses beyond the few chunks around you (ECHO_LOD=1 builds just those).
+LOD = os.environ.get('ECHO_LOD') == '1'
+if LOD:
+    LOWPOLY = True
+SCATTER = ['oak', 'oakbare', 'pine', 'willow', 'bush', 'crop', 'grass', 'reeds', 'rock', 'boulder', 'pillar', 'ruinwall']
 
 
 def mat(name):
@@ -122,7 +129,9 @@ class Part:
         self._place(v, f, size, at, rot, m)
         # a small chamfer on every edge: real things are never razor-sharp
         small = min(abs(s) for s in size)
-        if not LOWPOLY and small > 0.03:
+        # (stalks, slats and trims are too thin for a bevel to show; it would only
+        # multiply their triangles, and a field has thousands of them)
+        if not LOWPOLY and small > 0.06:
             edges = list({e for face in f for e in face.edges})
             res = bmesh.ops.bevel(self.bm, geom=edges + list(v), offset=min(0.035, small * 0.12), segments=1, affect='EDGES', profile=0.5, clamp_overlap=True)
             mi = self._mi(m)
@@ -212,7 +221,7 @@ class Model:
                 ob.location = p.pivot - pp.pivot
             else:
                 ob.location = p.pivot
-        path = os.path.join(OUT, self.name + '.glb')
+        path = os.path.join(OUT, self.name + ('_lo' if LOD else '') + '.glb')
         bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=False,
                                   export_apply=False, export_yup=True, export_materials='EXPORT',
                                   export_animations=False, export_cameras=False, export_lights=False)
@@ -1099,5 +1108,7 @@ if __name__ == '__main__':
     print('ECHO assets → ' + os.path.abspath(OUT))
     for fn in MODELS:
         if only and fn.__name__ not in only:
+            continue
+        if LOD and fn.__name__ not in SCATTER:
             continue
         fn().export()

@@ -14,6 +14,25 @@
   const So = ECHO.Solids = {
     RAD,
     // What stands on a tile by nature (the same hashes the 3D renderer plants with).
+    // (the same, written into o instead of a new object — the collision test runs
+    // this nine times for every step of everything that moves, and garbage made at
+    // that rate is what makes the frame stall now and then)
+    propInto(world, x, y, o) {
+      if (x < 0 || y < 0 || x >= world.W || y >= world.H) return false;
+      const T = TT(), t = world.tiles[y * world.W + x];
+      if (t !== T.TREE && t !== T.FOREST && t !== T.GRASS && t !== T.HILL && t !== T.SNOW && t !== T.RUIN) return false;
+      const s = world.seed, a = h2(x, y, s + 31);
+      let r;
+      if (t === T.TREE) r = 0.2;
+      else if (t === T.FOREST) { if (!(a < 0.22)) return false; r = 0.15; }
+      else if (t === T.GRASS) { if (!(a >= 0.32 && a < 0.335)) return false; r = RAD.rock * (0.5 + h2(x, y, s + 32) * 0.4); }
+      else if (t === T.HILL || t === T.SNOW) { if (!(a < 0.18)) return false; r = RAD.rock * (0.8 + h2(x, y, s + 32)); }
+      else if (t === T.RUIN) { if (!(a < 0.06 && world.ruins.some(q => Math.abs(q.x - x) <= 6 && Math.abs(q.y - y) <= 5))) return false; r = 0.25; }
+      else return false;
+      o.x = x + 0.5 + (h2(x, y, s + 32) - 0.5) * 0.5; o.y = y + 0.5 + (h2(x, y, s + 33) - 0.5) * 0.5; o.r = r;
+      return true;
+    },
+    _pp: { x: 0, y: 0, r: 0 },
     tileProp(world, x, y) {
       if (x < 0 || y < 0 || x >= world.W || y >= world.H) return null;
       const T = TT(), t = world.tiles[y * world.W + x];
@@ -133,8 +152,8 @@
       if (x >= 9000 || !world.tiles) return false;
       const fx = Math.floor(x), fy = Math.floor(y);
       for (let ty = fy - 1; ty <= fy + 1; ty++) for (let tx = fx - 1; tx <= fx + 1; tx++) {
-        const p = So.tileProp(world, tx, ty);
-        if (p && (p.x - x) ** 2 + (p.y - y) ** 2 < (p.r + r) ** 2) return true;
+        const p = So._pp;
+        if (So.propInto(world, tx, ty, p) && (p.x - x) ** 2 + (p.y - y) ** 2 < (p.r + r) ** 2) return true;
       }
       const G = So.grid(world, pl || (ECHO.Game && ECHO.Game.world === world ? ECHO.Game.pl : null));
       const l = G.cells.get(Math.floor(y / G.CS) * 100000 + Math.floor(x / G.CS));

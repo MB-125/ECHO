@@ -73,6 +73,10 @@
       r.toneMapping = THREE.ACESFilmicToneMapping;
       r.toneMappingExposure = 1.05;
       r.shadowMap.enabled = true;
+      // Asking the driver whether each shader built cleanly makes the game wait for
+      // it there and then; without the question, shaders build in the background
+      // (see warmUp). ?debug brings the checks back.
+      r.debug.checkShaderErrors = /[?&]debug\b/.test((window.location && window.location.search) || '');
       r.shadowMap.type = THREE.PCFSoftShadowMap;
       R.overlay = document.getElementById('overlay');
       R.octx = R.overlay.getContext('2d');
@@ -120,6 +124,38 @@
       R.applyQuality();
       if (ECHO.Post) ECHO.Post.init(R);
     },
+    // Shaders, built ahead. The first time a kind of surface is drawn — a dragon
+    // fading in, a spell's glow, a hidden shrine's stone — the graphics driver has
+    // to build a shader for it, and on some machines that is a long stall right in
+    // the middle of a ride. So, once the world is up, one of every kind we draw is
+    // handed to the driver to build in the background, and kept (so the shader is
+    // never thrown away and built again when the last thing using it leaves).
+    warmUp() {
+      R.warmed = true;
+      const r = R.renderer;
+      if (R._zoo) { for (const m of R._zoo.mats) m.dispose(); R._zoo = null; }
+      const S = o => new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.8 }, o)), Bm = o => new THREE.MeshBasicMaterial(o || {});
+      const fams = [
+        () => S(), () => S({ flatShading: true }), () => S({ vertexColors: true }), () => S({ vertexColors: true, flatShading: true }),
+        () => R.detail(S(), 0.1, 3.5), () => R.detail(S({ vertexColors: true }), 0.12, 2.5), () => R.detail(S({ vertexColors: true, flatShading: true }), 0.34, 1.3),
+        () => S({ side: THREE.DoubleSide }), () => Bm(), () => Bm({ vertexColors: true }), () => Bm({ side: THREE.DoubleSide })
+      ];
+      const g = R._zooGeo || (R._zooGeo = new THREE.BoxGeometry(0.01, 0.01, 0.01));
+      const zoo = new THREE.Group(), mats = [];
+      for (const make of fams) for (const tr of [false, true]) for (const inst of [false, true]) {
+        const m = make();
+        if (tr) { m.transparent = true; m.opacity = 0.5; m.depthWrite = false; }
+        const o = inst ? new THREE.InstancedMesh(g, m, 1) : new THREE.Mesh(g, m);
+        if (inst) o.setMatrixAt(0, new THREE.Matrix4());
+        o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+        zoo.add(o); mats.push(m);
+      }
+      for (const tr of [false, true]) { const m = new THREE.LineBasicMaterial({ transparent: tr, opacity: tr ? 0.5 : 1 }); zoo.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0.01, 0)]), m)); mats.push(m); }
+      R.scene.add(zoo);
+      try { r.compile(R.scene, R.camera); } catch (e) { /* a driver that won't: they build as needed, as before */ }
+      R.scene.remove(zoo);
+      R._zoo = { group: zoo, mats };
+    },
     // Surface detail without textures: patches and grain drawn from the place
     // itself (a few octaves of noise on the world position), so a stone square,
     // a meadow or a plastered wall is never one flat colour — and a little
@@ -164,7 +200,8 @@
       if (R.sun) { R.sun.shadow.mapSize.set(q.map, q.map); if (R.sun.shadow.map) { R.sun.shadow.map.dispose(); R.sun.shadow.map = null; } }
       if (was !== q.shadows && R.scene) R.scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
       R.resize();
-      if (ECHO.Post && ECHO.Post.R) { ECHO.Post.aoOff = false; ECHO.Post.bloomOff = false; ECHO.Post.scale = 1; ECHO.Post.setup(); }
+      R.warmed = false;   // the shaders change with the settings: build the new set
+      if (ECHO.Post && ECHO.Post.R) { ECHO.Post.aoOff = false; ECHO.Post.bloomOff = false; ECHO.Post.scale = 1; ECHO.Post.noUp = false; ECHO.Post.hist = []; ECHO.Post.setup(); }
     },
     resize() {
       const q = R.QUALITY[(ECHO.UI && ECHO.UI.settings.quality) || 'high'] || R.QUALITY.high;
@@ -191,6 +228,8 @@
       R.roomKey = null;
       if (R.horses) for (const k of [...R.horses.keys()]) R.dropHorse(k); R.views.clear(); R.fxMeshes.clear(); R.projMeshes.clear(); R.lootMeshes.clear();
       R.towns = {};
+      if (R.secretSeen) { for (const s of R.secretSeen.values()) R.secretGroup.remove(s.g); R.secretSeen.clear(); }
+      R._camV = null; R._chunkLast = null; R.warmed = false;
       R.buildHeights(world);
       R.buildWater(world);
       R.sitesT = 0;
@@ -297,29 +336,65 @@
 
     // ---------------------------------------------------------------- chunks
     chunkKey(world) { return world.day + '|' + (world._tileEpoch || 0); },
+    // The land is built in 16-tile chunks around the camera. At speed (a gallop, a
+    // dragon's back) it looks ahead along the way you are going, so the ground is
+    // ready before it comes into view; it lets go of what is behind only once that
+    // is well out of sight (so turning back costs nothing); and each frame it builds
+    // only as much as fits in a few milliseconds, so the frame rate holds.
     updateChunks(game) {
-      const world = game.world;
-      const ccx = Math.floor(R.camTarget.x / CH), ccy = Math.floor(R.camTarget.z / CH);
-      const epoch = R.chunkKey(world);
-      const want = [];
-      for (let dy = -R.chunkR; dy <= R.chunkR; dy++) for (let dx = -R.chunkR; dx <= R.chunkR; dx++) {
-        const cx = ccx + dx, cy = ccy + dy;
-        if (cx < 0 || cy < 0 || cx * CH >= world.W || cy * CH >= world.H) continue;
-        want.push([cx, cy, dx * dx + dy * dy]);
+      const world = game.world, tg = R.camTarget;
+      // how fast the camera is going, smoothed
+      const now = performance.now(), last = R._chunkLast;
+      R._chunkLast = { x: tg.x, z: tg.z, t: now };
+      if (last && now > last.t) {
+        const k = Math.min(1, (now - last.t) / 250), vx = (tg.x - last.x) / ((now - last.t) / 1000), vz = (tg.z - last.z) / ((now - last.t) / 1000);
+        if (Math.abs(vx) < 80 && Math.abs(vz) < 80) { R._camV = R._camV || { x: 0, z: 0 }; R._camV.x += (vx - R._camV.x) * k; R._camV.z += (vz - R._camV.z) * k; }
       }
-      want.sort((a, b) => a[2] - b[2]);
-      const keep = new Set(want.map(w => w[0] + ',' + w[1]));
-      for (const k of Object.keys(R.chunks)) if (!keep.has(k)) R.dropChunk(k);
-      let budget = R.firstFrame ? 99 : 2;
-      for (const [cx, cy] of want) {
+      const v = R._camV || { x: 0, z: 0 }, speed = Math.hypot(v.x, v.z);
+      R.camSpeed = speed;
+      // from the sky you see further
+      const rad = R.chunkR + ((R.flyK || 0) > 0.3 ? 1 : 0);
+      const ccx = Math.floor(tg.x / CH), ccy = Math.floor(tg.z / CH);
+      // where the camera will be in a second or so
+      const look = Math.min(1.4, 0.35 + speed * 0.05);
+      const ax = tg.x + v.x * look, az = tg.z + v.z * look;
+      const acx = Math.floor(ax / CH), acy = Math.floor(az / CH);
+      const epoch = R.chunkKey(world);
+      const want = new Map();
+      const addAround = (ox, oy, r) => {
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+          const cx = ox + dx, cy = oy + dy;
+          if (cx < 0 || cy < 0 || cx * CH >= world.W || cy * CH >= world.H) continue;
+          const k = cx + ',' + cy;
+          // nearest the point we are heading for first
+          const pd = ((cx + 0.5) * CH - (tg.x + ax) / 2) ** 2 + ((cy + 0.5) * CH - (tg.z + az) / 2) ** 2;
+          if (!want.has(k) || want.get(k)[2] > pd) want.set(k, [cx, cy, pd]);
+        }
+      };
+      addAround(ccx, ccy, rad);
+      if (acx !== ccx || acy !== ccy) addAround(acx, acy, rad);
+      // let go of chunks only when they are a full chunk beyond what we want
+      for (const k of Object.keys(R.chunks)) {
+        if (want.has(k)) continue;
+        const [cx, cy] = k.split(',').map(Number);
+        if (Math.max(Math.abs(cx - ccx), Math.abs(cy - ccy)) > rad + 1 && Math.max(Math.abs(cx - acx), Math.abs(cy - acy)) > rad + 1) R.dropChunk(k);
+      }
+      const list = [...want.values()].sort((a, b) => a[2] - b[2]);
+      const t0 = performance.now(), first = R.firstFrame;
+      let built = 0;
+      for (const [cx, cy] of list) {
         const k = cx + ',' + cy;
         const c = R.chunks[k];
         if (c && c.epoch === epoch) continue;
-        if (budget-- <= 0) break;
+        // a few ms a frame; the chunk under your feet is never left waiting
+        const under = Math.abs(cx - ccx) <= 1 && Math.abs(cy - ccy) <= 1 && !c;
+        if (!first && built > 0 && !under && performance.now() - t0 > 3) break;
         if (c) R.dropChunk(k);
         R.buildChunk(world, cx, cy, epoch);
+        built++;
       }
       R.firstFrame = false;
+      R.cullChunks();
     },
     dropChunk(k) {
       const c = R.chunks[k];
@@ -334,7 +409,7 @@
       const x0 = cx * CH, y0 = cy * CH, x1 = Math.min(world.W, x0 + CH), y1 = Math.min(world.H, y0 + CH);
       const ntile = (x1 - x0) * (y1 - y0);
       const pos = new Float32Array(ntile * 18), col = new Float32Array(ntile * 18);
-      let o = 0;
+      let o = 0, groundTop = 0;
       const tmp = new THREE.Color();
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
         const t = world.tiles[y * world.W + x];
@@ -342,6 +417,7 @@
         const jit = 0.9 + hash(x, y, world.seed + 2) * 0.2;
         tmp.multiplyScalar(jit);
         const a = R.cornerH(x, y), b = R.cornerH(x + 1, y), c2 = R.cornerH(x, y + 1), d = R.cornerH(x + 1, y + 1);
+        if (a > groundTop) groundTop = a;
         const V = [[x, a, y], [x, c2, y + 1], [x + 1, b, y], [x + 1, b, y], [x, c2, y + 1], [x + 1, d, y + 1]];
         for (let i = 0; i < 6; i++) {
           pos[o] = V[i][0]; pos[o + 1] = V[i][1]; pos[o + 2] = V[i][2];
@@ -416,10 +492,15 @@
         }
       }
       const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sv = new THREE.Vector3(), pv = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+      // each kind of plant or stone twice over: the full model for the land around
+      // you and a plain one for further off, sharing one set of positions
+      const hi = [], lo = [];
+      let top = groundTop;
       for (const k of Object.keys(sets)) {
         const set = sets[k];
         const baked = ECHO.Models.bake(set.name, set.colors);
         if (!baked) continue;
+        const far = ECHO.Models.scenes[set.name + '_lo'] ? ECHO.Models.bake(set.name + '_lo', set.colors) : null;
         for (const part of ['base', 'glow']) {
           const geo = baked[part];
           if (!geo) continue;
@@ -427,7 +508,9 @@
           set.list.forEach((it, i) => {
             q.setFromAxisAngle(up, it[3]);
             sv.setScalar(it[2]);
-            pv.set(it[0], R.groundH(it[0], it[1]) - 0.03, it[1]);
+            const gy = R.groundH(it[0], it[1]);
+            if (gy > top) top = gy;
+            pv.set(it[0], gy - 0.03, it[1]);
             m4.compose(pv, q, sv);
             im.setMatrixAt(i, m4);
           });
@@ -436,6 +519,13 @@
           im.receiveShadow = true;
           im.frustumCulled = false;
           R.groups.props.add(im); objs.push(im);
+          if (far && far[part]) {
+            const im2 = new THREE.InstancedMesh(far[part], im.material, set.list.length);
+            im2.instanceMatrix = im.instanceMatrix;   // the same positions, uploaded once
+            im2.castShadow = im.castShadow; im2.receiveShadow = true; im2.frustumCulled = false; im2.visible = false;
+            R.groups.props.add(im2); objs.push(im2);
+            hi.push(im); lo.push(im2);
+          }
         }
       }
       // --- bridges
@@ -447,7 +537,29 @@
         im.castShadow = true; im.receiveShadow = true;
         R.groups.props.add(im); objs.push(im);
       }
-      R.chunks[cx + ',' + cy] = { epoch, objs };
+      // what the camera needs to see this chunk (trees stand up to a few tiles high,
+      // and throw shadows a few tiles across)
+      const box = new THREE.Box3(new THREE.Vector3(x0 - 5, -2, y0 - 5), new THREE.Vector3(x1 + 5, top + 6, y1 + 5));
+      R.chunks[cx + ',' + cy] = { epoch, objs, hi, lo, box, shown: true, near: true };
+    },
+    // Each frame: chunks out of the camera's sight are not drawn at all (nor into
+    // the shadows), and those further off use the plain far models.
+    cullChunks() {
+      const cam = R.camera, F = R._frustum || (R._frustum = new THREE.Frustum()), M = R._pv || (R._pv = new THREE.Matrix4());
+      M.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+      F.setFromProjectionMatrix(M);
+      const tx = R.camTarget.x, tz = R.camTarget.z, nearD = 20 + 14 * (R.flyK || 0);
+      for (const c of Object.values(R.chunks)) {
+        if (!c.box) continue;
+        const show = F.intersectsBox(c.box);
+        // how far the chunk's nearest edge is from where you stand
+        const b = c.box, dx = Math.max(b.min.x + 5 - tx, 0, tx - (b.max.x - 5)), dz = Math.max(b.min.z + 5 - tz, 0, tz - (b.max.z - 5));
+        const near = Math.hypot(dx, dz) < nearD;
+        if (show === c.shown && near === c.near) continue;
+        c.shown = show; c.near = near;
+        for (const o of c.objs) o.visible = show;
+        if (show) { for (const o of c.hi) o.visible = near; for (const o of c.lo) o.visible = !near; }
+      }
     },
 
     // ---------------------------------------------------------------- towns
@@ -455,13 +567,26 @@
     MODEL_OF: { house: 'house', inn: 'inn', market: 'market', smithy: 'smithy', board: 'board', shrine: 'shrine', archive: 'archive', keep: 'keep', temple: 'temple', well: 'well', lamp: 'lamp', statue: 'statue', mill: 'mill', mine: 'mine', lumber: 'lumber', stocks: 'stocks' },
     updateTowns(game) {
       const world = game.world;
+      // one town built per frame at most (each is a few hundred meshes), and a town
+      // you have just passed is kept a while in case you turn round
+      let builtOne = false;
+      const sp = R.camSpeed || 0, ahead = Math.min(30, sp * 1.2);
+      const vx = R._camV ? R._camV.x : 0, vz = R._camV ? R._camV.z : 0, vl = Math.hypot(vx, vz) || 1;
       for (const s of world.settlements) {
         const d = U.dist(s.x, s.y, R.camTarget.x, R.camTarget.z);
+        const cur0 = R.towns[s.id];
+        if (cur0 ? d > 64 : d > 48) {
+          // heading this way fast: start on it early
+          const da = U.dist(s.x, s.y, R.camTarget.x + vx / vl * ahead, R.camTarget.z + vz / vl * ahead);
+          if (cur0 ? d > 64 : da > 48) { if (cur0) { R.groups.towns.remove(cur0.group); delete R.towns[s.id]; } continue; }
+        }
+        if (cur0 && R.frameNo % 15 !== (s.id.length + s.x | 0) % 15 && cur0.key) continue;   // look for changes now and then, not every frame
         const fac = world.factions[s.faction];
         const key = [s.faction, fac ? fac.tech.era : 0, s.buildings.length, s.buildings.filter(b => b.legend).length, s.buildings.filter(b => b.fac).map(b => b.fac.state[0]).join(''), s.works && s.works.walls ? 'W' : ''].join('|');
         const cur = R.towns[s.id];
-        if (d > 48) { if (cur) { R.groups.towns.remove(cur.group); delete R.towns[s.id]; } continue; }
         if (cur && cur.key === key) continue;
+        if (builtOne && !R.firstFrame) continue;
+        builtOne = true;
         if (cur) R.groups.towns.remove(cur.group);
         const group = new THREE.Group();
         const roof = R.ROOF[s.faction] || R.ROOF.valdren;
@@ -506,8 +631,8 @@
         // a palisade, once the crown has paid for one: a ring of sharpened stakes with gaps for the roads
         if (s.works && s.works.walls) {
           const rad = s.kind === 'capital' ? 17 : 14.5, n = Math.round(rad * 2 * Math.PI / 0.55);
-          const geo = new THREE.CylinderGeometry(0.09, 0.13, 1.9, 5); geo.translate(0, 0.95, 0);
-          const mat = new THREE.MeshStandardMaterial({ color: C('#6a4a2c'), roughness: 0.95, flatShading: true });
+          const geo = R._stakeGeo || (R._stakeGeo = new THREE.CylinderGeometry(0.09, 0.13, 1.9, 5).translate(0, 0.95, 0));
+          const mat = R._stakeMat || (R._stakeMat = new THREE.MeshStandardMaterial({ color: C('#6a4a2c'), roughness: 0.95, flatShading: true }));
           const im = new THREE.InstancedMesh(geo, mat, n);
           const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3();
           let k = 0;
@@ -928,6 +1053,7 @@
     setInteriorMode(on) {
       if (R.indoors === on) return;
       R.indoors = on;
+      R.camSpeed = 0; R._camV = null; R._chunkLast = null;
       for (const k of ['terrain', 'props', 'towns', 'sites']) R.groups[k].visible = !on;
       R.groups.room.visible = on;
       if (R.water) R.water.visible = !on;
@@ -990,6 +1116,13 @@
     view(game, e) {
       let v = R.views.get(e);
       if (v) return v;
+      // a crowd coming into sight at a gallop is dressed over a few frames, not all
+      // in one (each figure is a few dozen parts); they fade in anyway
+      const B = R._viewBudget;
+      if (B && e !== game.pe && !(e.type === 'boss') && (R.frameNo || 0) > 5) {
+        if (B.n > 0 && performance.now() - B.t0 > 2.5) return null;
+        B.n++;
+      }
       let inst = null, kind = e.type;
       if (e.shape === 'spider' || e.shape === 'slime' || e.shape === 'serpent' || e.shape === 'horror') inst = R.procMonster(e);
       else if (e.shape === 'rat') inst = ECHO.Models.instance('gnawer');
@@ -1710,6 +1843,7 @@
     },
     updateEntities(game, dt) {
       const seen = new Set();
+      R._viewBudget = { n: 0, t0: performance.now() };
       for (const e of game.ents) {
         if (e.vanish) continue;
         const v = R.view(game, e);
@@ -1737,10 +1871,14 @@
         v.spd = v.spd == null ? spd : v.spd + (spd - v.spd) * Math.min(1, dt * 10);
         const wantMv = e.moving || v.spd > 0.35 ? 1 : 0;
         if (dt > 0) v.mv = (v.mv == null ? wantMv : v.mv + (wantMv - v.mv) * Math.min(1, dt * 7));
-        if (e.shape === 'rat') R.animateCreature(game, { ...e, species: 'gnawer' }, v);
-        else if (e.shape === 'hound') R.animateCreature(game, { ...e, species: 'wolf' }, v);
-        else if (e.shape === 'stag') R.animateCreature(game, { ...e, species: 'deer' }, v);
-        else if (e.shape === 'drake') R.animateBoss(game, { ...e, state: e.state === 'cast' ? 'roar' : e.state }, v);
+        // (a monster drawn with an animal's model is animated as that animal: a
+        // stand-in that reads through to the monster, made once rather than a fresh
+        // copy of it every frame)
+        const as = (k, val) => { const a = v.alias || (v.alias = Object.create(e)); a[k] = val; return a; };
+        if (e.shape === 'rat') R.animateCreature(game, as('species', 'gnawer'), v);
+        else if (e.shape === 'hound') R.animateCreature(game, as('species', 'wolf'), v);
+        else if (e.shape === 'stag') R.animateCreature(game, as('species', 'deer'), v);
+        else if (e.shape === 'drake') R.animateBoss(game, as('state', e.state === 'cast' ? 'roar' : e.state), v);
         else if (e.shape) R.animateProc(game, e, v, dt);
         else if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) R.animatePerson(game, e, v, dt);
         else if (e.type === 'creature') R.animateCreature(game, e, v);
@@ -2112,14 +2250,34 @@
         const m = c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.95, flatShading: true });
         R.secMat = { rock: m('#5a5650'), dark: m('#0a0808'), stone: m('#9a948a'), wood: m('#6a4a30'), plank: m('#8a6a48'), roof: m('#4e3e2c'), sack: m('#b8a47a'), moss: m('#5a6a3a') };
       }
-      const near = room ? [] : world.secrets.list.filter(o => Math.abs(o.x - pe.x) < 60 && Math.abs(o.y - pe.y) < 60);
-      const key = near.map(o => o.id + (o.kind === 'circle' && o.done ? 'D' : '')).join('|');
-      if (key === R.secretKey) return;
-      R.secretKey = key;
-      while (R.secretGroup.children.length) { const c = R.secretGroup.children[0]; R.secretGroup.remove(c); c.traverse(x => { if (x.geometry) x.geometry.dispose(); }); }
+      // Each hidden place is built once as it comes near and kept until it is well
+      // behind you: no tearing everything down and building it again whenever one
+      // place comes into range (that cost a stutter at a gallop).
+      const S = R.secretSeen || (R.secretSeen = new Map());
+      R.secretTick = (R.secretTick || 0) + 1;
+      if (R.secretTick % 6 && !(room && S.size) && R.secretRoom === !!room) return;
+      R.secretRoom = !!room;
+      const live = new Set();
+      let built = 0;
+      if (!room) for (const o of world.secrets.list) {
+        const dx = Math.abs(o.x - pe.x), dy = Math.abs(o.y - pe.y), have = S.get(o.id);
+        if (have ? dx > 75 || dy > 75 : dx > 60 || dy > 60) continue;
+        const sig = o.kind === 'circle' && o.done ? 'D' : '';
+        if (have && have.sig === sig) { live.add(o.id); continue; }
+        if (built >= 2) { if (have) live.add(o.id); continue; }   // the rest next time
+        if (have) { R.secretGroup.remove(have.g); have.g.traverse(x => { if (x.geometry && x.userData.own) x.geometry.dispose(); }); }
+        const g = R.buildSecret(o);
+        R.secretGroup.add(g); S.set(o.id, { g, sig }); live.add(o.id); built++;
+      }
+      for (const [id, s] of S) if (!live.has(id)) { R.secretGroup.remove(s.g); s.g.traverse(x => { if (x.geometry && x.userData.own) x.geometry.dispose(); }); S.delete(id); }
+      if (built) R.secretTick = 0;   // more may be waiting
+    },
+    buildSecret(o) {
       const M = R.secMat;
-      const box = (w, h, d, mat, x, y, z, ry = 0, rz = 0) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); b.position.set(x, y, z); b.rotation.y = ry; b.rotation.z = rz; b.castShadow = true; return b; };
-      for (const o of near) {
+      const geo = R._secGeo || (R._secGeo = {});
+      const boxGeo = (w, h, d) => geo['b' + w + ',' + h + ',' + d] || (geo['b' + w + ',' + h + ',' + d] = new THREE.BoxGeometry(w, h, d));
+      const box = (w, h, d, mat, x, y, z, ry = 0, rz = 0) => { const b = new THREE.Mesh(boxGeo(w, h, d), mat); b.position.set(x, y, z); b.rotation.y = ry; b.rotation.z = rz; b.castShadow = true; return b; };
+      {
         const g = new THREE.Group(), gy = R.groundH(o.x, o.y);
         g.position.set(o.x, gy, o.y);
         const h = ECHO.hashStr(o.id), r = k => ((h >> k) % 100) / 100;
@@ -2156,7 +2314,8 @@
           g.add(box(0.3, 0.7, 0.3, M.stone, -0.7, 2.0, -0.3));
           g.add(box(0.6, 0.3, 0.4, M.wood, 1.4, 0.15, 0.6));
         }
-        R.secretGroup.add(g);
+        g.traverse(x => { if (x.isMesh && !Object.values(geo).includes(x.geometry)) x.userData.own = true; });
+        return g;
       }
     },
     updateGlows(game) {
@@ -2476,14 +2635,29 @@
       // sun arc
       const ang = ((m - 360) / 720) * Math.PI;
       const tgt = R.camTarget;
-      R.sun.position.set(tgt.x - Math.cos(ang) * 30, 8 + Math.sin(Math.max(0.15, ang)) * 34, tgt.z + 18);
-      R.sun.target.position.copy(tgt);
+      // The shadow box follows you in whole shadow-texel steps, seen from the sun:
+      // gliding it smoothly makes every shadow edge crawl and shimmer as you move,
+      // and the faster you go the worse it looks.
+      const off = R._sunOff || (R._sunOff = new THREE.Vector3());
+      off.set(-Math.cos(ang) * 30, 8 + Math.sin(Math.max(0.15, ang)) * 34, 18);
+      const st = R._sunSnap || (R._sunSnap = { d: new THREE.Vector3(), r: new THREE.Vector3(), u: new THREE.Vector3(), p: new THREE.Vector3() });
+      st.d.copy(off).normalize();
+      st.r.set(0, 1, 0).cross(st.d).normalize();
+      st.u.copy(st.d).cross(st.r);
+      const sc = R.sun.shadow.camera, texel = (sc.right - sc.left) / Math.max(1, R.sun.shadow.mapSize.x);
+      const pr = tgt.dot(st.r), pu = tgt.dot(st.u);
+      st.p.copy(tgt).addScaledVector(st.r, Math.round(pr / texel) * texel - pr).addScaledVector(st.u, Math.round(pu / texel) * texel - pu);
+      R.sun.position.copy(st.p).add(off);
+      R.sun.target.position.copy(st.p);
       const wx = ECHO.Weather ? ECHO.Weather.here(world, tgt.x, tgt.z) : { today: 'clear' };
       const cloud = { clear: 1, heat: 1.08, cloudy: 0.62, fog: 0.55, rain: 0.48, storm: 0.32, snow: 0.6, blizzard: 0.38 }[wx.today] || 1;
       R.cloud = cloud; R.wx = wx;
       R.sun.intensity = 1.35 * Math.max(0, dl) * cloud;
       R.sun.color.copy(lerpC(C('#fff4e0'), C('#ff9a5a'), Math.max(dusk, 0)));
-      R.sun.castShadow = dl > 0.05 && R.renderer.shadowMap.enabled;
+      // (switching the sun's shadow off at night would rebuild every shader in the
+      // world twice a day — a long stall at dusk; instead the map just stops updating)
+      R.sun.castShadow = R.renderer.shadowMap.enabled;
+      R.sunDark = dl <= 0.05;
       R.moon.position.set(tgt.x + 20, 40, tgt.z + 10); R.moon.target.position.copy(tgt);
       R.moon.intensity = 0.27 * (1 - dl);
       R.hemi.intensity = (0.2 + 0.5 * dl) * (0.75 + 0.25 * cloud);
@@ -2566,6 +2740,7 @@
     // ---------------------------------------------------------------- frame
     draw(game, dt) {
       if (!R.world || R.world !== game.world) R.setWorld(game.world);
+      if (!R.warmed && (R.frameNo || 0) >= 3 && ECHO.Models.ready && (!ECHO.Post || !ECHO.Post.active || ECHO.Post.envT !== -1)) R.warmUp();
       R.time += dt;
       R.waterTime.value = R.time;
       if (ECHO.Climate && game.pe && !ECHO.Interior.cur) {
@@ -2590,9 +2765,13 @@
       R.flyK = U.lerp(R.flyK || 0, game.pl && game.pl.flying ? 1 : 0, Math.min(1, dt * 2));
       const gh = R.groundH(tx, ty) + (pe && pe.alt ? pe.alt * 0.75 : 0);
       R.camTarget = R.camTarget || new THREE.Vector3(tx, gh, ty);
-      if (Math.abs(R.camTarget.x - tx) + Math.abs(R.camTarget.z - ty) > 12) { R.camTarget.set(tx, gh, ty); R.firstFrame = true; R.sitesT = 0; }
-      const k = Math.min(1, dt * 7);
-      R.camTarget.x = U.lerp(R.camTarget.x, tx, k); R.camTarget.z = U.lerp(R.camTarget.z, ty, k); R.camTarget.y = U.lerp(R.camTarget.y, gh, k);
+      if (Math.abs(R.camTarget.x - tx) + Math.abs(R.camTarget.z - ty) > 24) {   // a jump (a door, a road taken in a blink), not a gallop
+        R.camTarget.set(tx, gh, ty); R.firstFrame = true; R.sitesT = 0; }
+      // the camera keeps up: the faster you go the tighter it follows (at a dragon's
+      // pace a loose camera trails a few tiles behind and the ride feels laggy), and
+      // in the air it doesn't bob over every hill passing underneath
+      const k = Math.min(1, dt * (7 + Math.min(14, (R.camSpeed || 0) * 0.6)));
+      R.camTarget.x = U.lerp(R.camTarget.x, tx, k); R.camTarget.z = U.lerp(R.camTarget.z, ty, k); R.camTarget.y = U.lerp(R.camTarget.y, gh, k * (game.pl && game.pl.flying ? 0.3 : 1));
       const room = ECHO.Interior && ECHO.Interior.cur;
       R.setInteriorMode(!!room);
       if (room && (R.roomKey !== room || R.roomRev !== (room.rev || 0))) { const fresh = R.roomKey !== room; R.roomKey = room; R.roomRev = room.rev || 0; R.roomFlames = []; R.buildRoom(game, room); if (fresh) R.camTarget.set(tx, 0, ty); }
@@ -2632,10 +2811,13 @@
       R.updateHomestead(game, room);
       if (!room) R.updateFestival(game); else if (R.festGroup) R.festGroup.visible = false;
       if (room) R.updateInteriorLighting(game, room); else R.updateLighting(game, dt);
-      // shadows: every frame on high, every other frame on medium (the eye does not notice; the card does)
+      // shadows: every frame on high; on medium every other frame while you stand or
+      // walk (the eye does not notice; the card does), but every frame once you are
+      // moving fast, or your own shadow would judder behind you
       const every = (R.Q && R.Q.shadowEvery) || 1;
       R.renderer.shadowMap.autoUpdate = false;
-      R.renderer.shadowMap.needsUpdate = every <= 1 || ((R.frameNo || 0) % every) === 0;
+      const fastNow = (R.camSpeed || 0) > 4.5 || (game.pe && (game.pe.alt || 0) > 0.5);
+      R.renderer.shadowMap.needsUpdate = room ? true : R.sunDark ? ((R.frameNo || 0) % 30) === 0 : (every <= 1 || fastNow || ((R.frameNo || 0) % every) === 0);
       if (ECHO.Post && ECHO.Post.R) ECHO.Post.render(game, dt); else R.renderer.render(R.scene, R.camera);
       R.drawOverlay(game);
     },

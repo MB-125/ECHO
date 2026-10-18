@@ -70,7 +70,10 @@
       let cost;
       if (k === 1) cost = (x, y) => N.tileCost(world, x, y);
       else {
-        const memo = new Float32Array(cw * ch).fill(-1);
+        // the coarse costs are kept between plans (they only change when the land does)
+        const mk = k + ':' + W + 'x' + H + ':' + (world._tileEpoch || 0) + ':' + (N._weak ? 1 : 0);
+        if (!N._coarse || N._coarse.key !== mk || N._coarse.world !== world) N._coarse = { key: mk, world, memo: new Float32Array(cw * ch).fill(-1) };
+        const memo = N._coarse.memo;
         cost = (cx, cy, i) => {
           if (memo[i] >= 0) return memo[i] === 999 ? Infinity : memo[i];
           let sum = 0, n = 0;
@@ -113,8 +116,19 @@
       const R = N.route;
       N.t -= dt;
       const strayed = R && R.key === key && N.offRoute(pe, R) > 7;
-      if (!R || R.key !== key || (strayed && N.t <= 0) || (N.t <= -12)) {
-        N.t = 2.5;
+      // on a dragon's back the land's roads don't matter: the line points straight
+      // there, and no route is planned while you fly
+      if (game.pl && game.pl.flying) {
+        if (!R || R.key !== key || !R.air) N.route = { key, to: { x: w.x, y: w.y }, pts: [{ x: pe.x, y: pe.y }, { x: w.x, y: w.y }], i: 0, ok: false, air: true, vague: !!w.vague, ms: 0, len: 0 };
+        const Ra = N.route;
+        Ra.pts[0] = { x: pe.x, y: pe.y };
+        Ra.i = 0; Ra.left = U.dist(pe.x, pe.y, w.x, w.y); Ra.steer = Ra.pts[1]; Ra.leg = `fly ${dirName(Math.atan2(w.y - pe.y, w.x - pe.x))}`;
+        return;
+      }
+      // at a gallop you leave the line quickly: re-plan a little less eagerly
+      const settle = game.pl && game.pl.mounted && game.pe && (ECHO.PlayerCtl.ride || {}).v > 5 ? 4 : 2.5;
+      if (!R || R.key !== key || R.air || (strayed && N.t <= 0) || (N.t <= -12)) {
+        N.t = settle;
         const t0 = performance.now();
         // a vague place: head for the middle of the search area
         const raw = N.plan(world, pe.x, pe.y, w.x, w.y);
@@ -197,9 +211,13 @@
       const pts = N.trail(game);
       if (!pts.length) return;
       ctx.save();
+      const cw = ctx.canvas.width, chh = ctx.canvas.height, pad = 40 * dpr;
       for (const p of pts) {
         const s = project(p.x, p.y);
         if (!s || s.z > 1) continue;
+        // only what is on screen (a point far off the edge, or right under the
+        // camera, projects to enormous numbers that the canvas chokes on)
+        if (!isFinite(s.x) || !isFinite(s.y) || s.x < -pad || s.y < -pad || s.x > cw + pad || s.y > chh + pad) continue;
         const r = 11 * dpr;
         ctx.globalAlpha = p.alpha;
         ctx.translate(s.x, s.y);

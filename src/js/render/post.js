@@ -181,19 +181,30 @@
       if (P.bloom) { P.bloom.strength = room ? 0.55 : 0.35 + 0.35 * (1 - dl); P.bloom.threshold = room ? 0.95 : 1.05 - 0.15 * (1 - dl); }
     },
     // ------------------------------------------------------------ smooth, first
+    // Judged on the typical frame of the last second and a half (the median), so a
+    // few slow frames while new land streams in at a gallop don't count as "this
+    // machine is slow" — each change of resolution itself costs a stall, so it
+    // changes seldom, and steps back up only when there is plenty to spare.
     adapt(now) {
       const dtf = P.last ? now - P.last : 16;
       P.last = now;
       if (dtf > 250) return;                    // a hitch (loading, a tab switch) is not a trend
       P.ema += (dtf - P.ema) * 0.06;
+      const H = P.hist || (P.hist = []), Wk = P.workHist || (P.workHist = []);
+      H.push(dtf); if (H.length > 90) H.shift();
+      Wk.push(P.work || 0); if (Wk.length > 90) Wk.shift();
       if (P.lock) return;
       P.cool = (P.cool || 0) - dtf;
-      if (P.cool > 0) return;
-      if (P.ema > 24) {
-        if (P.scale > 0.62) { P.scale = Math.max(0.6, P.scale - 0.1); P.resize(); P.cool = 1500; }
-        else if (P.q && P.q.ao && !P.aoOff) { P.aoOff = true; P.cool = 2000; }
-        else if (P.bloom && !P.bloomOff) { P.bloomOff = true; P.setup(); P.cool = 2000; }
-      } else if (P.ema < 14 && P.scale < 1) { P.scale = Math.min(1, P.scale + 0.05); P.resize(); P.cool = 3000; }
+      if (P.cool > 0 || H.length < 60) return;
+      const med = H.slice().sort((a, b) => a - b)[H.length >> 1];
+      P.med = med;
+      if (med > 22) {
+        if (P.scale > 0.65) { if (now - (P.lastUp || -1e9) < 20000) P.noUp = true; P.scale = Math.max(0.6, Math.round((P.scale - 0.15) * 20) / 20); P.resize(); P.cool = 4000; H.length = 0; }   // (going up just made it too slow: stay put from now on)
+        else if (P.q && P.q.ao && !P.aoOff) { P.aoOff = true; P.cool = 3000; H.length = 0; }
+        else if (P.bloom && !P.bloomOff) { P.bloomOff = true; P.bloom.enabled = false; P.cool = 3000; H.length = 0; }
+      } else if (P.scale < 1 && !P.noUp && (med < 11 || (med < 18 && Wk.slice().sort((a, b) => a - b)[Wk.length >> 1] < 6))) {
+        // (on a 60 Hz screen frames never come faster than 16.7 ms: look at how busy we are instead)
+        P.scale = Math.min(1, Math.round((P.scale + 0.1) * 20) / 20); P.resize(); P.cool = 10000; P.lastUp = now; H.length = 0; Wk.length = 0; }
     },
     render(game, dt) {
       const R = P.R;

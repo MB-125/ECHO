@@ -740,7 +740,10 @@ function main() {
   console.log('\nAwareness');
   {
     // a small world of its own: open ground, a few minds, and the awareness module
-    const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite };
+    // (its dice are loaded the same way every run, so the checks don't depend on luck)
+    let seed = 12345;
+    const M = Object.create(Math); M.random = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    const ctx = { console, Math: M, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite };
     ctx.globalThis = ctx; vm.createContext(ctx);
     for (const f of ['core.js', 'game/aware.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx, { filename: f });
     const E = ctx.ECHO, U = E.U;

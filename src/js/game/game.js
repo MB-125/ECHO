@@ -58,6 +58,7 @@
       if (!Game.running) return;
       const dt = Math.min(0.05, (ts - Game.lastFrame) / 1000);
       Game.lastFrame = ts;
+      const work0 = performance.now();
       try {
         if (In.pollPad) In.pollPad();
         let simDt = dt;
@@ -80,6 +81,7 @@
         if (Game.world) ECHO.Renderer.draw(Game, simDt);
         ECHO.UI.frame(Game, dt);
         if (Game.world && ECHO.Music) ECHO.Music.update(Game, dt);
+        if (ECHO.Post) ECHO.Post.work = performance.now() - work0;   // how long our own part of the frame took
       } catch (err) { console.error(err); ECHO.UI.error && ECHO.UI.error(err); }
       In.endFrame();
       requestAnimationFrame(Game.loop);
