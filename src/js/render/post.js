@@ -24,13 +24,13 @@
       tDiffuse: { value: null }, tDepth: { value: null }, resolution: { value: new THREE.Vector2(1, 1) },
       cameraNear: { value: 0.5 }, cameraFar: { value: 400 }, aoOn: { value: 1 }, aoStrength: { value: 0.42 }, aoRadius: { value: 26 },
       exposure: { value: 1.05 }, lift: { value: new THREE.Vector3(0, 0, 0) }, gain: { value: new THREE.Vector3(1, 1, 1) },
-      saturation: { value: 1.08 }, contrast: { value: 1.04 }, vignette: { value: 0.32 }, grain: { value: 0.004 }, time: { value: 0 }, fxaa: { value: 0 }, sharpen: { value: 0.4 }
+      saturation: { value: 1.08 }, contrast: { value: 1.04 }, vignette: { value: 0.32 }, grain: { value: 0.004 }, time: { value: 0 }, fxaa: { value: 0 }, sharpen: { value: 0.4 }, outline: { value: 0.3 }
     },
     vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: `
       #include <packing>
       uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform vec2 resolution;
-      uniform float cameraNear, cameraFar, aoOn, aoStrength, aoRadius, exposure, saturation, contrast, vignette, grain, time, fxaa, sharpen;
+      uniform float cameraNear, cameraFar, aoOn, aoStrength, aoRadius, exposure, saturation, contrast, vignette, grain, time, fxaa, sharpen, outline;
       uniform vec3 lift, gain;
       varying vec2 vUv;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -59,6 +59,16 @@
           // without bright or dark rims)
           vec3 mn = min(col, min(min(n, s), min(e, w))), mx = max(col, max(max(n, s), max(e, w)));
           col = clamp(col + (col - (n + s + e + w) * 0.25) * sharpen * 2.0, mn, mx);
+        }
+        // a fine dark line where one thing stands in front of another (from the
+        // depth alone): people, trees, walls and beasts stand out crisply
+        if (outline > 0.0) {
+          float z0 = dist(vUv);
+          if (z0 < cameraFar * 0.9) {
+            float dz = max(max(dist(vUv + vec2(px.x, 0.0)), dist(vUv - vec2(px.x, 0.0))), max(dist(vUv + vec2(0.0, px.y)), dist(vUv - vec2(0.0, px.y)))) - z0;
+            float t = 0.25 + z0 * 0.035;
+            col *= 1.0 - outline * smoothstep(t, t * 2.5, dz);
+          }
         }
         // ambient occlusion: creases and contact shadows, from the depth alone
         if (aoOn > 0.5) {

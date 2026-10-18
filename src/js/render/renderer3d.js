@@ -109,7 +109,8 @@
         loot: new THREE.MeshStandardMaterial({ color: C('#f2d47a'), emissive: C('#7a5a10'), roughness: 0.4, metalness: 0.4 })
       };
       // the ground and everything built on it has a grain of its own
-      R.detail(R.mat.terrain, 0.34, 1.3);
+      R.detail(R.mat.terrain, 0.16, 1.3);
+      R.groundDetail(R.mat.terrain);
       R.detail(R.mat.prop, 0.12, 2.5);
       // See-through versions for buildings that stand between the camera and the player.
       R.mat.propFade = R.mat.prop.clone(); R.mat.propFade.transparent = true; R.mat.propFade.opacity = 0.28; R.mat.propFade.depthWrite = false;
@@ -184,6 +185,81 @@
           diffuseColor.rgb *= 1.0 + (dN - 0.5) * ${(k * 2).toFixed(3)};`)
           .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
           roughnessFactor = clamp(roughnessFactor * (0.9 + dN * 0.2), 0.04, 1.0);`);
+      };
+      mat.needsUpdate = true;
+      return mat;
+    },
+    // The ground up close: crisp patterns drawn from the world position and what
+    // each tile is — cobbles with mortar in the squares, pebbles in the roads,
+    // tufts in the grass, furrows in the fields, ripples in the sand, cracked
+    // flagstones in the ruins — so the land reads sharply instead of as soft
+    // washes of colour. Edges are anti-aliased with screen-space derivatives, and
+    // the patterns fade out where they would be smaller than a few pixels.
+    groundDetail(mat) {
+      const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey;
+      mat.extensions = Object.assign(mat.extensions || {}, { derivatives: true });
+      mat.customProgramCacheKey = () => prevKey.call(mat) + '|ground2';
+      mat.onBeforeCompile = (sh, r) => {
+        prev(sh, r);
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aKind;\nvarying float vKind;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvKind = aKind;');
+        sh.fragmentShader = sh.fragmentShader.replace('varying vec3 vDetailW;', `varying vec3 vDetailW;
+          varying float vKind;
+          float gH(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 15731.743); }
+          // distance to the nearest edge of the cell, with the cell's id
+          float cellEdge(vec2 p, out vec2 id) { id = floor(p); vec2 f = fract(p); return min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)); }
+          float aaLine(float d, float w, float fw) { return 1.0 - smoothstep(w, w + fw * 1.5, d); }`)
+          .replace('#include <color_fragment>', `#include <color_fragment>
+          {
+            vec2 wp = vDetailW.xz;
+            float k = floor(vKind + 0.5), shade = 1.0;
+            if (k == 1.0) {            // cobbles, laid in courses
+              vec2 p = wp * vec2(2.1, 2.8); p.x += mod(floor(p.y), 2.0) * 0.5;
+              vec2 id; float d = cellEdge(p, id), fw = fwidth(p.x) + fwidth(p.y);
+              float fade = 1.0 - smoothstep(0.18, 0.45, fw);
+              shade = 1.0 + ((gH(id) - 0.5) * 0.1 - aaLine(d, 0.04, fw) * 0.2 - (1.0 - smoothstep(0.04, 0.2, d)) * 0.06) * fade;
+            } else if (k == 2.0) {     // packed earth and pebbles
+              vec2 p = wp * 5.0; vec2 id = floor(p); vec2 c = vec2(gH(id), gH(id + 7.1)) * 0.6 + 0.2;
+              float r = gH(id + 3.3) > 0.55 ? 0.13 + gH(id + 9.0) * 0.1 : 0.0, fw = fwidth(p.x) + fwidth(p.y);
+              float dot1 = 1.0 - smoothstep(r - fw, r + fw, length(fract(p) - c));
+              float fade = 1.0 - smoothstep(0.2, 0.5, fw);
+              shade = 1.0 + (dot1 * (gH(id + 1.7) > 0.5 ? 0.16 : -0.2)) * fade;
+            } else if (k == 3.0) {     // furrows
+              float p = wp.y * 4.0 + sin(wp.x * 0.7) * 0.15, fw = fwidth(p);
+              float t = abs(fract(p) - 0.5);
+              float fade = 1.0 - smoothstep(0.2, 0.5, fw);
+              shade = 1.0 + (aaLine(t, 0.12, fw) * -0.22 + (1.0 - smoothstep(0.2, 0.5, t)) * 0.06) * fade;
+            } else if (k == 4.0) {     // wind ripples in sand
+              float p = (wp.x * 0.6 + wp.y) * 2.2 + sin(wp.x * 1.3 + wp.y * 0.4) * 0.6, fw = fwidth(p);
+              float fade = 1.0 - smoothstep(0.2, 0.5, fw);
+              shade = 1.0 + (aaLine(abs(fract(p) - 0.5), 0.05, fw) * 0.1 - aaLine(abs(fract(p + 0.12) - 0.5), 0.05, fw) * 0.08) * fade;
+            } else if (k == 6.0) {     // flagstones, cracked
+              vec2 p = wp * 1.6; p.x += mod(floor(p.y), 2.0) * 0.37;
+              vec2 id; float d = cellEdge(p, id), fw = fwidth(p.x) + fwidth(p.y);
+              float crack = aaLine(abs(fract(p.x * 1.7 + p.y * 0.6 + gH(id) * 3.0) - 0.5), 0.015, fw) * step(0.6, gH(id + 2.0));
+              float fade = 1.0 - smoothstep(0.15, 0.4, fw);
+              shade = 1.0 + ((gH(id) - 0.5) * 0.14 - aaLine(d, 0.035, fw) * 0.3 - crack * 0.2) * fade;
+            } else if (k == 7.0 || k == 8.0) {   // bare rock (and stony hillsides): irregular plates and cracks
+              vec2 p = wp * (k == 7.0 ? 1.3 : 0.9); vec2 ip = floor(p), fp = fract(p);
+              float f1 = 8.0, f2 = 8.0; vec2 cid = ip;
+              for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+                vec2 o = vec2(float(i), float(j)), c = o + vec2(gH(ip + o), gH(ip + o + 13.7)) * 0.8 + 0.1;
+                float dd = length(c - fp);
+                if (dd < f1) { f2 = f1; f1 = dd; cid = ip + o; } else if (dd < f2) f2 = dd;
+              }
+              float fw = fwidth(p.x) + fwidth(p.y), fade = 1.0 - smoothstep(0.15, 0.4, fw);
+              float crack = 1.0 - smoothstep(0.03, 0.03 + fw * 1.5, f2 - f1);
+              shade = 1.0 + ((gH(cid) - 0.5) * (k == 7.0 ? 0.14 : 0.05) - crack * (k == 7.0 ? 0.22 : 0.06)) * fade;
+            } else if (k == 0.0 && diffuseColor.g > diffuseColor.r * 1.05) {   // grass: short tufts
+              vec2 p = wp * vec2(6.0, 6.0); vec2 id = floor(p); vec2 f = fract(p) - vec2(gH(id), gH(id + 5.0)) * 0.6 - 0.2;
+              float fw = fwidth(p.x) + fwidth(p.y);
+              float blade = 1.0 - smoothstep(0.02, 0.02 + fw, abs(f.x + f.y * 0.25) - 0.015) ;
+              blade *= step(abs(f.y), 0.22) * step(0.35, gH(id + 2.0));
+              float fade = 1.0 - smoothstep(0.25, 0.55, fw);
+              shade = 1.0 + blade * (gH(id + 4.0) > 0.5 ? 0.14 : -0.16) * fade;
+            }
+            diffuseColor.rgb *= shade;
+          }`);
       };
       mat.needsUpdate = true;
       return mat;
@@ -414,7 +490,8 @@
       // --- ground
       const x0 = cx * CH, y0 = cy * CH, x1 = Math.min(world.W, x0 + CH), y1 = Math.min(world.H, y0 + CH);
       const ntile = (x1 - x0) * (y1 - y0);
-      const pos = new Float32Array(ntile * 18), col = new Float32Array(ntile * 18);
+      const pos = new Float32Array(ntile * 18), col = new Float32Array(ntile * 18), kind = new Float32Array(ntile * 6);
+      const KIND = R.GROUND_KIND || (R.GROUND_KIND = { [TILE.PLAZA]: 1, [TILE.ROAD]: 2, [TILE.BRIDGE]: 2, [TILE.FARM]: 3, [TILE.SAND]: 4, [TILE.SNOW]: 5, [TILE.ROCK]: 7, [TILE.HILL]: 8, [TILE.RUIN]: 6, [TILE.RUINWALL]: 6 });
       let o = 0, groundTop = 0;
       const tmp = new THREE.Color();
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
@@ -425,7 +502,9 @@
         const a = R.cornerH(x, y), b = R.cornerH(x + 1, y), c2 = R.cornerH(x, y + 1), d = R.cornerH(x + 1, y + 1);
         if (a > groundTop) groundTop = a;
         const V = [[x, a, y], [x, c2, y + 1], [x + 1, b, y], [x + 1, b, y], [x, c2, y + 1], [x + 1, d, y + 1]];
+        const kd = KIND[t] || 0;
         for (let i = 0; i < 6; i++) {
+          kind[o / 3] = kd;
           pos[o] = V[i][0]; pos[o + 1] = V[i][1]; pos[o + 2] = V[i][2];
           const shade = i < 3 ? 1 : 0.97;
           col[o] = tmp.r * shade; col[o + 1] = tmp.g * shade; col[o + 2] = tmp.b * shade;
@@ -435,6 +514,7 @@
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
       g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      g.setAttribute('aKind', new THREE.BufferAttribute(kind, 1));
       g.computeVertexNormals();
       const ground = new THREE.Mesh(g, R.mat.terrain);
       ground.receiveShadow = true;

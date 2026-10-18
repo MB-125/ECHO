@@ -247,6 +247,24 @@ class Part:
             bm.faces.new([vs[i] for i in idx])
         faces = [f for f in bm.faces if f not in before]
         self._place(vs, faces, (sx, sy, sz), at, rot, m)
+        # rows of shingles on a real roof: battens standing proud of each slope,
+        # so the roof reads crisply in light and shade instead of as one flat colour
+        if m == 'roof' and not LOWPOLY and sy > .9:
+            R = Euler([math.radians(a) for a in rot], 'XYZ').to_matrix().to_4x4()
+            T = Matrix.Translation(Vector(at) - self.pivot)
+            ang = math.atan2(sz, sy / 2)
+            n = max(3, int(math.hypot(sy / 2, sz) / .22))
+            mi = self._mi(m)
+            for side in (-1, 1):
+                for k in range(n):
+                    t = (k + .35) / (n + .2)
+                    y, z = side * (sy / 2) * (1 - t), sz * t
+                    nrm = Vector((0, side * math.sin(ang), math.cos(ang)))
+                    v, f = self._new(bmesh.ops.create_cube, size=1.0)
+                    L = Matrix.Translation(Vector((0, y, z)) + nrm * .025) @ Euler((-side * ang, 0, 0), 'XYZ').to_matrix().to_4x4() @ Matrix.Diagonal((sx * .995, .2, .035, 1))
+                    bmesh.ops.transform(bm, matrix=T @ R @ L, verts=v)
+                    for face in f:
+                        face.material_index = mi
         return self
 
     def build(self):
