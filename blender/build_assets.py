@@ -158,6 +158,84 @@ class Part:
         self._place(v, f, scale, at, rot, m)
         return self
 
+    def tube(self, pts, radii, m, seg=12, belly=None, caps=True):
+        """An organic limb: rings of verts swept along a line of points.
+        radii: r or (width, height) at each point; a radius of 0 ends in a point.
+        belly: material for the underside (a stripe along the bottom)."""
+        if LOWPOLY:
+            seg = max(5, seg // 2)
+        bm = self.bm
+        P = [Vector(p) for p in pts]
+        R = [(r, r) if not isinstance(r, (tuple, list)) else tuple(r) for r in radii]
+        n = len(P)
+        rings = []
+        up0 = Vector((0, 0, 1))
+        for i in range(n):
+            t = (P[min(n - 1, i + 1)] - P[max(0, i - 1)]).normalized()
+            side = t.cross(up0)
+            if side.length < 1e-4:
+                side = Vector((0, 1, 0))
+            side.normalize()
+            upv = side.cross(t).normalized()
+            ry, rz = R[i]
+            if ry < 1e-4 and rz < 1e-4:
+                rings.append([bm.verts.new(P[i] - self.pivot)])
+                continue
+            ring = []
+            for k in range(seg):
+                a = 2 * math.pi * k / seg
+                ring.append(bm.verts.new(P[i] + side * (math.cos(a) * ry) + upv * (math.sin(a) * rz) - self.pivot))
+            rings.append(ring)
+        mi, bi = self._mi(m), self._mi(belly) if belly else None
+
+        def matfor(k):
+            a = 2 * math.pi * (k + .5) / seg
+            return bi if bi is not None and math.sin(a) < -0.55 else mi
+        for i in range(n - 1):
+            A, B = rings[i], rings[i + 1]
+            for k in range(seg):
+                k2 = (k + 1) % seg
+                if len(A) == 1 and len(B) == 1:
+                    continue
+                if len(A) == 1:
+                    f = bm.faces.new((A[0], B[k2], B[k]))
+                elif len(B) == 1:
+                    f = bm.faces.new((A[k], A[k2], B[0]))
+                else:
+                    f = bm.faces.new((A[k], A[k2], B[k2], B[k]))
+                f.material_index = matfor(k)
+        if caps:
+            for ring, rev in ((rings[0], True), (rings[-1], False)):
+                if len(ring) > 1:
+                    c = bm.verts.new(sum((v.co for v in ring), Vector()) / len(ring))
+                    for k in range(seg):
+                        k2 = (k + 1) % seg
+                        f = bm.faces.new((c, ring[k2], ring[k]) if rev else (c, ring[k], ring[k2]))
+                        f.material_index = matfor(k)
+        return self
+
+    def membrane(self, outline, m, thick=.03):
+        """A thin skin stretched over a closed outline (a wing, a fin): two faces
+        and a rim, so it shows from both sides."""
+        bm = self.bm
+        P = [Vector(p) for p in outline]
+        c = sum(P, Vector()) / len(P)
+        nrm = Vector()
+        for i in range(len(P)):
+            nrm += (P[i] - c).cross(P[(i + 1) % len(P)] - c)
+        nrm = nrm.normalized() if nrm.length > 1e-6 else Vector((0, 0, 1))
+        off = nrm * (thick / 2)
+        top = [bm.verts.new(p + off - self.pivot) for p in P]
+        bot = [bm.verts.new(p - off - self.pivot) for p in P]
+        ct, cb = bm.verts.new(c + off - self.pivot), bm.verts.new(c - off - self.pivot)
+        mi = self._mi(m)
+        L = len(P)
+        for i in range(L):
+            j = (i + 1) % L
+            for f in (bm.faces.new((ct, top[i], top[j])), bm.faces.new((cb, bot[j], bot[i])), bm.faces.new((top[j], top[i], bot[i], bot[j]))):
+                f.material_index = mi
+        return self
+
     def prism(self, size, at, m, rot=(0, 0, 0)):
         """Gable roof: ridge along X, triangular cross-section in Y-Z."""
         sx, sy, sz = size
@@ -357,54 +435,127 @@ def boss_armor(m, parent, cx, z, length, width):
             scales.box((.22, .06, .2), (cx - length / 2 + (i + .5) * length / 7, s * width * .52, z - .12), 'scale', rot=(s * 25, 0, 0))
 
 
+def lerp3(a, b, t):
+    return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
+
+
+def dragon_head(m, parent, at, sz, skin, belly):
+    """A dragon's head: a long skull tapering to the snout, brows over glowing
+    eyes, horns sweeping back, and a jaw of its own (part 'jaw') that opens."""
+    x0, y0, z0 = at
+    head = m.part('head', (x0 - .0, 0, z0 - .23 * sz), parent)
+    X = lambda dx: x0 + dx * sz
+    Z = lambda dz: z0 + dz * sz
+    head.tube([(X(.08), 0, Z(.0)), (X(-.1), 0, Z(.02)), (X(-.32), 0, Z(-.02)), (X(-.52), 0, Z(-.08)), (X(-.66), 0, Z(-.12)), (X(-.7), 0, Z(-.12))],
+              [(.16 * sz, .16 * sz), (.19 * sz, .16 * sz), (.15 * sz, .12 * sz), (.105 * sz, .085 * sz), (.06 * sz, .05 * sz), (.0, .0)], skin, seg=12, belly=belly)
+    for s in (-1, 1):
+        # brow ridge, eye, horns, a spike at the cheek
+        head.ball(.075 * sz, (X(-.2), s * .12 * sz, Z(.1)), skin, sub=1, scale=(1.7, .9, .6))
+        head.ball(.042 * sz, (X(-.23), s * .145 * sz, Z(.05)), 'eyeglow', sub=1, scale=(1.3, .7, .8))
+        head.tube([(X(-.05), s * .09 * sz, Z(.11)), (X(.12), s * .14 * sz, Z(.22)), (X(.32), s * .19 * sz, Z(.27)), (X(.5), s * .22 * sz, Z(.22))],
+                  [.055 * sz, .042 * sz, .026 * sz, 0], 'bone', seg=8)
+        head.tube([(X(-.02), s * .15 * sz, Z(-.04)), (X(.16), s * .25 * sz, Z(-.02)), (X(.3), s * .3 * sz, Z(.0))], [.03 * sz, .018 * sz, 0], 'bone', seg=6)
+        for i in range(4):   # upper teeth
+            head.cone(.016 * sz, .06 * sz, (X(-.36 - i * .07), s * .07 * sz, Z(-.11)), 'white', seg=4, rot=(180, 0, 0))
+    # a crest of small spikes down the back of the skull
+    for i in range(3):
+        head.cone(.035 * sz, .12 * sz, (X(.02 + i * .09), 0, Z(.14 - i * .02)), belly, seg=5, rot=(0, 35, 0))
+    jaw = m.part('jaw', (X(.0), 0, Z(-.08)), head)
+    jaw.tube([(X(.02), 0, Z(-.1)), (X(-.2), 0, Z(-.15)), (X(-.42), 0, Z(-.17)), (X(-.6), 0, Z(-.16)), (X(-.64), 0, Z(-.16))],
+             [(.14 * sz, .07 * sz), (.12 * sz, .06 * sz), (.085 * sz, .045 * sz), (.04 * sz, .03 * sz), (0, 0)], skin, seg=10, belly=belly)
+    for s in (-1, 1):
+        for i in range(4):   # lower teeth
+            jaw.cone(.015 * sz, .055 * sz, (X(-.3 - i * .07), s * .065 * sz, Z(-.13)), 'white', seg=4)
+    return head
+
+
+def claws(p, at, dirx=-1, n=3, size=.06, w=.05):
+    for i in range(n):
+        y = at[1] + (i - (n - 1) / 2) * w
+        p.cone(size * .45, size * 1.6, (at[0] + dirx * size * .9, y, at[2] + .02), 'bone', seg=5, rot=(0, 90 * dirx, 0))
+
+
 @model
 def drake():
+    # A dragon: one smooth body swept along its spine (no boxes), a long neck and
+    # tail, a horned head with a jaw that opens, four clawed legs, and wings of
+    # skin stretched between long finger bones.
     m = Model('drake')
     body = m.part('body', (0, 0, 1.0))
-    body.ball(.7, (0, 0, 1.05), 'drake', sub=2, scale=(1.6, 1, .85)).ball(.55, (-.1, 0, .8), 'drakebelly', sub=1, scale=(1.5, .85, .5))
-    for i in range(6):
-        body.cone(.12, .3, (-.7 + i * .28, 0, 1.65 - abs(i - 2.5) * .05), 'scale', seg=4)
+    body.tube([(1.05, 0, 1.02), (.7, 0, 1.08), (.25, 0, 1.12), (-.25, 0, 1.15), (-.7, 0, 1.2), (-.98, 0, 1.28)],
+              [(.26, .3), (.42, .45), (.5, .52), (.52, .55), (.44, .48), (.3, .33)], 'drake', seg=16, belly='drakebelly')
+    for s in (-1, 1):   # shoulders, where the wings and forelegs meet the body
+        body.ball(.22, (.55, s * .28, 1.12), 'drake', sub=2, scale=(1.6, 1, 1.2))
+    for i in range(7):   # spines down the back
+        x = -.85 + i * .3
+        body.cone(.07, .26 - abs(i - 3) * .02, (x, 0, 1.66 - abs(x + .1) * .08), 'drakebelly', seg=6, rot=(0, 30, 0))
     neck = m.part('neck', (-.9, 0, 1.2), body)
-    neck.cyl(.28, .9, (-1.2, 0, 1.45), 'drake', seg=7, r2=.22, rot=(0, -40, 0))
-    head = m.part('head', (-1.5, 0, 1.75), neck)
-    head.box((.6, .44, .34), (-1.75, 0, 1.82), 'drake').box((.1, .1, .1), (-1.6, -.18, 2.0), 'eyeglow').box((.1, .1, .1), (-1.6, .18, 2.0), 'eyeglow')
-    head.cone(.08, .35, (-1.45, -.16, 2.1), 'bone', seg=4, rot=(0, 50, 0)).cone(.08, .35, (-1.45, .16, 2.1), 'bone', seg=4, rot=(0, 50, 0))
-    jaw = m.part('jaw', (-1.5, 0, 1.68), head)
-    jaw.box((.55, .38, .12), (-1.76, 0, 1.6), 'drakebelly')
-    for i in range(4):
-        jaw.cone(.03, .08, (-1.95 + i * .12, -.15, 1.7), 'white', seg=3).cone(.03, .08, (-1.95 + i * .12, .15, 1.7), 'white', seg=3)
+    neck.tube([(-.82, 0, 1.28), (-1.12, 0, 1.48), (-1.34, 0, 1.7), (-1.5, 0, 1.92), (-1.56, 0, 2.02)],
+              [(.32, .36), (.26, .29), (.21, .23), (.18, .2), (.17, .18)], 'drake', seg=14, belly='drakebelly')
+    for i in range(3):
+        neck.cone(.05, .18, (-1.0 - i * .2, 0, 1.73 + i * .2), 'drakebelly', seg=5, rot=(0, 25, 0))
+    dragon_head(m, neck, (-1.52, 0, 2.0), 1.0, 'drake', 'drakebelly')
     tail = m.part('tail', (1.0, 0, 1.0), body)
-    tail.cone(.32, 1.6, (1.75, 0, .75), 'drake', seg=7, rot=(0, 75, 0))
+    tpts = [(.95, 0, 1.04), (1.5, 0, .92), (2.1, 0, .76), (2.7, 0, .64), (3.2, 0, .62), (3.6, 0, .68)]
+    tail.tube(tpts, [(.27, .3), (.21, .23), (.15, .16), (.1, .1), (.06, .06), (0, 0)], 'drake', seg=12, belly='drakebelly')
+    for i in range(6):
+        x, _, z = lerp3(tpts[0], tpts[-1], (i + .5) / 6.5)
+        z = [p[2] for p in tpts][min(5, int((i + .5) / 6.5 * 5 + .5))]
+        tail.cone(.055 - i * .006, .2 - i * .022, (x, 0, z + .26 - i * .04), 'drakebelly', seg=5, rot=(0, 35, 0))
+    tail.membrane([(3.45, 0, .7), (3.7, -.2, .71), (4.0, 0, .69), (3.7, .2, .71)], 'drake', thick=.05)
     for s in (-1, 1):
         w = m.part('wing' + ('L' if s < 0 else 'R'), (-.2, s * .55, 1.45), body)
-        w.box((.9, .08, .5), (.2, s * .75, 1.6), 'drake', rot=(s * -30, 0, 0)).box((.7, .04, .35), (.3, s * .95, 1.7), 'drakebelly', rot=(s * -45, 0, 0))
-    for n, x, y in [('legFL', -.6, -.45), ('legFR', -.6, .45), ('legBL', .6, -.45), ('legBR', .6, .45)]:
-        leg(m, n, body, (x, y, .75), .75, .26, 'drake', foot='bone')
-    boss_armor(m, body, 0, 1.55, 1.6, .9)
+        S, E, W = (-.25, s * .32, 1.5), (.12, s * 1.1, 1.92), (-.12, s * 1.75, 2.1)
+        tips = [(.35, s * 2.45, 1.9), (.9, s * 2.15, 1.6), (1.2, s * 1.6, 1.42), (1.1, s * 1.0, 1.38)]
+        B = (.72, s * .4, 1.44)
+        w.tube([S, lerp3(S, E, .5), E, W], [.1, .085, .07, .055], 'drake', seg=8)
+        for t in tips:
+            w.tube([W, lerp3(W, t, .5), t], [.045, .03, 0], 'drake', seg=6)
+        w.cone(.03, .14, (W[0] - .05, W[1], W[2] + .05), 'bone', seg=5, rot=(0, -60, 0))
+        # the skin, scalloped between the fingers
+        out = [S, E, W, tips[0]]
+        pts2 = tips + [B]
+        for a, b in zip(pts2, pts2[1:]):
+            mid = lerp3(a, b, .5)
+            out.append(lerp3(mid, W, .22))
+            out.append(b)
+        w.membrane(out, 'drakebelly', thick=.025)
+    legs = [('legFL', -.6, -.45, False), ('legFR', -.6, .45, False), ('legBL', .6, -.45, True), ('legBR', .6, .45, True)]
+    for n, x, y, hind in legs:
+        s = -1 if y < 0 else 1
+        p = m.part(n, (x, y, .75), body)
+        if hind:
+            pts = [(.56, s * .42, 1.0), (.4, s * .5, .55), (.68, s * .52, .26), (.6, s * .52, .07), (.44, s * .52, .05)]
+            rad = [(.22, .26), (.15, .16), (.1, .1), (.08, .07), (.07, .05)]
+        else:
+            pts = [(-.58, s * .42, .98), (-.5, s * .5, .5), (-.64, s * .52, .14), (-.72, s * .52, .05), (-.8, s * .52, .05)]
+            rad = [(.17, .2), (.12, .13), (.09, .09), (.08, .06), (.07, .05)]
+        p.tube(pts, rad, 'drake', seg=10, belly='drakebelly')
+        claws(p, (pts[-1][0] - .04, pts[-1][1], .02), -1, 3, .06, .05)
+    boss_armor(m, body, 0, 1.62, 1.6, .9)
     return m
 
 
 @model
 def wyrm():
+    # A great serpent: smooth overlapping coils, a fin of spines down its back,
+    # and the same horned dragon's head, broader and lower.
     m = Model('wyrm')
     root = m.part('root', (0, 0, 0))
     segs = 8
-    prev = root
     for i in range(segs):
         x = -.8 + i * .55
         r = .42 - i * .035
         s = m.part(f'seg{i}', (x, 0, r), root)
-        s.ball(r, (x, 0, r), 'wyrm', sub=1, scale=(1.25, 1, .9)).ball(r * .8, (x, 0, r * .55), 'wyrmbelly', sub=0, scale=(1.2, 1, .5))
-        s.cone(r * .35, r * .8, (x, 0, r * 1.95), 'bone', seg=4)
-        prev = s
-    head = m.part('head', (-1.2, 0, .55), root)
-    head.box((.7, .56, .44), (-1.45, 0, .65), 'wyrm').box((.1, .12, .1), (-1.55, -.22, .86), 'eyeglow').box((.1, .12, .1), (-1.55, .22, .86), 'eyeglow')
-    for s in (-1, 1):
-        head.cone(.08, .5, (-1.15, s * .22, 1.0), 'bone', seg=4, rot=(s * -30, 40, 0))
-    jaw = m.part('jaw', (-1.2, 0, .45), head)
-    jaw.box((.62, .5, .14), (-1.48, 0, .4), 'wyrmbelly')
-    for i in range(4):
-        jaw.cone(.04, .12, (-1.7 + i * .12, -.18, .5), 'white', seg=3).cone(.04, .12, (-1.7 + i * .12, .18, .5), 'white', seg=3)
+        if i < segs - 1:
+            s.tube([(x - .42, 0, r * 1.02), (x - .2, 0, r * 1.04), (x + .1, 0, r * 1.0), (x + .38, 0, r * .96)],
+                   [(r * .62, r * .75), (r * .98, r * .98), (r * 1.0, r * .96), (r * .7, r * .74)], 'wyrm', seg=14, belly='wyrmbelly')
+        else:   # the tail ends in a point
+            s.tube([(x - .42, 0, r * 1.02), (x - .2, 0, r * 1.0), (x + .2, 0, r * .8), (x + .6, 0, r * .55), (x + 1.0, 0, r * .4)],
+                   [(r * .62, r * .75), (r * .95, r * .95), (r * .7, r * .7), (r * .35, r * .35), (0, 0)], 'wyrm', seg=14, belly='wyrmbelly')
+        s.cone(r * .3, r * .9, (x - .05, 0, r * 1.9), 'bone', seg=6, rot=(0, 30, 0))
+        s.membrane([(x - .3, 0, r * 1.6), (x - .05, 0, r * 2.6), (x + .3, 0, r * 1.5)], 'wyrmbelly', thick=.03)
+    dragon_head(m, root, (-1.25, 0, .78), 1.25, 'wyrm', 'wyrmbelly')
     boss_armor(m, root, .6, .85, 2.6, .8)
     return m
 

@@ -24,13 +24,13 @@
       tDiffuse: { value: null }, tDepth: { value: null }, resolution: { value: new THREE.Vector2(1, 1) },
       cameraNear: { value: 0.5 }, cameraFar: { value: 400 }, aoOn: { value: 1 }, aoStrength: { value: 0.42 }, aoRadius: { value: 26 },
       exposure: { value: 1.05 }, lift: { value: new THREE.Vector3(0, 0, 0) }, gain: { value: new THREE.Vector3(1, 1, 1) },
-      saturation: { value: 1.08 }, contrast: { value: 1.04 }, vignette: { value: 0.32 }, grain: { value: 0.012 }, time: { value: 0 }, fxaa: { value: 0 }
+      saturation: { value: 1.08 }, contrast: { value: 1.04 }, vignette: { value: 0.32 }, grain: { value: 0.004 }, time: { value: 0 }, fxaa: { value: 0 }, sharpen: { value: 0.4 }
     },
     vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
     fragmentShader: `
       #include <packing>
       uniform sampler2D tDiffuse; uniform sampler2D tDepth; uniform vec2 resolution;
-      uniform float cameraNear, cameraFar, aoOn, aoStrength, aoRadius, exposure, saturation, contrast, vignette, grain, time, fxaa;
+      uniform float cameraNear, cameraFar, aoOn, aoStrength, aoRadius, exposure, saturation, contrast, vignette, grain, time, fxaa, sharpen;
       uniform vec3 lift, gain;
       varying vec2 vUv;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -45,14 +45,20 @@
       vec3 fetch(vec2 uv) { return texture2D(tDiffuse, uv).rgb; }
       void main() {
         vec3 col = fetch(vUv);
+        vec2 px = 1.0 / resolution;
+        vec3 n = fetch(vUv + vec2(0.0, px.y)), s = fetch(vUv - vec2(0.0, px.y)), e = fetch(vUv + vec2(px.x, 0.0)), w = fetch(vUv - vec2(px.x, 0.0));
         // a light edge smoothing where the buffer could not be multisampled
         if (fxaa > 0.5) {
-          vec2 px = 1.0 / resolution;
-          vec3 n = fetch(vUv + vec2(0.0, px.y)), s = fetch(vUv - vec2(0.0, px.y)), e = fetch(vUv + vec2(px.x, 0.0)), w = fetch(vUv - vec2(px.x, 0.0));
           vec3 L = vec3(0.299, 0.587, 0.114);
           float lc = dot(col, L), ln = dot(n, L), ls = dot(s, L), le = dot(e, L), lw = dot(w, L);
           float range = max(max(max(ln, ls), max(le, lw)), lc) - min(min(min(ln, ls), min(le, lw)), lc);
           if (range > 0.04) col = mix(col, (n + s + e + w + col) * 0.2, clamp(range * 2.5, 0.0, 0.6));
+        } else if (sharpen > 0.0) {
+          // sharpening: each pixel pushed away from the average of its neighbours,
+          // but never past the brightest or darkest of them (so edges get crisp
+          // without bright or dark rims)
+          vec3 mn = min(col, min(min(n, s), min(e, w))), mx = max(col, max(max(n, s), max(e, w)));
+          col = clamp(col + (col - (n + s + e + w) * 0.25) * sharpen * 2.0, mn, mx);
         }
         // ambient occlusion: creases and contact shadows, from the depth alone
         if (aoOn > 0.5) {
@@ -97,7 +103,7 @@
       if (!q || !THREE.EffectComposer || !THREE.UnrealBloomPass) { P.active = false; r.toneMapping = THREE.ACESFilmicToneMapping; if (R.scene) R.scene.environment = null; return; }
       try {
         const gl2 = r.capabilities.isWebGL2;
-        const w = Math.max(1, Math.floor(window.innerWidth * R.dpr)), h = Math.max(1, Math.floor(window.innerHeight * R.dpr));
+        const w = Math.max(1, Math.floor(window.innerWidth * R.rdpr)), h = Math.max(1, Math.floor(window.innerHeight * R.rdpr));
         const rt = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, samples: gl2 ? q.samples : 0 });
         rt.depthTexture = new THREE.DepthTexture(w, h);
         rt.depthTexture.type = THREE.UnsignedIntType;
@@ -105,7 +111,7 @@
         C.setPixelRatio(1);
         C.addPass(new THREE.RenderPass(R.scene, R.camera));
         if (q.bloom && !P.bloomOff) {
-          P.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(Math.floor(w * q.bloomRes), Math.floor(h * q.bloomRes)), 0.4, 0.5, 1.0);
+          P.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(Math.floor(w * q.bloomRes), Math.floor(h * q.bloomRes)), 0.4, 0.22, 1.0);   // a tight glow round what shines, not a haze over everything
           C.addPass(P.bloom);
         }
         P.grade = new THREE.ShaderPass(GRADE);
@@ -124,12 +130,12 @@
     },
     resize() {
       if (!P.composer) return;
-      const R = P.R, w = Math.max(1, Math.floor(window.innerWidth * R.dpr * P.scale)), h = Math.max(1, Math.floor(window.innerHeight * R.dpr * P.scale));
+      const R = P.R, w = Math.max(1, Math.floor(window.innerWidth * R.rdpr * P.scale)), h = Math.max(1, Math.floor(window.innerHeight * R.rdpr * P.scale));
       P.composer.setSize(w, h);
       if (P.composer.renderTarget1.depthTexture) { P.composer.renderTarget1.depthTexture.image.width = w; P.composer.renderTarget1.depthTexture.image.height = h; }
       P.grade.uniforms.resolution.value.set(w, h);
       // what is drawn at a lower resolution is stretched to fill the window
-      R.renderer.setPixelRatio(R.dpr * P.scale);
+      R.renderer.setPixelRatio(R.rdpr * P.scale);
       R.renderer.setSize(window.innerWidth, window.innerHeight, false);
     },
     // ------------------------------------------------------------ the sky as a light
@@ -176,6 +182,7 @@
       G.exposure.value = room ? 1.08 : 0.98;
       G.time.value = (G.time.value + 0.37) % 100;
       G.aoOn.value = P.q.ao && !P.aoOff ? 1 : 0;
+      G.sharpen.value = 0.4 + (1 - P.scale) * 1.2;   // more when the picture is drawn smaller and stretched
       const cam = P.R.camera; G.cameraNear.value = cam.near; G.cameraFar.value = cam.far;
       // only what truly glows blooms: flames, lanterns, windows at night, spells, the gates
       if (P.bloom) { P.bloom.strength = room ? 0.55 : 0.35 + 0.35 * (1 - dl); P.bloom.threshold = room ? 0.95 : 1.05 - 0.15 * (1 - dl); }
@@ -199,13 +206,17 @@
       const med = H.slice().sort((a, b) => a - b)[H.length >> 1];
       P.med = med;
       if (med > 22) {
-        if (P.scale > 0.65) { if (now - (P.lastUp || -1e9) < 20000) P.noUp = true; P.scale = Math.max(0.6, Math.round((P.scale - 0.15) * 20) / 20); P.resize(); P.cool = 4000; H.length = 0; }   // (going up just made it too slow: stay put from now on)
-        else if (P.q && P.q.ao && !P.aoOff) { P.aoOff = true; P.cool = 3000; H.length = 0; }
+        // the effects go first; the resolution (which is what makes it look soft) last, and never below three quarters
+        if (P.q && P.q.ao && !P.aoOff) { P.aoOff = true; P.cool = 3000; H.length = 0; }
         else if (P.bloom && !P.bloomOff) { P.bloomOff = true; P.bloom.enabled = false; P.cool = 3000; H.length = 0; }
+        else if (P.scale > P.minScale() + 0.01) { if (now - (P.lastUp || -1e9) < 20000) P.noUp = true; P.scale = Math.max(P.minScale(), Math.round((P.scale - 0.125) * 40) / 40); P.resize(); P.cool = 4000; H.length = 0; }   // (going up just made it too slow: stay put from now on)
       } else if (P.scale < 1 && !P.noUp && (med < 11 || (med < 18 && Wk.slice().sort((a, b) => a - b)[Wk.length >> 1] < 6))) {
         // (on a 60 Hz screen frames never come faster than 16.7 ms: look at how busy we are instead)
         P.scale = Math.min(1, Math.round((P.scale + 0.1) * 20) / 20); P.resize(); P.cool = 10000; P.lastUp = now; H.length = 0; Wk.length = 0; }
     },
+    // never below three quarters — or, on a sharp screen drawn finer than its own
+    // pixels, never below one rendered pixel per screen pixel
+    minScale() { return Math.min(0.75, 1 / Math.max(1, P.R.rdpr || 1)); },
     render(game, dt) {
       const R = P.R;
       P.adapt(performance.now());

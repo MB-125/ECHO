@@ -189,7 +189,9 @@
       return mat;
     },
     // Graphics quality: how sharp, how far, how many lights and shadows.
-    QUALITY: { low: { dpr: 0.7, chunk: 1, lights: 4, shadows: false, map: 512, shadowEvery: 1 }, medium: { dpr: 1, chunk: 2, lights: 6, shadows: true, map: 1024, shadowEvery: 2 }, high: { dpr: 1.25, chunk: 2, lights: 8, shadows: true, map: 2048, shadowEvery: 1 } },
+    // (dpr: how many rendered pixels per screen pixel, at most — a sharp screen, a
+    // laptop at 150% or a 4K monitor, is drawn at its own sharpness, not stretched)
+    QUALITY: { low: { dpr: 1, chunk: 1, lights: 4, shadows: false, map: 512, shadowEvery: 1 }, medium: { dpr: 1.5, chunk: 2, lights: 6, shadows: true, map: 2048, shadowEvery: 2 }, high: { dpr: 2, chunk: 2, lights: 8, shadows: true, map: 4096, shadowEvery: 1 } },
     lightN: 8, chunkR: CHUNK_RADIUS,
     applyQuality() {
       const q = R.QUALITY[(ECHO.UI && ECHO.UI.settings.quality) || 'high'] || R.QUALITY.high;
@@ -197,7 +199,8 @@
       if (!R.renderer) return;
       const was = R.renderer.shadowMap.enabled;
       R.renderer.shadowMap.enabled = q.shadows;
-      if (R.sun) { R.sun.shadow.mapSize.set(q.map, q.map); if (R.sun.shadow.map) { R.sun.shadow.map.dispose(); R.sun.shadow.map = null; } }
+      const mapN = Math.min(q.map, (R.renderer.capabilities.maxTextureSize || 4096) / 2);
+      if (R.sun) { R.sun.shadow.mapSize.set(mapN, mapN); if (R.sun.shadow.map) { R.sun.shadow.map.dispose(); R.sun.shadow.map = null; } }
       if (was !== q.shadows && R.scene) R.scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true; });
       R.resize();
       R.warmed = false;   // the shaders change with the settings: build the new set
@@ -205,10 +208,13 @@
     },
     resize() {
       const q = R.QUALITY[(ECHO.UI && ECHO.UI.settings.quality) || 'high'] || R.QUALITY.high;
-      R.dpr = Math.min(q.dpr, window.devicePixelRatio || 1);
+      // the labels and names drawn over the world are always at the screen's own
+      // sharpness (cheap); the 3D picture at what the quality setting allows
+      R.dpr = Math.min(2, window.devicePixelRatio || 1);
+      R.rdpr = Math.min(q.dpr, window.devicePixelRatio || 1);
       R.cw = Math.floor(window.innerWidth * R.dpr);
       R.ch = Math.floor(window.innerHeight * R.dpr);
-      R.renderer.setPixelRatio(R.dpr);
+      R.renderer.setPixelRatio(R.rdpr);
       R.renderer.setSize(window.innerWidth, window.innerHeight, false);
       R.canvas.style.width = window.innerWidth + 'px'; R.canvas.style.height = window.innerHeight + 'px';
       R.overlay.width = R.cw; R.overlay.height = R.ch;
@@ -1835,7 +1841,15 @@
       v.tell = e.state === 'windup' ? 1 : 0;
       if (P.jaw) P.jaw.rotation.z = -0.6 * open;
       if (P.head) P.head.rotation.z = e.state === 'roar' ? -0.4 : e.state === 'windup' ? -0.2 : 0;
-      if (P.wingL) { const f = (e.alt || 0) > 0.3 ? Math.sin(R.time * (e.moving ? 6 : 4.5)) * 0.75 : e.state === 'roar' ? Math.sin(R.time * 14) * 0.6 : 0.1 * Math.sin(R.time * 2); P.wingL.rotation.x = f; P.wingR.rotation.x = -f; }
+      if (P.wingL) {
+        const f = (e.alt || 0) > 0.3 ? Math.sin(R.time * (e.moving ? 6 : 4.5)) * 0.75 : e.state === 'roar' ? Math.sin(R.time * 14) * 0.6 : 0.1 * Math.sin(R.time * 2);
+        // on the ground the wings fold back along the body and lift clear of it;
+        // in the air (or roaring) they open wide
+        const want = (e.alt || 0) > 0.6 || e.state === 'roar' ? 0 : 1;
+        v.fold = v.fold == null ? want : v.fold + (want - v.fold) * 0.08;
+        P.wingL.rotation.y = 0.95 * v.fold; P.wingR.rotation.y = -0.95 * v.fold;
+        P.wingL.rotation.x = f - 0.3 * v.fold; P.wingR.rotation.x = -f + 0.3 * v.fold;
+      }
       if (P.seg0) for (let i = 0; i < 8; i++) { const s = P['seg' + i]; if (!s) continue; s.position.z = Math.sin(R.time * (moving ? 7 : 2) - i * 0.8) * (moving ? 0.35 : 0.12); }
       if (P.tail) P.tail.rotation.y = Math.sin(R.time * 2) * 0.25;
       v.yOff = 0;
@@ -2334,7 +2348,7 @@
       }
       R.glows.geometry.setDrawRange(0, k);
       for (const key of ['position', 'color', 'size', 'alpha']) ga[key].needsUpdate = true;
-      R.glowMat.uniforms.scale.value = R.ch / (2 * Math.tan(THREE.MathUtils.degToRad(R.camera.fov / 2)));
+      R.glowMat.uniforms.scale.value = Math.floor(window.innerHeight * (R.rdpr || 1) * (ECHO.Post && ECHO.Post.active ? ECHO.Post.scale : 1)) / (2 * Math.tan(THREE.MathUtils.degToRad(R.camera.fov / 2)));
     },
     // Festival dressing in the square, rebuilt when it changes.
     updateFestival(game) {
