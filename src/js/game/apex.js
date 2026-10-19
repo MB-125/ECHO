@@ -1002,7 +1002,7 @@
       if (!t || !t.bound) { e.dead = true; e.vanish = true; return; }
       t.hp = e.hp / e.maxHp;
       // under you, in the sky
-      if (pl.flying === t.id) { e.x = pe.x; e.y = pe.y - 0.02; e.dir = pe.dir; e.flip = Math.cos(pe.dir) < 0; e.alt = Math.max(0, (pe.alt || 0) - A.SEAT * e.tscale); e.altGoal = e.alt; e.moving = !!pe.moving; e.state = 'stalk'; return; }
+      if (pl.flying === t.id) { e.x = pe.x; e.y = pe.y - 0.02; e.dir = pe.dir; e.flip = Math.cos(pe.dir) < 0; e.alt = Math.max(0, (pe.alt || 0) - A.SEAT * e.tscale); e.altGoal = e.alt; e.moving = !!pe.moving; e.state = 'stalk'; e.atk = null; return; }
       if (e.atk) return A.attackTick(game, e, t, dt);
       if ((e.busyUntil || 0) > game.time) { if (e.busyFn) e.busyFn(game, e, dt); else e.moving = false; return; }
       e.busyFn = null;
@@ -1021,7 +1021,11 @@
       if (foe) {
         e.altGoal = 0; e.state = 'fight';
         const df = U.dist(e.x, e.y, foe.x, foe.y), ang = Math.atan2(foe.y - e.y, foe.x - e.x);
-        if (df > e.r + foe.r + 1) A.go(game, e, foe.x, foe.y, 5, dt);
+        // where to stand: beside the foe, but never on top of you and never on
+        // the camera's side of you (the near side of the screen), where its bulk
+        // would hide you and the fight
+        const sp = A.standFor(game, e, foe);
+        if (U.dist(e.x, e.y, sp.x, sp.y) > 0.9) A.go(game, e, sp.x, sp.y, 5.5, dt);
         else { e.moving = false; e.dir = ang; e.flip = Math.cos(ang) < 0; }
         if (e.cd <= 0 && e.alt < 0.6 && SIG[t.sp] && Math.random() < 0.5) {
           const arts = SIG[t.sp].arts.filter(s => s.tamed && game.time >= (e.sigT[s.k] || 0));
@@ -1038,11 +1042,41 @@
         }
         return;
       }
-      // follow you
+      // follow you — a body's length off, on the far side of you from the
+      // camera (behind you on the screen), so it never stands between you and the view
       e.state = 'follow';
-      if (d > 7 && e.flies) { e.altGoal = 3.5; A.go(game, e, pe.x - 2, pe.y + 1.5, Math.max(6, d * 0.9), dt); }
-      else if (d > 3.5) { if (e.alt < 0.6) e.altGoal = 0; A.go(game, e, pe.x - 1.5, pe.y + 1.2, d > 8 ? 6.5 : 4, dt); }
-      else { e.moving = false; if (!e.flies || d < 4) e.altGoal = 0; }
+      e._stand = null;
+      const fd = A.gap(e), side = (e._side = e._side || (e.x < pe.x ? -1 : 1));
+      if (Math.abs(e.x - pe.x) > fd * 1.6) e._side = e.x < pe.x ? -1 : 1;
+      const gx = pe.x + side * fd * 0.75, gy = pe.y - fd * 0.75;
+      const dg = U.dist(e.x, e.y, gx, gy);
+      if (d > fd * 2.6 && e.flies) { e.altGoal = 3.5; A.go(game, e, gx, gy, Math.max(6, d * 0.9), dt); }
+      else if (dg > 1.4) { if (e.alt < 0.6) e.altGoal = 0; A.go(game, e, gx, gy, dg > 8 ? 6.5 : 4, dt); }
+      else { e.moving = false; if (!e.flies || d < fd * 1.5) e.altGoal = 0; e.dir = Math.atan2(pe.y - e.y, pe.x - e.x); e.flip = Math.cos(e.dir) < 0; }
+    },
+    // how far from you a beast this size keeps
+    gap(e) { return 2.4 + 2.1 * (e.tscale || 1); },
+    // A place to fight from: in reach of the foe, a body's length from you,
+    // and not on the near (camera) side of you. Chosen afresh now and then, and
+    // kept while it is still good, so the beast doesn't dither.
+    standFor(game, e, foe) {
+      const pe = game.pe, world = game.world, now = game.time;
+      const reach = e.r + foe.r + 0.7, gap = A.gap(e);
+      const S = e._stand;
+      if (S && S.foe === foe && now < S.until) return { x: foe.x + Math.cos(S.a) * reach, y: foe.y + Math.sin(S.a) * reach };
+      let best = null, bs = -1e9;
+      const away = Math.atan2(foe.y - pe.y, foe.x - pe.x);
+      for (let i = 0; i < 12; i++) {
+        const a = away + (i - 6) * Math.PI / 6, x = foe.x + Math.cos(a) * reach, y = foe.y + Math.sin(a) * reach;
+        let s = Math.min(U.dist(x, y, pe.x, pe.y), gap * 1.4) * 1.2;           // room between it and you
+        s -= Math.max(0, y - pe.y + gap * 0.3) * 1.6;                          // the camera's side of you: no
+        s -= U.dist(x, y, e.x, e.y) * 0.15;                                    // not a long way round
+        if (S && S.foe === foe && Math.abs(U.angleDiff(a, S.a)) < 0.3) s += 1.2; // keep to what it chose
+        if (!ECHO.Ent.fits(world, x, y, Math.min(0.6, e.r * 0.6))) s -= 8;
+        if (s > bs) { bs = s; best = a; }
+      }
+      e._stand = { foe, a: best, until: now + 1.2 };
+      return { x: foe.x + Math.cos(best) * reach, y: foe.y + Math.sin(best) * reach };
     },
     spent(game, e) {
       const t = Ti().byId(game.world, e.titan);
@@ -1123,54 +1157,129 @@
       A.mount(game, e);
       return true;
     },
+    // ------------------------------------------------------------ flight
+    // The land's height under (x, y) as it is drawn (0 where there is no 3D view).
+    gnd(x, y) { const R3 = ECHO.Renderer3D; return R3 && R3.hc && R3.world ? R3.groundH(x, y) : 0; },
+    FLY: { cruise: 9, hMin: 4, hMax: 20, slow: 14, fast: 27, climb: 7 },
     mount(game, e) {
       const pl = game.pl, pe = game.pe, t = Ti().byId(game.world, e.titan);
       if (!t || pl.mounted || ECHO.Interior.cur) return;
       if (e.hp < e.maxHp * 0.25) return UI().toast(`${t.name} is too hurt to carry you.`, 'info', 3);
       pl.flying = t.id;
-      A.fly = { v: 0, dir: pe.dir || 0, up: 0, landing: false, h: 3.4 + A.SEAT * (e.tscale || 1) };
+      const seat = A.SEAT * (e.tscale || 1), z0 = A.gnd(pe.x, pe.y);
+      // a crouch, a leap, and great wingbeats up into the sky
+      A.fly = { phase: 'takeoff', t: 0, v: 0, vx: 0, vy: 0, dir: e.dir != null ? e.dir : (pe.dir || 0), yawRate: 0, z: z0, vz: 0, h: A.FLY.cruise, seat, bank: 0, pitch: 0, flap: 0, crouch: 0 };
+      pe.x = e.x; pe.y = e.y; pe.alt = seat;
       e.atk = null; e.altGoal = 0;
       ECHO.PlayerCtl.unlock && ECHO.PlayerCtl.unlock(game, false);
       ECHO.Combat.ring(pe.x, pe.y, 3, 'rgba(230,230,255,0.7)', 0.6);
-      if (!A.told.fly) { A.told.fly = true; UI().toast(`You are on ${t.name}'s back. WASD to fly, Shift to fly fast, V to come down (on open ground). Nothing on the ground can reach you up here.`, 'legend', 8); }
+      if (!A.told.fly) { A.told.fly = true; UI().toast(`You are on ${t.name}'s back. WASD to steer, Shift to fly fast, Space to climb, Ctrl to go lower, V to come down (over open ground). Nothing on the ground can reach you up here.`, 'legend', 9); }
     },
     land(game, force) {
       const F = A.fly, pe = game.pe, world = game.world;
       if (!F) { game.pl.flying = null; pe.alt = 0; return; }
+      if (F.phase === 'landing') return;
       const solid = ECHO.World.isSolid(world, pe.x, pe.y) || (ECHO.Water && ECHO.Water.kind(world, pe.x, pe.y) === 'deep');
       if (solid && !force) { const sp = ECHO.Ent.freeSpot(world, pe.x, pe.y, 4); if (!sp) return UI().toast('Nowhere to come down here — fly over open ground.', 'info', 2.5); }
-      F.landing = true;
+      F.phase = 'landing'; F.t = 0;
       if (force) A.finishLand(game);
     },
     finishLand(game) {
       const pe = game.pe, pl = game.pl, world = game.world;
       const sp = ECHO.Ent.freeSpot(world, pe.x, pe.y, 8) || { x: pe.x, y: pe.y };
       const e = pl.flying && A.entOf(game, pl.flying);
-      pe.x = sp.x; pe.y = sp.y; pe.alt = 0; pl.x = pe.x; pl.y = pe.y;
-      if (e) { const s2 = ECHO.Ent.freeSpot(world, pe.x - 2, pe.y + 1, 6) || sp; e.x = s2.x; e.y = s2.y; e.alt = 0; e.altGoal = 0; }
+      const F = A.fly;
+      if (e) { e.x = sp.x; e.y = sp.y; e.alt = 0; e.altGoal = 0; e.dir = F ? F.dir : e.dir; }
+      // you climb down beside it, on the side away from the camera's view of you
+      const off = ECHO.Ent.freeSpot(world, sp.x + Math.cos((F ? F.dir : 0) + Math.PI / 2) * 1.6 * (e ? e.tscale || 1 : 1), sp.y - 0.4, 5) || sp;
+      pe.x = off.x; pe.y = off.y; pe.alt = 0; pl.x = pe.x; pl.y = pe.y;
       pl.flying = null; A.fly = null;
-      ECHO.Combat.ring(pe.x, pe.y, 2.5, 'rgba(220,210,190,0.7)', 0.5); game.shake(0.2);
+      ECHO.Combat.ring(sp.x, sp.y, 3.5, 'rgba(220,210,190,0.7)', 0.6); game.shake(0.35);
+      for (let i = 0; i < 18; i++) { const a = Math.random() * 6.28; ECHO.Combat.fx.push({ kind: 'smoke', x: sp.x + Math.cos(a) * 1.5, y: sp.y + Math.sin(a) * 1.2, vx: Math.cos(a) * 2.5, vy: 0, t: 0, life: 1.2 + Math.random(), size: 3, sh: 0.3 }); }
       game.checkPlace();
     },
-    // flying, every frame (instead of walking)
+    // Flying, every frame (instead of walking). The dragon has weight: it banks
+    // into its turns and carries its speed through them, climbs at the cost of
+    // speed and gathers speed in a dive, glides when you let it, and keeps its
+    // height above the land — rising early for the hills ahead.
     flyTick(game, dt, mx, my, len) {
-      const pe = game.pe, pl = game.pl, world = game.world, In = ECHO.Input;
-      const F = A.fly || (A.fly = { v: 0, dir: pe.dir || 0, up: 1, landing: false });
-      if (F.landing) { F.up = Math.max(0, F.up - dt / 1.1); F.v *= Math.exp(-dt * 3); if (F.up <= 0) return A.finishLand(game); }
-      else F.up = Math.min(1, F.up + dt / 1.3);
+      const pe = game.pe, pl = game.pl, world = game.world, In = ECHO.Input, C = A.FLY;
+      const e = A.entOf(game, pl.flying);
+      const seat = e ? A.SEAT * (e.tscale || 1) : A.SEAT;
+      const F = A.fly || (A.fly = { phase: 'fly', t: 0, v: 0, vx: 0, vy: 0, dir: pe.dir || 0, yawRate: 0, z: A.gnd(pe.x, pe.y) + Math.max(C.cruise, pe.alt || 0), vz: 0, h: C.cruise, seat, bank: 0, pitch: 0, flap: 0, crouch: 0 });
+      F.seat = seat; F.t += dt;
       const fast = In.key('Shift');
-      const want = len && !F.landing ? (fast ? 21 : 13) : 0;
-      F.v += U.clamp(want - F.v, -dt * 9, dt * (fast ? 7 : 5));
-      if (len && !F.landing) F.dir += U.angleDiff(F.dir, Math.atan2(my, mx)) * Math.min(1, dt * 3.2);
-      pe.x = U.clamp(pe.x + Math.cos(F.dir) * F.v * dt, 3, world.W - 3);
-      pe.y = U.clamp(pe.y + Math.sin(F.dir) * F.v * dt, 3, world.H - 3);
+      let thrust = 0, wantH = F.h;
+      if (F.phase === 'takeoff') {
+        // crouch, then spring up
+        if (F.t < 0.45) { F.crouch = Math.min(1, F.t / 0.3); wantH = 0; F.flap = 0.2; }
+        else {
+          if (!F.leapt) { F.leapt = true; F.vz = 9; F.crouch = 0; game.shake(0.3); ECHO.Combat.ring(pe.x, pe.y, 4, 'rgba(230,220,200,0.6)', 0.6); for (let i = 0; i < 14; i++) { const a = Math.random() * 6.28; ECHO.Combat.fx.push({ kind: 'smoke', x: pe.x + Math.cos(a) * 1.2, y: pe.y + Math.sin(a), vx: Math.cos(a) * 3, vy: 0, t: 0, life: 1 + Math.random(), size: 3, sh: 0.3 }); } if (ECHO.Sfx) ECHO.Sfx.play('roar', { vol: 0.5, pitch: 1.2 }); }
+          F.flap = 1; wantH = F.h; thrust = 0.5;
+          if (F.t > 2.2) F.phase = 'fly';
+        }
+      } else if (F.phase === 'landing') {
+        wantH = 0; thrust = 0;
+      } else {
+        // height: Space climbs, Ctrl goes lower
+        if (In.key(' ')) F.h = Math.min(C.hMax, F.h + C.climb * dt);
+        if (In.key('Control') || In.key('c')) F.h = Math.max(C.hMin, F.h - C.climb * dt);
+        wantH = F.h;
+        thrust = len ? (fast ? 1 : 0.6) : 0;
+      }
+      // ---- steering: the turn builds and eases; tighter when slow, wider when fast
+      if (len && F.phase !== 'landing' && !(F.phase === 'takeoff' && F.t < 0.45)) {
+        const want = Math.atan2(my, mx), err = U.angleDiff(F.dir, want);
+        const maxRate = U.lerp(2.8, 1.25, U.clamp(F.v / C.fast, 0, 1));
+        const rate = U.clamp(err * 3, -maxRate, maxRate);
+        F.yawRate += U.clamp(rate - F.yawRate, -dt * 6, dt * 6);
+      } else F.yawRate *= Math.exp(-dt * 4);
+      F.dir += F.yawRate * dt;
+      // ---- speed along the heading
+      const top = F.phase === 'takeoff' ? 7 : thrust >= 1 ? C.fast : thrust > 0 ? C.slow : 0;
+      if (top > F.v) F.v = Math.min(top, F.v + dt * (thrust >= 1 ? 8 : 5));
+      else F.v = Math.max(top, F.v - dt * (F.phase === 'landing' ? 5 : thrust ? 4 : 1.3));   // let go and it glides on, slowing gently
+      // climbing costs speed, diving gives it
+      if (F.phase !== 'landing') F.v = U.clamp(F.v - F.vz * dt * (F.vz > 0 ? 0.35 : 0.5), 0, C.fast * 1.25);
+      else F.v = Math.min(F.v, 4 + (F.z - A.gnd(pe.x, pe.y)) * 0.9);   // coming in to land it sheds its speed as it comes down
+      // the body follows the heading, sliding a little through a hard turn
+      const hx = Math.cos(F.dir) * F.v, hy = Math.sin(F.dir) * F.v, grip = 1 - Math.exp(-dt * 3.2);
+      F.vx += (hx - F.vx) * grip; F.vy += (hy - F.vy) * grip;
+      pe.x = U.clamp(pe.x + F.vx * dt, 3, world.W - 3);
+      pe.y = U.clamp(pe.y + F.vy * dt, 3, world.H - 3);
+      // ---- height: hold the chosen height over the highest land just ahead
+      const g0 = A.gnd(pe.x, pe.y);
+      let gAhead = g0;
+      for (const k of [3, 7, 12]) gAhead = Math.max(gAhead, A.gnd(pe.x + F.vx * k / Math.max(6, F.v + 1), pe.y + F.vy * k / Math.max(6, F.v + 1)));
+      const zT = (wantH > 0 ? gAhead : g0) + wantH;
+      const vzMax = F.phase === 'landing' ? 6.5 : 9;
+      F.vz += U.clamp((zT - F.z) * 2.4 - F.vz * 2.2, -16, 16) * dt;
+      F.vz = U.clamp(F.vz, -vzMax, vzMax);
+      F.z += F.vz * dt;
+      if (F.z < g0) { F.z = g0; F.vz = Math.max(0, F.vz); }
+      const alt = F.z - g0;
+      // ---- wings: hard beats to climb or speed up, a glide when cruising, a flare to land
+      const work = U.clamp(0.25 + Math.max(0, F.vz) * 0.09 + thrust * 0.5 - (F.v > 10 && thrust < 1 ? 0.35 : 0) + (F.v < 4 ? 0.45 : 0), 0, 1);
+      F.flap += ((F.phase === 'takeoff' && F.leapt) ? 1 - F.flap : (work - F.flap)) * Math.min(1, dt * 3);
+      const flare = F.phase === 'landing' && alt < 2.5 ? 1 - alt / 2.5 : 0;
+      if (flare > 0) { F.flap = Math.max(F.flap, 0.85); F.v *= Math.exp(-dt * 2.5); }
+      // the look of it: lean into the turn, nose up to climb, down to dive
+      const bankT = U.clamp(-F.yawRate * (0.18 + F.v * 0.018), -0.65, 0.65);
+      const pitchT = U.clamp(-F.vz * 0.05, -0.32, 0.32) - flare * 0.35 - F.crouch * 0.12;
+      F.bank += (bankT - F.bank) * Math.min(1, dt * 4);
+      F.pitch += (pitchT - F.pitch) * Math.min(1, dt * 3);
+      F.crouch = F.phase === 'takeoff' && !F.leapt ? F.crouch : Math.max(0, F.crouch - dt * 4);
+      // the rider sits on its back
+      pe.alt = alt + seat;
       pe.dir = F.dir; pe.flip = Math.cos(F.dir) < 0; pe.moving = F.v > 0.5;
-      pe.alt = (F.h || 5.8) * F.up + Math.sin(game.time * 1.6) * 0.15 * F.up;
       pl.x = pe.x; pl.y = pe.y;
       pe.iframes = Math.max(pe.iframes || 0, 0.1);
       if (pl.stamina < pl.maxSta) pl.stamina = Math.min(pl.maxSta, pl.stamina + 20 * dt);
-      // wind past you
-      if (F.v > 8 && Math.random() < dt * F.v * 0.6) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + (Math.random() - 0.5) * 6, y: pe.y + (Math.random() - 0.5) * 4, vx: -Math.cos(F.dir) * F.v * 0.8, vy: -Math.sin(F.dir) * F.v * 0.8, t: 0, life: 0.5, color: 'rgba(255,255,255,0.5)', size: 2 });
+      // touch down
+      if (F.phase === 'landing' && alt < 0.05 && F.t > 0.4) return A.finishLand(game);
+      // wind past you, more of it the faster you go; wisps of cloud up high
+      if (F.v > 8 && Math.random() < dt * F.v * 0.8) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + (Math.random() - 0.5) * 7, y: pe.y + (Math.random() - 0.5) * 5, vx: -F.vx * 0.9, vy: -F.vy * 0.9, t: 0, life: 0.45, color: 'rgba(255,255,255,0.55)', size: 2 });
+      if (alt > 12 && Math.random() < dt * 2) ECHO.Combat.fx.push({ kind: 'smoke', x: pe.x + F.vx * 0.6 + (Math.random() - 0.5) * 10, y: pe.y + F.vy * 0.6 + (Math.random() - 0.5) * 8, vx: -F.vx * 0.3, vy: 0, t: 0, life: 2, size: 4, sh: alt - 1 });
     },
 
     // ------------------------------------------------------------ the Animals page (U, or Journal → Animals)

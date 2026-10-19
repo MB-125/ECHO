@@ -16,6 +16,8 @@ ECHO is a desktop RPG built around one idea: **consequence**. You begin as an or
 
 Every system below is real and connected to the others. Nothing is scripted.
 
+**Flying** on a bound dragon (V) is a take-off and a landing, with weight in between: it banks into turns, trades height for speed, glides when you let go, holds the height you choose (Space higher, Ctrl lower) over the land, and leans you into the turns on its back. Your beast keeps a body's length off, away from the camera's side of you, so it never hides you in a fight.
+
 **Dragons** are modelled as creatures, not blocks: one smooth body along the spine, a long neck and tail with a belly of their own colour, horned heads with jaws that open, clawed legs, spined backs and wings of skin between finger bones that fold on the ground and open in flight.
 
 **A living world.** Every inhabitant is a persistent person with a name, family, traits, memories and opinions. They work, eat, feud, marry, have children, change trades, migrate when hungry, turn outlaw when desperate, rise through the ranks, and die — whether or not you're watching. Kingdoms collect taxes, pay soldiers, suffer riots, crown usurpers, declare war over hunger, and conquer each other's towns.

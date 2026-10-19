@@ -435,7 +435,7 @@
       const v = R._camV || { x: 0, z: 0 }, speed = Math.hypot(v.x, v.z);
       R.camSpeed = speed;
       // from the sky you see further
-      const rad = R.chunkR + ((R.flyK || 0) > 0.3 ? 1 : 0);
+      const rad = (R.flyK || 0) > 0.3 ? Math.max(R.chunkR, 2) + 1 : R.chunkR;
       const ccx = Math.floor(tg.x / CH), ccy = Math.floor(tg.z / CH);
       // where the camera will be in a second or so
       const look = Math.min(1.4, 0.35 + speed * 0.05);
@@ -1413,6 +1413,49 @@
       for (const k in R.forPool) for (let i = used[k] || 0; i < R.forPool[k].length; i++) R.forPool[k][i].visible = false;
     },
     // A dragon's shadow sweeping across the ground.
+    // On a dragon's back: the dragon banks, pitches and crouches as the flight
+    // says, and you sit astride its back and lean with it; a soft shadow on the
+    // ground below shows how high you are.
+    syncDragonFlight(game, dt) {
+      const pl = game.pl, F = ECHO.Apex && ECHO.Apex.fly, pe = game.pe;
+      const blob = R.flyShadow;
+      if (!pl || !pl.flying || !F || ECHO.Interior.cur) { if (blob) blob.visible = false; return; }
+      let dv = null, dEnt = null;
+      for (const [e, v] of R.views) if (e.tamed && e.titan === pl.flying && !e.dead) { dv = v; dEnt = e; break; }
+      const pv = R.views.get(pe);
+      if (!dv) return;
+      const root = dv.inst.root;
+      // turn, bank and pitch about the middle of its body, not its feet
+      root.rotation.order = 'YZX';
+      root.rotation.x = F.bank; root.rotation.z = F.pitch;
+      const s = root.scale.x, mid = R._fv1 || (R._fv1 = new THREE.Vector3()), q = root.quaternion;
+      root.updateMatrix();
+      mid.set(0, 1.1 * s, 0).applyQuaternion(q);
+      root.position.set(dv.px != null ? dv.px : dEnt.x, F.z - F.crouch * 0.35 * s, dv.py != null ? dv.py : dEnt.y);
+      root.position.x += 0 - mid.x; root.position.y += 1.1 * s - mid.y; root.position.z += 0 - mid.z;
+      root.updateMatrixWorld(true);
+      // the rider, astride the back
+      if (pv) {
+        const r = pv.inst.root, seat = R._fv2 || (R._fv2 = new THREE.Vector3()), up = R._fv3 || (R._fv3 = new THREE.Vector3());
+        seat.set(-0.12, 1.66, 0); root.localToWorld(seat);
+        up.set(0, 1, 0).applyQuaternion(q);
+        r.position.copy(seat).addScaledVector(up, -0.4);
+        r.quaternion.copy(q);
+        r.updateMatrixWorld(true);
+      }
+      // the shadow below
+      if (!blob) {
+        R.flyShadow = new THREE.Mesh(new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.3, depthWrite: false }));
+        R.flyShadow.renderOrder = 2; R.scene.add(R.flyShadow);
+      }
+      const b = R.flyShadow, alt = Math.max(0, F.z - R.groundH(pe.x, pe.y));
+      b.visible = alt > 0.6;
+      b.position.set(pe.x, R.groundH(pe.x, pe.y) + 0.08, pe.y);
+      b.rotation.y = -F.dir;
+      const sz = s * (1.3 + alt * 0.04);
+      b.scale.set(sz * 1.6, 1, sz * 1.1);
+      b.material.opacity = 0.32 * Math.max(0.15, 1 - alt / 28);
+    },
     syncFly(game) {
       const f = ECHO.Events && ECHO.Events.fly;
       if (!f || ECHO.Interior.cur) { if (R.flyMesh) R.flyMesh.visible = false; return; }
@@ -1787,6 +1830,17 @@
         if (hs.rear > 0.05) { P.body.rotation.z = lean + hs.rear * 0.35; }
         P.head.rotation.z = -lean * 0.6;
       }
+      // on a dragon's back: astride, low over its neck at speed, hands on its spines
+      if (e === game.pe && game.pl && game.pl.flying && !e.dead && ECHO.Apex && ECHO.Apex.fly) {
+        const Fl = ECHO.Apex.fly, lean = 0.12 + Math.min(0.45, Fl.v * 0.016) + Math.max(0, -Fl.pitch) * 0.3;
+        P.legL.rotation.z = P.legR.rotation.z = -0.95; P.legL.rotation.x = -0.75; P.legR.rotation.x = 0.75;
+        P.body.rotation.z = lean; P.body.position.y = 0.42 + Math.sin(R.time * (2.6 + 3.2 * Fl.flap) * 6.283) * 0.02 * Fl.flap;
+        P.body.rotation.x = -Fl.bank * 0.25;
+        const busy = (e.attackT > 0) || ECHO.PlayerCtl.drawing;
+        P.armL.rotation.z = -1.0 - lean * 0.5; P.armL.rotation.x = 0.3;
+        if (!busy) { P.armR.rotation.z = -1.0 - lean * 0.5; P.armR.rotation.x = -0.3; }
+        P.head.rotation.z = -lean * 0.7;
+      }
       // in a boat: sitting on the thwart, pulling at the oars
       if (e.inBoat && e.inBoat !== 'ferry' && !e.dead) {
         P.legL.rotation.z = P.legR.rotation.z = -1.45; P.legL.rotation.x = -0.15; P.legR.rotation.x = 0.15;
@@ -1921,7 +1975,19 @@
       v.tell = e.state === 'windup' ? 1 : 0;
       if (P.jaw) P.jaw.rotation.z = -0.6 * open;
       if (P.head) P.head.rotation.z = e.state === 'roar' ? -0.4 : e.state === 'windup' ? -0.2 : 0;
-      if (P.wingL) {
+      const Fl = e.tamed && game.pl && game.pl.flying === e.titan && ECHO.Apex ? ECHO.Apex.fly : null;
+      if (P.wingL && Fl) {
+        // carrying you: deep beats when it works (climbing, speeding up, taking
+        // off), a held glide with the wingtips raised when it cruises
+        v.wph = (v.wph || 0) + (2.6 + 3.2 * Fl.flap) * 2 * Math.PI * (R._dt || 0.016);
+        const amp = 0.12 + 0.8 * Fl.flap, f = Math.sin(v.wph) * amp + 0.12 * (1 - Fl.flap);
+        v.fold = v.fold == null ? 0 : v.fold + ((Fl.phase === 'takeoff' && Fl.crouch > 0.5 ? 0.6 : 0) - v.fold) * 0.1;
+        P.wingL.rotation.y = 0.95 * v.fold; P.wingR.rotation.y = -0.95 * v.fold;
+        P.wingL.rotation.x = -f - 0.3 * v.fold; P.wingR.rotation.x = f + 0.3 * v.fold;
+        if (P.legFL) { const tuck = 0.9 * Math.min(1, (e.alt || 0) / 1.5); P.legFL.rotation.z = P.legFR.rotation.z = P.legBL.rotation.z = P.legBR.rotation.z = tuck; }
+        if (P.tail) P.tail.rotation.y = Math.sin(R.time * 1.6) * 0.12 - Fl.bank * 0.5;
+        if (P.head) P.head.rotation.z = -Fl.pitch * 0.4;
+      } else if (P.wingL) {
         const f = (e.alt || 0) > 0.3 ? Math.sin(R.time * (e.moving ? 6 : 4.5)) * 0.75 : e.state === 'roar' ? Math.sin(R.time * 14) * 0.6 : 0.1 * Math.sin(R.time * 2);
         // on the ground the wings fold back along the body and lift clear of it;
         // in the air (or roaring) they open wide
@@ -1931,7 +1997,7 @@
         P.wingL.rotation.x = f - 0.3 * v.fold; P.wingR.rotation.x = -f + 0.3 * v.fold;
       }
       if (P.seg0) for (let i = 0; i < 8; i++) { const s = P['seg' + i]; if (!s) continue; s.position.z = Math.sin(R.time * (moving ? 7 : 2) - i * 0.8) * (moving ? 0.35 : 0.12); }
-      if (P.tail) P.tail.rotation.y = Math.sin(R.time * 2) * 0.25;
+      if (P.tail && !Fl) P.tail.rotation.y = Math.sin(R.time * 2) * 0.25;
       v.yOff = 0;
       if (e.state === 'charge' && e.chargePhase === 'go') v.inst.root.rotation.z = 0.12; else if (e.state === 'subdued') { v.inst.root.rotation.z = 0.5; v.yOff = 0.2; } else v.inst.root.rotation.z = 0;
     },
@@ -1951,7 +2017,18 @@
         if (special) v.alpha = 1;
         else v.alpha = U.clamp(v.alpha + (e.hidden ? -1 : 1) * dt * 3.2, 0, 1);
         root.visible = v.alpha > 0.01;
-        if (!special) R.fadeView(v, v.alpha);
+        // your own great beast turns see-through while its bulk is between the
+        // camera and you, so it never hides you or the fight
+        let shown = v.alpha;
+        if (e.tamed && e.titan && game.pe && !(game.pl && game.pl.flying === e.titan) && !e.dead) {
+          const pe = game.pe, sc = (e.tscale || 1) * 1.47;
+          const pp = R.project(pe.x, pe.y, 0.9), bc = R.project(e.x, e.y, 1.1 * sc + (e.alt || 0)), br = R.project(e.x + 1.9 * sc, e.y, 1.1 * sc + (e.alt || 0));
+          const rad = Math.abs(br.x - bc.x), dxy = Math.hypot(pp.x - bc.x, (pp.y - bc.y) * 1.25);
+          const over = e.y > pe.y - 0.6 * sc && dxy < rad * 1.05;   // nearer the camera than you, and over you on the screen
+          v.occA = (v.occA == null ? 1 : v.occA) + ((over ? 0.3 : 1) - (v.occA == null ? 1 : v.occA)) * Math.min(1, dt * 6);
+          shown = Math.min(shown, v.occA);
+        }
+        if (!special) R.fadeView(v, shown);
         if (!root.visible) continue;
         v.cfgT -= dt;
         if (v.cfgT <= 0) { v.cfgT = 1; R.configure(game, e, v); v.baseScale = root.scale.x; }
@@ -2056,7 +2133,7 @@
         }
         // stealthy player while sneaking
         if (e === game.pe) {
-          const ghost = e.iframes > 0 ? 0.55 : ECHO.PlayerCtl.sneaking ? 0.75 : 1;
+          const ghost = e.iframes > 0 && !(game.pl && game.pl.flying) ? 0.55 : ECHO.PlayerCtl.sneaking ? 0.75 : 1;
           if (ghost !== v.ghost) { v.ghost = ghost; for (const m of v.inst.mats) { m.transparent = ghost < 1; m.opacity = ghost; } }
         }
       }
@@ -2067,6 +2144,7 @@
       R.syncBirds(game, dt);
       R.syncForage(game);
       R.syncFly(game);
+      R.syncDragonFlight(game, dt);
       R.endHorses(); R.frameNo = (R.frameNo || 0) + 1;
       for (const [e, v] of R.views) {
         if (!seen.has(e)) {
@@ -2835,7 +2913,7 @@
     draw(game, dt) {
       if (!R.world || R.world !== game.world) R.setWorld(game.world);
       if (!R.warmed && (R.frameNo || 0) >= 3 && ECHO.Models.ready && (!ECHO.Post || !ECHO.Post.active || ECHO.Post.envT !== -1)) R.warmUp();
-      R.time += dt;
+      R.time += dt; R._dt = dt;
       R.waterTime.value = R.time;
       if (ECHO.Climate && game.pe && !ECHO.Interior.cur) {
         const C = ECHO.Climate, w2 = game.world, px = game.pe.x, py = game.pe.y;
@@ -2849,6 +2927,11 @@
       // camera
       const pe = game.pe;
       let tx = pe ? pe.x : game.cam.x, ty = pe ? pe.y : game.cam.y;
+      // on a dragon the view leads the way you are flying
+      const Fa = game.pl && game.pl.flying && ECHO.Apex && ECHO.Apex.fly;
+      R._lead = R._lead || { x: 0, y: 0 };
+      R._lead.x += ((Fa ? Fa.vx * 0.28 : 0) - R._lead.x) * Math.min(1, dt * 1.5); R._lead.y += ((Fa ? Fa.vy * 0.22 : 0) - R._lead.y) * Math.min(1, dt * 1.5);
+      tx += R._lead.x; ty += R._lead.y;
       const rm = ECHO.Interior && ECHO.Interior.cur;
       const lk = ECHO.PlayerCtl.lock;
       if (lk && pe && !rm) { tx = U.lerp(tx, lk.x, 0.3); ty = U.lerp(ty, lk.y, 0.3); }
@@ -2857,7 +2940,7 @@
         tx = U.lerp(tx, cx, rm.W > 12 ? 0.25 : 0.6); ty = U.lerp(ty, cy, 0.55) + 0.6;
       }
       R.flyK = U.lerp(R.flyK || 0, game.pl && game.pl.flying ? 1 : 0, Math.min(1, dt * 2));
-      const gh = R.groundH(tx, ty) + (pe && pe.alt ? pe.alt * 0.75 : 0);
+      const gh = R.groundH(tx, ty) + (pe && pe.alt ? pe.alt * (game.pl && game.pl.flying ? 0.95 : 0.75) : 0);   // in the air the view is on you and your dragon; the land falls away below
       R.camTarget = R.camTarget || new THREE.Vector3(tx, gh, ty);
       if (Math.abs(R.camTarget.x - tx) + Math.abs(R.camTarget.z - ty) > 24) {   // a jump (a door, a road taken in a blink), not a gallop
         R.camTarget.set(tx, gh, ty); R.firstFrame = true; R.sitesT = 0; }
@@ -2870,7 +2953,7 @@
       R.setInteriorMode(!!room);
       if (room && (R.roomKey !== room || R.roomRev !== (room.rev || 0))) { const fresh = R.roomKey !== room; R.roomKey = room; R.roomRev = room.rev || 0; R.roomFlames = []; R.buildRoom(game, room); if (fresh) R.camTarget.set(tx, 0, ty); }
       const punch = game.camPunch || 0;
-      const D = R.camDistNow = R.camDist * (1 + R.zoomExtra) * (room ? (room.carved ? 0.82 : U.clamp(0.5 + room.H * 0.035, 0.72, 0.95)) : 1) * (1 - Math.min(0.12, punch * 0.07)) * (1 + 0.8 * (R.flyK || 0));
+      const D = R.camDistNow = R.camDist * (1 + R.zoomExtra) * (room ? (room.carved ? 0.82 : U.clamp(0.5 + room.H * 0.035, 0.72, 0.95)) : 1) * (1 - Math.min(0.12, punch * 0.07)) * (1 + (R.flyK || 0) * (1.0 + R.flyZoom()));
       let sx = 0, sy = 0;
       if (game.shakeT > 0) { sx = (Math.random() - 0.5) * game.shakeA * 0.4; sy = (Math.random() - 0.5) * game.shakeA * 0.4; }
       const kk = game.camKick || { x: 0, y: 0 };
@@ -2916,6 +2999,14 @@
       R.drawOverlay(game);
     },
 
+    // in the air the view opens out with height and speed
+    flyZoom() {
+      const F = ECHO.Apex && ECHO.Apex.fly, pe = ECHO.Game && ECHO.Game.pe;
+      if (!F || !pe) return R._fz || 0;
+      const want = U.clamp(((pe.alt || 0) - 8) * 0.035, 0, 0.5) + Math.min(0.3, (F.v || 0) * 0.011);
+      R._fz = (R._fz || 0) + (want - (R._fz || 0)) * 0.03;
+      return R._fz;
+    },
     // Buildings just south of the player (between player and camera) turn see-through.
     updateOcclusion(game) {
       const pe = game.pe;
