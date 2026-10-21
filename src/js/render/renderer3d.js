@@ -1418,6 +1418,16 @@
     // ground below shows how high you are.
     syncDragonFlight(game, dt) {
       const pl = game.pl, F = ECHO.Apex && ECHO.Apex.fly, pe = game.pe;
+      // your beast on the wing by itself banks into its turns too
+      for (const [e, v] of R.views) {
+        if (!e.tamed || !e.titan || e.dead || (pl && pl.flying === e.titan) || !e.pt) continue;
+        const air = Math.min(1, Math.max(0, (e.alt || 0) - 0.8) / 2);
+        const want = U.clamp(-(e.pt.yaw || 0) * 0.45, -0.55, 0.55) * air;
+        v.bank = (v.bank || 0) + (want - (v.bank || 0)) * Math.min(1, dt * 3);
+        if (Math.abs(v.bank) < 0.005) continue;
+        const root = v.inst.root;
+        root.rotation.order = 'YZX'; root.rotation.x = v.bank;
+      }
       const blob = R.flyShadow;
       if (!pl || !pl.flying || !F || ECHO.Interior.cur) { if (blob) blob.visible = false; return; }
       let dv = null, dEnt = null;
@@ -1968,9 +1978,14 @@
     animateBoss(game, e, v) {
       const P = v.inst.parts;
       const moving = e.moving;
-      const ph = R.time * 6;
-      const sw = moving ? Math.sin(ph) * 0.45 : 0;
+      // the stride follows how fast it is really going: a slow amble, a trot, a
+      // long run — not one fixed shuffle
+      const spd = v.spd || 0, big = Math.sqrt(v.inst.root.scale.x || 1);
+      v.lph = (v.lph || 0) + (R._dt || 0.016) * (1.2 + spd * 1.5) / big;
+      const amp = Math.min(1, spd / 3.5) * 0.5;
+      const sw = Math.sin(v.lph * 2) * amp;
       if (P.legFL) { P.legFL.rotation.z = sw; P.legBR.rotation.z = sw; P.legFR.rotation.z = -sw; P.legBL.rotation.z = -sw; }
+      if (P.body) { if (v.bodyY0 == null) v.bodyY0 = P.body.position.y; P.body.position.y = v.bodyY0 + Math.abs(Math.cos(v.lph * 2)) * 0.05 * amp + Math.sin(R.time * 1.3 + (v.bob || 0)) * 0.012; }
       const open = (e.state === 'windup' || e.state === 'feint') ? Math.min(1, e.t * 2.5) : e.state === 'strike' ? 1 : e.state === 'roar' ? 1 : 0;
       v.tell = e.state === 'windup' ? 1 : 0;
       if (P.jaw) P.jaw.rotation.z = -0.6 * open;
@@ -1999,7 +2014,47 @@
       if (P.seg0) for (let i = 0; i < 8; i++) { const s = P['seg' + i]; if (!s) continue; s.position.z = Math.sin(R.time * (moving ? 7 : 2) - i * 0.8) * (moving ? 0.35 : 0.12); }
       if (P.tail && !Fl) P.tail.rotation.y = Math.sin(R.time * 2) * 0.25;
       v.yOff = 0;
+      if (e.pt && !Fl) R.animatePartner(game, e, v, e.pt);
       if (e.state === 'charge' && e.chargePhase === 'go') v.inst.root.rotation.z = 0.12; else if (e.state === 'subdued') { v.inst.root.rotation.z = 0.5; v.yOff = 0.2; } else v.inst.root.rotation.z = 0;
+    },
+    // Your beast's body language: it looks at what it is looking at, lies down to
+    // rest, puts its head down to sniff or eat, stretches its wings, and leans its
+    // head to you — eased in and out, never snapped.
+    animatePartner(game, e, v, pt) {
+      const P = v.inst.parts, dt = R._dt || 0.016, w = v.pw || (v.pw = { rest: 0, sniff: 0, eat: 0, stretch: 0, nuzzle: 0 });
+      for (const k in w) w[k] += ((pt.pose === k ? 1 : 0) - w[k]) * Math.min(1, dt * (k === 'rest' ? 1.6 : 3));
+      const s = v.inst.root.scale.x;
+      // where it looks: the neck and head turn toward it, within reason
+      let yaw = 0;
+      if (pt.look) yaw = U.clamp(-U.angleDiff(v.dir || 0, Math.atan2(pt.look.y - e.y, pt.look.x - e.x)), -1.0, 1.0);
+      v.lookYaw = (v.lookYaw || 0) + (yaw - (v.lookYaw || 0)) * Math.min(1, dt * 3);
+      if (P.neck) { P.neck.rotation.y = v.lookYaw * 0.6; if (P.head) P.head.rotation.y = v.lookYaw * 0.4; }
+      else if (P.head) P.head.rotation.y = v.lookYaw * 0.8;
+      // lying down: the body sinks, the legs fold under, the head rests low, the tail curls
+      const r = w.rest;
+      if (r > 0.01) {
+        v.yOff = (v.yOff || 0) - 0.5 * s * r * (e.flies ? 1 : 0.8);
+        if (P.legFL) { P.legFL.rotation.z = U.lerp(P.legFL.rotation.z, -1.25, r); P.legFR.rotation.z = U.lerp(P.legFR.rotation.z, -1.25, r); P.legBL.rotation.z = U.lerp(P.legBL.rotation.z, 1.25, r); P.legBR.rotation.z = U.lerp(P.legBR.rotation.z, 1.25, r); }
+        if (P.tail) P.tail.rotation.y = U.lerp(P.tail.rotation.y, 0.7 + Math.sin(R.time * 0.5) * 0.08, r);
+        if (P.body && v.bodyY0 != null) P.body.position.y = v.bodyY0 + Math.sin(R.time * 0.9) * 0.02;   // slow, deep breaths
+      }
+      // head down: sniffing the ground, eating, or leaning to you
+      const low = Math.max(w.sniff * 0.55, w.eat * 0.75, w.nuzzle * 0.45, r * 0.45);
+      if (low > 0.01) {
+        const bobH = w.eat * Math.sin(R.time * 7) * 0.12 + w.sniff * Math.sin(R.time * 9) * 0.05;
+        if (P.neck) P.neck.rotation.z = U.lerp(P.neck.rotation.z || 0, 0.5 * low + bobH, Math.min(1, low * 1.5));
+        if (P.head) P.head.rotation.z = U.lerp(P.head.rotation.z, 0.45 * low + bobH, Math.min(1, low * 1.5));
+      } else if (P.neck) P.neck.rotation.z *= 0.9;
+      if (P.jaw && w.eat > 0.05) P.jaw.rotation.z = -(0.15 + 0.25 * Math.max(0, Math.sin(R.time * 7))) * w.eat;
+      // a long stretch: wings up and open, head back, a yawn
+      if (w.stretch > 0.01 && P.wingL) {
+        const k = w.stretch;
+        v.fold = (v.fold == null ? 1 : v.fold) * (1 - k * 0.15);
+        P.wingL.rotation.y *= 1 - k; P.wingR.rotation.y *= 1 - k;
+        P.wingL.rotation.x = U.lerp(P.wingL.rotation.x, -0.7, k); P.wingR.rotation.x = U.lerp(P.wingR.rotation.x, 0.7, k);
+        if (P.head) P.head.rotation.z = U.lerp(P.head.rotation.z, -0.35, k);
+        if (P.jaw) P.jaw.rotation.z = U.lerp(P.jaw.rotation.z, -0.45, k);
+      }
     },
     updateEntities(game, dt) {
       const seen = new Set();

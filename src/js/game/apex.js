@@ -808,8 +808,8 @@
         if (opts.length) return A.start(game, e, t, opts[Math.floor(Math.random() * opts.length)]);
       }
     },
-    start(game, e, t, k) {
-      const pe = game.pe, a0 = ATK[k], el = ELEM[e.elem] || ELEM.earth;
+    start(game, e, t, k, tg) {
+      const pe = tg || game.pe, a0 = ATK[k], el = ELEM[e.elem] || ELEM.earth;
       const ang = Math.atan2(pe.y - e.y, pe.x - e.x);
       const a = { k, ...a0, t: 0, ang };
       e.atk = a; e.state = k === 'dive' ? 'roar' : 'windup'; e.moving = false; e.dir = ang; e.flip = Math.cos(ang) < 0; e.aim = ang;
@@ -953,6 +953,7 @@
           out.push({ kind: 'act', label: `Finish ${t.name}`, d: d * 0.4 + 0.3, act: () => A.finish(game, e, t) });
         }
         if (e.tamed && e.flies && e.alt < 0.5 && d < e.r + 2.5 && !pl.mounted) out.push({ kind: 'act', label: `Climb onto ${t.name} and fly (V)`, d: d * 0.6, act: () => A.mount(game, e) });
+        if (e.tamed && e.alt < 0.5 && d < e.r + 3 && ECHO.Partner && !(e.pt && e.pt.intent === 'fight')) out.push({ kind: 'act', label: `Stroke ${t.name}'s neck`, d: d * 0.6 + 0.2, act: () => ECHO.Partner.pet(game, e, t) });
       }
       return out;
     },
@@ -1002,57 +1003,37 @@
       if (!t || !t.bound) { e.dead = true; e.vanish = true; return; }
       t.hp = e.hp / e.maxHp;
       // under you, in the sky
-      if (pl.flying === t.id) { e.x = pe.x; e.y = pe.y - 0.02; e.dir = pe.dir; e.flip = Math.cos(pe.dir) < 0; e.alt = Math.max(0, (pe.alt || 0) - A.SEAT * e.tscale); e.altGoal = e.alt; e.moving = !!pe.moving; e.state = 'stalk'; e.atk = null; return; }
+      if (pl.flying === t.id) { e.x = pe.x; e.y = pe.y - 0.02; e.dir = pe.dir; e.flip = Math.cos(pe.dir) < 0; e.alt = Math.max(0, (pe.alt || 0) - A.SEAT * e.tscale); e.altGoal = e.alt; e.moving = !!pe.moving; e.state = 'stalk'; e.atk = null; if (ECHO.Partner) ECHO.Partner.ridden(game, e, t, dt); return; }
       if (e.atk) return A.attackTick(game, e, t, dt);
       if ((e.busyUntil || 0) > game.time) { if (e.busyFn) e.busyFn(game, e, dt); else e.moving = false; return; }
       e.busyFn = null;
-      if (e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.01 * dt);
-      const d = U.dist(e.x, e.y, pe.x, pe.y);
-      if (d > 40) { const sp = ECHO.Ent.freeSpot(world, pe.x - 2, pe.y + 1.5, 6); if (sp) { e.x = sp.x; e.y = sp.y; if (e.flies) e.alt = 5; } }
-      // something hostile near you: it goes for it
-      let foe = null, bd = 9;
-      for (const o of game.ents) {
-        if (o.dead || o.hidden || o === e || o.tamed || o.isCompanion || o.ngWard || o === pe) continue;
-        if (!(o.foe || (o.type === 'boss' && !o.tamed) || (o.type === 'creature' && game.hostileTo(pe, o) && (o.aggro || o.target === pe)) || (o.type === 'person' && game.hostileTo(pe, o)))) continue;
-        if (o.titan && o.state === 'subdued') continue;
-        const dd = U.dist(o.x, o.y, pe.x, pe.y);
-        if (dd < bd) { bd = dd; foe = o; }
+      if (e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.01 * dt * (e.pt && e.pt.intent === 'regroup' ? 3 : 1));
+      // a mind of its own: what it wants, where it goes, what it does (partner.js)
+      if (ECHO.Partner) return ECHO.Partner.think(game, e, t, dt);
+    },
+    // Its moves against a foe, when it is in reach: an art of its own, or a bite,
+    // a sweep of the tail, its breath. Returns true if it started one.
+    attackFoe(game, e, t, foe, eager) {
+      const df = U.dist(e.x, e.y, foe.x, foe.y), ang = Math.atan2(foe.y - e.y, foe.x - e.x);
+      if (e.cd > 0 || e.alt >= 0.6) return false;
+      if (SIG[t.sp] && Math.random() < 0.5 + (eager || 0)) {
+        const arts = SIG[t.sp].arts.filter(s => s.tamed && game.time >= (e.sigT[s.k] || 0));
+        if (arts.length) { A.useSig(game, e, t, arts[Math.floor(Math.random() * arts.length)], foe); return true; }
       }
-      if (foe) {
-        e.altGoal = 0; e.state = 'fight';
-        const df = U.dist(e.x, e.y, foe.x, foe.y), ang = Math.atan2(foe.y - e.y, foe.x - e.x);
-        // where to stand: beside the foe, but never on top of you and never on
-        // the camera's side of you (the near side of the screen), where its bulk
-        // would hide you and the fight
-        const sp = A.standFor(game, e, foe);
-        if (U.dist(e.x, e.y, sp.x, sp.y) > 0.9) A.go(game, e, sp.x, sp.y, 5.5, dt);
-        else { e.moving = false; e.dir = ang; e.flip = Math.cos(ang) < 0; }
-        if (e.cd <= 0 && e.alt < 0.6 && SIG[t.sp] && Math.random() < 0.5) {
-          const arts = SIG[t.sp].arts.filter(s => s.tamed && game.time >= (e.sigT[s.k] || 0));
-          if (arts.length) return A.useSig(game, e, t, arts[Math.floor(Math.random() * arts.length)], foe);
-        }
-        if (e.cd <= 0 && e.alt < 0.6) {
-          const kind = Ti().sp(t).kind, k = df > 2.6 && (kind === 'drake' || kind === 'wyrm') ? (kind === 'drake' ? 'breath' : 'spit') : df < e.r + foe.r + 1.6 ? (Math.random() < 0.5 ? 'bite' : 'sweep') : null;
-          if (k) {
-            const a0 = ATK[k];
-            e.atk = { k, ...a0, t: 0, ang, x0: e.x, y0: e.y, wind: a0.wind * 0.6 };
-            if (a0.shape === 'rain') e.atk.spots = [{ x: foe.x, y: foe.y }, { x: foe.x + 1.5, y: foe.y }, { x: foe.x - 1.5, y: foe.y + 1 }];
-            e.state = 'windup';
-          }
-        }
-        return;
-      }
-      // follow you — a body's length off, on the far side of you from the
-      // camera (behind you on the screen), so it never stands between you and the view
-      e.state = 'follow';
-      e._stand = null;
-      const fd = A.gap(e), side = (e._side = e._side || (e.x < pe.x ? -1 : 1));
-      if (Math.abs(e.x - pe.x) > fd * 1.6) e._side = e.x < pe.x ? -1 : 1;
-      const gx = pe.x + side * fd * 0.75, gy = pe.y - fd * 0.75;
-      const dg = U.dist(e.x, e.y, gx, gy);
-      if (d > fd * 2.6 && e.flies) { e.altGoal = 3.5; A.go(game, e, gx, gy, Math.max(6, d * 0.9), dt); }
-      else if (dg > 1.4) { if (e.alt < 0.6) e.altGoal = 0; A.go(game, e, gx, gy, dg > 8 ? 6.5 : 4, dt); }
-      else { e.moving = false; if (!e.flies || d < fd * 1.5) e.altGoal = 0; e.dir = Math.atan2(pe.y - e.y, pe.x - e.x); e.flip = Math.cos(e.dir) < 0; }
+      const kind = Ti().sp(t).kind, k = df > 2.6 && (kind === 'drake' || kind === 'wyrm') ? (kind === 'drake' ? 'breath' : 'spit') : df < e.r + foe.r + 1.6 ? (Math.random() < 0.5 ? 'bite' : 'sweep') : null;
+      if (!k) return false;
+      const a0 = ATK[k];
+      e.atk = { k, ...a0, t: 0, ang, x0: e.x, y0: e.y, wind: a0.wind * 0.6 };
+      if (a0.shape === 'rain') e.atk.spots = [{ x: foe.x, y: foe.y }, { x: foe.x + 1.5, y: foe.y }, { x: foe.x - 1.5, y: foe.y + 1 }];
+      e.state = 'windup'; e.dir = ang; e.flip = Math.cos(ang) < 0; e.moving = false;
+      return true;
+    },
+    // from the air, at a foe: a strafing run of its breath, a rain of fire, or a dive
+    airAttack(game, e, t, foe) {
+      if (e.cd > 0 || e.alt < 4) return false;
+      const k = Math.random() < 0.45 ? 'strafe' : Math.random() < 0.6 ? 'rain' : 'dive';
+      A.start(game, e, t, k, foe);
+      e.cd = 0; return true;
     },
     // how far from you a beast this size keeps
     gap(e) { return 2.4 + 2.1 * (e.tscale || 1); },
@@ -1226,6 +1207,9 @@
         if (In.key('Control') || In.key('c')) F.h = Math.max(C.hMin, F.h - C.climb * dt);
         wantH = F.h;
         thrust = len ? (fast ? 1 : 0.6) : 0;
+        // leave the reins alone and it flies on by itself, in long lazy circles
+        F.idleT = len ? 0 : (F.idleT || 0) + dt;
+        if (F.idleT > 2.5) { thrust = 0.35; F.auto = true; } else F.auto = false;
       }
       // ---- steering: the turn builds and eases; tighter when slow, wider when fast
       if (len && F.phase !== 'landing' && !(F.phase === 'takeoff' && F.t < 0.45)) {
@@ -1233,10 +1217,11 @@
         const maxRate = U.lerp(2.8, 1.25, U.clamp(F.v / C.fast, 0, 1));
         const rate = U.clamp(err * 3, -maxRate, maxRate);
         F.yawRate += U.clamp(rate - F.yawRate, -dt * 6, dt * 6);
-      } else F.yawRate *= Math.exp(-dt * 4);
+      } else if (F.auto) { F.circ = F.circ || (Math.random() < 0.5 ? -1 : 1); F.yawRate += (0.32 * F.circ - F.yawRate) * Math.min(1, dt * 1.5); }
+      else F.yawRate *= Math.exp(-dt * 4);
       F.dir += F.yawRate * dt;
       // ---- speed along the heading
-      const top = F.phase === 'takeoff' ? 7 : thrust >= 1 ? C.fast : thrust > 0 ? C.slow : 0;
+      const top = F.phase === 'takeoff' ? 7 : F.auto ? 9 : thrust >= 1 ? C.fast : thrust > 0 ? C.slow : 0;
       if (top > F.v) F.v = Math.min(top, F.v + dt * (thrust >= 1 ? 8 : 5));
       else F.v = Math.max(top, F.v - dt * (F.phase === 'landing' ? 5 : thrust ? 4 : 1.3));   // let go and it glides on, slowing gently
       // climbing costs speed, diving gives it
@@ -1298,10 +1283,11 @@
       } else h += `<div class="list">${mine.map(t => {
         const sp = T.sp(t), S = SIG[t.sp] || { arts: [] }, out = pl.beastOut === t.id, rest = (t.restUntil || 0) > world.day, flying = pl.flying === t.id;
         const e = out && A.entOf(game, t.id), hp = e ? e.hp / e.maxHp : (t.hp == null ? 1 : t.hp), fights = A.effLv(game, t);
-        const status = flying ? '<span class="gold">carrying you through the sky</span>' : out ? `<span class="gold">with you</span>${e ? ` · ${e.state === 'fight' ? 'fighting' : 'at your side'}` : ''}` : rest ? 'resting — it answers again tomorrow' : 'in the wild places, waiting for your call';
+        const status = flying ? '<span class="gold">carrying you through the sky</span>' : out ? `<span class="gold">with you</span>${e ? ` · ${ECHO.Partner ? ECHO.Partner.doing(e) : 'at your side'}` : ''}` : rest ? 'resting — it answers again tomorrow' : 'in the wild places, waiting for your call';
+        const bondTxt = ECHO.Partner ? ` · bond ${Math.round(t.bond || 0)} (${ECHO.Partner.bondWord(t.bond || 0)})${(t.hunger || 0) > 0.7 ? ' · hungry' : ''}` : '';
         const arts = S.arts.filter(a => a.tamed).map(a => esc(a.name));
         return `<div class="card"><h4>${sp.flies ? '🐉' : '🦬'} ${esc(t.name)} <span class="dim">· ${esc(t.title)}</span></h4>
-          <div class="dim" style="font-size:13px">${sp.flies ? 'Dragon' : 'Great beast'} of ${esc(ELEM[sp.element] ? ELEM[sp.element].word : sp.element)} · level ${t.lvl}${fights < t.lvl ? ` (fights at ${fights} for you — it grows as you do)` : ''} · yours since day ${t.boundDay || '?'}</div>
+          <div class="dim" style="font-size:13px">${sp.flies ? 'Dragon' : 'Great beast'} of ${esc(ELEM[sp.element] ? ELEM[sp.element].word : sp.element)} · level ${t.lvl}${fights < t.lvl ? ` (fights at ${fights} for you — it grows as you do)` : ''} · yours since day ${t.boundDay || '?'}${bondTxt}</div>
           <div class="row" style="gap:10px;font-size:13px"><span style="width:52px">Life</span>${bar(hp, hp > 0.5 ? '#9fe08a' : hp > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hp * 100)}%</span><span class="dim">· ${status}</span></div>
           <div style="font-size:13px">${arts.length ? `Uses for you: <b>${arts.join(', ')}</b>.` : ''} ${S.passive ? `<span class="dim">${esc(S.passive)}.</span>` : ''}${sp.flies ? ' <span class="gold">It can carry you: stand beside it and press V.</span>' : ''}</div>
           <div class="row">${flying ? '' : out ? `<button class="small" data-an-dismiss="1">Send away</button>` : `<button class="small" data-an-call="${t.id}" ${rest ? 'disabled' : ''}>Call</button>`}<button class="small" data-an-free="${t.id}" ${flying ? 'disabled' : ''}>Set free…</button></div></div>`;
