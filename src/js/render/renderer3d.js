@@ -151,6 +151,20 @@
         o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
         zoo.add(o); mats.push(m);
       }
+      // creatures with skeletons (the dragons): their own shader, opaque and fading
+      {
+        const sg = new THREE.BoxGeometry(0.01, 0.01, 0.01), n = sg.attributes.position.count;
+        sg.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Array(n * 4).fill(0), 4));
+        sg.setAttribute('skinWeight', new THREE.Float32BufferAttribute(new Array(n).fill([1, 0, 0, 0]).flat(), 4));
+        for (const tr of [false, true]) for (const fam of [() => R.detail(S({ flatShading: false }), 0.1, 3.5), () => Bm()]) {
+          const m = fam();
+          if (tr) { m.transparent = true; m.opacity = 0.5; m.depthWrite = false; }
+          const bone = new THREE.Bone(), sm = new THREE.SkinnedMesh(sg, m);
+          sm.add(bone); sm.bind(new THREE.Skeleton([bone]));
+          sm.castShadow = true; sm.frustumCulled = false;
+          zoo.add(sm); mats.push(m);
+        }
+      }
       for (const tr of [false, true]) { const m = new THREE.LineBasicMaterial({ transparent: tr, opacity: tr ? 0.5 : 1 }); zoo.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0.01, 0)]), m)); mats.push(m); }
       R.scene.add(zoo);
       try { r.compile(R.scene, R.camera); } catch (e) { /* a driver that won't: they build as needed, as before */ }
@@ -1996,6 +2010,7 @@
         // off), a held glide with the wingtips raised when it cruises
         v.wph = (v.wph || 0) + (2.6 + 3.2 * Fl.flap) * 2 * Math.PI * (R._dt || 0.016);
         const amp = 0.12 + 0.8 * Fl.flap, f = Math.sin(v.wph) * amp + 0.12 * (1 - Fl.flap);
+        v.wPh = v.wph; v.wAmp = amp; v.wSign = -1;
         v.fold = v.fold == null ? 0 : v.fold + ((Fl.phase === 'takeoff' && Fl.crouch > 0.5 ? 0.6 : 0) - v.fold) * 0.1;
         P.wingL.rotation.y = 0.95 * v.fold; P.wingR.rotation.y = -0.95 * v.fold;
         P.wingL.rotation.x = -f - 0.3 * v.fold; P.wingR.rotation.x = f + 0.3 * v.fold;
@@ -2003,7 +2018,9 @@
         if (P.tail) P.tail.rotation.y = Math.sin(R.time * 1.6) * 0.12 - Fl.bank * 0.5;
         if (P.head) P.head.rotation.z = -Fl.pitch * 0.4;
       } else if (P.wingL) {
-        const f = (e.alt || 0) > 0.3 ? Math.sin(R.time * (e.moving ? 6 : 4.5)) * 0.75 : e.state === 'roar' ? Math.sin(R.time * 14) * 0.6 : 0.1 * Math.sin(R.time * 2);
+        const fq = (e.alt || 0) > 0.3 ? (e.moving ? 6 : 4.5) : e.state === 'roar' ? 14 : 2, fa = (e.alt || 0) > 0.3 ? 0.75 : e.state === 'roar' ? 0.6 : 0.1;
+        const f = Math.sin(R.time * fq) * fa;
+        v.wPh = R.time * fq; v.wAmp = fa; v.wSign = 1;
         // on the ground the wings fold back along the body and lift clear of it;
         // in the air (or roaring) they open wide
         const want = (e.alt || 0) > 0.6 || e.state === 'roar' ? 0 : 1;
@@ -2015,7 +2032,84 @@
       if (P.tail && !Fl) P.tail.rotation.y = Math.sin(R.time * 2) * 0.25;
       v.yOff = 0;
       if (e.pt && !Fl) R.animatePartner(game, e, v, e.pt);
+      if (P.tail1) R.animateDragon(game, e, v, Fl);
       if (e.state === 'charge' && e.chargePhase === 'go') v.inst.root.rotation.z = 0.12; else if (e.state === 'subdued') { v.inst.root.rotation.z = 0.5; v.yOff = 0.2; } else v.inst.root.rotation.z = 0;
+    },
+    // A dragon with a skeleton moves through its whole body: the spine bends into
+    // its turns, the tail sways and trails (each bone a beat behind the one before),
+    // the neck carries the head in an easy curve and bobs with the stride, the legs
+    // bend at knee and ankle as they step, and the wings fold at elbow and wrist on
+    // the ground and beat as a wave from shoulder to fingertip in the air.
+    animateDragon(game, e, v, Fl) {
+      if (Fl && v.pw) for (const k in v.pw) v.pw[k] = 0;   // (on the wing nothing of resting or sniffing lingers)
+      const P = v.inst.parts, dt = R._dt || 0.016, T = R.time, pw = v.pw || {}, rest = pw.rest || 0;
+      const spd = v.spd || 0, air = (e.alt || 0) > 0.6 || !!Fl, amp = Math.min(1, spd / 3.5);
+      // how hard it is turning (from what we draw), eased; the tail answers later than the neck
+      const yr = v.prevDir == null ? 0 : U.angleDiff(v.prevDir, v.dir || 0) / Math.max(dt, 1e-3);
+      v.prevDir = v.dir || 0;
+      const turn = U.clamp(yr * (air ? 0.18 : 0.3), -0.5, 0.5) + (Fl ? -Fl.bank * 0.5 : 0);
+      v.flexN = (v.flexN || 0) + (turn - (v.flexN || 0)) * Math.min(1, dt * 5);
+      v.flexT = (v.flexT || 0) + (turn - (v.flexT || 0)) * Math.min(1, dt * 2);
+      const ph = (v.lph || 0) * 2;
+      // ---- spine
+      if (P.hips) { P.hips.rotation.y = v.flexT * 0.25; P.hips.rotation.z = Math.sin(ph) * 0.03 * amp; }
+      // ---- tail: a travelling wave, larger toward the tip; curled round when it lies down;
+      // streaming straight behind it in the air
+      const tw = air ? 1.6 : 1.2 + spd * 0.8, ta = air ? 0.035 : 0.05 + amp * 0.06;
+      const lift = e.state === 'roar' || e.state === 'windup' || e.state === 'fight' ? 0.06 : 0;
+      for (let k = 0; k < 6; k++) {
+        const b = P[k ? 'tail' + k : 'tail'];
+        if (!b) continue;
+        const a = ta * (0.6 + k * 0.45);
+        b.rotation.y = Math.sin(T * tw - k * 0.75) * a + v.flexT * (0.12 + k * 0.03) + rest * 0.3;
+        b.rotation.z = (k === 0 ? lift + 0.03 : -lift * 0.4 - 0.01) + (air ? Math.sin(T * 1.6 - k * 0.6) * 0.03 : 0) + (air && Fl ? Fl.pitch * 0.15 : 0);
+      }
+      // ---- neck: shares the look and the turn among its bones, keeps the head level
+      const look = v.lookYaw || 0, into = -v.flexN * 0.7;
+      const pitch = v.neckPitch || 0;      // what the pose asked of the neck (sniff, eat, rest…)
+      const bob = Math.sin(ph + 1.2) * 0.04 * amp + Math.sin(T * 1.3 + (v.bob || 0)) * 0.015 * (1 - amp);
+      const roar = e.state === 'roar' ? -0.12 : 0;
+      const NK = [['neck', 0.3, 0.4], ['neck1', 0.35, 0.35], ['neck2', 0.25, 0.25]];
+      let pz = 0;
+      for (const [n, wy, wz] of NK) {
+        const b = P[n];
+        if (!b) continue;
+        b.rotation.y = (look + into) * wy;
+        b.rotation.z = pitch * wz + bob * (n === 'neck1' ? 1 : 0.4) + roar;
+        pz += b.rotation.z;
+      }
+      if (P.head) { P.head.rotation.y = (look + into) * 0.1; P.head.rotation.z = (P.head.rotation.z || 0) - (pz - pitch) * 0.7; }
+      // ---- legs: knees and ankles bend as each foot lifts and swings through
+      if (!air && P.legFL2) {
+        const L = [['legFL', 1, true], ['legBR', 1, false], ['legFR', -1, true], ['legBL', -1, false]];
+        for (const [n, sg, front] of L) {
+          const lift = Math.max(0, -Math.cos(ph) * sg) * amp;
+          const knee = P[n + '2'], ank = P[n + '3'];
+          if (front) { knee.rotation.z = lift * 0.9; ank.rotation.z = -lift * 0.5; }
+          else { knee.rotation.z = lift * 0.7; ank.rotation.z = -lift * 0.6; }
+          if (rest > 0.01) {
+            P[n].rotation.z = U.lerp(P[n].rotation.z, -0.9, rest);
+            knee.rotation.z = U.lerp(knee.rotation.z, front ? 1.6 : 1.2, rest);
+            ank.rotation.z = U.lerp(ank.rotation.z, front ? -0.6 : -0.4, rest);
+          }
+        }
+      } else if (P.legFL2) {
+        // in the air: legs drawn up, feet trailing
+        for (const n of ['legFL', 'legFR', 'legBL', 'legBR']) { P[n].rotation.z = n[3] === 'F' ? -0.35 : 0.55; P[n + '2'].rotation.z = n[3] === 'F' ? 0.9 : 0.5; P[n + '3'].rotation.z = -0.4; }
+      }
+      // ---- wings: folded at elbow and wrist on the ground; a wave through the wing in the air
+      if (P.wingL2) {
+        const fold = v.fold == null ? (air ? 0 : 1) : v.fold;
+        const wa = v.wAmp || 0, wp = v.wPh || 0, sg = v.wSign || 1;
+        for (const [side, s] of [['L', 1], ['R', -1]]) {
+          const e2 = P['wing' + side + '2'], e3 = P['wing' + side + '3'];
+          const lag1 = Math.sin(wp - 0.7) * wa * 0.45 * sg * s, lag2 = Math.sin(wp - 1.4) * wa * 0.6 * sg * s;
+          e2.rotation.y = s * fold * 1.0; e3.rotation.y = s * fold * 1.05;
+          e2.rotation.x = lag1 * (1 - fold); e3.rotation.x = lag2 * (1 - fold) + (air && !Fl ? 0 : 0) - s * 0.08 * (1 - fold) * (wa < 0.3 ? 1 : 0);
+        }
+      }
+      // ---- breathing: the chest rises and falls; slow and deep at rest
+      if (P.body && v.bodyY0 != null && !air) P.body.position.y += Math.sin(T * (rest > 0.5 ? 0.9 : 1.6)) * 0.01;
     },
     // Your beast's body language: it looks at what it is looking at, lies down to
     // rest, puts its head down to sniff or eat, stretches its wings, and leans its
@@ -2042,9 +2136,10 @@
       const low = Math.max(w.sniff * 0.55, w.eat * 0.75, w.nuzzle * 0.45, r * 0.45);
       if (low > 0.01) {
         const bobH = w.eat * Math.sin(R.time * 7) * 0.12 + w.sniff * Math.sin(R.time * 9) * 0.05;
-        if (P.neck) P.neck.rotation.z = U.lerp(P.neck.rotation.z || 0, 0.5 * low + bobH, Math.min(1, low * 1.5));
+        v.neckPitch = U.lerp(v.neckPitch || 0, 0.5 * low + bobH, Math.min(1, low * 1.5));
+        if (P.neck) P.neck.rotation.z = v.neckPitch;
         if (P.head) P.head.rotation.z = U.lerp(P.head.rotation.z, 0.45 * low + bobH, Math.min(1, low * 1.5));
-      } else if (P.neck) P.neck.rotation.z *= 0.9;
+      } else { v.neckPitch = (v.neckPitch || 0) * 0.9; if (P.neck) P.neck.rotation.z = v.neckPitch; }
       if (P.jaw && w.eat > 0.05) P.jaw.rotation.z = -(0.15 + 0.25 * Math.max(0, Math.sin(R.time * 7))) * w.eat;
       // a long stretch: wings up and open, head back, a yawn
       if (w.stretch > 0.01 && P.wingL) {

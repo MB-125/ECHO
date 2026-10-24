@@ -20,7 +20,7 @@
         const bin = atob(b64);
         const buf = new Uint8Array(bin.length);
         for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-        loader.parse(buf.buffer, '', (gltf) => { M.scenes[name] = gltf.scene; resolve(); }, (err) => { console.error('model', name, err); resolve(); });
+        loader.parse(buf.buffer, '', (gltf) => { M.scenes[name] = gltf.scene; gltf.scene.traverse(o => { if (o.isSkinnedMesh) gltf.scene.userData.skinned = true; }); resolve(); }, (err) => { console.error('model', name, err); resolve(); });
       }));
       await Promise.all(jobs);
       M.ready = Object.keys(M.scenes).length > 0;
@@ -78,7 +78,8 @@
     instance(name, colors) {
       const src = M.scenes[name];
       if (!src) return null;
-      const root = src.clone(true);
+      // a creature with a skeleton needs its own bones, not a copy pointing at the original's
+      const root = src.userData.skinned && THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(src) : src.clone(true);
       const parts = {};
       const mats = [];
       root.traverse(o => {
@@ -99,6 +100,7 @@
           o.material = m;
           o.castShadow = true;
           o.receiveShadow = false;
+          if (o.isSkinnedMesh) o.frustumCulled = false;   // (its bounds move with its bones)
           mats.push(m);
         }
       });
