@@ -165,6 +165,12 @@
           zoo.add(sm); mats.push(m);
         }
       }
+      // the fight's own: a sword's swing, a mark on the ground
+      try {
+        const sl = R.makeFxMesh({ kind: 'slash', angle: 0, arc: 1.5, range: 1, color: '#ffffff', style: 'combo' }); zoo.add(sl); mats.push(sl.material);
+        const dm = new THREE.MeshBasicMaterial({ map: R.decalTex('blood'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        zoo.add(new THREE.Mesh(g, dm)); mats.push(dm);
+      } catch (e) { /* drawn when first needed */ }
       for (const tr of [false, true]) { const m = new THREE.LineBasicMaterial({ transparent: tr, opacity: tr ? 0.5 : 1 }); zoo.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0.01, 0)]), m)); mats.push(m); }
       R.scene.add(zoo);
       try { r.compile(R.scene, R.camera); } catch (e) { /* a driver that won't: they build as needed, as before */ }
@@ -2322,9 +2328,29 @@
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
       g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
-      R.parts = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.14, vertexColors: true, sizeAttenuation: true, transparent: true, opacity: 0.95, depthWrite: false }));
-      R.parts.frustumCulled = false;
-      R.scene.add(R.parts);
+      // Particles: soft round sprites of their own size and fade, in two layers —
+      // light (sparks, flame, flashes, magic) added onto the picture so it glows,
+      // and matter (blood, dust, smoke, chips) laid over it
+      const mkP = (N, add) => {
+        const pg = new THREE.BufferGeometry();
+        pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+        pg.setAttribute('color', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+        pg.setAttribute('size', new THREE.BufferAttribute(new Float32Array(N), 1));
+        pg.setAttribute('alpha', new THREE.BufferAttribute(new Float32Array(N), 1));
+        const mat = new THREE.ShaderMaterial({
+          uniforms: { scale: { value: 800 } },
+          vertexShader: 'uniform float scale; attribute float size; attribute float alpha; varying vec3 vC; varying float vA; void main(){ vC = color; vA = alpha; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = clamp(size * scale / -mv.z, 1.5, 300.0); gl_Position = projectionMatrix * mv; }',
+          fragmentShader: add
+            ? 'varying vec3 vC; varying float vA; void main(){ vec2 d = gl_PointCoord - 0.5; float r = length(d) * 2.0; if (r > 1.0) discard; float a = pow(1.0 - r, 1.6); float core = smoothstep(0.45, 0.0, r); gl_FragColor = vec4(vC * (1.0 + core * 1.6), a * vA); }'
+            : 'varying vec3 vC; varying float vA; void main(){ vec2 d = gl_PointCoord - 0.5; float r = length(d) * 2.0; if (r > 1.0) discard; float a = smoothstep(1.0, 0.55, r); gl_FragColor = vec4(vC * (1.05 - r * 0.25), a * vA); }',
+          vertexColors: true, transparent: true, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending
+        });
+        const pts = new THREE.Points(pg, mat);
+        pts.frustumCulled = false; pts.renderOrder = add ? 7 : 5;
+        R.scene.add(pts);
+        return pts;
+      };
+      R.parts = mkP(2600, false); R.partsAdd = mkP(2600, true);
       const sg = new THREE.BufferGeometry();
       const SN = 900;
       const sp = new Float32Array(SN * 3);
@@ -2656,6 +2682,8 @@
       }
       R.glows.geometry.setDrawRange(0, k);
       for (const key of ['position', 'color', 'size', 'alpha']) ga[key].needsUpdate = true;
+      const pscale = Math.floor(window.innerHeight * (R.rdpr || 1) * (ECHO.Post && ECHO.Post.active ? ECHO.Post.scale : 1)) / (2 * Math.tan(THREE.MathUtils.degToRad(R.camera.fov / 2)));
+      if (R.parts && R.parts.material.uniforms) { R.parts.material.uniforms.scale.value = pscale; R.partsAdd.material.uniforms.scale.value = pscale; }
       R.glowMat.uniforms.scale.value = Math.floor(window.innerHeight * (R.rdpr || 1) * (ECHO.Post && ECHO.Post.active ? ECHO.Post.scale : 1)) / (2 * Math.tan(THREE.MathUtils.degToRad(R.camera.fov / 2)));
     },
     // Festival dressing in the square, rebuilt when it changes.
@@ -2716,35 +2744,112 @@
       for (const fl of R.festFlames) fl.scale.set(1 + Math.sin(R.time * 11 + fl.userData.h * 5) * 0.08, 1 + Math.sin(R.time * 13 + fl.userData.h * 7) * 0.18, 1);
       R.festGroup.visible = !(ECHO.Interior && ECHO.Interior.cur);
     },
+    // Marks a fight leaves on the ground — blood spatter and pools, scorch, frost,
+    // slime, dust, cracks — each fading away after a while.
+    decalTex(kind) {
+      const T = R._decalTex || (R._decalTex = {});
+      if (T[kind]) return T[kind];
+      const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S;
+      const g = cv.getContext('2d'), rnd = (() => { let s = kind.length * 977 + 13; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
+      const blob = (x, y, r, col, a) => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, col.replace('A', a)); gr.addColorStop(0.7, col.replace('A', a * 0.8)); gr.addColorStop(1, col.replace('A', 0)); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 6.283); g.fill(); };
+      if (kind === 'blood' || kind === 'pool' || kind === 'slime' || kind === 'dirt') {
+        const col = kind === 'slime' ? 'rgba(90,170,50,A)' : kind === 'dirt' ? 'rgba(80,64,40,A)' : 'rgba(110,14,18,A)';
+        blob(64, 64, kind === 'pool' ? 40 : 24, col, 0.95);
+        for (let i = 0; i < (kind === 'pool' ? 6 : 14); i++) { const a = rnd() * 6.283, d = 18 + rnd() * 38; blob(64 + Math.cos(a) * d, 64 + Math.sin(a) * d, 3 + rnd() * (kind === 'pool' ? 14 : 9), col, 0.9); }
+      } else if (kind === 'scorch') {
+        blob(64, 64, 60, 'rgba(18,14,12,A)', 0.85);
+        for (let i = 0; i < 10; i++) { const a = rnd() * 6.283; g.strokeStyle = 'rgba(10,8,6,0.5)'; g.lineWidth = 2 + rnd() * 3; g.beginPath(); g.moveTo(64, 64); g.lineTo(64 + Math.cos(a) * 60, 64 + Math.sin(a) * 60); g.stroke(); }
+        blob(64, 64, 14, 'rgba(255,120,40,A)', 0.35);
+      } else if (kind === 'frost') {
+        blob(64, 64, 58, 'rgba(225,240,255,A)', 0.75);
+        g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 1.5;
+        for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283 + rnd() * 0.3, d = 30 + rnd() * 28; g.beginPath(); g.moveTo(64, 64); g.lineTo(64 + Math.cos(a) * d, 64 + Math.sin(a) * d); g.stroke(); }
+      } else if (kind === 'cracks') {
+        g.strokeStyle = 'rgba(30,24,18,0.85)'; g.lineWidth = 2.5;
+        for (let i = 0; i < 7; i++) { let x = 64, y = 64, a = rnd() * 6.283; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 5; k++) { a += (rnd() - 0.5) * 0.9; x += Math.cos(a) * 11; y += Math.sin(a) * 11; g.lineTo(x, y); } g.stroke(); }
+        blob(64, 64, 26, 'rgba(40,32,24,A)', 0.4);
+      } else blob(64, 64, 56, 'rgba(150,140,120,A)', 0.55);   // dust
+      const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding;
+      return (T[kind] = tex);
+    },
+    syncDecals(game) {
+      const D = ECHO.Combat.decals || [], pool = R._decals || (R._decals = []);
+      const geo = R._decalGeo || (R._decalGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2));
+      const room = !!ECHO.Interior.cur;
+      for (let i = 0; i < Math.max(D.length, pool.length); i++) {
+        const d = D[i];
+        let m = pool[i];
+        if (!d || room !== (d.x >= 9000)) { if (m) m.visible = false; continue; }
+        if (!m) {
+          m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+          m.renderOrder = 1; R.groups.fx.add(m); pool[i] = m;
+        }
+        if (m.userData.kind !== d.kind) { m.material.map = R.decalTex(d.kind); m.material.needsUpdate = true; m.userData.kind = d.kind; }
+        const k = d.t / d.life;
+        m.visible = true;
+        m.position.set(d.x, R.groundH(d.x, d.y) + 0.025, d.y);
+        m.rotation.y = d.rot;
+        const grow = Math.min(1, d.t * 6);
+        m.scale.set(d.size * (0.6 + 0.4 * grow) * 1.6, 1, d.size * (0.6 + 0.4 * grow) * 1.6);
+        m.material.opacity = Math.min(1, d.t * 8) * (k < 0.65 ? 1 : 1 - (k - 0.65) / 0.35) * (d.kind === 'frost' ? 0.8 : 0.9);
+      }
+    },
     parseColor(str) {
+      const K = R._pcc || (R._pcc = new Map());
+      let r = K.get(str);
+      if (r) return r;
       const m = /rgba?\(([^)]+)\)/.exec(str || '');
-      if (!m) return { c: new THREE.Color(str || '#ffffff'), a: 1 };
-      const p = m[1].split(',').map(Number);
-      return { c: new THREE.Color(`rgb(${p[0] | 0},${p[1] | 0},${p[2] | 0})`), a: p[3] != null ? p[3] : 1 };
+      if (!m) r = { c: new THREE.Color(str || '#ffffff'), a: 1 };
+      else { const p = m[1].split(',').map(Number); r = { c: new THREE.Color(`rgb(${p[0] | 0},${p[1] | 0},${p[2] | 0})`), a: p[3] != null ? p[3] : 1 }; }
+      r.lin = r.c.clone().convertSRGBToLinear();
+      if (K.size < 4000) K.set(str, r);
+      return r;
     },
     updateFx(game, dt) {
       const fx = ECHO.Combat.fx;
       const live = new Set();
       // Particles
-      const pa = R.parts.geometry.attributes.position, ca = R.parts.geometry.attributes.color;
-      let n = 0;
-      const tmp = new THREE.Color();
+      // particles: each moves in three dimensions — thrown up, falling under its own
+      // gravity (or rising, for embers and smoke), sparks bounce, drops that land
+      // stain the ground
+      const L = [R.parts.geometry.attributes, R.partsAdd.geometry.attributes], cnt = [0, 0];
+      const tmp = R._ptmp || (R._ptmp = new THREE.Color());
+      const room = !!ECHO.Interior.cur;
       for (const f of fx) {
         if (f.kind !== 'p' && f.kind !== 'smoke') continue;
-        if (n >= pa.count) break;
-        if (f.h0 == null) { f.h0 = f.spark ? 0.6 + Math.random() * 0.3 : 0.45 + Math.random() * 0.3; f.vz = f.spark ? 1.5 + Math.random() * 3 : 0.8 + Math.random() * 2.2; }
+        const smoke = f.kind === 'smoke' || f.smoke;
+        const glow = !smoke && (f.glow || f.spark);
+        const A = L[glow ? 1 : 0], i = cnt[glow ? 1 : 0];
+        if (i >= A.position.count) continue;
+        const k = f.t / f.life, fade = 1 - k;
         let h;
-        if (f.kind === 'smoke') { h = (f.sh || 1.0) + f.t * 0.7; f.x += (f.vx || 0) * dt; f.y += 0; }
-        else h = Math.max(0.03, f.h0 + f.vz * f.t - 4 * f.t * f.t);
-        pa.setXYZ(n, f.x, R.groundH(f.x, f.y) + h, f.y);
-        const fade = 1 - f.t / f.life;
-        if (f.kind === 'smoke') tmp.setRGB(0.55, 0.55, 0.55).multiplyScalar(0.4 + fade * 0.6);
-        else { const pc = R.parseColor(f.color); tmp.copy(pc.c).convertSRGBToLinear().multiplyScalar(f.spark ? 1.6 * fade + 0.2 : 0.4 + 0.6 * fade); }
-        ca.setXYZ(n, tmp.r, tmp.g, tmp.b);
-        n++;
+        if (f.kind === 'smoke') { h = (f.sh || 1.0) + f.t * 0.7; f.x += (f.vx || 0) * dt; }
+        else {
+          if (f.h == null) { f.h = f.spark ? 0.6 + Math.random() * 0.3 : 0.45 + Math.random() * 0.3; f.vz = f.vz != null ? f.vz : f.spark ? 1.5 + Math.random() * 3 : 0.8 + Math.random() * 2.2; }
+          if (f.g == null) f.g = smoke ? -0.5 : 8;
+          f.vz = (f.vz || 0) - f.g * dt; f.h += f.vz * dt;
+          if (f.h < 0.03) {
+            if (f.bounce && f.vz < -1.2) { f.vz = -f.vz * 0.35; f.h = 0.03; f.vx *= 0.6; f.vy *= 0.6; }
+            else { f.h = 0.03; f.vz = 0; f.vx *= 0.5; f.vy *= 0.5; if (f.land && !f.landed) { f.landed = true; if (Math.random() < 0.3 && !room) ECHO.Combat.decal(f.x, f.y, f.land, 0.2 + Math.random() * 0.25, 7); } }
+          }
+          h = f.h;
+        }
+        A.position.setXYZ(i, f.x, R.groundH(f.x, f.y) + h, f.y);
+        const pc = R.parseColor(f.color || '#888888');
+        let a = 1, s = (f.size || 2) * 0.07;
+        if (smoke) { if (f.kind === 'smoke') tmp.setRGB(0.3, 0.3, 0.3); else tmp.copy(pc.lin); a = 0.5 * fade * Math.min(1, f.t * 5); s *= 1 + (f.grow || 1.2) * k; }
+        else if (f.flash) { tmp.copy(pc.lin).multiplyScalar(2.6); a = fade * fade; s *= 1 + (f.grow || 0.6) * k; }
+        else if (glow) { tmp.copy(pc.lin).multiplyScalar(f.spark ? 1.4 + 1.6 * fade : 1.2 + fade); a = fade; if (f.flicker) a *= 0.55 + 0.45 * Math.sin(R.time * 31 + i * 1.7); s *= f.spark ? 0.8 + 0.2 * fade : 1 - 0.4 * k; }
+        else { tmp.copy(pc.lin); a = Math.min(1, fade * 1.6); s *= f.landed ? 0.8 : 1; }
+        A.color.setXYZ(i, tmp.r, tmp.g, tmp.b);
+        A.size.setX(i, s); A.alpha.setX(i, a);
+        cnt[glow ? 1 : 0]++;
       }
-      R.parts.geometry.setDrawRange(0, n);
-      pa.needsUpdate = true; ca.needsUpdate = true;
+      for (const [j, P] of [[0, R.parts], [1, R.partsAdd]]) {
+        P.geometry.setDrawRange(0, cnt[j]);
+        const A = L[j]; A.position.needsUpdate = A.color.needsUpdate = A.size.needsUpdate = A.alpha.needsUpdate = true;
+      }
+      R.syncDecals(game);
       // Ripples on the water
       if (ECHO.Water) {
         if (!R.ripplePool) {
@@ -2786,7 +2891,7 @@
       }
       // Shapes: telegraphs, slashes, rings
       for (const f of fx) {
-        if (f.kind !== 'tele' && f.kind !== 'slash' && f.kind !== 'ring' && f.kind !== 'zone' && f.kind !== 'wave' && f.kind !== 'beam' && f.kind !== 'rock') continue;
+        if (f.kind !== 'tele' && f.kind !== 'slash' && f.kind !== 'ring' && f.kind !== 'zone' && f.kind !== 'wave' && f.kind !== 'beam' && f.kind !== 'rock' && f.kind !== 'arc') continue;
         live.add(f);
         let m = R.fxMeshes.get(f);
         if (!m) { m = R.makeFxMesh(f); if (!m) continue; R.fxMeshes.set(f, m); R.groups.fx.add(m); }
@@ -2813,10 +2918,16 @@
         } else if (f.kind === 'rock') {
           m.position.set(f.x, R.groundH(f.x, f.y) + f.radius, f.y);
           m.rotation.x += dt * 6; m.rotation.z += dt * 3;
+        } else if (f.kind === 'arc') {
+          const P = m.geometry.attributes.position, gy = R.groundH(f.x2, f.y2) + (f.h || 0.8);
+          for (let i = 0; i < 10; i++) { const k = i / 9, j = i && i < 9 ? 0.35 : 0; P.setXYZ(i, U.lerp(f.x, f.x2, k) + (Math.random() - 0.5) * j, U.lerp(R.groundH(f.x, f.y) + 0.2, gy, k) + (Math.random() - 0.5) * j, U.lerp(f.y, f.y2, k) + (Math.random() - 0.5) * j); }
+          P.needsUpdate = true;
+          m.material.opacity = 1 - prog;
         } else if (f.kind === 'slash') {
           m.position.set(f.x, R.groundH(f.x, f.y) + 0.55, f.y);
-          m.material.opacity = 0.95 * (1 - prog * prog);
-          m.scale.setScalar(f.style === 'heavy' ? 0.6 + prog * 0.6 : 0.75 + prog * 0.3);
+          if (m.material.uniforms) { m.material.uniforms.prog.value = Math.min(1, prog / 0.7); m.material.uniforms.op.value = 1 - Math.max(0, (prog - 0.55) / 0.45); }
+          else m.material.opacity = 0.95 * (1 - prog * prog);
+          m.scale.setScalar(f.style === 'heavy' ? 0.85 + prog * 0.25 : 0.92 + prog * 0.12);
           if (f.style === 'finisher') m.rotation.y = -prog * 1.2;
         } else {
           m.position.set(f.x, R.groundH(f.x, f.y) + 0.08, f.y);
@@ -2862,7 +2973,12 @@
         }
         m.position.set(p.x, R.groundH(p.x, p.y) + 0.6, p.y);
         m.rotation.y = -p.angle;
-        if (p.kind === 'fire' || p.kind === 'orb') m.rotation.x += dt * 8;
+        if (p.kind === 'fire' || p.kind === 'orb') {
+          m.rotation.x += dt * 8;
+          // a fireball lights the ground it passes over and trails a glow
+          (R._fxLights = R._fxLights || []).push({ x: p.x, y: p.y, r: 3, a: 0.9, color: p.kind === 'fire' ? (p.star ? '#9fd3ff' : '#ff9a3c') : (p.color || '#b48aff') });
+          if (Math.random() < dt * 40) ECHO.Combat.puff(p.x, p.y, { h: 0.6, vz: 0.3, g: -0.5, life: 0.25, size: 4, color: p.kind === 'fire' ? (p.star ? '#cfeaff' : '#ffb35a') : (p.color || '#b48aff'), glow: true });
+        } else if ((p.kind === 'arrow' || p.kind === 'bolt' || !p.kind) && Math.random() < dt * 30) ECHO.Combat.puff(p.x, p.y, { h: 0.6, vz: 0, g: 0, life: 0.14, size: 1.4, color: '#f4ecd8', glow: true });
       }
       for (const [p, m] of R.projMeshes) if (!pl.has(p)) { R.groups.fx.remove(m); m.geometry.dispose(); m.material.dispose(); R.projMeshes.delete(p); }
       // Loot
@@ -2930,12 +3046,29 @@
         return m;
       }
       if (f.kind === 'slash') {
-        const inner = f.style === 'heavy' ? 0.3 : f.style === 'finisher' ? 0.62 : 0.55;
-        const geo = new THREE.RingGeometry(f.range * inner, f.range, f.arc > 4 ? 40 : 18, 1, -f.angle - f.arc / 2, f.arc);
+        // a swing: a bright edge sweeping round the arc, leaving a fading trail
+        const inner = f.style === 'heavy' ? 0.3 : f.style === 'finisher' ? 0.62 : 0.5;
+        const t0 = -f.angle - f.arc / 2;
+        const geo = new THREE.RingGeometry(f.range * inner, f.range, f.arc > 4 ? 48 : 24, 2, t0, f.arc);
+        const pos = geo.attributes.position, uv = geo.attributes.uv;
+        for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i); let a = Math.atan2(y, x) - t0; while (a < -0.01) a += Math.PI * 2; uv.setXY(i, a / f.arc, (Math.hypot(x, y) / f.range - inner) / (1 - inner)); }
         geo.rotateX(-Math.PI / 2);
         const pc = R.parseColor(f.color);
-        const m = flat(geo, pc.c, 0.9);
-        m.material.blending = THREE.AdditiveBlending;
+        const mat = new THREE.ShaderMaterial({
+          uniforms: { col: { value: pc.lin.clone().multiplyScalar(1.6) }, prog: { value: 0 }, op: { value: 1 } },
+          vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+          fragmentShader: 'uniform vec3 col; uniform float prog; uniform float op; varying vec2 vUv; void main(){ float head = prog * 1.3; float u = vUv.x; if (u > head) discard; float trail = exp(-(head - u) * 3.2); float edge = mix(0.25, 1.0, smoothstep(0.0, 1.0, vUv.y)) * smoothstep(1.0, 0.85, vUv.y); float hot = smoothstep(0.12, 0.0, head - u); gl_FragColor = vec4(col * (1.0 + hot * 1.8) + vec3(hot * 0.6), trail * edge * op); }',
+          transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
+        });
+        const m = new THREE.Mesh(geo, mat);
+        m.renderOrder = 6;
+        return m;
+      }
+      if (f.kind === 'arc') {
+        // lightning: a jagged line, redrawn every frame
+        const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.BufferAttribute(new Float32Array(10 * 3), 3));
+        const m = new THREE.Line(g2, new THREE.LineBasicMaterial({ color: R.parseColor(f.color).lin.clone().multiplyScalar(3), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+        m.frustumCulled = false; m.renderOrder = 7;
         return m;
       }
       if (f.kind === 'ring') {
@@ -3005,6 +3138,7 @@
       const cand = [];
       const push = (x, y, r, a, color, h = 1.1) => cand.push({ x, y, r, a, color, h, d: (x - tgt.x) ** 2 + (y - tgt.z) ** 2 });
       for (const L of (game._updLights || game.lights || [])) push(L.x, L.y, L.r, L.a, L.color, 1.3);
+      if (R._fxLights) { for (const L of R._fxLights) push(L.x, L.y, L.r, L.a, L.color, 0.7); R._fxLights.length = 0; }
       const night = dl < 0.65;
       if (night) {
         for (const t of Object.values(R.towns)) for (const l of t.lamps) push(l.x, l.y, l.era >= 4 ? 8 : 4.5, l.era >= 4 ? 1.3 : 1.0, l.arcane && l.era >= 4 ? '#bfe8ff' : '#ffc070', 1.7);

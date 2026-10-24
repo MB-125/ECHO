@@ -852,11 +852,19 @@
       const type = a.elem ? el.type : 'melee';
       for (const o of targets) {
         if (!hit(o.x, o.y)) continue;
-        const got = ECHO.Combat.damage(o, dmg, { type, from: e, angle: Math.atan2(o.y - e.y, o.x - e.x), knock: a.quake || a.dive ? 0.7 : 0.35 });
+        const got = ECHO.Combat.damage(o, dmg, { type, elem: a.elem ? e.elem : null, heavy: !!(a.quake || a.dive), from: e, angle: Math.atan2(o.y - e.y, o.x - e.x), knock: a.quake || a.dive ? 0.7 : 0.35 });
         if (got > 0 && a.elem) A.effect(game, e, o, got);
       }
       // what it looks like
-      const fx = (x, y, n) => { for (let i = 0; i < n; i++) ECHO.Combat.fx.push({ kind: 'p', x: x + (Math.random() - 0.5) * 1.2, y: y + (Math.random() - 0.5) * 1.2, vx: (Math.random() - 0.5) * 4, vy: -1 - Math.random() * 2, t: 0, life: 0.6, color: Math.random() < 0.5 ? el.col : '#ffffff', size: 3 }); };
+      // the element itself, thrown about: flame and embers, shards and mist, sparks, venom, dark wisps, flung earth — and its mark left on the ground
+      const hot = e.elem === 'fire' || e.elem === 'sun', soft = e.elem === 'earth' || !a.elem;
+      const fx = (x, y, n) => {
+        const C = ECHO.Combat;
+        for (let i = 0; i < n; i++) C.puff(x + (Math.random() - 0.5) * 1.2, y + (Math.random() - 0.5) * 1.2, { h: 0.2 + Math.random() * 0.9, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, vz: 1 + Math.random() * 3, g: hot ? -1.6 : soft ? 9 : 2, life: 0.55 + Math.random() * 0.45, color: Math.random() < 0.6 ? el.col : hot ? '#ffe08a' : '#ffffff', size: soft ? 2.4 : 3.2, glow: !soft, flicker: hot });
+        if (hot || e.elem === 'frost') C.puff(x, y, { h: 0.4, vz: 1, g: -0.4, life: 1.1, size: 6, color: hot ? '#3a3430' : '#e8f2ff', smoke: true });
+        if (a.elem && Math.random() < 0.45) C.decal(x, y, hot ? 'scorch' : e.elem === 'frost' ? 'frost' : e.elem === 'venom' ? 'slime' : e.elem === 'void' ? 'scorch' : 'cracks', 0.7 + Math.random() * 0.5, 12);
+        else if (!a.elem && (a.quake || a.dive) && Math.random() < 0.6) C.decal(x, y, 'cracks', 1.2, 12);
+      };
       if (a.shape === 'line') { for (let s = 0; s < a.len; s += 0.7) fx(a.x0 + Math.cos(a.ang) * s, a.y0 + Math.sin(a.ang) * s, 2); if (a.through) { e.x = U.clamp(a.x0 + Math.cos(a.ang) * a.len, 3, game.world.W - 3); e.y = U.clamp(a.y0 + Math.sin(a.ang) * a.len, 3, game.world.H - 3); } }
       else if (a.shape === 'rain') for (const s of a.spots) { fx(s.x, s.y, 10); ECHO.Combat.ring(s.x, s.y, a.radius, 'rgba(255,240,220,0.8)', 0.4); }
       else if (a.shape === 'circle') { ECHO.Combat.ring(a.cx, a.cy, a.radius, 'rgba(255,230,200,0.9)', 0.4); ECHO.Combat.burst(a.cx, a.cy, '#8d8576', 24, 5, 0.7, 3); }

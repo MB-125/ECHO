@@ -20,6 +20,8 @@ Every system below is real and connected to the others. Nothing is scripted.
 
 **Flying** on a bound dragon (V) is a take-off and a landing, with weight in between: it banks into turns, trades height for speed, glides when you let go, holds the height you choose (Space higher, Ctrl lower) over the land, and leans you into the turns on its back. Your beast keeps a body's length off, away from the camera's side of you, so it never hides you in a fight.
 
+**Combat you can feel**: every blow lands with a flash and sparks thrown the way it was struck; what you hit spills what it is made of (blood, bone chips, stone grit, slime, wisps of spirit) and it falls, bounces and stains the ground; fire leaves scorch and embers, frost shatters into shards and rimes the ground, lightning arcs from the wound, venom splashes; heavy blows and crits ring out with a shockwave; fireballs burst into a fire cloud and a smoke column; arrows and spells trail light; and the fallen leave a mark where they lay.
+
 **Dragons have skeletons**: one skin over 31 bones, so the neck curves, the spine bends into turns, the tail sways and trails, the legs bend at knee and ankle and the wings fold at elbow and wrist — and every wingbeat rolls from shoulder to fingertip.
 
 **Dragons** are modelled as creatures, not blocks: one smooth body along the spine, a long neck and tail with a belly of their own colour, horned heads with jaws that open, clawed legs, spined backs and wings of skin between finger bones that fold on the ground and open in flight.

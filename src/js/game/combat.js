@@ -7,7 +7,7 @@
 
   const C = ECHO.Combat = {
     proj: [], fx: [], floaters: [],
-    reset() { C.proj = []; C.fx = []; C.floaters = []; },
+    reset() { C.proj = []; C.fx = []; C.floaters = []; C.decals = []; },
 
     floater(x, y, text, color = '#fff', big) {
       // long numbers shortened (6.5k), and floaters that pop up together stacked, never on top of each other
@@ -33,6 +33,95 @@
       }
     },
     ring(x, y, radius, color, life = 0.4) { C.fx.push({ kind: 'ring', x, y, radius, t: 0, life, color }); },
+
+    // ------------------------------------------------------------ the look of a blow landing
+    // Every hit shows what was hit and with what: a white-hot flash at the point
+    // of impact, sparks that fly off along the blow, fall and bounce; blood that
+    // spatters and stains the ground, bone-dust from the dead, slime, chips of
+    // stone, wisps from spirits; fire throws embers and leaves scorch, frost
+    // shards and mist, lightning crackles, venom splashes green, the void
+    // swallows light. Heavy blows and criticals ring out with a shockwave and
+    // light up the place for an instant. (Pure show: the renderer draws it.)
+    decals: [],
+    decal(x, y, kind, size = 1, life = 9) {
+      if (C.decals.length > 70) C.decals.shift();
+      C.decals.push({ x, y, kind, size, rot: Math.random() * 6.28, t: 0, life });
+    },
+    // a particle in the air: h height, vz up-speed, g its gravity, glow = drawn as light
+    puff(x, y, o) { C.fx.push(Object.assign({ kind: 'p', x, y, vx: 0, vy: 0, t: 0, life: 0.5, color: '#ffffff', size: 2 }, o)); },
+    MATS: {
+      flesh: { col: ['#8a1c22', '#a8323a', '#6a1418'], decal: 'blood' },
+      blood: { col: ['#6b5a3a', '#7a6a48'], decal: 'dirt' },
+      bone: { col: ['#d8d4c4', '#b8b4a4', '#9fe8c8'], decal: 'dust' },
+      spirit: { col: ['#bfe8ff', '#e8f4ff'], glow: true },
+      slime: { col: ['#7ad84a', '#5ab83a', '#a8f070'], decal: 'slime' },
+      stone: { col: ['#8d8576', '#6a6357', '#a8a090'], decal: 'cracks' },
+      void: { col: ['#6a3aaa', '#a87aff', '#2a1040'], glow: true }
+    },
+    matOf(t) {
+      if (t.type === 'ghost' || t.mutation === 'paleshade') return 'spirit';
+      if (t.foe && (t.foe.look === 'wight' || t.foe.look === 'king')) return 'bone';
+      const sh = t.shape || t.species;
+      if (sh === 'slime') return 'slime';
+      if (sh === 'horror' || t.elem === 'void') return 'void';
+      if (sh === 'skeleton' || t.undead) return 'bone';
+      if (/golem|stone|rock/.test(t.species || t.kind || '')) return 'stone';
+      if (t.species === 'gnawer') return 'blood';
+      return 'flesh';
+    },
+    impact(target, dmg, src, crit) {
+      const game = G(), type = src.type || 'melee', from = src.from;
+      const ang = src.angle != null ? src.angle : from ? Math.atan2(target.y - from.y, target.x - from.x) : Math.random() * 6.28;
+      const big = target.type === 'boss' ? 1 + Math.min(1.5, (target.tscale || 1) * 0.5) : 1;
+      const x = target.x - Math.cos(ang) * 0.25 * big, y = target.y - Math.sin(ang) * 0.25 * big;
+      const h = (target.type === 'boss' ? 1.1 * big : 0.75) + (target.alt || 0);
+      const heavy = !!(src.heavy || crit || dmg > target.maxHp * 0.2);
+      const elem = src.elem || (type === 'fire' ? 'fire' : null);
+      const hot = elem === 'fire' || elem === 'sun';
+      const flashCol = hot ? '#ffb060' : elem === 'frost' || elem === 'storm' ? '#cfe8ff' : elem === 'venom' ? '#c8f080' : elem === 'void' ? '#b48aff' : type === 'magic' ? '#d8b8ff' : '#fff6e0';
+      // the flash where it lands
+      C.puff(x, y, { h, vz: 0, g: 0, life: heavy ? 0.16 : 0.1, size: (heavy ? 11 : 7) * Math.sqrt(big), color: flashCol, glow: true, flash: true });
+      // sparks along the blow (steel, arrows, claws)
+      if (type === 'melee' || type === 'ranged') {
+        const n = (heavy ? 12 : 6) + (target.type === 'boss' ? 4 : 0);
+        for (let i = 0; i < n; i++) { const a = ang + (Math.random() - 0.5) * 1.3, s = 4 + Math.random() * 6; C.puff(x, y, { h: h + (Math.random() - 0.3) * 0.3, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: 1 + Math.random() * 4, g: 14, life: 0.25 + Math.random() * 0.3, color: crit ? '#fff2a0' : '#ffe0b0', size: 1.3, glow: true, spark: true, bounce: true }); }
+      }
+      // what it is made of
+      const M = C.MATS[C.matOf(target)] || C.MATS.flesh;
+      const nm = Math.round((4 + Math.min(12, dmg / Math.max(4, target.maxHp * 0.03))) * (heavy ? 1.6 : 1));
+      for (let i = 0; i < nm; i++) {
+        const a = ang + (Math.random() - 0.5) * 2.2, s = 1.5 + Math.random() * 3.5;
+        C.puff(x, y, { h: h * (0.7 + Math.random() * 0.4), vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: 0.5 + Math.random() * 3, g: M.glow ? -0.6 : 10, life: M.glow ? 0.6 + Math.random() * 0.4 : 0.5 + Math.random() * 0.4, color: M.col[i % M.col.length], size: M.glow ? 2.6 : 1.8 + Math.random() * 1.2, glow: !!M.glow, land: M.decal });
+      }
+      // the element's own mark
+      if (hot) {
+        for (let i = 0; i < 10; i++) C.puff(x + (Math.random() - 0.5) * 0.6, y + (Math.random() - 0.5) * 0.6, { h: h * 0.6, vx: (Math.random() - 0.5) * 1.5, vy: (Math.random() - 0.5) * 1.5, vz: 1 + Math.random() * 2.5, g: -1.2, life: 0.6 + Math.random() * 0.6, color: Math.random() < 0.5 ? '#ffcc66' : '#ff6a2a', size: 2.2, glow: true, flicker: true });
+        C.puff(x, y, { h: h * 0.8, vz: 1.4, g: -0.5, life: 0.9, size: 5, color: '#4a4440', smoke: true });
+        if (Math.random() < 0.6) C.decal(target.x, target.y, 'scorch', 0.8 * big);
+      } else if (elem === 'frost') {
+        for (let i = 0; i < 12; i++) { const a = Math.random() * 6.28, s = 2 + Math.random() * 4; C.puff(x, y, { h, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: 1 + Math.random() * 3, g: 9, life: 0.5 + Math.random() * 0.3, color: i % 3 ? '#e8f6ff' : '#9fd3ff', size: 1.6, glow: true, spark: true, bounce: true }); }
+        C.puff(x, y, { h: h * 0.7, vz: 0.3, g: -0.2, life: 1.1, size: 6, color: '#dfefff', smoke: true });
+        C.decal(target.x, target.y, 'frost', 1.0 * big);
+      } else if (elem === 'storm') {
+        for (let i = 0; i < 3; i++) C.fx.push({ kind: 'arc', x: target.x + (Math.random() - 0.5) * 1.5 * big, y: target.y + (Math.random() - 0.5) * 1.5 * big, x2: target.x, y2: target.y, h, t: 0, life: 0.18 + Math.random() * 0.1, color: '#cfe8ff' });
+      } else if (elem === 'venom') {
+        for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, s = 1 + Math.random() * 3; C.puff(x, y, { h, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: 1 + Math.random() * 2, g: 9, life: 0.6, color: i % 2 ? '#9fe05a' : '#5ab83a', size: 2, land: 'slime' }); }
+      } else if (elem === 'void' || type === 'magic') {
+        for (let i = 0; i < 10; i++) { const a = Math.random() * 6.28, r = 0.8 + Math.random() * 0.6; C.puff(x + Math.cos(a) * r, y + Math.sin(a) * r, { h: h + (Math.random() - 0.5), vx: -Math.cos(a) * r * 3, vy: -Math.sin(a) * r * 3, vz: 0, g: 0, life: 0.3, color: elem === 'void' ? '#a87aff' : '#d8b8ff', size: 2, glow: true }); }
+      }
+      // a heavy blow rings out and lights the place up
+      if (heavy) {
+        C.ring(target.x, target.y, 1.4 * big, crit ? 'rgba(255,240,160,0.85)' : 'rgba(255,230,200,0.6)', 0.28);
+        if (game.light) game.light(x, y, 3.5 * big, crit ? 1.4 : 0.9, hot ? '#ff9a3c' : flashCol, 0.14);
+      } else if (hot && game.light) game.light(x, y, 2.5, 0.7, '#ff9a3c', 0.12);
+    },
+    // a creature falls: a last spray, and the ground marked where it lies
+    deathFx(target) {
+      const M = C.MATS[C.matOf(target)] || C.MATS.flesh, big = target.type === 'boss' ? 1 + (target.tscale || 1) * 0.6 : 1;
+      for (let i = 0; i < 16 * big; i++) { const a = Math.random() * 6.28, s = 1 + Math.random() * 3; C.puff(target.x, target.y, { h: 0.5, vx: Math.cos(a) * s, vy: Math.sin(a) * s, vz: 0.5 + Math.random() * 2.5, g: M.glow ? -0.5 : 9, life: 0.6 + Math.random() * 0.5, color: M.col[i % M.col.length], size: 2.2, glow: !!M.glow, land: M.decal }); }
+      for (let i = 0; i < 6 * big; i++) { const a = Math.random() * 6.28; C.puff(target.x + Math.cos(a) * 0.5, target.y + Math.sin(a) * 0.4, { h: 0.15, vx: Math.cos(a) * 1.2, vy: Math.sin(a) * 1.2, vz: 0.4, g: -0.3, life: 1.0, size: 4 * Math.sqrt(big), color: '#b8a888', smoke: true }); }
+      if (M.decal) C.decal(target.x, target.y, M.decal === 'blood' ? 'pool' : M.decal, 1.2 * big, 14);
+    },
     // (whoever was thinking when it was marked made it — so those on their side know it's not meant for them)
     telegraph(o) { const f = { kind: 'tele', t: 0, by: C.thinker || null, ...o }; C.fx.push(f); return f; },
 
@@ -103,6 +192,11 @@
       C.burst(p.x, p.y, '#ffb347', 18 + R * 10, 5, 0.6, 3);
       C.burst(p.x, p.y, '#ff5a1f', 12, 3, 0.8, 2);
       C.ring(p.x, p.y, R, 'rgba(255,170,60,0.8)', 0.35);
+      // a ball of fire, a column of smoke, embers rising, and the ground scorched
+      C.puff(p.x, p.y, { h: 0.6, vz: 0.6, g: 0, life: 0.35, size: 14 + R * 6, color: steam ? '#e8f0f8' : '#ffb35a', glow: true, flash: true, grow: 1.8 });
+      for (let i = 0; i < 6 + R * 2; i++) C.puff(p.x + (Math.random() - 0.5) * R, p.y + (Math.random() - 0.5) * R, { h: 0.4, vz: 1 + Math.random() * 1.5, g: -0.6, life: 1.4 + Math.random(), size: 6 + R * 2, color: steam ? '#e8eef4' : '#3a3632', smoke: true, grow: 2.2 });
+      for (let i = 0; i < 14; i++) C.puff(p.x, p.y, { h: 0.5, vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6, vz: 2 + Math.random() * 5, g: 6, life: 0.9 + Math.random() * 0.6, color: Math.random() < 0.5 ? '#ffcc66' : '#ff6a2a', size: 1.8, glow: true, spark: true, bounce: true });
+      if (!steam) C.decal(p.x, p.y, 'scorch', 0.9 + R * 0.5, 16);
       if (ECHO.Sfx) ECHO.Sfx.play('explode', { pitch: 1.2 - Math.min(0.5, R * 0.1) });
       if (U.dist(p.x, p.y, game.pe.x, game.pe.y) < 12) game.shake(Math.min(0.4, 0.12 + R * 0.06));
       game.light(p.x, p.y, R * 3 + 1, 0.9, '#ff9a3c', 0.25);
@@ -163,9 +257,10 @@
       C.proj = C.proj.filter(p => !p.done);
       for (const f of C.fx) {
         f.t += dt;
-        if (f.kind === 'p') { f.x += f.vx * dt; f.y += f.vy * dt; f.vx *= 0.92; f.vy *= 0.92; }
+        if (f.kind === 'p') { f.x += f.vx * dt; f.y += f.vy * dt; const dr = f.spark ? 0.97 : f.smoke ? 0.9 : 0.92; f.vx *= dr; f.vy *= dr; }
       }
       C.fx = C.fx.filter(f => f.t < f.life && !f.done);
+      if (C.decals.length) { for (const d of C.decals) d.t += dt; C.decals = C.decals.filter(d => d.t < d.life); }
       for (const f of C.floaters) { f.t += dt; f.y -= dt * 0.9; }
       C.floaters = C.floaters.filter(f => f.t < f.life);
     },
@@ -296,7 +391,7 @@
       if (src.knock && src.angle != null && target.type !== 'boss') { target.kbx += Math.cos(src.angle) * src.knock; target.kby += Math.sin(src.angle) * src.knock; }
       const col = target === game.pe ? '#ff6b6b' : type === 'fire' ? '#ffb347' : crit ? '#ffe066' : '#ffffff';
       C.floater(target.x + (Math.random() - 0.5) * 0.4, target.y - 0.9, (crit ? '✦' : '') + (dmg >= 10000 ? U.short(dmg) : dmg), col, crit);
-      C.burst(target.x, target.y - 0.2, target.type === 'person' || target === game.pe ? '#a8323a' : target.species === 'gnawer' ? '#6b5a3a' : '#7b2a2a', 4 + Math.min(10, dmg / 3), 2.5, 0.4, 2);
+      C.impact(target, dmg, src, crit);
       if (target === game.pe) {
         game.shake(Math.min(0.5, 0.12 + dmg / 40));
         game.lastHitBy = from;
@@ -307,7 +402,7 @@
       } else if (from === game.pe || (from && from.isCompanion)) {
         // The feel of landing a blow
         const ang = src.angle != null ? src.angle : 0;
-        if (type === 'melee' || type === 'ranged') C.sparks(target.x - Math.cos(ang) * 0.2, target.y - 0.35, ang, crit ? '#fff2a0' : '#ffe6c8', crit ? 12 : 6, crit ? 8 : 6);
+
         if (ECHO.Sfx) {
           if (crit || src.stealth) ECHO.Sfx.play('crit');
           if (type === 'ranged') ECHO.Sfx.play('arrowHit');
@@ -342,6 +437,7 @@
       target._xpOk = ECHO.Progress && ECHO.Progress.counts(game, target);
       target.dead = true;
       target.deathT = 0;
+      if (target.type !== 'person' || target.humanoid) C.deathFx(target);
       if (target.jobId && ECHO.Jobs) ECHO.Jobs.onKill(game, target, from);
       if (target.rare && ECHO.Secrets && (from === game.pe || (from && from.isCompanion))) ECHO.Secrets.onRareKill(game, target);
       if (target.escort && ECHO.Jobs && target.escort.status === 'active') ECHO.Jobs.fail(game, target.escort, `${target.escort.giverName} was killed on the road`);
