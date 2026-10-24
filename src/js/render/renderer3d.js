@@ -3193,7 +3193,10 @@
       R.sun.position.copy(st.p).add(off);
       R.sun.target.position.copy(st.p);
       const wx = ECHO.Weather ? ECHO.Weather.here(world, tgt.x, tgt.z) : { today: 'clear' };
-      const cloud = { clear: 1, heat: 1.08, cloudy: 0.62, fog: 0.55, rain: 0.48, storm: 0.32, snow: 0.6, blizzard: 0.38 }[wx.today] || 1;
+      // the weather as it looks: eased over a quarter of a minute and blended across
+      // the edges of regions, so clouds gather, rain sets in and fog rolls in and lifts
+      const M = R.weatherMix(world, tgt.x, tgt.z, season, dt);
+      const cloud = M.cloud;
       R.cloud = cloud; R.wx = wx;
       R.sun.intensity = 1.35 * Math.max(0, dl) * cloud;
       R.sun.color.copy(lerpC(C('#fff4e0'), C('#ff9a5a'), Math.max(dusk, 0)));
@@ -3205,19 +3208,19 @@
       R.moon.intensity = 0.27 * (1 - dl);
       R.hemi.intensity = (0.2 + 0.5 * dl) * (0.75 + 0.25 * cloud);
       // lightning
-      if (wx.today === 'storm' || wx.today === 'blizzard') {
-        if (R.flashT <= 0 && Math.random() < dt * 0.08) { R.flashT = 0.25; setTimeout(() => ECHO.Sfx.play('thunder'), 300 + Math.random() * 1500); }
+      if (M.storm > 0.55) {
+        if (R.flashT <= 0 && Math.random() < dt * 0.08 * M.storm) { R.flashT = 0.25; setTimeout(() => ECHO.Sfx.play('thunder'), 300 + Math.random() * 1500); }
       }
       if (R.flashT > 0) { R.flashT -= dt; if (Math.sin(R.flashT * 60) > 0) R.hemi.intensity += 2.2; }
       R.hemi.color.copy(lerpC(C('#3a4a78'), C('#d6e6ff'), dl));
       R.hemi.groundColor.copy(lerpC(C('#141018'), C('#4a4030'), dl));
       let fog = lerpC(C('#0d1222'), C(season === 3 ? '#c8d4dc' : '#a9c2d4'), dl);
-      if (cloud < 0.9) fog = lerpC(fog, C('#7c8690').multiplyScalar(Math.max(0.2, dl)), 0.5);
-      if (wx.today === 'heat') fog = lerpC(fog, C('#e8d8b0'), 0.25 * dl);
+      fog = lerpC(fog, C('#7c8690').multiplyScalar(Math.max(0.2, dl)), 0.5 * U.clamp((1 - cloud) / 0.3, 0, 1));
+      if (M.heat > 0.01) fog = lerpC(fog, C('#e8d8b0'), 0.25 * dl * M.heat);
       if (dusk > 0) fog = lerpC(fog, C('#d88a5a'), dusk * 0.45);
       R.scene.fog.color.copy(fog);
       R.scene.background = R.scene.fog.color;
-      const fogK = wx.today === 'fog' ? 0.45 : wx.today === 'blizzard' ? 0.5 : wx.today === 'storm' || wx.today === 'rain' ? 0.75 : 1;
+      const fogK = M.fogK;
       R.scene.fog.near = R.camDistNow * 1.15 * fogK;
       R.scene.fog.far = R.camDistNow * (season === 3 ? 2.6 : 3.4) * fogK;
       R.renderer.toneMappingExposure = 1.0 + (1 - dl) * 0.22;
@@ -3251,23 +3254,26 @@
         L.intensity = c.a * 1.6 * flick * (night ? 1 : 0.5);
       }
       // seasons: snow
-      const snowing = wx.today === 'snow' || wx.today === 'blizzard' || (season === 3 && wx.today !== 'clear' && wx.today !== 'heat');
+      // rain and snow set in a few drops (flakes) at a time, and ease off the same way
+      const snowing = M.snow > 0.03;
       R.snow.visible = snowing;
-      const raining = !snowing && (wx.today === 'rain' || wx.today === 'storm');
-      R.rain.visible = raining; R._raining = raining;
+      if (snowing) R.snow.geometry.setDrawRange(0, Math.ceil(R.snow.geometry.attributes.position.count * Math.min(1, M.snow)));
+      const raining = M.rain > 0.03;
+      R.rain.visible = raining; R._raining = M.rain > 0.3;
       if (raining) {
         R.rain.position.set(tgt.x, 0, tgt.z);
-        const rpos = R.rain.geometry.attributes.position, fall = dt * (wx.today === 'storm' ? 26 : 18);
+        const rpos = R.rain.geometry.attributes.position, fall = dt * (18 + 8 * M.storm), slant = 0.06 + 0.19 * M.storm;
         for (let i = 0; i < rpos.count; i += 2) {
           let y = rpos.getY(i) - fall;
           if (y < 0) y += 20;
           rpos.setY(i, y); rpos.setY(i + 1, y - 0.55);
-          if (wx.today === 'storm') { rpos.setX(i + 1, rpos.getX(i) + 0.25); }
+          rpos.setX(i + 1, rpos.getX(i) + slant);
         }
         rpos.needsUpdate = true;
-        R.rain.material.opacity = wx.today === 'storm' ? 0.6 : 0.42;
+        R.rain.geometry.setDrawRange(0, 2 * Math.ceil(rpos.count / 2 * Math.min(1, M.rain / 0.6)));
+        R.rain.material.opacity = 0.3 + 0.12 * Math.min(1, M.rain / 0.6) + 0.18 * M.storm;
       }
-      if (ECHO.Sfx.setRain) ECHO.Sfx.setRain(raining ? (wx.today === 'storm' ? 1 : 0.6) : 0);
+      if (ECHO.Sfx.setRain) ECHO.Sfx.setRain(Math.min(1, M.rain));
       if (R.snow.visible) {
         const sp = R.snow.geometry.attributes.position;
         for (let i = 0; i < sp.count; i++) {
@@ -3281,6 +3287,42 @@
       }
     },
 
+    // How the weather looks, as numbers that can ease from one sky to the next.
+    WXV: {
+      clear: { cloud: 1, fogK: 1, rain: 0, storm: 0, snow: 0, heat: 0, grey: 0 },
+      heat: { cloud: 1.08, fogK: 1, rain: 0, storm: 0, snow: 0, heat: 1, grey: 0 },
+      cloudy: { cloud: 0.62, fogK: 0.95, rain: 0, storm: 0, snow: 0, heat: 0, grey: 0.3 },
+      fog: { cloud: 0.55, fogK: 0.45, rain: 0, storm: 0, snow: 0, heat: 0, grey: 0.5 },
+      rain: { cloud: 0.48, fogK: 0.75, rain: 0.6, storm: 0, snow: 0, heat: 0, grey: 0.6 },
+      storm: { cloud: 0.32, fogK: 0.7, rain: 1, storm: 1, snow: 0, heat: 0, grey: 1 },
+      snow: { cloud: 0.6, fogK: 0.8, rain: 0, storm: 0, snow: 0.6, heat: 0, grey: 0.4 },
+      blizzard: { cloud: 0.38, fogK: 0.5, rain: 0, storm: 0.6, snow: 1, heat: 0, grey: 0.8 }
+    },
+    weatherMix(world, x, z, season, dt) {
+      const V = R.WXV, Wt = ECHO.Weather, T = R._wxT || (R._wxT = {}), M = R.wxMix;
+      for (const k in V.clear) T[k] = 0;
+      // what the sky is doing here and a little way off on every side (regions meet softly)
+      const S = R._wxS || (R._wxS = [[0, 0, 2], [14, 0, 1], [-14, 0, 1], [0, 14, 1], [0, -14, 1]]);
+      let wsum = 0;
+      for (const [ox, oz, w] of S) {
+        const px = U.clamp(x + ox, 0, world.W - 1), pz = U.clamp(z + oz, 0, world.H - 1);
+        const today = Wt ? Wt.here(world, px, pz).today : 'clear';
+        let v = V[today] || V.clear;
+        // in winter what falls is snow
+        if (season === 3 && v.rain > 0) v = { ...v, snow: Math.max(v.snow, v.rain * 0.8), rain: 0 };
+        else if (season === 3 && today !== 'clear' && today !== 'heat' && !v.snow) v = { ...v, snow: 0.35 };
+        for (const k in T) T[k] += v[k] * w;
+        wsum += w;
+      }
+      for (const k in T) T[k] /= wsum;
+      if (!M || R._wxWorld !== world || dt > 5) { R.wxMix = { ...T }; R._wxWorld = world; return R.wxMix; }
+      // clouds gather before the rain, and the rain eases off before the sky clears
+      for (const k in M) {
+        const up = T[k] > M[k], tau = k === 'rain' || k === 'snow' ? (up ? 22 : 12) : k === 'cloud' ? (up ? 20 : 12) : 16;
+        M[k] += (T[k] - M[k]) * (1 - Math.exp(-dt / tau));
+      }
+      return M;
+    },
     // ---------------------------------------------------------------- frame
     draw(game, dt) {
       if (!R.world || R.world !== game.world) R.setWorld(game.world);

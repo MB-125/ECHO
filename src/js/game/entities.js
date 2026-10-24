@@ -13,14 +13,40 @@
         label: null, say: null, sayT: 0, hidden: false, aggro: false, yielded: false, sleeping: false
       }, o);
     },
-    // Move with tile collision (axis separated) — circles against solid tiles.
+    // Move with tile collision (axis separated) — circles against solid tiles —
+    // and then against the things standing on the ground (trunks, boulders,
+    // posts, tents, walls), which push the body out round their edge so it
+    // slides past them instead of snagging.
     move(world, e, dx, dy) {
+      const So = e.x < 9000 && !e.ghost && ECHO.Solids, W = ECHO.World;
+      if (!So) return Ent.moveTiles(world, e, dx, dy, null);
+      const x0 = e.x, y0 = e.y, r = e.r * 0.85;
+      const stuckIn = So.hit(world, e.x, e.y, r);
+      W.noTrunks = true;   // (trunks are round things on the ground now, not corners of a tile)
+      let moved;
+      try { moved = Ent.moveTiles(world, e, dx, dy, So); } finally { W.noTrunks = false; }
+      const o = So._ro;
+      if (So.resolve(world, e.x, e.y, r, null, o)) {
+        W.noTrunks = true;
+        let ok;
+        try { ok = (o.ok || stuckIn) && Math.hypot(o.x - e.x, o.y - e.y) < Math.max(0.6, r * 1.2) && !Ent.tileBlocked(world, e, o.x, o.y, r); } finally { W.noTrunks = false; }
+        if (ok) { e.x = o.x; e.y = o.y; }
+        else { e.x = x0; e.y = y0; }
+        moved = Math.abs(e.x - x0) + Math.abs(e.y - y0) > 1e-4;
+      }
+      return moved;
+    },
+    tileBlocked(world, e, x, y, r) {
+      const solidAt = ECHO.Water ? (a, b) => ECHO.Water.blockedFor(e, world, a, b) : (a, b) => ECHO.World.isSolid(world, a, b);
+      return solidAt(x - r, y - r) || solidAt(x + r, y - r) || solidAt(x - r, y + r) || solidAt(x + r, y + r);
+    },
+    moveTiles(world, e, dx, dy, propsLater) {
       const r = e.r * 0.85;
       // shallow water is wadeable by anyone; deep water only by you, on foot
       const solidAt = ECHO.Water ? (x, y) => ECHO.Water.blockedFor(e, world, x, y) : (x, y) => ECHO.World.isSolid(world, x, y);
       // things standing on the ground (trunks, boulders, tents, walls…); something
       // that finds itself already inside one may always step out of it
-      const So = e.x < 9000 && !e.ghost && ECHO.Solids;
+      const So = !propsLater && e.x < 9000 && !e.ghost && ECHO.Solids;
       const stuckIn = So && So.hit(world, e.x, e.y, r);
       const tight = (x, y) => solidAt(x - r, y - r) || solidAt(x + r, y - r) || solidAt(x - r, y + r) || solidAt(x + r, y + r) || (So && !stuckIn && So.hit(world, x, y, r));
       // Wedged already (set down half in a wall, a tree or the water's edge): any
@@ -55,6 +81,88 @@
         e._sliding = false;
       }
       return moved;
+    },
+    // Walking where you point, through a wood: if a trunk or a boulder is square in
+    // the way, the step bears round it — to the side with room (and the same side
+    // as a moment ago, so it doesn't dither) — instead of pressing into it.
+    steerMove(world, e, dx, dy) {
+      const L = Math.hypot(dx, dy);
+      if (L < 1e-6) return false;
+      const x0 = e.x, y0 = e.y, now = ECHO.Game ? ECHO.Game.time : 0, a0 = Math.atan2(dy, dx);
+      // threading a way through a thicket the way you are pushing (see weave)
+      const Wv = e._weave;
+      if (Wv && (now > Wv.until || Math.abs(U.angleDiff(Wv.a, a0)) > 0.9 || !Wv.pts.length)) e._weave = null;
+      else if (Wv) {
+        let p = Wv.pts[0];
+        while (p && U.dist(e.x, e.y, p.x, p.y) < 0.14) { Wv.pts.shift(); p = Wv.pts[0]; }
+        if (p) {
+          const d = U.dist(e.x, e.y, p.x, p.y), k = Math.min(1, L / d);
+          Ent.move(world, e, (p.x - e.x) * k, (p.y - e.y) * k);
+          if (Math.hypot(e.x - x0, e.y - y0) > L * 0.3) return true;
+          e._weave = null;
+        }
+      }
+      Ent.move(world, e, dx, dy);
+      const got = ((e.x - x0) * dx + (e.y - y0) * dy) / L;
+      if (got > L * 0.6) { if (now > (e._steerUntil || 0)) e._steerSide = 0; e._pressT = 0; e._pressAt = now; return true; }
+      // pressing into the trees for a moment: look for the way through, a few steps on
+      e._pressT = (e._pressT || 0) + U.clamp(now - (e._pressAt == null ? now : e._pressAt), 0, 0.1);
+      e._pressAt = now;
+      if (e._pressT > 0.25 && now > (e._weaveT || 0)) {
+        e._weaveT = now + 0.4;
+        const pts = Ent.weave(world, e, a0, 4.5);
+        if (pts) { e._weave = { pts, a: a0, until: now + 3 }; e._pressT = 0; }
+      }
+      const look = Math.max(0.5, e.r * 1.5);
+      let pref = e._steerSide || 0;
+      for (const off of [0.4, 0.8, 1.2]) {
+        const ok = [1, -1].filter(s => Ent.clearAhead(world, e, a0 + off * s, look));
+        if (!ok.length) continue;
+        let s = ok.length === 1 ? ok[0] : pref && ok.includes(pref) ? pref : (Ent.clearAhead(world, e, a0 + off, look * 2.2) ? 1 : -1);
+        e.x = x0; e.y = y0;     // this step again, along the way round
+        Ent.move(world, e, Math.cos(a0 + off * s) * L, Math.sin(a0 + off * s) * L);
+        if (Math.hypot(e.x - x0, e.y - y0) > L * 0.35) { e._steerSide = s; e._steerUntil = now + 0.6; return true; }
+      }
+      return Math.abs(e.x - x0) + Math.abs(e.y - y0) > 1e-4;
+    },
+    // The way through a thicket, looking a few steps ahead in the direction you are
+    // pushing: a search over a fine grid round you for the furthest place on that
+    // heading you can reach (and the path there, pulled tight). Null if none better.
+    weave(world, e, a, reach) {
+      const S = 0.3, N = Math.ceil(reach / S) + 2, D = N * 2 + 1, r = e.r * 0.85;
+      const ox = e.x - N * S, oy = e.y - N * S, ca = Math.cos(a), sa = Math.sin(a);
+      const seen = new Int32Array(D * D).fill(-2), fit = new Int8Array(D * D);
+      const ok = i => { if (!fit[i]) { const cx = ox + (i % D) * S, cy = oy + ((i / D) | 0) * S; fit[i] = Ent.fits(world, cx, cy, r) && !(ECHO.Water && ECHO.Water.blockedFor(e, world, cx, cy)) ? 1 : 2; } return fit[i] === 1; };
+      const start = N * D + N;
+      seen[start] = -1;
+      const q = [start];
+      let best = -1, bs = 0.6;   // (it must get you on at least a little way)
+      for (let h = 0; h < q.length; h++) {
+        const i = q[h], ix = i % D, iy = (i / D) | 0, px = (ix - N) * S, py = (iy - N) * S;
+        const along = px * ca + py * sa, side = Math.abs(-px * sa + py * ca);
+        if (along - side * 0.35 > bs) { bs = along - side * 0.35; best = i; }
+        if (Math.hypot(px, py) > reach) continue;
+        for (const [ddx, ddy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+          const nx = ix + ddx, ny = iy + ddy;
+          if (nx < 0 || ny < 0 || nx >= D || ny >= D) continue;
+          const j = ny * D + nx;
+          if (seen[j] !== -2 || !ok(j)) continue;
+          if (ddx && ddy && (!ok(iy * D + nx) || !ok(ny * D + ix))) continue;   // no squeezing past a corner
+          seen[j] = i; q.push(j);
+        }
+      }
+      if (best < 0) return null;
+      const path = [];
+      for (let i = best; i !== -1 && i !== start; i = seen[i]) path.push({ x: ox + (i % D) * S, y: oy + ((i / D) | 0) * S });
+      path.reverse();
+      // pull it tight: skip the points you can walk straight past
+      const out = []; let fx = e.x, fy = e.y;
+      for (let k = 0; k < path.length; k++) {
+        const nxt = path[k + 1];
+        if (nxt && Ent.clearLine(world, fx, fy, nxt.x, nxt.y, r)) continue;
+        out.push(path[k]); fx = path[k].x; fy = path[k].y;
+      }
+      return out.length ? out : null;
     },
     // How many of a body's corners (and its sides) are inside solid ground.
     overlap(world, x, y, r, solidAt) {
@@ -149,7 +257,8 @@
     // Looking ahead: is the way clear for a short distance along this heading?
     clearAhead(world, e, a, len) {
       const ca = Math.cos(a), sa = Math.sin(a);
-      for (let t = 0.3; t <= len; t += 0.3) if (Ent.blockedAt(world, e, e.x + ca * t, e.y + sa * t)) return false;
+      const st = Math.min(0.3, Math.max(0.15, len / 3));
+      for (let t = st; t <= len + 1e-6; t += st) if (Ent.blockedAt(world, e, e.x + ca * t, e.y + sa * t)) return false;
       return true;
     },
     // Can a body of radius r walk straight from a to b?

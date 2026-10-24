@@ -146,7 +146,7 @@
           }
           if (R0.v > 0.05) {
             const bx = pe.x, by = pe.y;
-            ECHO.Ent.move(world, pe, Math.cos(R0.dir) * R0.v * dt, Math.sin(R0.dir) * R0.v * dt);
+            ECHO.Ent.steerMove(world, pe, Math.cos(R0.dir) * R0.v * dt, Math.sin(R0.dir) * R0.v * dt);
             if (Math.hypot(pe.x - bx, pe.y - by) < R0.v * dt * 0.3) {
               R0.v *= Math.exp(-dt * 6);  // ran into something
               // a horse won't swim with you on its back
@@ -186,7 +186,7 @@
           pe.moving = Math.hypot(S.vx, S.vy) > 0.3;
         } else if (len) {
           PC.slide = null;
-          ECHO.Ent.move(world, pe, mx * sp * dt, my * sp * dt);
+          ECHO.Ent.steerMove(world, pe, mx * sp * dt, my * sp * dt);   // (bears round a trunk square in the way)
           pe.moving = true;
           if (Math.random() < dt * 0.6) Ch().train(pl, 'endurance', 0.03);
         } else { pe.moving = false; PC.slide = null; }

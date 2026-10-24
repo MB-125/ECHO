@@ -176,7 +176,7 @@
       const G = P.grade.uniforms, world = game.world, room = ECHO.Interior.cur;
       const m = world ? world.minute : 720, dl = ECHO.TIME ? ECHO.TIME.daylight(m) : 1;
       const dusk = (m > 1000 && m < 1290) ? 1 - Math.abs(m - 1150) / 140 : (m > 280 && m < 480) ? 1 - Math.abs(m - 380) / 100 : 0;
-      const wx = P.R.wx ? P.R.wx.today : 'clear', grey = { storm: 1, rain: 0.6, blizzard: 0.8, fog: 0.5, cloudy: 0.3 }[wx] || 0;
+      const grey = P.R.wxMix ? P.R.wxMix.grey : 0;   // (eased, as the sky is)
       let gain = [1, 1, 1], lift = [0, 0, 0], sat = 1.08, con = 1.04, vig = 0.3;
       if (room) { gain = [1.06, 0.98, 0.88]; lift = [0.012, 0.006, 0]; sat = 1.02; vig = 0.45; con = 1.06; }
       else {

@@ -50,7 +50,7 @@
       if (world.blocked[i] === 1) return true;
       const t = world.tiles[i];
       // A tree only blocks at its trunk, so you can thread between them.
-      if (t === TILE.TREE) { const tx = x + 0.5 + (ECHO.hash2(x, y, world.seed + 32) - 0.5) * 0.5, ty = y + 0.5 + (ECHO.hash2(x, y, world.seed + 33) - 0.5) * 0.5; return (fx - tx) ** 2 + (fy - ty) ** 2 < 0.2 * 0.2; }   // (World.trunk, without making an object)
+      if (t === TILE.TREE) { if (World.noTrunks) return false; const tx = x + 0.5 + (ECHO.hash2(x, y, world.seed + 32) - 0.5) * 0.5, ty = y + 0.5 + (ECHO.hash2(x, y, world.seed + 33) - 0.5) * 0.5; return (fx - tx) ** 2 + (fy - ty) ** 2 < 0.17 * 0.17; }   // (World.trunk, without making an object)
       return SOLID_TILES.has(t);
     },
     // Where the trunk stands in a tree tile (the 3D renderer plants it here too).

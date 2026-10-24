@@ -23,7 +23,7 @@
       if (t !== T.TREE && t !== T.FOREST && t !== T.GRASS && t !== T.HILL && t !== T.SNOW && t !== T.RUIN) return false;
       const s = world.seed, a = h2(x, y, s + 31);
       let r;
-      if (t === T.TREE) r = 0.2;
+      if (t === T.TREE) r = 0.17;   // (the trunk as drawn)
       else if (t === T.FOREST) { if (!(a < 0.22)) return false; r = 0.15; }
       else if (t === T.GRASS) { if (!(a >= 0.32 && a < 0.335)) return false; r = RAD.rock * (0.5 + h2(x, y, s + 32) * 0.4); }
       else if (t === T.HILL || t === T.SNOW) { if (!(a < 0.18)) return false; r = RAD.rock * (0.8 + h2(x, y, s + 32)); }
@@ -39,7 +39,7 @@
       if (t !== T.TREE && t !== T.FOREST && t !== T.GRASS && t !== T.HILL && t !== T.SNOW && t !== T.RUIN) return null;
       const s = world.seed, a = h2(x, y, s + 31), b = h2(x, y, s + 32), c = h2(x, y, s + 33);
       const px = x + 0.5 + (b - 0.5) * 0.5, py = y + 0.5 + (c - 0.5) * 0.5;
-      if (t === T.TREE) return { x: px, y: py, r: 0.2, k: 'trunk' };
+      if (t === T.TREE) return { x: px, y: py, r: 0.17, k: 'trunk' };
       if (t === T.FOREST) return a < 0.22 ? { x: px, y: py, r: 0.15, k: 'oak', s: 0.6 + b * 0.25 } : null;
       if (t === T.GRASS) return a >= 0.32 && a < 0.335 ? { x: px, y: py, r: RAD.rock * (0.5 + b * 0.4), k: 'rock', s: 0.5 + b * 0.4 } : null;
       if (t === T.HILL || t === T.SNOW) return a < 0.18 ? { x: px, y: py, r: RAD.rock * (0.8 + b), k: 'rock', s: 0.8 + b } : null;
@@ -137,7 +137,7 @@
       const CS = 8, cells = new Map();
       for (const sh of So.shapesOf(world, pl)) {
         // inflated by the widest body, so a lookup in one cell sees everything it could touch
-        const P = 0.8, bx0 = (sh.c ? sh.c[0] - sh.c[2] : sh.b[0]) - P, by0 = (sh.c ? sh.c[1] - sh.c[2] : sh.b[1]) - P, bx1 = (sh.c ? sh.c[0] + sh.c[2] : sh.b[2]) + P, by1 = (sh.c ? sh.c[1] + sh.c[2] : sh.b[3]) + P;
+        const P = 1.5, bx0 = (sh.c ? sh.c[0] - sh.c[2] : sh.b[0]) - P, by0 = (sh.c ? sh.c[1] - sh.c[2] : sh.b[1]) - P, bx1 = (sh.c ? sh.c[0] + sh.c[2] : sh.b[2]) + P, by1 = (sh.c ? sh.c[1] + sh.c[2] : sh.b[3]) + P;
         for (let cy = Math.floor(by0 / CS); cy <= Math.floor(by1 / CS); cy++) for (let cx = Math.floor(bx0 / CS); cx <= Math.floor(bx1 / CS); cx++) {
           const k = cy * 100000 + cx;
           let l = cells.get(k); if (!l) cells.set(k, l = []);
@@ -150,8 +150,8 @@
     // Does a body of radius r at (x, y) overlap anything solid?
     hit(world, x, y, r, pl) {
       if (x >= 9000 || !world.tiles) return false;
-      const fx = Math.floor(x), fy = Math.floor(y);
-      for (let ty = fy - 1; ty <= fy + 1; ty++) for (let tx = fx - 1; tx <= fx + 1; tx++) {
+      const fx = Math.floor(x), fy = Math.floor(y), N = r > 0.45 ? Math.ceil(r + 0.85) : 1;   // (a big body reaches past the next tile)
+      for (let ty = fy - N; ty <= fy + N; ty++) for (let tx = fx - N; tx <= fx + N; tx++) {
         const p = So._pp;
         if (So.propInto(world, tx, ty, p) && (p.x - x) ** 2 + (p.y - y) ** 2 < (p.r + r) ** 2) return true;
       }
@@ -167,6 +167,50 @@
       }
       return false;
     },
+    // A body pushed out of whatever it has walked into: out along the line from the
+    // trunk's (boulder's, post's) middle, so it slides round it instead of stopping
+    // dead on it. Fills out {x, y, ok}; ok is false if it is still caught (squeezed
+    // between two things). Returns true if it had to be pushed at all.
+    resolve(world, x, y, r, pl, out) {
+      let px = x, py = y, any = false;
+      if (x >= 9000 || !world.tiles) { out.x = x; out.y = y; out.ok = true; return false; }
+      const G = So.grid(world, pl || (ECHO.Game && ECHO.Game.world === world ? ECHO.Game.pl : null)), p = So._pp;
+      for (let it = 0; it < 4; it++) {
+        let mx = 0, my = 0, n = 0;
+        const fx = Math.floor(px), fy = Math.floor(py), N = r > 0.45 ? Math.ceil(r + 0.85) : 1;
+        for (let ty = fy - N; ty <= fy + N; ty++) for (let tx = fx - N; tx <= fx + N; tx++) {
+          if (!So.propInto(world, tx, ty, p)) continue;
+          const dx = px - p.x, dy = py - p.y, rr = p.r + r, d2 = dx * dx + dy * dy;
+          if (d2 >= rr * rr) continue;
+          const d = Math.sqrt(d2) || 1e-4, k = rr - d + 0.002;
+          mx += (d2 ? dx / d : 1) * k; my += (d2 ? dy / d : 0) * k; n++;
+        }
+        const l = G.cells.get(Math.floor(py / G.CS) * 100000 + Math.floor(px / G.CS));
+        if (l) for (const sh of l) {
+          if (sh.c) {
+            const dx = px - sh.c[0], dy = py - sh.c[1], rr = sh.c[2] + r, d2 = dx * dx + dy * dy;
+            if (d2 >= rr * rr) continue;
+            const d = Math.sqrt(d2) || 1e-4, k = rr - d + 0.002;
+            mx += (d2 ? dx / d : 1) * k; my += (d2 ? dy / d : 0) * k; n++;
+          } else {
+            const b = sh.b, nx = U.clamp(px, b[0], b[2]), ny = U.clamp(py, b[1], b[3]), dx = px - nx, dy = py - ny, d2 = dx * dx + dy * dy;
+            if (d2 >= r * r) continue;
+            if (d2 > 1e-8) { const d = Math.sqrt(d2), k = r - d + 0.002; mx += dx / d * k; my += dy / d * k; }
+            else {
+              // the middle is inside the box: out by the nearest side
+              const L = px - b[0], Rr = b[2] - px, Tp = py - b[1], B = b[3] - py, m = Math.min(L, Rr, Tp, B);
+              if (m === L) mx -= L + r; else if (m === Rr) mx += Rr + r; else if (m === Tp) my -= Tp + r; else my += B + r;
+            }
+            n++;
+          }
+        }
+        if (!n) break;
+        px += mx; py += my; any = true;
+      }
+      out.x = px; out.y = py; out.ok = !any || !So.hit(world, px, py, r * 0.97, pl);
+      return any;
+    },
+    _ro: { x: 0, y: 0, ok: true },
     // A tile the path-finder should go around.
     blocksTile(world, x, y) { return So.hit(world, x + 0.5, y + 0.5, 0.05); }
   };

@@ -16,7 +16,11 @@ ECHO is a desktop RPG built around one idea: **consequence**. You begin as an or
 
 Every system below is real and connected to the others. Nothing is scripted.
 
-**Your beast is a partner.** A bound dragon or great beast has a mind of its own: it moves like an animal (arcs, pace, a look at whatever catches its eye), keeps you company at your pace, and when you stop it keeps watch, sniffs about, stretches, lies down to rest or circles the sky above you; it hunts when it is hungry and eats its kill; in a fight it goes for whatever is hurting you, takes to the air against a crowd, pulls back to recover when badly hurt; it greets you, lets you stroke its neck (E), and grows closer to you over time (its bond, on the Animals page).
+**Bodies are solid**: your beast has a body as big as it looks and steps round trees, rocks and walls; a dragon flies over a wood rather than through it, keeps above the tree tops, and lands only where it fits. You slide round trunks and thread your way through thickets.
+
+**The weather turns gradually**: clouds gather before rain, rain builds and eases, fog rolls in and lifts, and neighbouring regions' weather blends at their edges.
+
+**Your beast is a partner.** A bound dragon or great beast has a mind of its own: it moves like an animal (arcs, pace, a look at whatever catches its eye), keeps you company at your pace, and when you stop it keeps watch, sniffs about, stretches, lies down to rest or circles the sky above you; it hunts when it is hungry and eats its kill; in a fight it goes for whatever is hurting you and uses all of its own arts as it sees fit (its greatest when you are in danger), takes to the air against a crowd, pulls back to recover when badly hurt; it greets you, lets you stroke its neck (E), and grows closer to you over time (its bond, on the Animals page).
 
 **Flying** on a bound dragon (V) is a take-off and a landing, with weight in between: it banks into turns, trades height for speed, glides when you let go, holds the height you choose (Space higher, Ctrl lower) over the land, and leans you into the turns on its back. Your beast keeps a body's length off, away from the camera's side of you, so it never hides you in a fight.
 

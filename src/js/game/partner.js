@@ -57,9 +57,17 @@
     // suits its size, gathers speed and eases to a stop, and slows to turn.
     // Returns the distance left.
     move(game, e, tx, ty, want, dt, arrive) {
-      const pt = e.pt, world = game.world;
-      const d = U.dist(e.x, e.y, tx, ty);
+      const pt = e.pt, world = game.world, now = game.time;
       arrive = arrive || 0.6;
+      // in the air, wanting to come down where there is no room for it (a wood, a
+      // town's roofs): it makes for a clearing near there instead — or, if there is
+      // none, it circles above until there is
+      if (e.flies && e.alt > 1 && e._noLand) {
+        if (!pt.landAt || now > pt.landT || U.dist(pt.landAt.x, pt.landAt.y, tx, ty) > 9) { pt.landAt = A().clearing(world, e, tx, ty, 8); pt.landT = now + 2.5; }
+        if (pt.landAt) { tx = pt.landAt.x; ty = pt.landAt.y; arrive = 0.4; }
+        else { pt.orb = (pt.orb || Math.atan2(e.y - ty, e.x - tx)) + dt * 0.45; tx += Math.cos(pt.orb) * 5; ty += Math.sin(pt.orb) * 4; arrive = 0.3; want = Math.max(want, 5); }
+      } else if (!e._noLand) pt.landAt = null;
+      const d = U.dist(e.x, e.y, tx, ty);
       if (pt.hd == null) pt.hd = e.dir || 0;
       const air = e.flies && e.alt > 1.2;
       let goal = d > 0.05 ? Math.atan2(ty - e.y, tx - e.x) : pt.hd;
@@ -79,19 +87,27 @@
       const s = pt.spd * dt;
       if (s <= 0.0005) { e.moving = false; pt.gait = 0; return d; }
       if (air) {
-        e.x = U.clamp(e.x + Math.cos(pt.hd) * s, 3, world.W - 3); e.y = U.clamp(e.y + Math.sin(pt.hd) * s, 3, world.H - 3);
-        e.moving = true;
+        e.moving = A().airStep(game, e, pt.hd, s);
+        if (!e.moving) pt.spd *= 0.6;
       } else {
-        const ok = (px, py) => !ECHO.World.isSolid(world, px, py) && !(ECHO.Water && ECHO.Water.kind(world, px, py) === 'deep');
-        let moved = false;
-        for (const off of [0, 0.5, -0.5, 1.0, -1.0, 1.5, -1.5]) {
-          const a = pt.hd + off, nx = e.x + Math.cos(a) * s, ny = e.y + Math.sin(a) * s;
-          if (ok(nx, ny)) { e.x = nx; e.y = ny; moved = true; if (off) pt.hd += off * Math.min(1, dt * 4); break; }
-        }
+        // its body is stopped by trunks, rocks, walls and water as yours is: it bears
+        // round them, keeping to one side
+        const off = A().walk(game, e, pt.hd, s);
+        const moved = off != null;
+        if (off) pt.hd += off * Math.min(1, dt * 4);
         e.moving = moved;
         if (!moved) pt.spd *= 0.5;
         pt.blockT = moved ? 0 : (pt.blockT || 0) + dt;
-        if (pt.blockT > 0.8 && e.flies) { e.altGoal = 3.5; pt.blockT = 0; }   // boxed in: a dragon hops up into the air
+        if (e.flies) {
+          // a dragon that sees a wood or a wall of rock between it and where it is
+          // going (or is boxed in) takes to the air over it rather than push through
+          let over = pt.blockT > 0.5;
+          if (!over && d > 3.5 && now > (pt.wayT || 0)) { pt.wayT = now + 0.35; over = !A().wayClear(world, e, goal, Math.min(d, 4.8)) && !A().wayClear(world, e, goal + 0.6, 3.6) && !A().wayClear(world, e, goal - 0.6, 3.6); }
+          if (over) { P.takeOff(game, e, Math.max(4, (A().canopy(world, e.x + Math.cos(goal) * 3, e.y + Math.sin(goal) * 3, 2) || 0) + 1.5)); pt.blockT = 0; pt.overUntil = now + 2.5; }
+        } else if (pt.blockT > 1.5 && d > 2) {
+          // a great beast that can't get through tries the other way round
+          e._wside = -(e._wside || 1); pt.blockT = 0.6;
+        }
       }
       pt.gait = pt.spd;
       return d;
@@ -101,7 +117,7 @@
       const d = U.dist(e.x, e.y, tx, ty);
       if (e.flies) {
         if (d > 22 && e.alt < 1) P.takeOff(game, e, 5);
-        if (e.altGoal > 1 && d < 7) e.altGoal = 0;     // coming in to land
+        if (e.altGoal > 1 && d < 7 && game.time > (e.pt.overUntil || 0)) e.altGoal = 0;     // coming in to land (where there's room: see move)
         if (e.alt > 1.2) return P.move(game, e, tx, ty, Math.max(want, Math.min(14, d * 0.6)), dt, arrive);
       }
       return P.move(game, e, tx, ty, want, dt, arrive);
@@ -189,7 +205,7 @@
       t.hunger = Math.min(1, (t.hunger || 0) + dt / 600);
       if (d < 16) P.bond(t, dt / 150);
       // far behind (you went through a door, rode off): it comes after you — a dragon flies
-      if (d > 90 || (d > 40 && !e.flies)) { const sp = ECHO.Ent.freeSpot(world, pe.x - 3, pe.y - 3, 6); if (sp) { e.x = sp.x; e.y = sp.y; if (e.flies) e.alt = 6; } pt.intent = 'greet'; pt.it = 0; }
+      if (d > 90 || (d > 40 && !e.flies)) { const sp = (!e.flies && A().clearing(world, e, pe.x - 3, pe.y - 3, 8)) || ECHO.Ent.freeSpot(world, pe.x - 3, pe.y - 3, 6); if (sp) { e.x = sp.x; e.y = sp.y; if (e.flies) e.alt = 6; } pt.intent = 'greet'; pt.it = 0; }
       // ---- what does it want?
       const foes = P.foes(game, e);
       const low = e.hp < e.maxHp * 0.28;
@@ -233,7 +249,7 @@
       const want = Math.max(2.2, Math.min(e.flies && e.alt > 1 ? 14 : 8, pt.pspd * 1.05 + Math.max(0, d - A().gap(e) * 1.4) * 0.5));
       e.state = 'follow';
       P.travel(game, e, h.x, h.y, want, dt, 1.0);
-      if (e.alt > 1.2 && e.flies && d < 9 && pt.pspd < 6) e.altGoal = 0;
+      if (e.alt > 1.2 && e.flies && d < 9 && pt.pspd < 6 && game.time > (pt.overUntil || 0)) e.altGoal = 0;
       // looks where you are going, or at you
       pt.look = pt.pspd > 1 ? { x: pe.x + (pt.pvx || 0) * 1.5, y: pe.y + (pt.pvy || 0) * 1.5 } : { x: pe.x, y: pe.y };
       if (U.dist(e.x, e.y, h.x, h.y) < 1.4 && pt.pspd < 0.8) { pt.intent = 'idle'; pt.it = 0; pt.sub = 'settle'; pt.subT = 0; }
@@ -252,6 +268,14 @@
         for (const w of W) { r -= w[1]; if (r <= 0) return w[0]; }
         return 'watch';
       };
+      // up in the air with nowhere near you to come down (you are in a wood, a town):
+      // it circles above you, and comes down as soon as there is a clearing
+      if (e.flies && e._noLand && e.alt > 1 && pt.sub !== 'circle') {
+        const h = P.homeSpot(game, e);
+        P.move(game, e, h.x, h.y, 4, dt, 0.8);
+        pt.look = { x: pe.x, y: pe.y }; pt.pose = 'stand';
+        return;
+      }
       if (!pt.sub || pt.sub === 'settle') {
         // first: go to its place beside you
         const h = P.homeSpot(game, e);
@@ -400,14 +424,16 @@
       const crowd = foes.filter(o => U.dist(o.x, o.y, foe.x, foe.y) < 6).length;
       if (e.flies) {
         if (pt.air == null) pt.air = false;
-        const wantAir = (crowd >= 3 || (foe.alt || 0) > 1.5 || (foe.type === 'boss' && !foe.tamed)) && tr.bold > 0.35;
-        if (!pt.air && wantAir && now > (pt.airNext || 0)) { pt.air = true; pt.airN = 0; P.takeOff(game, e, 5.5); }
+        // no room on the ground to fight from (among trees, rocks, walls): it fights from the air
+        if (now > (pt.roomT || 0)) { pt.roomT = now + 0.6; const s0 = A().standFor(game, e, foe); pt.noRoom = !A().bodyAt(game.world, e, s0.x, s0.y, Math.atan2(foe.y - s0.y, foe.x - s0.x)) && !A().clearing(game.world, e, s0.x, s0.y, 3); }
+        const wantAir = ((crowd >= 3 || (foe.alt || 0) > 1.5 || (foe.type === 'boss' && !foe.tamed)) && tr.bold > 0.35) || pt.noRoom;
+        if (!pt.air && wantAir && (now > (pt.airNext || 0) || pt.noRoom)) { pt.air = true; pt.airN = 0; P.takeOff(game, e, 5.5); }
         if (pt.air) {
           // round the foe, high, then a run at it
           pt.orb = (pt.orb == null ? Math.atan2(e.y - foe.y, e.x - foe.x) : pt.orb) + dt * 0.55;
           const ox = foe.x + Math.cos(pt.orb) * 8, oy = Math.min(pe.y - 2, foe.y + Math.sin(pt.orb) * 6);
           P.move(game, e, ox, oy, 9, dt, 0.5);
-          if (e.alt > 4 && A().airAttack(game, e, t, foe)) { pt.airN++; if (pt.airN >= 3) { pt.air = false; pt.airNext = now + 10; e.altGoal = 0; } }
+          if (e.alt > 4 && A().airAttack(game, e, t, foe)) { pt.airN++; if (pt.airN >= 3 && !pt.noRoom) { pt.air = false; pt.airNext = now + 10; e.altGoal = 0; } }
           return;
         }
       }

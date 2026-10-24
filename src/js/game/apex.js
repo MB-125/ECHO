@@ -159,6 +159,7 @@
               g.pl.dazzleUntil = g.time + 4.5; g.hurtFlash(2); A.hurt(g, e, tg, 0.6, { noEffect: true });
               ECHO.Combat.floater(tg.x, tg.y - 1.4, 'BLINDED — your blows go wide', '#fff6c0', true);
             } else if (tg === g.pe) ECHO.Combat.floater(tg.x, tg.y - 1.4, 'you looked away', '#c8c0b0');
+            if (e.tamed) for (const o of A.targetsOf(g, e)) if (U.dist(o.x, o.y, e.x, e.y) < 14) { o.stagger = Math.max(o.stagger || 0, 1.8); ECHO.Combat.floater(o.x, o.y - 1.2, 'blinded', '#fff6c0'); }
           });
         } },
         { k: 'beam', name: 'Sunbeam', ph: 1, cd: 15, tamed: true, use(g, e, t, tg) {
@@ -185,7 +186,7 @@
         } },
         { k: 'blink', name: 'Shadowstep', ph: 1, cd: 8, use(g, e, t, tg) {
           ECHO.Combat.burst(e.x, e.y, '#3a1a6a', 30, 4, 0.6, 3);
-          const sp = ECHO.Ent.freeSpot(g.world, tg.x - Math.cos(tg.dir || 0) * 2.6, tg.y - Math.sin(tg.dir || 0) * 2.6, 3);
+          const sp = A.clearing(g.world, e, tg.x - Math.cos(tg.dir || 0) * 2.6, tg.y - Math.sin(tg.dir || 0) * 2.6, 4);
           if (sp) { e.x = sp.x; e.y = sp.y; e.alt = 0; e.altGoal = 0; }
           ECHO.Combat.burst(e.x, e.y, '#a87aff', 30, 4, 0.6, 3);
           A.start(g, e, t, 'bite'); e.atk.wind = 0.45;
@@ -504,7 +505,8 @@
         const e = d.e; d.t += dt;
         if (!live(e)) { d.t = d.dur; continue; }
         const k = Math.min(1, d.t / d.dur), nx = d.x0 + Math.cos(d.a) * d.len * k, ny = d.y0 + Math.sin(d.a) * d.len * k;
-        if (!ECHO.World.isSolid(world, nx, ny)) { e.x = nx; e.y = ny; } else d.t = d.dur;
+        if (e.alt > 1.2 || A.bodyAt(world, e, nx, ny, d.a) || !A.bodyAt(world, e, e.x, e.y, d.a)) { if (A.tileFree(world, nx, ny)) { e.x = nx; e.y = ny; } else d.t = d.dur; }
+        else { d.t = d.dur; ECHO.Combat.burst(e.x + Math.cos(d.a) * e.r, e.y + Math.sin(d.a) * e.r, '#8d7a5e', 22, 4, 0.7, 3); g.shake(0.35); }   // (it runs into the tree, the rock: the charge ends there)
         e.moving = true; e.dir = d.a;
         for (const o of A.targetsOf(g, e)) if (!d.hit.has(o) && U.dist(o.x, o.y, e.x, e.y) < e.r + 0.7) { d.hit.add(o); A.hurt(g, e, o, d.mult, { knock: 1.1, melee: true, noEffect: !d.op.bolt }); }
         if (Math.random() < dt * 20) ECHO.Combat.fx.push({ kind: 'p', x: e.x, y: e.y, vx: 0, vy: 0, t: 0, life: 0.5, color: '#8d8576', size: 3 });
@@ -535,7 +537,7 @@
     useSig(g, e, t, s, tg) {
       const S = SIG[t.sp], ult = s === S.ult;
       e.sigT = e.sigT || {};
-      if (ult) e.ultAt = g.time + 26; else e.sigT[s.k] = g.time + s.cd * PHASE_CD[e.ph || 1] * (e.tamed ? 1.5 : 1);
+      if (ult) e.ultAt = g.time + (e.tamed ? 75 : 26); else e.sigT[s.k] = g.time + s.cd * PHASE_CD[e.ph || 1] * (e.tamed ? 1.2 : 1);
       e.cd = 1.4 * PHASE_CD[e.ph || 1];
       A.shout(e, ult ? `✦ ${s.name} ✦` : s.name, ult ? '#ff8a6a' : (ELEM[e.elem] || ELEM.earth).col);
       if (ult) { g.shake(0.6); if (ECHO.Sfx) ECHO.Sfx.play('roar', { pitch: 0.8 / Math.sqrt(e.tscale) }); }
@@ -636,8 +638,10 @@
       if (!t) return null;
       const pe = game.pe, sp = Ti().sp(t);
       if ((t.restUntil || 0) > game.world.day) { game.pl.beastOut = null; return null; }
-      const at = ECHO.Ent.freeSpot(game.world, pe.x - 1.8, pe.y + 1.2, 6) || { x: pe.x, y: pe.y };
+      let at = ECHO.Ent.freeSpot(game.world, pe.x - 1.8, pe.y + 1.2, 6) || { x: pe.x, y: pe.y };
       const e = A.make(game, t, riding ? pe.x : at.x, riding ? pe.y : at.y, true);
+      // where its whole body fits (a dragon may come down a little further off, in a clearing)
+      if (!riding) { const c = A.clearing(game.world, e, at.x, at.y, sp.flies ? 10 : 6); if (c) { e.x = c.x; e.y = c.y; } }
       if (sp.flies && !riding) { e.alt = 6; e.altGoal = 0; }
       game.ents.push(e);
       return e;
@@ -648,8 +652,33 @@
       if (ECHO.Interior.cur) { e.dead = true; e.vanish = true; return; }   // no titan fits through a door
       e.t += dt; e.cd = Math.max(0, e.cd - dt);
       e.boss.hp = e.hp;
-      // height: rising and settling
-      if (e.alt !== e.altGoal) { const r = (e.altGoal > e.alt ? 3.2 : 4.5) * dt; e.alt = Math.abs(e.altGoal - e.alt) < r ? e.altGoal : e.alt + Math.sign(e.altGoal - e.alt) * r; }
+      // height: rising and settling — and in the air, never down among the trees or
+      // the roofs: it comes down only where its body fits on open ground
+      let goal = e.altGoal;
+      if (e.flies && !e.burrowed && (e.alt > 0.25 || goal > 0.25) && !(game.pl.flying === e.titan)) {
+        const top = A.canopy(game.world, e.x, e.y, A.bodyR(e) + 0.55 * (e.tscale || 1));
+        e._canopy = top;
+        if (top > 0) {
+          const floor = top + 0.6 + 0.3 * (e.tscale || 1);
+          if (goal > 0.25 ? goal < floor : !A.bodyAny(game.world, e, e.x, e.y)) goal = Math.max(goal, floor);
+          if (e.alt < floor && goal >= floor && e.alt > 0.25) goal = floor;
+        }
+        e._noLand = goal > e.altGoal + 0.01 && e.altGoal <= 0.25;
+      } else e._noLand = false;
+      if (e.alt !== goal) { const r = (goal > e.alt ? 3.2 : 4.5) * dt; e.alt = Math.abs(goal - e.alt) < r ? goal : e.alt + Math.sign(goal - e.alt) * r; }
+      // set down among trees or rocks (by a blink, a charge, a long way to catch up):
+      // a dragon lifts clear of them, a great beast works its way out to open ground
+      if (e.alt < 0.3 && !e.burrowed && !e.atk && game.pl.flying !== e.titan && game.time > (e._roomT || 0)) {
+        e._roomT = game.time + 0.5;
+        if (!A.bodyAny(game.world, e, e.x, e.y)) {
+          if (e.flies) { e.altGoal = Math.max(e.altGoal || 0, A.canopy(game.world, e.x, e.y, A.bodyR(e) + 0.5) + 1.2); if (e.pt) e.pt.overUntil = game.time + 1.5; }
+          else if (!e._outTo || game.time > e._outT) { e._outTo = A.clearing(game.world, e, e.x, e.y, 7); e._outT = game.time + 3; }
+        } else e._outTo = null;
+      }
+      if (e._outTo && !e.flies && (e.busyUntil || 0) <= game.time && !e.atk) {
+        const d = U.dist(e.x, e.y, e._outTo.x, e._outTo.y), a = Math.atan2(e._outTo.y - e.y, e._outTo.x - e.x);
+        if (d < 0.3) e._outTo = null; else { A.walk(game, e, a, Math.min(d, 2.5 * dt)); e.dir = a; e.moving = true; return; }
+      }
       if (e.tamed) return A.tamed(game, e, dt);
       return A.wild(game, e, dt);
     },
@@ -725,6 +754,94 @@
       }
       return best;
     },
+    // ------------------------------------------------------------ a body this size in the world
+    // On the ground a titan is a body as wide as it is, along its spine (chest,
+    // middle, haunches): trunks, boulders, walls, tents and water stop it as they
+    // stop you. A dragon that finds the way blocked takes to the air; in the air
+    // it keeps above the trees and roofs, and it comes down only where its body fits.
+    bodyR(e) { const s = e.tscale || 1; return e.flies ? 0.3 + 0.26 * s : 0.28 + 0.2 * s; },
+    tileFree(world, x, y) { return !ECHO.World.isSolid(world, x, y) && !(ECHO.Water && ECHO.Water.kind(world, x, y) === 'deep'); },
+    // (chest, middle and haunches as wide as it is, with room for the leafy crowns
+    // round a trunk; then its neck and head before it and its tail behind, slimmer)
+    BODY: [[0, 1, true], [1, 1, true], [-1, 1, true], [2.1, 0.5, false], [-2.3, 0.45, false], [-3.5, 0.35, false]],
+    bodyAt(world, e, x, y, hd) {
+      const r = A.bodyR(e), L = 0.5 * (e.tscale || 1), c = Math.cos(hd || 0), s = Math.sin(hd || 0), So = ECHO.Solids, k8 = r * 0.8;
+      for (const [k, w, core] of A.BODY) {
+        const px = x + c * L * k, py = y + s * L * k;
+        if (core && (!A.tileFree(world, px + k8, py) || !A.tileFree(world, px - k8, py) || !A.tileFree(world, px, py + k8) || !A.tileFree(world, px, py - k8))) return false;
+        if (!A.tileFree(world, px, py)) return false;
+        if (So && So.hit(world, px, py, r * w + 0.3)) return false;
+      }
+      return true;
+    },
+    // does it fit here turned some way (its own heading first)?
+    bodyAny(world, e, x, y) { const hd = e.dir || 0; for (const da of [0, Math.PI / 2, Math.PI / 4, -Math.PI / 4]) if (A.bodyAt(world, e, x, y, hd + da)) return true; return false; },
+    // a step on the ground: straight on if it can, else bearing round what is in the
+    // way (to the side it chose last); boxed in, it may only step out. Returns the
+    // bearing it took, or null.
+    walk(game, e, hd, s, side) {
+      const world = game.world, free = A.bodyAt(world, e, e.x, e.y, hd);
+      side = side || e._wside || 1;
+      const OFF = e.flies ? [0, 0.5, 1.0, 1.5] : [0, 0.5, 1.0, 1.5, 2.0, 2.6];
+      for (const o of OFF) for (const sg of o ? [side, -side] : [1]) {
+        const a = hd + o * sg, nx = e.x + Math.cos(a) * s, ny = e.y + Math.sin(a) * s;
+        if (free ? A.bodyAt(world, e, nx, ny, a) : A.tileFree(world, nx, ny)) {
+          e.x = U.clamp(nx, 3, world.W - 3); e.y = U.clamp(ny, 3, world.H - 3);
+          if (o) e._wside = sg;
+          return o * sg;
+        }
+      }
+      return null;
+    },
+    // a stretch of flight: nothing in the air is in the way — but low, still among
+    // the tree tops, it climbs clear before it goes on
+    airStep(game, e, a, s) {
+      const world = game.world, nx = e.x + Math.cos(a) * s, ny = e.y + Math.sin(a) * s;
+      if (e.alt < (e._canopy || 0) + 1.2) {
+        const top = A.canopy(world, nx + Math.cos(a) * 0.8, ny + Math.sin(a) * 0.8, A.bodyR(e));
+        if (top > e.alt - 0.3) { e.altGoal = Math.max(e.altGoal || 0, top + 1); return false; }
+      }
+      e.x = U.clamp(nx, 3, world.W - 3); e.y = U.clamp(ny, 3, world.H - 3);
+      return true;
+    },
+    // is the way ahead clear for its body, for a few lengths?
+    wayClear(world, e, a, len) {
+      for (let t = 1.2; t <= len; t += 1.2) if (!A.bodyAt(world, e, e.x + Math.cos(a) * t, e.y + Math.sin(a) * t, a)) return false;
+      return true;
+    },
+    // how high what stands under it reaches: tree tops, roofs, boulders
+    canopy(world, x, y, r) {
+      const T = ECHO.TILE, ww = world.W || 200, s = world.seed;
+      let h = 0;
+      for (let ty = Math.floor(y - r); ty <= Math.floor(y + r); ty++) for (let tx = Math.floor(x - r); tx <= Math.floor(x + r); tx++) {
+        if (tx < 0 || ty < 0 || tx >= ww || ty >= (world.H || 150)) continue;
+        const i = ty * ww + tx, t = world.tiles[i];
+        let v = 0;
+        if (t === T.TREE) v = 4.6;
+        else if (world.blocked[i] === 1) v = 4.2;
+        else if (t === T.FOREST) { const a = ECHO.hash2(tx, ty, s + 31); v = a < 0.22 ? 2.9 : a < 0.55 ? 1.3 : 0; }
+        else if (t === T.ROCK) v = 2.2;
+        else if (t === T.RUINWALL) v = 2.6;
+        if (v > h) h = v;
+      }
+      return h;
+    },
+    // somewhere near (x, y) where its body fits on open ground, or null
+    // (it may stand there turned any way that fits: the spot says which)
+    clearing(world, e, x, y, maxR) {
+      const hd = e.dir || 0;
+      const fits = (px, py) => { if (A.canopy(world, px, py, 0.6) >= 3) return null; for (const da of [0, Math.PI / 2, Math.PI / 4, -Math.PI / 4]) if (A.bodyAt(world, e, px, py, hd + da)) return hd + da; return null; };
+      let a = fits(x, y);
+      if (a != null) return { x, y, a };
+      for (let rad = 1; rad <= maxR; rad += 1) {
+        const n = Math.max(8, Math.round(rad * 5)), a0 = Math.random() * 6.28;
+        for (let i = 0; i < n; i++) {
+          const b = a0 + i / n * 6.28, px = x + Math.cos(b) * rad, py = y + Math.sin(b) * rad;
+          if ((a = fits(px, py)) != null) return { x: px, y: py, a };
+        }
+      }
+      return null;
+    },
     // movement: on the wing nothing is in the way; on foot, the usual
     go(game, e, x, y, speed, dt) {
       const d = U.dist(e.x, e.y, x, y);
@@ -732,22 +849,16 @@
       const a = Math.atan2(y - e.y, x - e.x);
       e.dir = a; e.flip = Math.cos(a) < 0;
       if (e.flies && e.alt > 1.2) {
-        const s = Math.min(d, speed * dt);
-        e.x = U.clamp(e.x + Math.cos(a) * s, 3, game.world.W - 3); e.y = U.clamp(e.y + Math.sin(a) * s, 3, game.world.H - 3);
-        e.moving = true;
+        e.moving = A.airStep(game, e, a, Math.min(d, speed * dt));
       } else {
-        // a body this size walks through brush and saplings; only walls, cliffs and deep water stop it
+        // its body is stopped by trunks, boulders, walls and water, as yours is
         const world = game.world, s = Math.min(d, speed * dt);
-        const ok = (px, py) => !ECHO.World.isSolid(world, px, py) && !(ECHO.Water && ECHO.Water.kind(world, px, py) === 'deep');
-        let moved = false;
-        for (const off of [0, 0.6, -0.6, 1.2, -1.2]) {
-          const nx = e.x + Math.cos(a + off) * s, ny = e.y + Math.sin(a + off) * s;
-          if (ok(nx, ny)) { e.x = nx; e.y = ny; moved = true; break; }
-        }
+        const off = A.walk(game, e, a, s);
+        const moved = off != null;
         e.moving = moved;
         e._blockT = moved ? 0 : (e._blockT || 0) + dt;
-        // boxed in: a dragon hops into the air
-        if (e._blockT > 0.6 && e.flies) { e.altGoal = 3; e._blockT = 0; }
+        // boxed in, or a wood ahead: a dragon takes to the air over it
+        if (e.flies && (e._blockT > 0.5 || (d > 4 && (e._wayT = (e._wayT || 0) - dt) <= 0 && ((e._wayT = 0.4), !A.wayClear(world, e, a, Math.min(d, 4.8)))))) { e.altGoal = Math.max(e.altGoal || 0, 4); e._blockT = 0; }
       }
       return d;
     },
@@ -1024,9 +1135,10 @@
     attackFoe(game, e, t, foe, eager) {
       const df = U.dist(e.x, e.y, foe.x, foe.y), ang = Math.atan2(foe.y - e.y, foe.x - e.x);
       if (e.cd > 0 || e.alt >= 0.6) return false;
-      if (SIG[t.sp] && Math.random() < 0.5 + (eager || 0)) {
-        const arts = SIG[t.sp].arts.filter(s => s.tamed && game.time >= (e.sigT[s.k] || 0));
-        if (arts.length) { A.useSig(game, e, t, arts[Math.floor(Math.random() * arts.length)], foe); return true; }
+      const ctx = A.fightCtx(game, e, foe);
+      if (SIG[t.sp] && Math.random() < 0.5 + (eager || 0) + (ctx.youLow && ctx.near ? 0.25 : 0)) {
+        const s = A.chooseArt(game, e, t, foe, ctx, false);
+        if (s) { A.useSig(game, e, t, s, foe); return true; }
       }
       const kind = Ti().sp(t).kind, k = df > 2.6 && (kind === 'drake' || kind === 'wyrm') ? (kind === 'drake' ? 'breath' : 'spit') : df < e.r + foe.r + 1.6 ? (Math.random() < 0.5 ? 'bite' : 'sweep') : null;
       if (!k) return false;
@@ -1036,9 +1148,52 @@
       e.state = 'windup'; e.dir = ang; e.flip = Math.cos(ang) < 0; e.moving = false;
       return true;
     },
+    // ------------------------------------------------------------ its arts, its own choice
+    // Your beast fights with everything it has, as it sees fit: whatever strikes a
+    // crowd when there is a crowd, what pins down one great foe against one, what
+    // blinds or stuns what is on top of you when you are hurt — and its greatest
+    // art when you are in real danger. Not the ones that raise more foes (its
+    // brood, its shades): those would turn on you.
+    ART_TAG: { firewall: 'line', nova: 'self', prison: 'one', blizzard: 'area', bog: 'area', chain: 'area', marks: 'one', vortex: 'self', flare: 'stun', beam: 'sweep', rift: 'area', blink: 'one', rampage: 'one', boulders: 'line', gallop: 'line', thunder: 'self', pylons: 'area', burrow: 'one', geysers: 'line', constrict: 'one', avalanche: 'area', spikes: 'line' },
+    NOT_FOR_YOU: new Set(['hatch', 'clones']),
+    AIR_OK: new Set(['firewall', 'prison', 'blizzard', 'bog', 'chain', 'marks', 'rift', 'pylons', 'avalanche', 'flare', 'meteors', 'skybreak', 'end', 'plague']),
+    fightCtx(game, e, foe) {
+      const pe = game.pe, foes = ECHO.Partner ? ECHO.Partner.foes(game, e) : [foe];
+      let near = 0, crowd = 0, around = 0;
+      for (const o of foes) {
+        if (U.dist(o.x, o.y, pe.x, pe.y) < 3.5) near++;
+        if (U.dist(o.x, o.y, foe.x, foe.y) < 6) crowd++;
+        if (U.dist(o.x, o.y, e.x, e.y) < 6.5) around++;
+      }
+      return { youLow: pe.hp < pe.maxHp * 0.4, near, crowd, around, boss: foe.type === 'boss', foeHp: foe.hp / Math.max(1, foe.maxHp), n: foes.length };
+    },
+    chooseArt(game, e, t, foe, ctx, air) {
+      const S = SIG[t.sp];
+      if (!S) return null;
+      e.sigT = e.sigT || {};
+      if (S.ult && game.time >= (e.ultAt || 0) && (!air || A.AIR_OK.has(S.ult.k)) && ((ctx.youLow && ctx.near >= 1) || ctx.crowd >= 5 || (ctx.boss && ctx.foeHp > 0.3 && ctx.youLow))) return S.ult;
+      let best = null, bs = 0;
+      for (const a of S.arts) {
+        if (A.NOT_FOR_YOU.has(a.k) || game.time < (e.sigT[a.k] || 0) || (air && !A.AIR_OK.has(a.k))) continue;
+        const tag = A.ART_TAG[a.k] || 'one';
+        let s = 1 + Math.random() * 1.5;
+        if (tag === 'self') s += ctx.around >= 2 ? 3 : -2;
+        if (tag === 'area' || tag === 'line' || tag === 'sweep') s += ctx.crowd >= 3 ? 2.5 : ctx.crowd >= 2 ? 1 : 0;
+        if (tag === 'one') s += (ctx.crowd <= 1 ? 1.5 : 0) + (ctx.boss ? 1.5 : 0);
+        if (tag === 'stun') s += ctx.youLow && ctx.near ? 3 : ctx.boss ? 1 : -0.5;
+        if (a.tamed) s += 0.4;    // what it knows best
+        if (s > bs) { bs = s; best = a; }
+      }
+      return best;
+    },
     // from the air, at a foe: a strafing run of its breath, a rain of fire, or a dive
     airAttack(game, e, t, foe) {
       if (e.cd > 0 || e.alt < 4) return false;
+      // from up there it may call down one of its arts instead
+      if (SIG[t.sp] && Math.random() < 0.45) {
+        const s = A.chooseArt(game, e, t, foe, A.fightCtx(game, e, foe), true);
+        if (s) { A.useSig(game, e, t, s, foe); return true; }
+      }
       const k = Math.random() < 0.45 ? 'strafe' : Math.random() < 0.6 ? 'rain' : 'dive';
       A.start(game, e, t, k, foe);
       e.cd = 0; return true;
@@ -1168,17 +1323,23 @@
       const F = A.fly, pe = game.pe, world = game.world;
       if (!F) { game.pl.flying = null; pe.alt = 0; return; }
       if (F.phase === 'landing') return;
-      const solid = ECHO.World.isSolid(world, pe.x, pe.y) || (ECHO.Water && ECHO.Water.kind(world, pe.x, pe.y) === 'deep');
-      if (solid && !force) { const sp = ECHO.Ent.freeSpot(world, pe.x, pe.y, 4); if (!sp) return UI().toast('Nowhere to come down here — fly over open ground.', 'info', 2.5); }
+      // somewhere its body fits: open ground, not among trees, rocks or roofs — it
+      // glides to the nearest such place below you
+      const e = A.entOf(game, game.pl.flying);
+      if (e) e.dir = F.dir;
+      const spot = e ? A.clearing(world, e, pe.x + Math.cos(F.dir) * 2, pe.y + Math.sin(F.dir) * 2, 12) : ECHO.Ent.freeSpot(world, pe.x, pe.y, 4);
+      if (!spot && !force) return UI().toast('No room for it to come down here — too many trees, rocks or roofs. Fly over open ground.', 'info', 3);
+      F.landAt = spot;
       F.phase = 'landing'; F.t = 0;
       if (force) A.finishLand(game);
     },
     finishLand(game) {
       const pe = game.pe, pl = game.pl, world = game.world;
-      const sp = ECHO.Ent.freeSpot(world, pe.x, pe.y, 8) || { x: pe.x, y: pe.y };
       const e = pl.flying && A.entOf(game, pl.flying);
       const F = A.fly;
-      if (e) { e.x = sp.x; e.y = sp.y; e.alt = 0; e.altGoal = 0; e.dir = F ? F.dir : e.dir; }
+      if (e && F) e.dir = F.dir;
+      const sp = (e && A.clearing(world, e, pe.x, pe.y, 6)) || ECHO.Ent.freeSpot(world, pe.x, pe.y, 8) || { x: pe.x, y: pe.y };
+      if (e) { e.x = sp.x; e.y = sp.y; e.alt = 0; e.altGoal = 0; e.dir = sp.a != null ? sp.a : F ? F.dir : e.dir; if (e.pt) e.pt.hd = e.dir; }
       // you climb down beside it, on the side away from the camera's view of you
       const off = ECHO.Ent.freeSpot(world, sp.x + Math.cos((F ? F.dir : 0) + Math.PI / 2) * 1.6 * (e ? e.tscale || 1 : 1), sp.y - 0.4, 5) || sp;
       pe.x = off.x; pe.y = off.y; pe.alt = 0; pl.x = pe.x; pl.y = pe.y;
@@ -1226,6 +1387,11 @@
         const maxRate = U.lerp(2.8, 1.25, U.clamp(F.v / C.fast, 0, 1));
         const rate = U.clamp(err * 3, -maxRate, maxRate);
         F.yawRate += U.clamp(rate - F.yawRate, -dt * 6, dt * 6);
+      } else if (F.phase === 'landing' && F.landAt) {
+        // gliding in to where it can come down
+        const dl = U.dist(pe.x, pe.y, F.landAt.x, F.landAt.y);
+        if (dl > 0.6) F.yawRate += (U.clamp(U.angleDiff(F.dir, Math.atan2(F.landAt.y - pe.y, F.landAt.x - pe.x)) * 2.5, -1.8, 1.8) - F.yawRate) * Math.min(1, dt * 4);
+        else F.yawRate *= Math.exp(-dt * 6);
       } else if (F.auto) { F.circ = F.circ || (Math.random() < 0.5 ? -1 : 1); F.yawRate += (0.32 * F.circ - F.yawRate) * Math.min(1, dt * 1.5); }
       else F.yawRate *= Math.exp(-dt * 4);
       F.dir += F.yawRate * dt;
@@ -1235,7 +1401,10 @@
       else F.v = Math.max(top, F.v - dt * (F.phase === 'landing' ? 5 : thrust ? 4 : 1.3));   // let go and it glides on, slowing gently
       // climbing costs speed, diving gives it
       if (F.phase !== 'landing') F.v = U.clamp(F.v - F.vz * dt * (F.vz > 0 ? 0.35 : 0.5), 0, C.fast * 1.25);
-      else F.v = Math.min(F.v, 4 + (F.z - A.gnd(pe.x, pe.y)) * 0.9);   // coming in to land it sheds its speed as it comes down
+      else {
+        F.v = Math.min(F.v, 4 + (F.z - A.gnd(pe.x, pe.y)) * 0.9);   // coming in to land it sheds its speed as it comes down
+        if (F.landAt) { const dl = U.dist(pe.x, pe.y, F.landAt.x, F.landAt.y); F.v = dl > 0.6 ? Math.max(Math.min(F.v, dl * 1.4), Math.min(5, dl * 1.2)) : F.v * Math.exp(-dt * 4); }
+      }
       // the body follows the heading, sliding a little through a hard turn
       const hx = Math.cos(F.dir) * F.v, hy = Math.sin(F.dir) * F.v, grip = 1 - Math.exp(-dt * 3.2);
       F.vx += (hx - F.vx) * grip; F.vy += (hy - F.vy) * grip;
@@ -1245,7 +1414,16 @@
       const g0 = A.gnd(pe.x, pe.y);
       let gAhead = g0;
       for (const k of [3, 7, 12]) gAhead = Math.max(gAhead, A.gnd(pe.x + F.vx * k / Math.max(6, F.v + 1), pe.y + F.vy * k / Math.max(6, F.v + 1)));
-      const zT = (wantH > 0 ? gAhead : g0) + wantH;
+      let zT = (wantH > 0 ? gAhead : g0) + wantH;
+      // and above the trees and roofs under it and ahead: its wings and legs never sweep through them
+      const ride = A.entOf(game, pl.flying), br = ride ? A.bodyR(ride) + 0.5 * (ride.tscale || 1) : 1.5;
+      let roof = 0;
+      for (const k of [0, 3, 7]) { const px = pe.x + F.vx * k / Math.max(6, F.v + 1), py = pe.y + F.vy * k / Math.max(6, F.v + 1), c = A.canopy(world, px, py, br); if (c) roof = Math.max(roof, A.gnd(px, py) + c + 1.0); }
+      if (F.phase === 'landing') {
+        const dl = F.landAt ? U.dist(pe.x, pe.y, F.landAt.x, F.landAt.y) : 0;
+        if (dl > 1.6) zT = Math.max(zT, g0 + 2.2, roof);           // (still on its way to the clearing)
+        else if (!F.landAt && roof > g0 + 1.2 && !(ride && A.bodyAny(world, ride, pe.x, pe.y))) zT = Math.max(zT, roof);   // (over the clearing it found, it comes straight down)
+      } else zT = Math.max(zT, roof);
       const vzMax = F.phase === 'landing' ? 6.5 : 9;
       F.vz += U.clamp((zT - F.z) * 2.4 - F.vz * 2.2, -16, 16) * dt;
       F.vz = U.clamp(F.vz, -vzMax, vzMax);
