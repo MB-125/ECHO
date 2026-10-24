@@ -167,6 +167,7 @@
       }
       // the fight's own: a sword's swing, a mark on the ground
       try {
+        for (const shape of ['circle', 'line']) { const tl = R.makeTele({ kind: 'tele', shape, radius: 1, len: 1, angle: 0, color: 'rgba(255,80,60,0.3)' }); zoo.add(tl); mats.push(tl.material); }
         const sl = R.makeFxMesh({ kind: 'slash', angle: 0, arc: 1.5, range: 1, color: '#ffffff', style: 'combo' }); zoo.add(sl); mats.push(sl.material);
         const dm = new THREE.MeshBasicMaterial({ map: R.decalTex('blood'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
         zoo.add(new THREE.Mesh(g, dm)); mats.push(dm);
@@ -2049,6 +2050,7 @@
     animateDragon(game, e, v, Fl) {
       if (Fl && v.pw) for (const k in v.pw) v.pw[k] = 0;   // (on the wing nothing of resting or sniffing lingers)
       const P = v.inst.parts, dt = R._dt || 0.016, T = R.time, pw = v.pw || {}, rest = pw.rest || 0;
+      if (Fl) R.flightLook(e, v, Fl, dt);
       const spd = v.spd || 0, air = (e.alt || 0) > 0.6 || !!Fl, amp = Math.min(1, spd / 3.5);
       // how hard it is turning (from what we draw), eased; the tail answers later than the neck
       const yr = v.prevDir == null ? 0 : U.angleDiff(v.prevDir, v.dir || 0) / Math.max(dt, 1e-3);
@@ -2116,6 +2118,24 @@
       }
       // ---- breathing: the chest rises and falls; slow and deep at rest
       if (P.body && v.bodyY0 != null && !air) P.body.position.y += Math.sin(T * (rest > 0.5 ? 0.9 : 1.6)) * 0.01;
+    },
+    // Where a dragon looks with you on its back: its head leads into the turn you
+    // are asking for, glances at whatever caught its eye below, and otherwise
+    // looks about it — never held fixed. It lifts its head to climb and drops it
+    // to dive.
+    flightLook(e, v, Fl, dt) {
+      const T = R.time, pt = e.pt, dir = Fl.dir != null ? Fl.dir : (v.dir || 0);
+      let yaw, pitch = Fl.pitch * 0.45;
+      const steering = Fl.want != null && !Fl.auto;
+      if (steering) yaw = U.clamp(-U.angleDiff(dir, Fl.want) * 0.75, -0.9, 0.9);
+      else yaw = Math.sin(T * 0.37 + (v.bob || 0)) * 0.32 + Math.sin(T * 0.11 + 1.7) * 0.18;
+      if (pt && pt.look) {
+        const a = -U.angleDiff(dir, Math.atan2(pt.look.y - e.y, pt.look.x - e.x));
+        if (Math.abs(a) < 1.7) { const k = steering ? 0.3 : 0.75; yaw = U.lerp(yaw, U.clamp(a, -1, 1), k); pitch += 0.22 * k; }
+      }
+      if (e.state === 'roar') pitch -= 0.2;
+      v.lookYaw = (v.lookYaw || 0) + (yaw - (v.lookYaw || 0)) * Math.min(1, dt * 2.6);
+      v.neckPitch = (v.neckPitch || 0) + (pitch - (v.neckPitch || 0)) * Math.min(1, dt * 2.2);
     },
     // Your beast's body language: it looks at what it is looking at, lies down to
     // rest, puts its head down to sniff or eat, stretches its wings, and leans its
@@ -2899,8 +2919,11 @@
         if (f.kind === 'tele') {
           if (f.follow && !f.follow.dead && f.shape !== 'circle') { f.x = f.follow.x; f.y = f.follow.y; }
           const cx = f.shape === 'circle' ? (f.cx != null ? f.cx : f.x) : f.x, cy = f.shape === 'circle' ? (f.cy != null ? f.cy : f.y) : f.y;
-          m.position.set(cx, R.groundH(cx, cy) + 0.05, cy);
-          if (m.userData.inner) m.userData.inner.scale.setScalar(Math.max(0.01, prog));
+          m.position.set(cx, R.groundH(cx, cy), cy);
+          if (m.userData.dx == null || Math.abs(m.userData.dx - cx) + Math.abs(m.userData.dz - cy) > 0.08) R.drapeTele(m);
+          const u = m.material.uniforms;
+          u.prog.value = prog; u.time.value = R.time; u.op.value = Math.min(1, f.t * 7);
+          m.userData.f = f;
           if (f.done) m.visible = false;
         } else if (f.kind === 'zone') {
           m.position.set(f.x, R.groundH(f.x, f.y) + 0.07, f.y);
@@ -2935,6 +2958,16 @@
           m.material.opacity = 0.9 * (1 - prog);
         }
       }
+      for (const [f, m] of R.fxMeshes) if (m.userData.tele && !live.has(f) && !f.done && f.t >= f.life * 0.9 && m.visible) {
+        // the blow lands: the warning flashes white and fades out
+        R.fxMeshes.delete(f); (R.teleFlash || (R.teleFlash = [])).push({ m, t: 0 });
+      }
+      if (R.teleFlash && R.teleFlash.length) R.teleFlash = R.teleFlash.filter(o => {
+        o.t += dt; const u = o.m.material.uniforms, k = o.t / 0.28; o.m.scale.setScalar(1 + k * 0.05);
+        u.time.value = R.time; u.prog.value = 1; u.flash.value = Math.max(0, 1 - k * 1.4); u.op.value = Math.max(0, 1 - k * k);
+        if (k < 1) return true;
+        R.groups.fx.remove(o.m); o.m.geometry.dispose(); o.m.material.dispose(); return false;
+      });
       for (const [f, m] of R.fxMeshes) if (!live.has(f) || f.done && f.kind !== 'tele') { R.groups.fx.remove(m); m.geometry.dispose(); m.material.dispose(); if (m.userData.inner) { m.userData.inner.geometry.dispose(); } if (m.userData.edge) { m.userData.edge.geometry.dispose(); m.userData.edge.material.dispose(); } R.fxMeshes.delete(f); }
       // Target-lock marker: a turning ring of four arrowheads under the target
       const lk = ECHO.PlayerCtl.lock;
@@ -2999,28 +3032,83 @@
       }
       for (const [l, m] of R.lootMeshes) if (!ll.has(l)) { R.groups.fx.remove(m); m.geometry.dispose(); if (m.material !== R.mat.loot) m.material.dispose(); R.lootMeshes.delete(l); }
     },
+    // A warning on the ground of where a blow will land. Drawn by one shader for
+    // every shape (circle, cone, line) from coordinates in the shape's own frame:
+    // a glowing rim, a charge that fills from the attacker (or the centre) out to
+    // the far edge as the blow winds up, a bright front where it has reached,
+    // chevrons running the way the blow will go, and a pulse that quickens as
+    // the moment comes. The mesh is a grid that lies on the ground, slopes too.
+    makeTele(f) {
+      const shape = f.shape === 'circle' ? 0 : f.shape === 'cone' ? 2 : 1;
+      const L = shape === 0 ? f.radius : f.len, W = f.width || 0.6, arc = f.arc || 1;
+      const pts = [], idx = [];
+      let nu, nv;
+      if (shape === 1) {
+        nu = Math.max(2, Math.ceil(L / 0.6)); nv = W > 1.2 ? 3 : 2;
+        for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) pts.push(L * i / nu, W * (j / nv - 0.5));
+      } else {
+        nu = Math.max(3, Math.ceil(L / 0.7)); nv = shape === 0 ? Math.max(24, Math.min(64, Math.ceil(L * 4))) : Math.max(6, Math.ceil(arc * L * 1.6));
+        const a0 = shape === 0 ? 0 : -arc / 2, da = shape === 0 ? Math.PI * 2 : arc;
+        for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) { const r = L * i / nu, a = a0 + da * j / nv; pts.push(r * Math.cos(a), r * Math.sin(a)); }
+      }
+      for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) { const a = i * (nv + 1) + j, b = a + nv + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+      const n = pts.length / 2, pos = new Float32Array(n * 3), sh = new Float32Array(pts);
+      const ca = Math.cos(f.angle || 0), sa = Math.sin(f.angle || 0);
+      for (let i = 0; i < n; i++) { const x = pts[i * 2], z = pts[i * 2 + 1]; pos[i * 3] = shape === 0 ? x : x * ca - z * sa; pos[i * 3 + 2] = shape === 0 ? z : x * sa + z * ca; }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      geo.setAttribute('aS', new THREE.BufferAttribute(sh, 2));
+      geo.setIndex(idx);
+      const pc = R.parseColor(f.color);
+      const hsl = {}; pc.c.getHSL(hsl);
+      const col = new THREE.Color().setHSL(hsl.h, Math.max(0.55, hsl.s), Math.max(0.5, Math.min(0.62, hsl.l)));
+      col.convertSRGBToLinear();
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { col: { value: col }, prog: { value: 0 }, time: { value: 0 }, op: { value: 0 }, flash: { value: 0 }, shape: { value: shape }, L: { value: L }, W: { value: W }, arc: { value: arc }, str: { value: 0.8 + Math.min(0.6, pc.a) * 0.5 } },
+        vertexShader: 'attribute vec2 aS; varying vec2 vS; void main(){ vS = aS; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: [
+          'uniform vec3 col; uniform float prog, time, op, flash, shape, L, W, arc, str; varying vec2 vS;',
+          'void main(){',
+          '  float d, u, s; float r = length(vS);',
+          '  if (shape < 0.5) { d = L - r; u = r / L; s = fract(r * 0.9 + time * 1.4); }',
+          '  else if (shape < 1.5) { vec2 h = vec2(L * 0.5, W * 0.5); float cr = min(h.y * 0.85, h.x); vec2 q = abs(vS - vec2(h.x, 0.0)) - h + cr; d = cr - (length(max(q, 0.0)) + min(max(q.x, q.y), 0.0)); u = vS.x / L; s = fract((vS.x - abs(vS.y) * 1.4) * 1.1 - time * 2.0); }',
+          '  else { float a = abs(atan(vS.y, vS.x)); d = min(L - r, r * sin(max(0.0, arc * 0.5 - a))); u = r / L; s = fract(r * 0.9 - time * 1.8); }',
+          '  if (d < -0.02) discard;',
+          '  float bw = clamp(L * 0.06, 0.08, 0.22);',
+          '  float rim = smoothstep(bw, 0.0, d), hot = smoothstep(bw * 0.35, 0.0, d);',
+          '  float filled = smoothstep(prog + 0.015, prog - 0.015, u);',
+          '  float front = smoothstep(0.07, 0.0, abs(u - prog)) * (1.0 - smoothstep(0.97, 1.0, prog));',
+          '  float chev = smoothstep(0.0, 0.07, s) * smoothstep(0.32, 0.24, s) * smoothstep(0.0, bw * 2.5, d);',
+          '  float seam = smoothstep(bw * 0.55, bw * 0.8, d) * smoothstep(bw * 1.5, bw * 1.0, d);',
+          '  float urg = smoothstep(0.55, 1.0, prog), pulse = 0.5 + 0.5 * sin(time * (5.0 + urg * 16.0));',
+          '  float a = 0.08 + 0.2 * filled + 0.5 * rim + 0.4 * hot + 0.55 * front + chev * (0.2 - 0.08 * filled) + seam * 0.22;',
+          '  a *= 0.8 + 0.2 * pulse + urg * 0.25 * pulse;',
+          '  vec3 c = col * (0.55 + 0.35 * filled + 1.1 * rim + 1.6 * hot + 2.2 * front + 0.6 * chev + urg * pulse * 0.5);',
+          '  c = mix(c, col * 0.18, seam * (1.0 - rim));',
+          '  c = mix(c, col * 2.6 + vec3(0.25), flash * 0.8);',
+          '  a = mix(a, 0.55 * (0.25 + 0.75 * rim + 0.5 * hot), flash);',
+          '  gl_FragColor = vec4(c, clamp(a * str, 0.0, 1.0) * op);',
+          '}'].join('\n'),
+        transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3
+      });
+      const m = new THREE.Mesh(geo, mat);
+      m.renderOrder = 2; m.frustumCulled = false;
+      m.userData.tele = true;
+      return m;
+    },
+    // lay a warning on the ground under it: each vertex at the height of the land
+    drapeTele(m) {
+      const P = m.geometry.attributes.position, x0 = m.position.x, z0 = m.position.z, y0 = m.position.y;
+      for (let i = 0; i < P.count; i++) P.setY(i, R.groundH(x0 + P.getX(i), z0 + P.getZ(i)) - y0 + 0.06);
+      P.needsUpdate = true;
+      m.userData.dx = x0; m.userData.dz = z0;
+    },
     makeFxMesh(f) {
       const flat = (geo, color, opacity) => {
         const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false, side: THREE.DoubleSide }));
         return m;
       };
-      if (f.kind === 'tele') {
-        const pc = R.parseColor(f.color);
-        let geo;
-        if (f.shape === 'circle') geo = new THREE.CircleGeometry(f.radius, 36);
-        else if (f.shape === 'cone') geo = new THREE.CircleGeometry(f.len, 24, -f.angle - f.arc / 2, f.arc);
-        else { geo = new THREE.PlaneGeometry(f.len, f.width || 0.6); geo.translate(f.len / 2, 0, 0); }
-        if (f.shape === 'line') { geo.rotateX(-Math.PI / 2); geo.rotateY(-f.angle); }
-        else geo.rotateX(-Math.PI / 2);
-        const m = flat(geo, pc.c, Math.min(0.45, pc.a + 0.08));
-        const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: pc.c, transparent: true, opacity: 0.85 }));
-        m.add(edge);
-        const inner = flat(geo.clone(), pc.c, 0.35);
-        m.add(inner);
-        m.userData.inner = inner;
-        m.renderOrder = 2;
-        return m;
-      }
+      if (f.kind === 'tele') return R.makeTele(f);
       if (f.kind === 'zone') {
         const pc = R.parseColor(f.color);
         const m = flat(new THREE.CircleGeometry(f.radius, 32).rotateX(-Math.PI / 2), pc.c, 0.3);

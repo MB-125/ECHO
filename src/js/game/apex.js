@@ -1220,6 +1220,7 @@
         if (F.idleT > 2.5) { thrust = 0.35; F.auto = true; } else F.auto = false;
       }
       // ---- steering: the turn builds and eases; tighter when slow, wider when fast
+      F.want = len && F.phase !== 'landing' ? Math.atan2(my, mx) : null;   // (where you are steering: its head turns there first)
       if (len && F.phase !== 'landing' && !(F.phase === 'takeoff' && F.t < 0.45)) {
         const want = Math.atan2(my, mx), err = U.angleDiff(F.dir, want);
         const maxRate = U.lerp(2.8, 1.25, U.clamp(F.v / C.fast, 0, 1));
