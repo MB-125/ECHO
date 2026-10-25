@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/gates.js', 'sim/titans.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/titans.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -66,6 +66,9 @@ function main() {
   world.chronicle.filter(e => e.imp >= 1).slice(-14).forEach(e => console.log('     · ' + ECHO.TIME.fmtDate(e.d) + ' — ' + e.text));
 
   console.log('\nThe monster-kill cascade');
+  // (a controlled experiment on the food chain: the named monsters and their raids
+  // are left out of it — they are tested on their own below)
+  const powersTick = ECHO.Powers.dailyTick; ECHO.Powers.dailyTick = () => {};
   // Two identical worlds; in one, an apex beast dies. Try every beast and
   // report the one whose death matters most (the village with most fields).
   const A0 = ECHO.generateWorld({ seed: 777, name: 'Control', prehistoryDays: 10 });
@@ -100,6 +103,38 @@ function main() {
     const avgPrice = (s) => s.priceHistory.slice(-10).reduce((a, b) => a + b, 0) / 10;
     check('food prices rise in the village', avgPrice(vB) > avgPrice(vA) * 1.3, `${avgPrice(vA).toFixed(1)} vs ${avgPrice(vB).toFixed(1)}`);
     check('hunger brings migration or unrest', best.maxHunger > 0.3 || best.maxUnrest > 10 || (vB._emigrants || 0) > (vA._emigrants || 0), `peak hunger ${best.maxHunger.toFixed(2)}, extra unrest ${best.maxUnrest.toFixed(0)}, emigrants ${vA._emigrants || 0}→${vB._emigrants || 0}`);
+  }
+  ECHO.Powers.dailyTick = powersTick;
+
+  console.log('\nRising powers');
+  {
+    const Wp = ECHO.generateWorld({ seed: 9191, name: 'Powers', prehistoryDays: 2 });
+    const Pw = ECHO.Powers;
+    const lv0 = {}; for (const id in Wp.npcs) lv0[id] = Pw.lvOf(Wp.npcs[id]);
+    const deaths0 = Wp.stats.deaths;
+    // one that met a player and wants revenge, set down near a town
+    const s0 = Wp.settlements[0];
+    const vengeful = Pw.rise(Wp, { kind: 'goblin', lv: 4, x: s0.x + 20, y: s0.y + 10, why: 'beat', amb: 'vengeance', met: 1, beatYou: 1 });
+    for (let d = 0; d < 150; d++) ECHO.Sim.dailyTick(Wp, true);
+    const all = Pw.st(Wp).nem, live = Pw.alive(Wp);
+    console.log('   ' + all.map(r => `${Pw.short(r)} (${r.kind}) lv ${r.lv0}→${r.lv}, infl ${Math.round(r.infl)}, warband ${r.fol}${r.title ? ', ' + r.title : ''}${r.alive ? '' : ' — ' + r.fate}`).join('\n   '));
+    check('named monsters rise in the world by themselves', all.length >= 4, `${all.length} named`);
+    check('they grow stronger day by day', all.some(r => r.lv >= r.lv0 + 3), `best +${Math.max(...all.map(r => r.lv - r.lv0))} levels`);
+    check('they learn arts or harden as they grow', all.some(r => r.learned.length || Object.keys(r.resist).length));
+    check('they gather followers and influence', all.some(r => r.fol >= 2 && r.infl >= 10));
+    check('their deeds are told', Wp.chronicle.some(e => e.kind === 'powers'));
+    const trained = Object.keys(lv0).filter(id => Wp.npcs[id].status === 'alive' && Pw.lvOf(Wp.npcs[id]) > lv0[id]).length;
+    check('the realm\'s fighters train and grow', trained >= 5, `${trained} grew`);
+    const byPowers = Wp.chronicle.filter(e => e.kind === 'powers' && /raided .* and killed|did not come back/.test(e.text)).length;
+    check('raids and hunts cost lives, but do not empty the realm', byPowers >= 1 && byPowers < 60, `${byPowers} deaths told; all deaths ${Wp.stats.deaths - deaths0}`);
+    void vengeful; void live;
+    // a kind that is fought one way hardens against it
+    const m = Pw.mem(Wp, 'skeleton'); m.n = 30; m.seen.ranged = 9; m.seen.melee = 1;
+    check('monsters harden against the way you fight them', Pw.hardened(m, 'ranged') > 0.2 && Pw.hardened(m, 'melee') < 0.05, `ranged ${Pw.hardened(m, 'ranged').toFixed(2)}, melee ${Pw.hardened(m, 'melee').toFixed(2)}`);
+    // and an old save without any of this carries on
+    const W4 = ECHO.Save.deserialize(ECHO.Save.serialize(Wp)); delete W4.powers;
+    ECHO.Sim.dailyTick(W4, true);
+    check('an old save picks it up without a hitch', !!W4.powers && Array.isArray(W4.powers.nem));
   }
 
   console.log('\nWorld intelligence');

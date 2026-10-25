@@ -34,6 +34,7 @@
       if (ECHO.Titans) ECHO.Titans.ensure(world);
       if (ECHO.GateWorld) ECHO.GateWorld.reset();
       if (ECHO.Apex) ECHO.Apex.reset(Game);
+      if (ECHO.Growth) ECHO.Growth.reset();
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
       Game.pl.explored = Game.pl.explored || new Array(Math.ceil(world.W / 4) * Math.ceil(world.H / 4)).fill(0);
@@ -137,6 +138,7 @@
       for (const e of Game.ents) if (e.dead && !e.vanish) { e.deathT = (e.deathT || 0) + dt; if (e.deathT > 3) e.vanish = true; }
       Game.ents = Game.ents.filter(e => !e.vanish);
       ECHO.Spawner.update(Game, dt);
+      if (ECHO.Growth) ECHO.Growth.update(Game, dt);
       ECHO.Marvels.update(Game, dt);
       ECHO.Fest.update(Game, dt);
       ECHO.Quests.update(Game, dt);
@@ -746,6 +748,7 @@
     // ------------------------------------------------------------ Defeat
     playerDefeated(from) {
       if (Game.pl.capture || Game.defeating) return;
+      if (ECHO.Growth) ECHO.Growth.onPlayerDown(Game, from);
       Game.defeating = true;
       Game.pe.dead = false;
       Game.pl.hp = 1; Game.pe.hp = 1;

@@ -1466,9 +1466,10 @@
       const body = UI.openPanel('Journal', '', 'journal');
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
-        const tabs = [['guide', 'Guide'], ['nearby', 'Nearby'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['animals', 'Animals'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
+        const tabs = [['guide', 'Guide'], ['nearby', 'Nearby'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['animals', 'Animals'], ['powers', 'Rising powers'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'animals') html += ECHO.Apex ? ECHO.Apex.animalsHtml(game) : '';
+        else if (tab === 'powers') html += ECHO.Growth ? ECHO.Growth.html(game) : '';
         else if (tab === 'guide') { html += ECHO.Guide.html(game); if (ECHO.Tutorial) ECHO.Tutorial.flag('guide'); }
         else if (tab === 'nearby') html += ECHO.Jobs ? ECHO.Jobs.nearbyHtml(game) : '';
         else if (tab === 'story') html += ECHO.Saga.html(world, pl);

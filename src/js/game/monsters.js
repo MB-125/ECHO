@@ -65,6 +65,7 @@
         if (X.resist) for (const t of ['melee', 'ranged', 'fire', 'magic']) e.resist[t] = (e.resist[t] || 0) + X.resist;
       }
       if (e.r) e.r = 0.36 * Math.min(1.6, e.scale);
+      if (ECHO.Growth && !o.nem) ECHO.Growth.adapt(game, e);   // (what its kind has learned of you)
       return e;
     },
 

@@ -348,6 +348,7 @@
         game.ents.push(e);
         for (let i = 0; i < 2 && fs.length; i++) { const s0 = fs.pop(); const k = pick(); game.ents.push(k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { noElite: true }))); }
       } else for (let i = 0; i < 2 && fs.length; i++) { const s0 = fs.pop(); const k = pick(); game.ents.push(k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { eliteChance: 0.5 }))); }
+      if (ECHO.Growth) ECHO.Growth.inDelve(game, L, free, tag);   // (a named thing that keeps to its den)
       ECHO.Music.stinger('discover');
       if (ECHO.Monsters) ECHO.Monsters.tip(game, 'dungeon');
       if (ECHO.Companions) ECHO.Companions.event(game, 'enter');

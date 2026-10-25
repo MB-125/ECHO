@@ -279,7 +279,7 @@
       // a companion's own skill: dodge, parry, shield
       if (target.isCompanion && ECHO.Companions) { amount = ECHO.Companions.defend(game, target, amount, src); if (amount <= 0) return 0; }
       const type = src.type;
-      let dmg = amount;
+      let dmg = amount * (from && from.growDmg ? from.growDmg : 1);   // (what it has grown into, fight by fight)
       const incoming = src.angle != null ? src.angle + Math.PI : null;
       const facingIncoming = incoming != null && Math.abs(U.angleDiff(target.dir, incoming)) < 1.25;
       // Blocking
@@ -421,6 +421,7 @@
       if (from && from.isCompanion && ECHO.Companions) ECHO.Companions.landed(game, from, target, type, crit);
       if (ECHO.Companions && (target.isCompanion || target === game.pe)) ECHO.Companions.afterHit(game, target);
       if (target.rider && target.hp > 0 && ECHO.Riders) ECHO.Riders.onHit(game, target, src);
+      if (ECHO.Growth) ECHO.Growth.onHit(game, target, from, dmg, src);
       if (target.hp <= 0) C.kill(target, from, type, src);
       else if (target.ai && target.ai.onHurt) target.ai.onHurt(target, from);
       return dmg;
@@ -443,6 +444,7 @@
       if (target.escort && ECHO.Jobs && target.escort.status === 'active') ECHO.Jobs.fail(game, target.escort, `${target.escort.giverName} was killed on the road`);
       const byPlayer = from === game.pe || (from && from.isCompanion);
       target._killer = from || null;
+      if (ECHO.Growth) ECHO.Growth.onKill(game, target, from);
       // Death has weight: a beat of stillness, then the body is thrown.
       const ka = src.angle != null ? src.angle : Math.atan2(target.y - game.pe.y, target.x - game.pe.x);
       target.deathAngle = ka;

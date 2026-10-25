@@ -91,6 +91,7 @@
         mutation: tr ? tr.mutation : null, pack, home: { x, y }, label: null
       });
       e.strain = region ? ECHO.Ecology.strainLabel(tr || {}) : null;
+      if (ECHO.Growth && sp === 'wolf') ECHO.Growth.adapt(game, e);
       return e;
     },
     reinforceWolves(game, e, n) {
@@ -202,6 +203,7 @@
         if (w && w.kind !== 'bow') { e.gear.bow = false; e.gear.crossbow = false; e.gear.spear = w.wclass === 'spear'; }
       }
       void f;
+      if (ECHO.Growth) ECHO.Growth.adapt(game, e);
       return e;
     },
     look(npc) {

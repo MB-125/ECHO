@@ -107,6 +107,7 @@
     foeRank(e) {
       if (!e) return 'common';
       if (e.type === 'boss') return 'great';
+      if (e.nem) return (e.nemInfl || 0) >= 25 ? 'lord' : 'champion';   // one of the named
       if (e.boss2) return 'lord';
       if (e.summoner || e.shard) return 'minion';
       if (e.species === 'giantrat' || e.species === 'slimeling') return 'minion';
