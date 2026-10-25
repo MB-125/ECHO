@@ -149,9 +149,9 @@
       const r = P.rise(world, {
         kind, lv: Gr.lv(e), x: e.delve ? (ECHO.Explore.byId(world, e.delve) || e).x : e.x, y: e.delve ? (ECHO.Explore.byId(world, e.delve) || e).y : e.y,
         site: e.delve || null, depth: e.floor || 0, why, amb: why === 'beat' ? 'vengeance' : Math.random() < 0.5 ? 'dominion' : 'power', met: e._foughtPe ? 1 : 0, beatYou: why === 'beat' ? 1 : 0, infl: 3,
-        text: r => why === 'beat' ? `A ${P.kindWord(kind).toLowerCase().replace(/s$/, '')} beat ${game.pl.first} ${game.pl.last} in a fight. It calls itself ${P.short(r)} now.`
-          : why === 'kill' ? `A ${P.kindWord(kind).toLowerCase().replace(/s$/, '')} killed ${victim && victim.npcId && world.npcs[victim.npcId] ? world.npcs[victim.npcId].first + ' ' + world.npcs[victim.npcId].last : 'someone'}, and took a name: ${P.short(r)}.`
-          : `A ${P.kindWord(kind).toLowerCase().replace(/s$/, '')} grew stronger in the middle of a fight. It calls itself ${P.short(r)}.`
+        text: r => why === 'beat' ? `A ${P.kindOne(kind)} beat ${game.pl.first} ${game.pl.last} in a fight. It calls itself ${P.short(r)} now.`
+          : why === 'kill' ? `A ${P.kindOne(kind)} killed ${victim && victim.npcId && world.npcs[victim.npcId] ? world.npcs[victim.npcId].first + ' ' + world.npcs[victim.npcId].last : 'someone'}, and took a name: ${P.short(r)}.`
+          : `A ${P.kindOne(kind)} grew stronger in the middle of a fight. It calls itself ${P.short(r)}.`
       });
       e.nem = r.id; e.label = P.label(r); e.scale = (e.scale || 1) * 1.08;
       Gr.spawned.set(r.id, e);
@@ -319,7 +319,7 @@
       else h += `<div class="list">${live.map(r => {
         const arts = r.learned.map(k => P.ARTS[k].name), hard = Object.keys(r.resist).filter(t => r.resist[t] > 0.05).map(t => ({ melee: 'the blade', ranged: 'arrows', fire: 'fire', magic: 'spells' }[t]));
         return `<div class="card"><h4>${esc(P.short(r))}${r.title ? ` <span class="gold">· ${esc(r.title)}</span>` : ''}</h4>
-          <div style="font-size:13px"><b style="color:${lvCol(r.lv)}">Level ${r.lv}</b> ${esc(P.kindWord(r.kind).replace(/s$/, '').toLowerCase())} · ${where(r)}</div>
+          <div style="font-size:13px"><b style="color:${lvCol(r.lv)}">Level ${r.lv}</b> ${esc(P.kindOne(r.kind))} · ${where(r)}</div>
           <div class="dim" style="font-size:13px">It ${esc(P.wantWord(r))}. Influence ${Math.round(r.infl)}${r.fol ? ` · a warband of ${r.fol}` : ''}${r.kills ? ` · ${r.kills} killed` : ''}${r.beatYou ? ` · has beaten you ${r.beatYou > 1 ? r.beatYou + ' times' : 'once'}` : r.met ? ' · has fought you' : ''}.</div>
           ${arts.length || hard.length ? `<div style="font-size:13px">${arts.length ? `Has learned ${esc(arts.join(', '))}. ` : ''}${hard.length ? `Hardened against ${esc(hard.join(' and '))}.` : ''}</div>` : ''}
           ${r.story.length ? `<div class="dim" style="font-size:12px">${r.story.slice(-3).map(s => `Day ${s.d}: ${esc(s.t)}`).join('<br>')}</div>` : ''}</div>`;

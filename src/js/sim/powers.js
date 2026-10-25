@@ -26,7 +26,7 @@
   };
   const SYL = {
     gob: [['Gr', 'Sn', 'Kr', 'Sk', 'Ruk', 'Zug', 'Nar', 'Gob', 'Bl'], ['ag', 'ukk', 'iz', 'ot', 'ash', 'ug', 'ik', 'org', 'ab']],
-    beast: [['Grey', 'Night', 'Blood', 'Ash', 'Moon', 'Frost', 'Rag', 'Old '], ['maw', 'fang', 'howl', 'pelt', 'jaw', 'tooth', 'claw', 'Scar']],
+    beast: [['Grey', 'Night', 'Blood', 'Ash', 'Moon', 'Frost', 'Rag', 'Old '], ['maw', 'fang', 'howl', 'pelt', 'jaw', 'tooth', 'claw', 'scar']],
     crawl: [['Sil', 'Ven', 'Ith', 'Ssk', 'Mor', 'Ky'], ['tharra', 'axis', 'ess', 'ira', 'ith', 'ra']],
     dead: [['Mor', 'Vel', 'Ost', 'Ath', 'Hul', 'Sep'], ['dred', 'gar', 'mund', 'rath', 'ric', 'helm']],
     ooze: [['Glub', 'Oz', 'Bl', 'Sl', 'Gl'], ['orp', 'ug', 'ob', 'urk', 'ish']],
@@ -92,6 +92,13 @@
       return Math.floor(Math.min(cap, m.lv));
     },
     WORD: { gob: 'goblins', beast: 'beasts', crawl: 'crawling things', dead: 'the restless dead', ooze: 'slimes', brute: 'trolls and brutes', stone: 'things of stone', cult: 'cultists' },
+    // one of them: "goblin", "wolf", "skeleton archer"
+    kindOne(key) {
+      if (key === 'wolf') return 'wolf';
+      if (key === 'bandit') return 'outlaw';
+      const D = (ECHO.Monsters && ECHO.Monsters.DEFS[key]) || (ECHO.Quests && ECHO.Quests.FOES && ECHO.Quests.FOES[key]);
+      return D ? D.name.replace(/^the /, '').toLowerCase() : key;
+    },
     kindWord(key) {
       const D = (ECHO.Monsters && ECHO.Monsters.DEFS[key]) || (ECHO.Quests && ECHO.Quests.FOES && ECHO.Quests.FOES[key]);
       if (key === 'wolf') return 'Wolves';
@@ -311,7 +318,7 @@
       const lv = Math.max(X.level(world, s) + 2, Math.round(plv * 0.55));
       const amb = rng.chance(0.5) ? 'dominion' : 'power', out = rng.chance(0.35);
       return Pw.rise(world, { kind, lv, x: s.x + (out ? rng.range(-6, 6) : 0), y: s.y + (out ? rng.range(-6, 6) : 0), site: out ? null : s.id, depth: 0, amb, why: 'rose', infl: 3, fol: 1,
-        text: r => `In ${s.name}, a ${Pw.kindWord(kind).toLowerCase().replace(/s$/, '')} that calls itself ${Pw.short(r)} has killed its betters and taken their place.` });
+        text: r => `In ${s.name}, a ${Pw.kindOne(kind)} that calls itself ${Pw.short(r)} has killed its betters and taken their place.` });
     },
     people(world, rng, plv) {
       // (only those who could matter: fighters, rivals, anyone who has reached a level)
