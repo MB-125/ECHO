@@ -195,7 +195,7 @@
       ECHO.UI.fadeOut(() => {
         const L = I.layout(game, b, s);
         // the street goes on without you: keep everyone outside where they are, to put back when you come out
-        if (!I.cur) I.stash = { ents: game.ents.filter(e => e !== game.pe && !e.isCompanion && !e.dead && !e.vanish), loot: game.loot, t: game.world.day * 1440 + game.world.minute, x: game.pe.x, y: game.pe.y };
+        if (!I.cur) I.stash = { ents: game.ents.filter(e => e !== game.pe && !e.isCompanion && !e.pal && !e.dead && !e.vanish), loot: game.loot, t: game.world.day * 1440 + game.world.minute, x: game.pe.x, y: game.pe.y };
         game.noFadeUntil = game.time + 0.6;
         I.cur = L;
         game.pl.x = L.outside.x; game.pl.y = L.outside.y;
