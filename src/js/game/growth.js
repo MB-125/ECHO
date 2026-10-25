@@ -186,7 +186,8 @@
       const world = game.world;
       let e;
       if (r.kind === 'wolf') {
-        e = ECHO.Spawner.makeCreature(game, 'wolf', x, y, ECHO.World.regionAt(world, x, y), 'nem' + r.id);
+        Gr._noAdapt = true;
+        try { e = ECHO.Spawner.makeCreature(game, 'wolf', x, y, ECHO.World.regionAt(world, x, y), 'nem' + r.id); } finally { Gr._noAdapt = false; }
         const F = ECHO.Prowess.foeMul(r.lv); e.lvl = r.lv; e.hp = e.maxHp = Math.round(e.maxHp * F.hp * 1.3); e.growDmg = F.dmg; e.scale = 1.35; e.r = (e.r || 0.4) * 1.2;
       } else {
         e = ECHO.Monsters.make(game, r.kind, x, y, r.lv, { noElite: true, nem: true });
@@ -219,6 +220,23 @@
       Gr.t = 0.5;
       const world = game.world, pe = game.pe, P = Pw();
       if (!pe || !P) return;
+      // (an older world catches up the first time it is played this way)
+      if (!P.st(world).lvInit) {
+        const n = P.catchUp(world);
+        if (n && ECHO.Prowess.level(game.pl) > 8) UI().toast('The realm has not stood still while you grew: its fighters have trained hard, and the best of them are close on your heels now. (Journal → Rising powers)', 'legend', 8);
+      }
+      // people near you carry the level they have now
+      Gr.lvT = (Gr.lvT || 0) - 0.5;
+      if (Gr.lvT <= 0 && ECHO.Delvers) {
+        Gr.lvT = 3;
+        for (const e of game.ents) {
+          if (e.type !== 'person' || !e.npcId || e.dead || e.isCompanion || e.ngWard) continue;
+          const n = world.npcs[e.npcId];
+          if (!n || ECHO.Delvers.lv(n) <= (e._plv || 0)) continue;
+          const e2 = ECHO.Spawner.makePerson(game, n, e.x, e.y, e.role), frac = e.hp / Math.max(1, e.maxHp);
+          e.maxHp = e2.maxHp; e.hp = Math.max(1, Math.round(e2.maxHp * frac)); e.dmgMul = e2.dmgMul; e._plv = e2._plv; e.wdmg = e2.wdmg;
+        }
+      }
       // keep the records in step with the bodies
       for (const [id, e] of Gr.spawned) {
         const r = P.byId(world, id);
@@ -287,13 +305,20 @@
     // what every new monster brings with it: what its kind has learned of you,
     // and the boldness of a land a named thing has claimed
     adapt(game, e) {
-      if (!e || e.nem || !Gr.can(game, e)) return;
+      if (!e || e.nem || Gr._noAdapt || !Gr.can(game, e)) return;
       const world = game.world, P = Pw(), key = Gr.key(e);
       if (!P || !key) return;
       const m = P.st(world).sp[key];
       let up = m ? P.learnedLv(world, key) : 0;
       const reg = e.x < 9000 ? ECHO.World.regionAt(world, e.x, e.y) : null, cl = reg ? P.st(world).claims[reg.id] : null, lord = cl ? P.byId(world, cl) : null;
       if (lord && lord.alive && !e.npcId) up += 1 + Math.floor(lord.infl / 15);
+      // out in the open the land grows with the age: once you have outgrown what
+      // lives in it, it meets you at half to nine-tenths of your strength (the
+      // deep places keep the levels they are known for)
+      if (!e.npcId && e.x < 9000 && !e.delve && !e.indoor) {
+        const plv = ECHO.Prowess.level(game.pl), L = Gr.lv(e) + up;
+        if (plv > L + 3) { const T = Math.round(plv * (0.5 + Math.random() * 0.4)); if (T > L) up += T - L; }
+      }
       if (up > 0) Gr.raise(e, up);
       if (m) {
         for (const t of TYPES) { const h = P.hardened(m, t); if (h > 0.01) { e.resist = e.resist || {}; e.resist[t] = (e.resist[t] || 0) + h; } }

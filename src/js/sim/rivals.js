@@ -14,7 +14,7 @@
       const L = Rv.list(world);
       const alive = L.filter(r => r.alive);
       for (let i = alive.length; i < 4; i++) {
-        const pool = P().alive(world).filter(n => ['wanderer', 'guard', 'hunter'].includes(n.prof) && P().age(world, n) >= 18 && P().age(world, n) < 50 && !n.rival && n.id !== (world.player && world.player.companion) && !n.title);
+        const pool = P().alive(world).filter(n => ['wanderer', 'guard', 'hunter'].includes(n.prof) && !n.ng && !n.ngTrainee && P().age(world, n) >= 18 && P().age(world, n) < 50 && !n.rival && n.id !== (world.player && world.player.companion) && !n.title);
         if (!pool.length) break;
         const n = pool[rng.int(0, pool.length - 1)];
         const r = { id: n.id, name: `${n.first} ${n.last}`, epithet: EPITHETS[rng.int(0, EPITHETS.length - 1)], cls: n.prof === 'hunter' ? 'hunter' : 'sellsword', lv: 1 + rng.int(0, 2), renown: rng.int(0, 15), cleared: 0, lords: 0, alive: true, since: world.day, last: null };
@@ -41,7 +41,7 @@
         r.last = { site: s.id, d: world.day };
         if (roll > 0.38) {
           s.cleared = true; s.clearedDay = world.day; s.clearedBy = r.name; s.chestTaken = true;
-          r.cleared++; r.renown += 4 + L * 2; if (rng.chance(0.5)) r.lv = Math.min(15, r.lv + 1);
+          r.cleared++; r.renown += 4 + L * 2; if (rng.chance(0.5)) { r.lv = Math.min(1500, r.lv + 1); const n = world.npcs[r.id]; if (n) n.lv = Math.max(n.lv || 0, r.lv); }
           if (ECHO.Explore.floors(s) >= 3) r.lords++;
           ECHO.Chronicle.add(world, { text: `${r.name} ${r.epithet} came up out of ${s.name} with its treasure — the place is quiet now.`, kind: 'deed', importance: s.found ? 2 : 1, x: s.x, y: s.y });
         } else if (roll < 0.06) {

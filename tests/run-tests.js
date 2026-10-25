@@ -128,6 +128,17 @@ function main() {
     const byPowers = Wp.chronicle.filter(e => e.kind === 'powers' && /raided .* and killed|did not come back/.test(e.text)).length;
     check('raids and hunts cost lives, but do not empty the realm', byPowers >= 1 && byPowers < 60, `${byPowers} deaths told; all deaths ${Wp.stats.deaths - deaths0}`);
     void vengeful; void live;
+    // the realm rises with you: a player of level 40, and 120 days
+    {
+      const Wl = ECHO.generateWorld({ seed: 2468, name: 'Levels', prehistoryDays: 2 });
+      Wl.player = Wl.player || { x: 50, y: 50, alive: true, first: 'T', last: 'P' }; Wl.player.prowess = { lv: 40, xp: 0, kills: 0, best: 0 };
+      for (let d = 0; d < 120; d++) ECHO.Sim.dailyTick(Wl, true);
+      const fl = Object.values(Wl.npcs).filter(n => n.status === 'alive' && !n.ng && ['guard', 'soldier', 'hunter', 'wanderer', 'bandit'].includes(n.prof)).map(n => Pw.lvOf(n)).sort((a, b) => a - b);
+      const med = fl[Math.floor(fl.length / 2)], top = fl[fl.length - 1], rv = (Wl.rivals || []).filter(r => r.alive).map(r => r.lv);
+      check('the realm\'s fighters rise toward your level', med >= 15, `median ${med}, best ${top} (you: 40)`);
+      check('the rival adventurers keep pace with you', rv.length && Math.max(...rv) >= 30, `rivals ${rv.join(', ')}`);
+      check('but nobody but the Guard runs away past you', top <= 40 * 1.6, `best ${top}`);
+    }
     // a kind that is fought one way hardens against it
     const m = Pw.mem(Wp, 'skeleton'); m.n = 30; m.seen.ranged = 9; m.seen.melee = 1;
     check('monsters harden against the way you fight them', Pw.hardened(m, 'ranged') > 0.2 && Pw.hardened(m, 'melee') < 0.05, `ranged ${Pw.hardened(m, 'ranged').toFixed(2)}, melee ${Pw.hardened(m, 'melee').toFixed(2)}`);

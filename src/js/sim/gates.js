@@ -288,6 +288,8 @@
         if (!n || n.status !== 'alive') { S.guard.trainees = S.guard.trainees.filter(x => x !== t); continue; }
         if (n.delving || (n.hurtUntil > world.day) || !rng.chance(0.45)) continue;
         const before = n.lv || MIN;
+        // (well past the age the realm has reached, they go on more slowly)
+        if (ECHO.Powers && before > ECHO.Powers.era(world, ECHO.Powers.plLv(world)) * 1.1 + 10 && !rng.chance(0.08)) continue;
         const gain = rng.int(1, 3) + (before < 400 ? 2 : before < 800 ? 1 : 0);
         n.lv = Math.min(TOP, before + gain);
         t.trips++;

@@ -190,13 +190,14 @@
     // the best fighters the realm has, strongest first
     champions(world, k) {
       const out = [];
-      for (const id in world.npcs) { const n = world.npcs[id]; if (n.status === 'alive' && (n.lv || 0) >= 3) out.push(n); }
+      for (const id in world.npcs) { const n = world.npcs[id]; if (n.status === 'alive' && !n.ng && (n.lv || 0) >= 3) out.push(n); }
       return out.sort((a, b) => Pw.lvOf(b) - Pw.lvOf(a) || (b.renown || 0) - (a.renown || 0)).slice(0, k || 8);
     },
 
     // ------------------------------------------------------------ every day
     dailyTick(world) {
       const S = Pw.st(world);
+      if (!S.lvInit && world.player && world.player.prowess) Pw.catchUp(world);
       // its own dice, so the rest of the world's are never disturbed
       const rng = new ECHO.RNG(ECHO.hashStr('powers:' + world.seed + ':' + world.day));
       const pl = world.player, plv = Pw.plLv(world);
@@ -206,7 +207,7 @@
       for (const r of live) {
         // ---- it wants to be stronger: the further behind you, the harder it drives itself
         const gap = plv - r.lv;
-        if (rng.chance(gap > 0 ? U.clamp(0.22 + gap * 0.035, 0.22, 0.85) : 0.05)) Pw.levelUp(world, r, gap > 25 ? 2 : 1, rng);
+        if (rng.chance(gap > 0 ? U.clamp(0.3 + gap * 0.035, 0.3, 0.9) : 0.05)) Pw.levelUp(world, r, gap > 0 ? Math.max(1, Math.round(gap * 0.05)) : 1, rng);
         r.hp = Math.min(1, (r.hp == null ? 1 : r.hp) + 0.35);
         // ---- and to count for more
         r.infl = Math.min(150, r.infl + (0.25 + r.fol * 0.08 + (r.amb === 'dominion' ? 0.6 : 0)) * (r.infl > 60 ? 0.4 : 1));
@@ -254,6 +255,11 @@
       for (const r of Pw.alive(world)) {
         if (!r.abroad || r.infl < 10 || !rng.chance(0.025)) continue;
         Pw.hunted(world, r, rng);
+      }
+      // ---- the deep places you have long outgrown fill with stronger things
+      if (world.sites && world._dng && plv > 6) for (const s of world.sites) {
+        if (s.cat !== 'delve' || s.cleared || s.starter || s.kind === 'riftdeep' || !s.level || s.level >= 150 || s.level >= plv * 0.6) continue;
+        if (rng.chance(0.04)) s.level++;
       }
       // ---- new powers rise of themselves
       const want = Math.min(Pw.MAX_NEM, 3 + Math.floor(world.day / 15));
@@ -320,20 +326,65 @@
       return Pw.rise(world, { kind, lv, x: s.x + (out ? rng.range(-6, 6) : 0), y: s.y + (out ? rng.range(-6, 6) : 0), site: out ? null : s.id, depth: 0, amb, why: 'rose', infl: 3, fol: 1,
         text: r => `In ${s.name}, a ${Pw.kindOne(kind)} that calls itself ${Pw.short(r)} has killed its betters and taken their place.` });
     },
+    // ------------------------------------------------------------ how far each one means to go
+    // The age the realm has reached: the strongest anyone in it is (you), or what
+    // time alone makes of it (a little each day, up to a point).
+    era(world, plv) { return Math.max(plv || 1, Math.min(60, 1 + (world.day || 0) / 10)); },
+    // A person's reach: what share of the age they mean to rise to — their trade
+    // (soldiers and guards furthest, hunters and wanderers next, the rival
+    // adventurers all the way; townsfolk a little), their rank, their ambition,
+    // and the talent they were born with.
+    reach(n) {
+      if (n.ng) return 0;                       // (the Guard are what they are)
+      let k = { soldier: 0.62, guard: 0.55, bandit: 0.5, wanderer: 0.5, hunter: 0.45 }[n.prof] || 0.1;
+      if (n.rival) k = 0.95;
+      if (n.rank >= 2) k += 0.15; else if (n.rank >= 1) k += 0.06;
+      if (n.title) k += 0.05;
+      k *= 0.65 + Pw.amb(n) * 0.6;
+      k *= 0.8 + ((ECHO.hashStr('tal:' + n.id) % 1000) / 1000) * 0.4;
+      return Math.min(1.12, k);
+    },
+    aim(world, n, plv) { return Math.min(Pw.MAX_LV, Math.max(ECHO.Delvers ? ECHO.Delvers.baseLv(n) : 1, Math.round(1 + Pw.reach(n) * (Pw.era(world, plv) - 1)))); },
+    MAX_LV: 1500,
+    // A world from before the realm rose with you: it has not stood still while
+    // you grew — everyone takes most of the way they would have climbed, at once.
+    catchUp(world) {
+      const S = Pw.st(world);
+      if (S.lvInit) return 0;
+      S.lvInit = world.day;
+      const plv = Pw.plLv(world);
+      let n0 = 0;
+      for (const id in world.npcs) {
+        const n = world.npcs[id];
+        if (n.status !== 'alive' || n.ng || P().age(world, n) < 14) continue;
+        const lv = Pw.lvOf(n), T = Pw.aim(world, n, plv);
+        if (T > lv + 1) { n.lv = Math.round(lv + (T - lv) * (0.45 + Pw.amb(n) * 0.35)); n.skill.fight = Math.min(100, (n.skill.fight || 0) + 4); n0++; }
+      }
+      for (const r of world.rivals || []) { const n = r.alive && world.npcs[r.id]; if (n) r.lv = Math.max(r.lv || 1, Pw.lvOf(n)); }
+      for (const r of Pw.alive(world)) if (r.lv < plv * 0.6) r.lv = Math.round(r.lv + (plv * 0.6 - r.lv) * 0.7);
+      if (n0 && plv > 8 && ECHO.Chronicle) ECHO.Chronicle.add(world, { text: 'The realm has not stood still: its soldiers, guards, hunters and adventurers have trained hard, and the strongest of them are close on your heels now.', kind: 'powers', importance: 2, char: world.player && world.player.charId, tags: ['powers'] });
+      return n0;
+    },
     people(world, rng, plv) {
-      // (only those who could matter: fighters, rivals, anyone who has reached a level)
+      // everyone with a reach climbs toward it: a part of the way each day (the
+      // ambitious faster), so that as the age rises so do they
       const S = Pw.st(world), best = {};
       for (const id in world.npcs) {
         const n = world.npcs[id];
-        if (n.status !== 'alive' || !(FIGHTERS.has(n.prof) || n.rival || (n.lv || 0) >= 5)) continue;
-        const a = Pw.amb(n), lv = Pw.lvOf(n);
-        // the ambitious train: a level now and then, faster while you are far ahead of them
-        const cap = Math.min(150, Math.max(12, plv + 2));
-        if (lv < cap && rng.next() < a * (0.02 + Math.min(0.06, Math.max(0, plv - lv) * 0.002))) {
-          n.lv = lv + 1; n.skill.fight = Math.min(100, (n.skill.fight || 0) + 1); n.renown = (n.renown || 0) + 0.5;
+        if (n.status !== 'alive' || n.ng || P().age(world, n) < 14) continue;
+        const a = Pw.amb(n), lv = Pw.lvOf(n), T = Pw.aim(world, n, plv);
+        let up = 0;
+        if (lv < T) { const step = (T - lv) * (0.02 + 0.05 * a); up = Math.floor(step) + (rng.next() < step - Math.floor(step) ? 1 : 0); }
+        else if (lv < Pw.MAX_LV && rng.next() < 0.004 + a * 0.01) up = 1;    // (the best keep reaching past it)
+        if (up > 0) {
+          n.lv = Math.min(Pw.MAX_LV, lv + up);
+          n.skill.fight = Math.min(100, (n.skill.fight || 0) + Math.min(2, up * 0.5));
+          n.renown = (n.renown || 0) + up * 0.15;
         }
-        if (n.home) { const b = best[n.home]; if (!b || Pw.lvOf(n) + (n.renown || 0) * 0.05 > Pw.lvOf(b) + (b.renown || 0) * 0.05) best[n.home] = n; }
+        if (n.home && (FIGHTERS.has(n.prof) || n.rival)) { const b = best[n.home]; if (!b || Pw.lvOf(n) + (n.renown || 0) * 0.05 > Pw.lvOf(b) + (b.renown || 0) * 0.05) best[n.home] = n; }
       }
+      // the rival adventurers keep the levels they have earned
+      for (const r of world.rivals || []) { const n = r.alive && world.npcs[r.id]; if (n) r.lv = Math.max(r.lv || 1, Pw.lvOf(n)); }
       // each town's champion: its best fighter, once they are worth the name
       for (const sid in best) {
         const n = best[sid];

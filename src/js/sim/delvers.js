@@ -13,7 +13,7 @@
   const X = () => ECHO.Explore;
   // how readily each trade takes up the life
   const KEEN = { guard: 3, soldier: 3, hunter: 2.5, wanderer: 2.2, woodcutter: 1.2, smith: 1.2, miner: 1.5, fisher: 0.7, farmer: 0.6, herbalist: 0.5, merchant: 0.4, priest: 0.3 };
-  const MAX_LV = 150;
+  const MAX_LV = 1500;
 
   const D = ECHO.Delvers = {
     // A person's level: from their fighting skill until they have earned one.
