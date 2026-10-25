@@ -265,9 +265,9 @@
         if (e.species === 'hollowking' && ECHO.Story) ECHO.Story.kingSlain(world);
         else if (ECHO.Story && ECHO.Story.lordSlain(world)) { ECHO.UI.toast(`Among what it carried: a seal of black stone, warm to the touch — ${world.story.seals} of 3.`, 'legend', 6); ECHO.Combat.floater(e.x, e.y - 2, 'a seal of the Hollow Crown!', '#c8a8ff', true); }
         const site = e.delve && ECHO.Explore.byId(world, e.delve);
-        ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} slew ${D.name.replace(/^the /, 'the ')}${site ? ' in the depths of ' + site.name : ''}.`, importance: 2, x: site ? site.x : pl.x, y: site ? site.y : pl.y, rep: 4, tag: 'protect' });
+        if (!e._tamedNow) ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} slew ${D.name.replace(/^the /, 'the ')}${site ? ' in the depths of ' + site.name : ''}.`, importance: 2, x: site ? site.x : pl.x, y: site ? site.y : pl.y, rep: 4, tag: 'protect' });
         ECHO.Music.stinger('discover');
-        ECHO.UI.banner(`${U.cap(D.name)} is slain`, site ? site.name : '', true);
+        if (!e._tamedNow) ECHO.UI.banner(`${U.cap(D.name)} is slain`, site ? site.name : '', true);
       }
       if (e.summoner && Math.random() < 0.6) return; // summoned things leave little
       const r = Math.random, L = e.lvl || 1;

@@ -435,6 +435,7 @@
       if (target.dead) return;
       if (target === game.pe) { target.hp = 0; game.playerDefeated(from); return; }
       if (target.titan && ECHO.Apex) { if (target.tamed) ECHO.Apex.spent(game, target); else if (target.state !== 'subdued') { target.hp = Math.max(1, target.maxHp * 0.1); ECHO.Apex.subdue(game, target); } return; }
+      if (ECHO.Tame && ECHO.Tame.onDeath(game, target, from)) return;
       if (target.mounted && ECHO.Riders) ECHO.Riders.fell(game, target);
       target._xpOk = ECHO.Progress && ECHO.Progress.counts(game, target);
       target.dead = true;
@@ -443,8 +444,9 @@
       if (target.jobId && ECHO.Jobs) ECHO.Jobs.onKill(game, target, from);
       if (target.rare && ECHO.Secrets && (from === game.pe || (from && from.isCompanion))) ECHO.Secrets.onRareKill(game, target);
       if (target.escort && ECHO.Jobs && target.escort.status === 'active') ECHO.Jobs.fail(game, target.escort, `${target.escort.giverName} was killed on the road`);
-      const byPlayer = from === game.pe || (from && from.isCompanion);
+      const byPlayer = from === game.pe || (from && (from.isCompanion || from.pal));
       target._killer = from || null;
+      if (ECHO.Tame && from && from.pal) ECHO.Tame.onKill(game, target, from);
       if (ECHO.Growth) ECHO.Growth.onKill(game, target, from);
       // Death has weight: a beat of stillness, then the body is thrown.
       const ka = src.angle != null ? src.angle : Math.atan2(target.y - game.pe.y, target.x - game.pe.x);

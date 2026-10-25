@@ -210,6 +210,7 @@
     },
     // A label for the world: "Cave spider · Lv 3", coloured by how it measures against you.
     label(game, e) {
+      if (e.pal) return { text: `${e.pal.name} · Lv ${e.pal.lvl} · yours`, color: '#9fe08a' };
       if (e.tamed) return { text: `${e.boss ? e.boss.name : 'Your beast'} · yours`, color: '#9fe08a' };
       const L = Pw().foeLevel(e), D = Pw().diff(L, Pw().level(game.pl)), rk = Pw().foeRank(e);
       const tag = rk === 'elite' ? '◆ ' : rk === 'champion' ? '◆◆ ' : rk === 'lord' ? '♛ ' : rk === 'great' ? '♛ ' : '';

@@ -52,6 +52,7 @@
   // ------------------------------------------------------------ Creatures
   const Creature = {
     update(game, e, dt) {
+      if ((e.pal || e.subdued > 0) && ECHO.Tame && ECHO.Tame.think(game, e, dt)) return;
       const world = game.world;
       const sp = SP[e.species];
       e.cd = Math.max(0, e.cd - dt);

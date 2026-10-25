@@ -29,14 +29,14 @@
   const TIER_NAME = ['', 'the Fringe', 'the Deep', 'the Heart'];
 
   const WW = ECHO.Wildwood = {
-    NAMES, TIER_NAME,
+    NAMES, TIER_NAME, V: 2,
     isForest(t) { const X = T(); return t === X.FOREST || t === X.TREE; },
     origin(world) { const F = world.frontier; return F ? { ox: F.ox || 0, oy: F.oy || 0 } : { ox: 0, oy: 0 }; },
 
     // ------------------------------------------------------------ on load / on start
     ensure(world) {
       if (!world || !world.tiles) return null;
-      if (!world.wild || world.wild.v !== 1) WW.build(world);
+      if (!world.wild || world.wild.v !== WW.V) WW.build(world);
       if (!world._trail || world._trail.length !== world.W * world.H) WW.index(world);
       return world.wild;
     },
@@ -75,7 +75,7 @@
     // ------------------------------------------------------------ making them
     build(world, area) {
       const X = T(), W = world.W, H = world.H, N = W * H, tiles = world.tiles;
-      const S = world.wild && world.wild.v === 1 && area ? world.wild : (world.wild = { v: 1, ...WW.origin(world), trails: [], woods: [] });
+      const S = world.wild && world.wild.v === WW.V && area ? world.wild : (world.wild = { v: WW.V, ...WW.origin(world), trails: [], woods: [] });
       const rng = new RNG(ECHO.hashStr('wild:' + world.seed + ':' + (area ? `${area.x0},${area.y0}` : 'all')));
       const inArea = i => { if (!area) return true; const x = i % W, y = (i / W) | 0; return x >= area.x0 && x < area.x1 && y >= area.y0 && y < area.y1; };
       const towns = world.settlements || [];
@@ -89,7 +89,7 @@
       let { comp, sizes, edge } = WW.components(world, inArea);
       // ---- 2. the deep woods: the greatest forests, far from any town
       const want = area ? (rng.chance(0.5) ? 1 : 0) : (world.size === 'vast' ? 3 : 2);
-      const R0 = world.size === 'vast' ? 17 : 14;
+      const R0 = world.size === 'vast' ? 30 : 23;   // (how far a deep wood reaches from its heart)
       // how much room for a wood there is round a spot (and how much is wood already)
       const room = (cx, cy) => {
         let n = 0, f = 0;
@@ -103,9 +103,9 @@
       const area0 = Math.PI * R0 * R0;
       const cands = [];
       const consider = (x, y, bonus) => {
-        if (nearTown(x, y, 21) || nearBig(x, y, 8)) return;
+        if (nearTown(x, y, 18) || nearBig(x, y, 8)) return;
         const r = room(x, y);
-        if (r.n < area0 * 0.42) return;
+        if (r.n < area0 * 0.34) return;
         cands.push({ x, y, sc: r.n + r.f * 0.8 + bonus });
       };
       for (let c = 0; c < sizes.length; c++) {
@@ -121,7 +121,7 @@
       }
       cands.sort((a, b) => b.sc - a.sc);
       const hubs = [];
-      const gap = world.size === 'vast' ? 52 : 40;
+      const gap = world.size === 'vast' ? 64 : 46;
       for (const h of cands) { if (hubs.length >= want) break; if (hubs.some(o => U.dist(o.x, o.y, h.x, h.y) < gap) || S.woods.some(o => U.dist(o.x, o.y, h.x, h.y) < gap)) continue; hubs.push(h); }
       // grow them thick: the meadows round the heart go to wood
       for (const h of hubs) {
@@ -132,7 +132,7 @@
           if (d + wob > 1) continue;
           const i = y * W + x, t = tiles[i];
           if (t !== X.GRASS && t !== X.FOREST && t !== X.TREE) continue;
-          if (nearTown(x, y, 14) || nearThing(x, y, 4) || world.blocked[i]) continue;
+          if (nearTown(x, y, 11) || nearThing(x, y, 4) || world.blocked[i]) continue;
           let road = false; for (let yy = y - 1; yy <= y + 1 && !road; yy++) for (let xx = x - 1; xx <= x + 1; xx++) { const tt = tiles[yy * W + xx]; if (tt === X.ROAD || tt === X.BRIDGE || tt === X.FARM || tt === X.PLAZA) { road = true; break; } }
           if (road) continue;
           tiles[i] = hash2(x, y, world.seed + 78) < 0.44 ? X.TREE : X.FOREST;

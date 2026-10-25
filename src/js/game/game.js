@@ -38,6 +38,7 @@
       if (ECHO.Growth) ECHO.Growth.reset();
       if (ECHO.GuardField) ECHO.GuardField.reset();
       if (ECHO.Deepwood) ECHO.Deepwood.reset();
+      if (ECHO.Tame) ECHO.Tame.reset();
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
       Game.pl.explored = Game.pl.explored || new Array(Math.ceil(world.W / 4) * Math.ceil(world.H / 4)).fill(0);
@@ -182,6 +183,7 @@
       if (ECHO.Guard) ECHO.Guard.update(Game, dt);
       if (ECHO.GuardField) ECHO.GuardField.update(Game, dt);
       if (ECHO.Deepwood) ECHO.Deepwood.update(Game, dt);
+      if (ECHO.Tame) ECHO.Tame.update(Game, dt);
       if (ECHO.Apex) ECHO.Apex.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
@@ -621,6 +623,7 @@
         else if (e.role === 'captive') out.push({ kind: 'free', ent: e, label: `Free ${ECHO.People.name(world.npcs[e.npcId])}`, d: U.dist(e.x, e.y, pe.x, pe.y) });
         else if (!Game.hostileTo(pe, e) && !e.sleeping) out.push({ kind: 'talk', ent: e, label: `Talk to ${ECHO.People.name(world.npcs[e.npcId])}`, d: U.dist(e.x, e.y, pe.x, pe.y) });
       }
+      if (ECHO.Tame) out.push(...ECHO.Tame.interactables(Game));
       if (ECHO.Interior.cur) {
         out.push(...ECHO.Interior.interactables(Game));
         if (ECHO.Stealth) out.push(...ECHO.Stealth.interactables(Game));

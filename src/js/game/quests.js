@@ -30,6 +30,7 @@
       return e;
     },
     updateFoe(game, e, dt) {
+      if ((e.pal || e.subdued > 0) && ECHO.Tame && ECHO.Tame.think(game, e, dt)) return;
       if (e.lurker && ECHO.WildWater && ECHO.WildWater.lurk(game, e, dt)) return;
       if (e.event && ECHO.Events && (ECHO.Events.foeThink(game, e, dt) || ECHO.Events.foeSiege(game, e, dt))) return;
       const F = e.foe, world = game.world, pe = game.pe;

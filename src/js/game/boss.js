@@ -93,6 +93,7 @@
     },
 
     update(game, e, dt) {
+      if ((e.pal || e.subdued > 0) && ECHO.Tame && ECHO.Tame.think(game, e, dt)) return;
       if (e.titan && ECHO.Apex) return ECHO.Apex.think(game, e, dt);
       const world = game.world;
       const b = e.boss, mem = b.memory, k = KIND[b.kind];

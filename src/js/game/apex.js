@@ -1500,12 +1500,14 @@
         h += `<div class="card"><h4>🐕 ${esc(P0.name)}</h4><div style="font-size:13px">${status}</div>
           <div class="row">${P0.stay ? `<button class="small" data-an-heel="1">Call ${esc(P0.name)} to heel</button>` : ''}${home && P0.stay !== 'home' ? `<button class="small" data-an-dog-home="1">Send ${esc(P0.name)} home</button>` : ''}</div></div>`;
       }
+      if (ECHO.Tame) h += ECHO.Tame.html(game);
       return h;
     },
     animalsBind(root, game, redraw) {
       const pl = game.pl, again = () => setTimeout(redraw, 60);
       const on = (sel, fn) => root.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { fn(b); again(); }));
       on('button[data-an-call]', b => A.call(game, b.dataset.anCall));
+      if (ECHO.Tame) ECHO.Tame.bind(root, game, again);
       on('button[data-an-dismiss]', () => A.dismiss(game));
       on('button[data-an-whistle]', () => ECHO.Life.callHorse(game));
       on('button[data-an-home]', () => ECHO.Life.sendHome(game));

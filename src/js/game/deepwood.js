@@ -483,6 +483,7 @@
       const w = world.wild && world.wild.woods.find(x => x.id === e.wood);
       if (!w) return;
       w.lord.slain = world.day; w.lord.kills = (w.lord.kills || 0) + 1;
+      if (e._tamedNow) return;
       const byYou = from === game.pe || (from && (from.isCompanion || from.tamed));
       if (!byYou) return;
       UI().banner(`${U.cap(w.lord.name)} is slain`, `${w.name} is quiet — for now`, true);

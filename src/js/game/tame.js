@@ -1,0 +1,335 @@
+// Taming: any beast, monster or lord of the deep places can be made yours.
+//
+// Beat it down — a beast or a monster to a third of its life, a lord or a
+// great beast to its last tenth (a lord no longer dies outright: it falls,
+// beaten, and you choose: tame it or finish it) — then hold it (E) while you
+// break its will. The weaker it is, and the more you have tamed before, the
+// likelier it gives in; if it does not, it tears free and fights on.
+//
+// What you tame follows you (three at a time; the rest wait at your den until
+// you call them, from the Animals page, U), fights whatever comes at you, grows
+// stronger on what it kills, and if it is beaten it limps off to rest until
+// the next day. Titans (dragons and the great beasts of the wild) are bound as
+// before.
+(function () {
+  const { U } = ECHO;
+  const UI = () => ECHO.UI;
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const MAX_OUT = 3, MAX_KEEP = 12;
+  const NAMES = ['Ash', 'Briar', 'Cinder', 'Dusk', 'Ember', 'Fang', 'Gloom', 'Hollow', 'Ink', 'Jinx', 'Knell', 'Lurk', 'Mire', 'Nettle', 'Onyx', 'Pyre', 'Quill', 'Rook', 'Sorrow', 'Thorn', 'Umber', 'Vex', 'Wisp', 'Yew', 'Grim', 'Moth', 'Scar', 'Bramble', 'Hush', 'Soot'];
+  const PEOPLE = new Set(['brigand', 'chief']);   // (outlaws are people: they can be beaten, not tamed)
+
+  const T = ECHO.Tame = {
+    MAX_OUT, MAX_KEEP, chan: null, t: 0,
+    reset() { T.chan = null; T.t = 0; },
+    pack(pl) { return pl.pack || (pl.pack = []); },
+    out(pl) { return T.pack(pl).filter(r => r.out); },
+
+    // ------------------------------------------------------------ what can be tamed
+    isBoss(e) { return !!(e.boss2 || e.type === 'boss' || e.lord || e.sovereign || (e.foe && e.foe.boss)); },
+    can(game, e) {
+      if (!e || e.dead || e.vanish || e.hidden || e.pal || e.tamed || e.titan || e.marvel || e.ghost || e.isCompanion || e.pet || e.mentor || e.ngWard || e.huntB) return false;
+      if (e.type === 'person' || e.npcId) return false;
+      if (e.foe) return !PEOPLE.has(e.foe.look) && !(e.foe.look === 'king' && !ECHO.Monsters.DEFS[e.species]);
+      if (e.type === 'boss') return !!e.boss;
+      if (e.type === 'creature') return e.species === 'wolf' || !!e.beast;
+      return false;
+    },
+    threshold(e) { return T.isBoss(e) ? 0.12 : 0.34; },
+    ready(game, e) { return T.can(game, e) && (e.subdued > 0 || e.hp <= e.maxHp * T.threshold(e)) && !(e._tameCd > game.time); },
+    chance(game, e) {
+      const pl = game.pl, f = U.clamp(e.hp / e.maxHp / T.threshold(e), 0, 1);
+      const L = ECHO.Prowess.foeLevel(e), me = ECHO.Prowess.level(pl);
+      let c = 0.32 + (1 - f) * 0.5 + Math.min(0.15, (pl.tames || 0) * 0.012) - Math.max(0, L - me) * 0.0015 + (e.subdued > 0 ? 0.15 : 0);
+      if (T.isBoss(e)) c *= 0.8;
+      return U.clamp(c, 0.1, 0.95);
+    },
+
+    // ------------------------------------------------------------ each frame
+    update(game, dt) {
+      const pe = game.pe, pl = game.pl;
+      if (!pe || !pl) return;
+      // a beast that falls under your hand, said once
+      if ((T._noteT = (T._noteT || 0) - dt) <= 0) {
+        T._noteT = 0.25;
+        for (const e of game.ents) if (!e._tameTold && !e.dead && T.can(game, e) && e.hp <= e.maxHp * T.threshold(e) && U.dist(e.x, e.y, pe.x, pe.y) < 14) {
+          e._tameTold = true; ECHO.Combat.floater(e.x, e.y - 1.6 * (e.scale || 1), 'can be tamed — E', '#ffe08a');
+          if (!pl._tameTip) { pl._tameTip = true; UI().toast('A beaten beast can be tamed: stand by it and hold it (E) while you break its will. The weaker it is, the likelier it gives in.', 'study', 7); }
+        }
+      }
+      // holding one while you break it
+      const C = T.chan;
+      if (C) {
+        const e = C.e;
+        C.t += dt;
+        pl.rootT = Math.max(pl.rootT || 0, 0.1);
+        e.stagger = Math.max(e.stagger || 0, 0.2); e.moving = false;
+        if (Math.random() < dt * 24) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + (e.x - pe.x) * Math.random(), y: pe.y + (e.y - pe.y) * Math.random() - 0.5, vx: 0, vy: -0.4, t: 0, life: 0.5, color: '#ffe08a', size: 2 });
+        if (e.dead || U.dist(e.x, e.y, pe.x, pe.y) > 4.5 || pe.hp < C.hp - pe.maxHp * 0.08) { T.chan = null; UI().toast(e.dead ? 'It is dead.' : 'You lose your hold on it.', 'warn', 3); }
+        else if (C.t >= C.dur) { T.chan = null; T.roll(game, e); }
+      }
+      // your animals out with you
+      if ((T.t -= dt) > 0) return;
+      T.t = 0.5;
+      const L = ECHO.Interior.cur, ok = !L || L.carved || L.type === 'gate';
+      const out = T.out(pl), world = game.world;
+      for (const r of out) {
+        const e = game.ents.find(o => o.pal === r && !o.dead);
+        if (!ok || pl.flying && false) { if (e) { e.dead = true; e.vanish = true; } continue; }
+        if (r.restUntil != null && world.day < r.restUntil) { if (e) { e.dead = true; e.vanish = true; } continue; }
+        if (!e) T.spawn(game, r);
+      }
+      // (any left over from one sent home)
+      for (const e of game.ents) if (e.pal && !e.dead && !e.pal.out) { e.dead = true; e.vanish = true; ECHO.Combat.burst(e.x, e.y, '#ffe08a', 10, 2, 0.5, 2); }
+    },
+
+    // ------------------------------------------------------------ taming
+    interactables(game) {
+      const out = [], pe = game.pe, pl = game.pl;
+      if (pl.flying || T.chan) return out;
+      for (const e of game.ents) {
+        if (!T.ready(game, e)) continue;
+        const d = U.dist(e.x, e.y, pe.x, pe.y);
+        if (d > (e.r || 0.4) + 2.4) continue;
+        const nm = T.nameOf(e), ch = Math.round(T.chance(game, e) * 100);
+        out.push({ kind: 'act', label: `Tame ${nm} — ${ch}%`, d: d * 0.5, act: () => T.begin(game, e) });
+        if (e.subdued > 0) out.push({ kind: 'act', label: `Finish ${nm}`, d: d * 0.5 + 0.01, act: () => { e.subdued = 0; e._finish = true; ECHO.Combat.kill(e, pe, 'melee', { angle: Math.atan2(e.y - pe.y, e.x - pe.x) }); } });
+      }
+      return out;
+    },
+    nameOf(e) { return e.label ? e.label.replace(/^(an?|the) /i, 'the ') : e.boss ? `${e.boss.name}` : e.foe ? `the ${e.foe.name.replace(/^the /i, '').toLowerCase()}` : `the ${e.species}`; },
+    begin(game, e) {
+      const pl = game.pl;
+      if (T.pack(pl).length >= MAX_KEEP) return UI().toast(`You already keep ${MAX_KEEP} tamed beasts. Release one (U → Animals) to make room.`, 'warn', 5);
+      const boss = T.isBoss(e);
+      T.chan = { e, t: 0, dur: boss ? 2.6 : 1.5, hp: game.pe.hp };
+      e.aggro = true; e.stagger = (boss ? 2.6 : 1.5) + 0.3; e.state = 'stagger'; e.wcast = null; e.gcast = null;
+      ECHO.Combat.ring(e.x, e.y, (e.r || 0.4) + 1, 'rgba(255,224,138,0.9)', 0.5);
+      ECHO.Combat.floater(game.pe.x, game.pe.y - 1.4, boss ? 'you bear down on its will…' : 'you hold it down…', '#ffe08a');
+      if (ECHO.Sfx) ECHO.Sfx.play('growl', { pitch: 0.7 });
+    },
+    roll(game, e) {
+      const pl = game.pl, c = T.chance(game, e);
+      if (Math.random() < c) return T.take(game, e);
+      e._tameCd = game.time + 3;
+      e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.06); e.subdued = 0; e.aggro = true; e.cd = 0;
+      ECHO.Combat.burst(e.x, e.y, '#ff6a4a', 18, 4, 0.6, 3);
+      ECHO.Combat.floater(e.x, e.y - 1.8 * (e.scale || 1), 'it tears free!', '#ff6a4a', true);
+      if (ECHO.Sfx) ECHO.Sfx.play('roar', { pitch: 0.9 });
+      void pl;
+    },
+    take(game, e) {
+      const world = game.world, pl = game.pl, pk = T.pack(pl);
+      const lvl = Math.max(1, ECHO.Prowess.foeLevel(e) || e.lvl || 1);
+      const cat = e.type === 'boss' ? 'boss' : e.foe ? 'foe' : 'creature';
+      const kindName = e.boss ? e.boss.name : e.foe ? e.foe.name.replace(/^the /i, '') : U.cap(e.species);
+      const base = T.isBoss(e) ? (e.label || kindName).replace(/^the /i, '').split(',')[0] : `${NAMES[Math.floor(Math.random() * NAMES.length)]} the ${kindName}`;
+      const r = { id: 'pal' + (++pl.palSeq || (pl.palSeq = 1)), cat, kind: cat === 'boss' ? null : e.species, name: U.cap(base), lvl, scale: e.scale || 1, elite: e.elite || null, out: T.out(pl).length < MAX_OUT, hp: 0.6, xp: 0, kills: 0, day: world.day, boss: cat === 'boss' ? { ...e.boss, memory: undefined, lairId: e.lair ? e.lair.id : null } : null, was: e.label || kindName, lord: !!T.isBoss(e) };
+      pk.push(r);
+      pl.tames = (pl.tames || 0) + 1;
+      // what it was, out in the world
+      if (e.nem && ECHO.Powers) { const rec = ECHO.Powers.byId(world, e.nem); if (rec && rec.alive) ECHO.Powers.die(world, rec, `tamed by ${pl.first} ${pl.last}`, `${ECHO.Powers.short(rec)} was beaten and tamed by ${pl.first} ${pl.last}, and runs at their side now.`); if (ECHO.Growth) ECHO.Growth.spawned.delete(e.nem); }
+      if (e.lair && e.boss) { e.boss.alive = false; e.boss.tamed = true; UI().bossBar(null); }
+      if (e.lord && world.wild) { const w = world.wild.woods.find(x => x.id === e.wood); if (w) { w.lord.slain = world.day; w.lord.tamed = (w.lord.tamed || 0) + 1; } }
+      if (e.breach && ECHO.GuardWork) { const b = ECHO.GuardWork.breach(world, e.breach); if (b) ECHO.GuardWork.endBreach(world, ECHO.GuardWork.st(world), b, 'you'); }
+      // a lord of a deep place counts as beaten: its floor is cleared, its story goes on
+      if (e.boss2 || e.delve || e.questId) { try { e._tamedNow = true; ECHO.Quests.onKill(e, game.pe); } catch (err) { /* (nothing it carried matters now) */ } }
+      if (T.isBoss(e)) { UI().bossBar(null); ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} beat ${e.label || kindName} and tamed it.`, importance: 2, x: e.x, y: e.y, rep: 4 }); }
+      // and it is yours
+      e.dead = true; e.vanish = true;
+      ECHO.Combat.ring(e.x, e.y, 2, 'rgba(255,224,138,1)', 0.7); ECHO.Combat.burst(e.x, e.y, '#ffe08a', 30, 5, 0.8, 3);
+      if (ECHO.Music) ECHO.Music.stinger('discover');
+      if (r.out) { const p = T.spawn(game, r, e.x, e.y); if (p) { p.say = '…'; p.sayT = 1.5; } }
+      UI().banner(`${r.name} is yours`, r.out ? `Level ${lvl} · it follows you now` : `Level ${lvl} · you have ${MAX_OUT} out already: it waits at your den (U → Animals)`, true);
+      UI().toast(`You have tamed ${r.name}. It follows you, fights for you and grows on what it kills; if it is beaten it rests until tomorrow. U → Animals to call or rest your beasts.`, 'legend', 7);
+      return r;
+    },
+
+    // ------------------------------------------------------------ a body for it
+    spawn(game, r, x, y) {
+      const world = game.world, pe = game.pe;
+      const sp = ECHO.Ent.freeSpot(world, x != null ? x : pe.x - 1.5, y != null ? y : pe.y + 1, 4) || { x: pe.x, y: pe.y };
+      // (one of yours does not fall far behind you: it trains at your side)
+      const want = Math.round(ECHO.Prowess.level(game.pl) * (r.lord ? 0.8 : 0.6));
+      if (r.lvl < want) { r.lvl0 = r.lvl0 || r.lvl; r.lvl = want; }
+      let e = null;
+      if (ECHO.Growth) ECHO.Growth._noAdapt = true;
+      try {
+        if (r.cat === 'boss' && r.boss) {
+          const k = ECHO.Boss.KIND[r.boss.kind] || ECHO.Boss.KIND.drake;
+          const FM = ECHO.Prowess.foeMul(r.lvl, true);
+          const mh = Math.round((r.boss.maxHp || 600) * Math.max(1, FM.hp / Math.max(1, ECHO.Prowess.foeMul(r.lvl0 || r.lvl, true).hp)));
+          e = ECHO.Ent.make({ type: 'boss', x: sp.x, y: sp.y, r: k.r, hp: mh, maxHp: mh, speed: k.speed, faction: 'player', boss: { ...r.boss, alive: true, memory: { encounters: 0, dodge: { left: 0, right: 0, back: 0 }, blocks: 0, attacksSeen: 0, rangedTime: 0, meleeTime: 0, damageBy: { melee: 0, ranged: 0, fire: 0 }, knownFoes: {} } }, state: 'chase', t: 0, cd: 1, label: r.name });
+          e.enc = { dmg: { melee: 0, ranged: 0, fire: 0, magic: 0 }, started: true };
+          e.palDmg = k.dmg * FM.dmg;
+        } else if (r.cat === 'creature') {
+          e = ECHO.Spawner.makeCreature(game, r.kind, sp.x, sp.y, ECHO.World.regionAt(world, pe.x, pe.y), null);
+          const FM = ECHO.Prowess.foeMul(r.lvl);
+          e.maxHp = e.hp = Math.round(e.maxHp * FM.hp); e.palDmg = ((ECHO.SPECIES[r.kind] || {}).dmg || 8) * FM.dmg; e.lvl = r.lvl;
+        } else {
+          e = ECHO.Monsters.DEFS[r.kind] ? ECHO.Monsters.make(game, r.kind, sp.x, sp.y, r.lvl, { noElite: true }) : ECHO.Quests.makeFoe(game, r.kind, sp.x, sp.y, {});
+          e.palDmg = (e.foe.dmg || 8) * (e.dmgMul || 1);
+          if (r.elite) { e.elite = r.elite; const X = ECHO.Monsters.ELITE.find(z => z.k === r.elite); if (X) { if (X.hp) e.maxHp = Math.round(e.maxHp * X.hp); if (X.dmg) e.palDmg *= X.dmg; if (X.scale) e.scale *= X.scale; } }
+          e.boss2 = false; e.ab = {};
+          if (e.foe.shape === 'serpent' || e.foe.shape === 'spider') e.scale = r.scale || e.scale;
+        }
+      } finally { if (ECHO.Growth) ECHO.Growth._noAdapt = false; }
+      if (!e) return null;
+      e.pal = r; e.tamed = true; e.faction = 'player'; e.aggro = false; e.label = r.name; e.lvl = r.lvl; e.home = null;
+      e.r = Math.min(e.r || 0.4, 0.6);
+      e.hp = Math.max(1, Math.round(e.maxHp * U.clamp(r.hp == null ? 1 : r.hp, 0.2, 1)));
+      e.cd = 0.5; e.palArtT = 4 + Math.random() * 3;
+      game.addEnt(e);
+      ECHO.Combat.burst(sp.x, sp.y, '#ffe08a', 12, 2, 0.5, 2);
+      return e;
+    },
+
+    // ------------------------------------------------------------ how they think
+    think(game, e, dt) {
+      if (e.subdued > 0 && !e.pal) return T.beaten(game, e, dt);
+      if (!e.pal) return false;
+      const world = game.world, pe = game.pe, pl = game.pl, r = e.pal;
+      e.t = (e.t || 0) + dt; e.cd = Math.max(0, (e.cd || 0) - dt);
+      r.hp = e.hp / e.maxHp;
+      if (e.stagger > 0) { e.stagger -= dt; e.state = 'stagger'; e.moving = false; return true; }
+      // a foe: what is at you, at it, or what you are fighting
+      let f = e.palFoe;
+      const hostile = o => o && !o.dead && !o.hidden && !o.vanish && o !== pe && !o.tamed && !o.isCompanion && game.hostileTo(e, o) && !(o.subdued > 0) && !(T.chan && T.chan.e === o);
+      if (!hostile(f) || U.dist(f.x, f.y, pe.x, pe.y) > 16 || U.dist(f.x, f.y, e.x, e.y) > 18) f = null;
+      if (!f || (e._pickT = (e._pickT || 0) - dt) <= 0) {
+        e._pickT = 0.8;
+        let best = null, bs = Infinity;
+        const lock = ECHO.PlayerCtl && ECHO.PlayerCtl.lock;
+        for (const o of game.ents) {
+          if (!hostile(o)) continue;
+          const dp = U.dist(o.x, o.y, pe.x, pe.y); if (dp > 13) continue;
+          const engaged = o.aggro || o.target === pe || o.target === e || o.state === 'fight' || o === lock;
+          if (!engaged && dp > 6) continue;
+          const s = U.dist(o.x, o.y, e.x, e.y) - (o === lock ? 6 : 0) - (o.target === pe ? 3 : 0);
+          if (s < bs) { bs = s; best = o; }
+        }
+        if (best) f = best;
+      }
+      e.palFoe = f;
+      const spd = e.speed || 3;
+      if (f) {
+        e.aggro = true;
+        const d = U.dist(e.x, e.y, f.x, f.y), ang = Math.atan2(f.y - e.y, f.x - e.x), reach = (f.r || 0.4) + (e.r || 0.4) + (e.foe ? e.foe.reach : 1.2) * 0.75;
+        const ranged = e.foe && e.foe.ab && (e.foe.ab.ranged || e.foe.ab.bolt);
+        e.dir = ang; e.flip = Math.cos(ang) < 0; e.target = f;
+        if (e.state === 'windup') {
+          e.moving = false;
+          if (e.t >= (e.foe ? Math.min(0.6, e.foe.wind || 0.4) : 0.35)) {
+            e.state = 'attack'; e.t = 0; e.cd = (e.foe ? e.foe.cd : 1.3) * (e.cdMul || 1) + Math.random() * 0.3;
+            if (ranged && d > 2.4) ECHO.Combat.shoot(e, ang, { kind: 'orb', speed: 11, dmg: e.palDmg * 1.1, life: 1.4, type: e.foe.ab.bolt ? e.foe.ab.bolt.type || 'magic' : 'ranged', color: e.foe.ab.bolt ? e.foe.ab.bolt.color : '#e8e0d0' });
+            else {
+              ECHO.Combat.slash(e.x, e.y, ang, reach + 0.2, 1.5, 'rgba(255,224,138,0.75)');
+              if (U.dist(e.x, e.y, f.x, f.y) <= reach + 0.5) ECHO.Combat.damage(f, e.palDmg * (0.85 + Math.random() * 0.3), { type: 'melee', from: e, angle: ang, knock: 0.25 });
+            }
+          }
+          return true;
+        }
+        if (e.state === 'attack' && e.t < 0.25) { e.moving = false; return true; }
+        // its own strength: a great blow that throws back everything round it
+        e.palArtT -= dt;
+        if (e.palArtT <= 0 && d < reach + 1.2) {
+          e.palArtT = 7 + Math.random() * 4;
+          const col = (e.foe && (e.foe.em || e.foe.col)) || (e.boss && e.boss.belly) || '#ffe08a', R = 2.4 + (e.scale || 1) * 0.6;
+          ECHO.Combat.ring(e.x, e.y, R, 'rgba(255,224,138,0.9)', 0.5); ECHO.Combat.burst(e.x, e.y, col, 26, 5, 0.7, 3); game.shake(0.15);
+          for (const o of game.ents) if (hostile(o) && U.dist(o.x, o.y, e.x, e.y) < R + (o.r || 0.4)) ECHO.Combat.damage(o, e.palDmg * 2, { type: 'melee', from: e, angle: Math.atan2(o.y - e.y, o.x - e.x), knock: 0.6, stagger: 0.4 });
+          e.say = r.lord ? 'Kneel.' : '*a roar*'; e.sayT = 1;
+          return true;
+        }
+        if (ranged && d > 2.4 && d < 8 && e.cd <= 0) { e.state = 'windup'; e.t = 0; e.aim = ang; e.moving = false; return true; }
+        if (d > reach) { ECHO.Ent.travel(world, e, f.x, f.y, spd * 1.05, dt); e.state = 'chase'; }
+        else if (e.cd <= 0) { e.state = 'windup'; e.t = 0; e.aim = ang; e.moving = false; }
+        else { e.moving = false; e.state = 'chase'; }
+        return true;
+      }
+      // no foe: at your side, and healing
+      e.aggro = false; e.target = null;
+      if (e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.025 * dt);
+      const idx = T.out(pl).indexOf(r), dP = U.dist(e.x, e.y, pe.x, pe.y);
+      if (dP > 30) {
+        const sp = ECHO.Ent.freeSpot(world, pe.x - 2, pe.y + 1.5, 4);
+        if (sp) { ECHO.Combat.burst(e.x, e.y, '#ffe08a', 8, 2, 0.4, 2); e.x = sp.x; e.y = sp.y; ECHO.Combat.burst(e.x, e.y, '#ffe08a', 8, 2, 0.4, 2); }
+        return true;
+      }
+      const a = (pe.dir || 0) + Math.PI + (idx - 1) * 0.8, gap = 1.8 + idx * 0.7 + (e.type === 'boss' ? 3.2 : (e.scale || 1) * 0.55);
+      const gx = pe.x + Math.cos(a) * gap, gy = pe.y + Math.sin(a) * gap;
+      const dg = U.dist(e.x, e.y, gx, gy);
+      if (dg > 1.2) { ECHO.Ent.travel(world, e, gx, gy, spd * (dP > 7 ? 1.25 : 0.85), dt); e.state = 'chase'; }
+      else { e.moving = false; e.state = 'idle'; if (Math.random() < dt * 0.3) e.dir = Math.atan2(pe.y - e.y, pe.x - e.x); }
+      return true;
+    },
+    // a lord beaten down: it kneels, waiting for you to choose
+    beaten(game, e, dt) {
+      e.subdued -= dt; e.moving = false; e.state = 'stagger'; e.stagger = 0.2; e.aggro = false; e.cd = 1;
+      if (Math.random() < dt * 3) ECHO.Combat.fx.push({ kind: 'p', x: e.x + (Math.random() - 0.5) * 1.5, y: e.y - 0.5, vx: 0, vy: -0.6, t: 0, life: 1, color: '#ffe08a', size: 2 });
+      if (e.subdued <= 0) {
+        e.subdued = 0; e.hp = Math.max(e.hp, e.maxHp * 0.3); e.aggro = true; e._subOnce = true;
+        UI().toast(`${U.cap(T.nameOf(e))} gets up again.`, 'warn', 4);
+      }
+      return true;
+    },
+
+    // ------------------------------------------------------------ when something would die
+    // true: it does not die now.
+    onDeath(game, e, from) {
+      if (e.pal) {
+        const r = e.pal;
+        r.restUntil = game.world.day + 1; r.hp = 0.5;
+        e.dead = true; e.vanish = true;
+        ECHO.Combat.burst(e.x, e.y, '#c8b080', 20, 3, 0.7, 3);
+        UI().toast(`${r.name} is beaten and limps away to rest. It will be back tomorrow.`, 'warn', 5);
+        return true;
+      }
+      // a lord falls beaten, not dead: yours to tame or to finish
+      const byYou = from === game.pe || (from && (from.isCompanion || from.pal || from.tamed));
+      if (byYou && !e._finish && T.isBoss(e) && T.can(game, e) && !e.subdued) {
+        e.hp = Math.max(1, Math.round(e.maxHp * 0.08)); e.subdued = 30; e.aggro = false; e.state = 'stagger';
+        ECHO.Combat.floater(e.x, e.y - 2.4 * (e.scale || 1), 'beaten!', '#ffe08a', true);
+        game.shake(0.5); if (game.hitStop) game.hitStop(0.2);
+        UI().toast(`${U.cap(T.nameOf(e))} falls, beaten. Tame it (E) and it is yours — or finish it. It will not stay down long.`, 'legend', 8);
+        if (ECHO.Music) ECHO.Music.stinger('discover');
+        return true;
+      }
+      return false;
+    },
+    // what one of yours kills feeds it
+    onKill(game, e, from) {
+      if (!from || !from.pal || from.dead) return;
+      const r = from.pal, L = Math.max(1, ECHO.Prowess.foeLevel(e) || e.lvl || 1);
+      r.kills = (r.kills || 0) + 1;
+      r.xp = (r.xp || 0) + Math.max(1, L * (L >= r.lvl ? 1.5 : 0.6));
+      const need = 12 + r.lvl * 4;
+      if (r.xp >= need && r.lvl < ECHO.Prowess.MAX) {
+        r.xp -= need; const L0 = r.lvl; r.lvl0 = r.lvl0 || L0; r.lvl++;
+        const k = ECHO.Prowess.foeMul(r.lvl, r.lord), k0 = ECHO.Prowess.foeMul(L0, r.lord);
+        from.maxHp = Math.round(from.maxHp * k.hp / k0.hp); from.hp = Math.min(from.maxHp, from.hp * k.hp / k0.hp); from.palDmg *= k.dmg / k0.dmg; from.lvl = r.lvl;
+        ECHO.Combat.floater(from.x, from.y - 1.8 * (from.scale || 1), `▲ ${r.name} · level ${r.lvl}`, '#9fe08a', true);
+        ECHO.Combat.ring(from.x, from.y, 1.4, 'rgba(160,240,140,0.9)', 0.5);
+      }
+    },
+
+    // ------------------------------------------------------------ the Animals page
+    html(game) {
+      const pl = game.pl, world = game.world, pk = T.pack(pl);
+      let h = `<h4 class="ware-h" style="margin-top:14px">Your tamed beasts (${pk.length}/${MAX_KEEP})</h4><p class="dim">Beat any beast or monster down to a third of its life (a lord or a boss to its last tenth — it falls beaten instead of dying) and hold it (E) to tame it. Up to ${MAX_OUT} follow you at once; the rest wait at your den.</p>`;
+      if (!pk.length) return h + '<p class="dim">None yet.</p>';
+      h += `<div class="list">${pk.map(r => {
+        const rest = r.restUntil != null && world.day < r.restUntil;
+        return `<div class="card"><h4>${esc(r.name)} <span class="dim">· level ${r.lvl}${r.lord ? ' · ♛' : ''}</span></h4><div class="dim" style="font-size:13px">${esc(r.was && r.was !== r.name ? 'Once ' + r.was + ' · ' : '')}tamed on day ${r.day} · ${r.kills || 0} kills${rest ? ' · <span class="ember">resting until tomorrow</span>' : r.out ? ' · <span class="gold">with you</span>' : ' · at your den'}</div>
+          <div class="row" style="gap:6px">${r.out ? `<button class="small" data-pal-rest="${r.id}">Send to the den</button>` : `<button class="small" data-pal-call="${r.id}" ${T.out(pl).length >= MAX_OUT ? 'disabled' : ''}>Call</button>`}<button class="small" data-pal-free="${r.id}">Release</button></div></div>`;
+      }).join('')}</div>`;
+      return h;
+    },
+    bind(root, game, again) {
+      const pl = game.pl, pk = T.pack(pl), by = id => pk.find(r => r.id === id);
+      const on = (sel, fn) => root.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { fn(b); again(); }));
+      on('button[data-pal-call]', b => { const r = by(b.dataset.palCall); if (r && T.out(pl).length < MAX_OUT) { r.out = true; T.t = 0; } });
+      on('button[data-pal-rest]', b => { const r = by(b.dataset.palRest); if (r) r.out = false; });
+      on('button[data-pal-free]', b => { const r = by(b.dataset.palFree); if (!r) return; pl.pack = pk.filter(x => x !== r); for (const e of game.ents) if (e.pal === r) { e.dead = true; e.vanish = true; } UI().toast(`You let ${r.name} go. It looks back once, and is gone.`, 'info', 4); });
+    }
+  };
+})();
