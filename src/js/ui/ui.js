@@ -703,6 +703,19 @@
           render();
           UI.modal({ title: r.item.name, html: `<div class="upg-arrow" style="justify-content:center;margin:8px 0">${ECHO.GearArt.img(r.item, 'gear-ic big')}</div><p class="prose" style="text-align:center">${esc(smith ? smith.first : 'The smith')} quenches it and hands it over, hilt first. ${esc(rec.desc)}</p><p style="text-align:center"><b>${esc(ECHO.Gear.line(r.item))}</b>${r.item.wclass ? `<br><span class="dim">${esc(ECHO.Gear.WCLASS[r.item.wclass].desc)}</span>` : ''}</p>`, choices: [{ label: 'Take it', onPick: () => {} }] });
         }));
+        body.querySelectorAll('button[data-commission]').forEach(btn => btn.addEventListener('click', () => {
+          const [kind, rar] = btn.dataset.commission.split(':');
+          const r = ECHO.Patron.commission(world, pl, s, kind, rar);
+          if (r.error) { UI.toast(r.error, 'warn', 4); return; }
+          const it = r.item, slot = kind === 'sword' ? 'weapon' : kind, cur = world.items[pl[slot]];
+          const better = !cur || (kind === 'armor' ? (it.def || 0) > (cur.def || 0) : (it.dmg || 0) > (cur.dmg || 0));
+          if (better) pl[slot] = it.id;
+          it.made = { by: smith ? P().name(smith) : 'a smith', at: s.name, d: world.day };
+          if (smith) smith.wealth += r.cost * 0.4;
+          ECHO.PlayerCtl.derivedT = 0; ECHO.Sfx.play('block');
+          render();
+          UI.modal({ title: it.name, html: `<div style="text-align:center;margin:8px 0">${ECHO.GearArt.img(it, 'gear-ic big')}</div><p class="prose" style="text-align:center">${esc(smith ? smith.first : 'The smith')} works on it for a day and a night, and will not let you watch the last of it. When it is done, ${smith && smith.sex === 'f' ? 'she' : 'he'} holds it out without a word.</p><p style="text-align:center"><b style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(ECHO.Gear.line(it))}</b>${better ? '<br><span class="gold">You take it up at once.</span>' : ''}</p>`, choices: [{ label: 'It is beautiful', onPick: () => {} }] });
+        }));
         body.querySelectorAll('button[data-craft]').forEach(btn => btn.addEventListener('click', () => {
           const r = ECHO.Gear.craft(world, pl, btn.dataset.craft);
           if (r.error) { UI.toast(r.error, 'warn', 3); return; }
@@ -816,6 +829,7 @@
       const nextOf = it => ({ ...it, plus: (it.plus || 0) + 1 });
       html += gear.map(([it, verb]) => { const c = Gr.honeCost(it); return `<div class="ware"><div class="ware-main"><div class="upg-arrow">${ECHO.GearArt.img(it, 'gear-ic small')}${c ? `<span class="gold">➜</span>${ECHO.GearArt.img(nextOf(it), 'gear-ic small')}` : ''}</div><div class="ware-top"><b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}</b><span class="dim">${esc(Gr.line(it))}</span></div>${c ? `<div class="ware-use">${verb} to +${(it.plus || 0) + 1} (${it.kind === 'armor' ? 'armour +' : 'power +'}${Gr.honeAdd(it)}): ${cost(c)}</div><div class="row"><button class="small" data-hone="${it.id}" ${Gr.canPay(pl, c) ? '' : 'disabled'}>${verb}</button></div>` : '<div class="ware-use gold">It can be made no finer.</div>'}</div></div>`; }).join('');
       html += `</div><h4 class="ware-h">Forge a weapon</h4><p class="dim">Swords, axes that stagger, spears that reach, staffs that burn — made from what you bring up from below.</p><div class="wares">${Gr.FORGE.map(r => { const mock = { kind: r.kind, wclass: r.wclass, rarity: r.rarity, affix: r.affix || null, plus: 0, dmg: Gr.forgeStat(pl, r) }; return `<div class="ware">${ECHO.GearArt.img(mock, 'gear-ic small')}<div class="ware-main"><div class="ware-top"><b style="color:${Gr.rarity(r.rarity).color}">${esc(r.name)}</b><span class="dim">${r.wclass ? Gr.WCLASS[r.wclass].name.toLowerCase() : 'bow'} · power ${Gr.forgeStat(pl, r)}${r.affix ? ' · ' + Gr.AFFIX[r.affix].desc : ''}</span></div><div class="ware-use">${esc(r.desc)} ${cost(r)}</div><div class="row"><button class="small" data-forgew="${r.id}" ${Gr.canPay(pl, r) ? '' : 'disabled'}>Forge it</button></div></div></div>`; }).join('')}</div>
+        ${ECHO.Patron ? ECHO.Patron.smithHtml(pl) : ''}
         <h4 class="ware-h">Have armour made</h4><div class="wares">${Gr.CRAFT.map(r => `<div class="ware">${ECHO.GearArt.img({ kind: 'armor', def: Gr.craftStat(pl, r), rarity: Gr.craftRarity(r), affix: r.affix || null, plus: 0, craft: r.id }, 'gear-ic small')}<div class="ware-main"><div class="ware-top"><b>${esc(r.name)}</b><span class="dim">armour ${Gr.craftStat(pl, r)}${r.affix ? ' · ' + Gr.AFFIX[r.affix].desc : ''}</span></div><div class="ware-use">${esc(r.desc)} ${cost(r)}</div><div class="row"><button class="small" data-craft="${r.id}" ${Gr.canPay(pl, r) ? '' : 'disabled'}>Have it made</button></div></div></div>`).join('')}</div>`;
       return html;
     },
@@ -965,8 +979,10 @@
         body.innerHTML = `<p class="prose">${priest ? `<b>${esc(P().fullTitle(world, priest))}</b> tends the flame. "May it keep you."` : 'A single candle burns before the flame-carved stone.'}</p>
           <div class="list"><div class="card"><h4>Ask for healing — 5 crowns</h4><div class="row"><button data-a="heal" ${pl.gold < 5 || pl.hp >= pl.maxHp ? 'disabled' : ''}>Be healed</button></div></div>
           <div class="card"><h4>Give alms — 20 crowns</h4><div class="dim">Feeds the poor of ${esc(s.name)}. The Lantern remembers generosity.</div><div class="row"><button data-a="alms" ${pl.gold < 20 ? 'disabled' : ''}>Give</button></div></div>
+          ${ECHO.Patron ? ECHO.Patron.shrineHtml(world, pl) : ''}
           ${pl.inv.starshard ? `<div class="card" style="border-color:#9fd3ff"><h4>✦ Offer a star-shard to the flame</h4><div class="dim">${pl.fate < 3 ? 'They say a fallen star can mend a thread of fate that has worn thin.' : 'Star-iron in the flame: a blessing on the one who brings it.'}</div><div class="row"><button data-a="star">Offer it</button></div></div>` : ''}</div>`;
         body.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
+          if (btn.dataset.bless) { const k = btn.dataset.bless, e = ECHO.Patron.bless(world, pl, k); if (e) UI.toast(e, 'warn', 3); else { ECHO.Music.stinger('fate'); UI.toast(`${priest ? priest.first : 'The keeper of the flame'} marks your brow with ash and oil. ${ECHO.Patron.BLESS[k].name}: ${ECHO.Patron.BLESS[k].desc} (three days)`, 'legend', 6); if (s.wealth != null) s.wealth += ECHO.Patron.blessCost(pl) * 0.3; } }
           if (btn.dataset.a === 'heal') { pl.gold -= 5; pl.hp = pl.maxHp; game.pe.burn = 0; if (pl.sick) { (pl.immune = pl.immune || []).push(pl.sick.d); delete pl.sick; UI.toast('The priest\'s remedies break your fever.', 'mercy', 3); } }
           if (btn.dataset.a === 'star' && pl.inv.starshard > 0) {
             pl.inv.starshard--;
@@ -1168,7 +1184,7 @@
       if (ECHO.Courier) ECHO.Courier.deliver(game, s);
       const body = UI.openPanel(`Notice board — ${s.name}`, '', 'board');
       const render = () => {
-        const tabs = [['pleas', 'Pleas'], ['jobs', 'Odd jobs'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['affairs', 'Town affairs']];
+        const tabs = [['pleas', 'Pleas'], ['jobs', 'Odd jobs'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['coin', 'Spend your coin'], ['affairs', 'Town affairs']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'pleas') html += '<p class="dim">Pleas, bounties and warnings, nailed up by people who will not wait forever.</p><div class="list" id="pl"></div>';
         else if (tab === 'law') {
@@ -1192,6 +1208,7 @@
           if (act.length) html += `<h4 class="ware-h">Your bounties</h4>${act.map(b => `<div class="card"><b>${esc(B.text(b))}</b> — ${b.have}/${b.need} <span class="dim">(${Math.max(0, 5 - (world.day - b.day))} days left)</span></div>`).join('')}`;
         }
         else if (tab === 'deeds') html += UI.deedsHtml(s);
+        else if (tab === 'coin') html += ECHO.Patron.html(game, s);
         else {
           const lines = [];
           const wx = ECHO.Weather.at(world, s);
@@ -1216,6 +1233,7 @@
         if (tab === 'post') body.querySelectorAll('button[data-post]').forEach(b => b.addEventListener('click', () => { const why = ECHO.Courier.accept(game, s, b.dataset.post); if (why) UI.toast(why, 'warn', 3); else UI.toast('Into your bag it goes. The line at the top of the screen points the way.', 'info', 3); render(); }));
         if (tab === 'jobs') body.querySelectorAll('button[data-job]').forEach(b => b.addEventListener('click', () => { const o = ECHO.Jobs.boardOffers(game, s).find(x => x.id === b.dataset.job); if (o) { const why = ECHO.Jobs.accept(game, o); UI.toast(why || `Job taken: ${o.title}. (Tracked.)`, why ? 'warn' : 'info', 3); } render(); }));
         if (tab === 'requests') body.querySelectorAll('button[data-dq]').forEach(b => b.addEventListener('click', () => { const q = ECHO.Dilemmas.st(world).list.find(x => x.id === b.dataset.dq); if (q) { ECHO.Dilemmas.accept(game, q); UI.toast(`You take the request. ${q.who} will be waiting.`, 'info', 3); } render(); }));
+        if (tab === 'coin') body.querySelectorAll('button[data-pt]').forEach(b => b.addEventListener('click', () => { ECHO.Patron.act(game, s, b.dataset.pt); render(); }));
         if (tab === 'bounty') body.querySelectorAll('button[data-bounty]').forEach(b => b.addEventListener('click', () => { const bt = ECHO.Bounty.forTown(world, s).find(x => x.id === b.dataset.bounty); const why = ECHO.Bounty.accept(world, pl, bt); if (why) UI.toast(why, 'warn', 3); else UI.toast('You tear the bounty from the board.', 'info', 2); render(); }));
         if (tab === 'watch') body.querySelectorAll('button[data-case]').forEach(b => b.addEventListener('click', () => { pl.investigating = b.dataset.case; UI.toast('You take down the notice. (Added to your journal.)', 'info', 3); render(); }));
       };

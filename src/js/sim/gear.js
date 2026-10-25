@@ -180,6 +180,7 @@
       if (a && a.affix === 'warding' && (type === 'fire' || type === 'magic')) m *= 0.6;
       if (bf.stone > 0) m *= 0.67;
       if (pl._cward > 0) m *= 0.7; // a companion's ward
+      if (ECHO.Wonders && ECHO.Wonders.has(world, pl, 'warding')) m *= 0.85; // a shrine's blessing
       if (pl._aegis > 0) m *= 0.33; // a warden's Aegis Wall
       if (bf.ward > 0 && (type === 'fire' || type === 'magic')) m *= 0.4;
       void now;

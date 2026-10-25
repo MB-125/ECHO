@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/titans.js', 'sim/wonders.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/titans.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -146,6 +146,35 @@ function main() {
     const W4 = ECHO.Save.deserialize(ECHO.Save.serialize(Wp)); delete W4.powers;
     ECHO.Sim.dailyTick(W4, true);
     check('an old save picks it up without a hitch', !!W4.powers && Array.isArray(W4.powers.nem));
+  }
+
+  console.log('\nSpending coin');
+  {
+    const Wc = ECHO.generateWorld({ seed: 5150, name: 'Coin', prehistoryDays: 2 });
+    const Pa = ECHO.Patron, Pw = ECHO.Powers;
+    const s = Wc.settlements.find(t => Pa.guards(Wc, t).length >= 2) || Wc.settlements[0];
+    const pl = Wc.player = { charId: 'c-c', first: 'Mira', last: 'Coin', alive: true, known: [], accepted: [], fate: 3, inv: {}, gold: 100000, renown: 0, kills: {}, skills: { endurance: 5, ward: 5, flame: 5, tongue: 5, shadow: 5, study: 5, blade: 5, archery: 5 }, items: [], x: s.x, y: s.y, wanted: {}, prowess: { lv: 20, xp: 0, kills: 0, best: 0 } };
+    const game = { world: Wc, pl };
+    const g0 = pl.gold, xp0 = ECHO.Prowess.level(pl) * 1e6 + pl.prowess.xp, r1 = Pa.train(game, s);
+    check('a master-at-arms drills you for coin, once a day', !r1.error && pl.gold < g0 && ECHO.Prowess.level(pl) * 1e6 + pl.prowess.xp > xp0 && !!Pa.train(game, s).error, `${Pa.trainCost(pl)} cr for +${r1.xp} xp`);
+    const G = Pa.guards(Wc, s), gl0 = G.map(n => Pw.lvOf(n));
+    check('you can arm and drill a town guard', !Pa.drill(Wc, s, pl) && G.every((n, i) => Pw.lvOf(n) > gl0[i]), `${gl0.join(',')} → ${G.map(n => Pw.lvOf(n)).join(',')}`);
+    check('and pay for walls, a watchtower and a granary', ['walls', 'watch', 'granary'].every(k => !Pa.fund(Wc, s, pl, k) || (s.works && s.works[k])) && s.works.walls && s.works.granary);
+    const u0 = s.unrest = 30;
+    check('a feast calms a town and warms it to you', !Pa.feast(Wc, s, pl) && s.unrest < u0 && !!Pa.feast(Wc, s, pl));
+    check('a shrine blessing lasts three days', !Pa.bless(Wc, pl, 'valour') && ECHO.Wonders.has(Wc, pl, 'valour'));
+    const cE = Pa.masterCost(pl, 'sword', 'epic'), cL = Pa.masterCost(pl, 'sword', 'legendary');
+    check('a commissioned masterwork is dear, a legendary one dearer', cE > 200 && cL > cE * 2, `epic ${cE}, legendary ${cL} at level 20`);
+    // a price on a named monster's head brings the realm's fighters down on it
+    let slain = 0, tried = 0;
+    for (let k = 0; k < 6; k++) {
+      const r = Pw.rise(Wc, { kind: 'goblin', lv: 8, x: s.x + 15, y: s.y + 8, why: 'rose', amb: 'power', infl: 4 });
+      if (!r) continue; tried++;
+      Pa.postBounty(Wc, pl, r, s);
+      for (let d = 0; d < 25 && r.alive; d++) ECHO.Sim.dailyTick(Wc, true);
+      if (!r.alive && /slain by/.test(r.fate || '')) slain++;
+    }
+    check('a bounty gets a named monster hunted down', tried && slain >= Math.ceil(tried / 2), `${slain}/${tried} slain within 25 days`);
   }
 
   console.log('\nWorld intelligence');

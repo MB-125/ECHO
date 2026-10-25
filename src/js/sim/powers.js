@@ -253,7 +253,7 @@
       Pw.people(world, rng, plv);
       // ---- and the heroes go after the named things
       for (const r of Pw.alive(world)) {
-        if (!r.abroad || r.infl < 10 || !rng.chance(0.025)) continue;
+        if (r.bounty > 0 ? !rng.chance(0.22) : (!r.abroad || r.infl < 10 || !rng.chance(0.025))) continue;
         Pw.hunted(world, r, rng);
       }
       // ---- the deep places you have long outgrown fill with stronger things
@@ -273,8 +273,11 @@
       const res = (s.residents || []).map(id => world.npcs[id]).filter(n => n && n.status === 'alive' && P().age(world, n) >= 16);
       if (!res.length) return;
       const guards = res.filter(n => n.prof === 'guard' || n.prof === 'soldier').sort((a, b) => Pw.lvOf(b) - Pw.lvOf(a));
-      const def = guards[0];
-      if (def && rng.next() < 1 / (1 + Math.exp(-(Pw.lvOf(def) + guards.length * 0.8 - Pw.might(r)) / 3))) {
+      const def = guards[0], W = s.works || {};
+      // (walls, a watchtower and a well-drilled guard all count)
+      const fort = (W.walls ? 6 : 0) + (W.watch ? 2 : 0) + (s.drilled && world.day - s.drilled < 30 ? 3 : 0);
+      if ((def || W.walls) && rng.next() < 1 / (1 + Math.exp(-((def ? Pw.lvOf(def) : 0) + guards.length * 0.8 + fort - Pw.might(r)) / 3))) {
+        if (!def) { r.infl = Math.max(0, r.infl - 2); Pw.tell(world, r, `${Pw.short(r)} came against the walls of ${s.name} and could not get in.`, 1); return; }
         def.renown = (def.renown || 0) + 6; def.lv = Pw.lvOf(def) + 1;
         r.infl = Math.max(0, r.infl - 3); r.hp = 0.4;
         Pw.tell(world, r, `${Pw.short(r)} raided ${s.name}, and ${def.first} ${def.last} drove it off.`, 1);
@@ -292,18 +295,22 @@
         const n = world.npcs[id];
         if (n.status !== 'alive' || !(FIGHTERS.has(n.prof) || n.rival) || n.id === (world.player && world.player.companion)) continue;
         const lv = Pw.lvOf(n);
-        if (lv < r.lv - 3) continue;
+        if (lv < r.lv - (r.bounty ? 8 : 3)) continue;
         const home = ECHO.Sim.settlement(world, n.home), d = home ? U.dist(home.x, home.y, r.x, r.y) : 60;
-        if (d > 55) continue;
+        if (d > (r.bounty ? 110 : 55)) continue;
         const s = lv + Pw.amb(n) * 6 - d * 0.05;
         if (s > bs) { bs = s; h = n; }
       }
       if (!h) return;
       const nm = `${h.first} ${h.last}`;
-      if (rng.next() < 1 / (1 + Math.exp(-(Pw.lvOf(h) - Pw.might(r)) / 3))) {
+      // (a price on its head brings a company, not one fighter alone)
+      const party = r.bounty ? 3 + Math.min(8, Math.sqrt(r.bounty / Math.max(30, r.lv * 10)) * 3) : 0;
+      if (rng.next() < 1 / (1 + Math.exp(-(Pw.lvOf(h) + party - Pw.might(r)) / 3))) {
+        if (r.bounty) { h.renown = (h.renown || 0) + 10; h.wealth = (h.wealth || 0) + r.bounty; }
         h.lv = Pw.lvOf(h) + 2; h.renown = (h.renown || 0) + 15 + Math.round(r.infl * 0.3);
         h.honors = (h.honors || []).concat([`slew ${Pw.short(r)}`]).slice(-4);
-        Pw.die(world, r, 'slain by ' + nm, `${nm} hunted down ${Pw.short(r)} and killed it. Their name is on every tongue.`);
+        Pw.die(world, r, 'slain by ' + nm, r.bounty ? `${nm} and a company of fighters, out for the ${r.bounty} crowns on its head, hunted down ${Pw.short(r)} and killed it.` : `${nm} hunted down ${Pw.short(r)} and killed it. Their name is on every tongue.`);
+        if (r.bounty) r.bountyPaid = true;
       } else {
         P().kill(world, h, `slain hunting ${Pw.short(r)}`, Pw.short(r), null);
         r.kills++; r.infl += 4; Pw.levelUp(world, r, 1, rng);
@@ -374,7 +381,8 @@
         if (n.status !== 'alive' || n.ng || P().age(world, n) < 14) continue;
         const a = Pw.amb(n), lv = Pw.lvOf(n), T = Pw.aim(world, n, plv);
         let up = 0;
-        if (lv < T) { const step = (T - lv) * (0.02 + 0.05 * a); up = Math.floor(step) + (rng.next() < step - Math.floor(step) ? 1 : 0); }
+        if (lv < T) { const hs = n.home && (n.prof === 'guard' || n.prof === 'soldier') && ECHO.Sim.settlement(world, n.home), dr = hs && hs.drilled && world.day - hs.drilled < 30 ? 2 : 1;
+          const step = (T - lv) * (0.02 + 0.05 * a) * dr; up = Math.floor(step) + (rng.next() < step - Math.floor(step) ? 1 : 0); }
         else if (lv < Pw.MAX_LV && rng.next() < 0.004 + a * 0.01) up = 1;    // (the best keep reaching past it)
         if (up > 0) {
           n.lv = Math.min(Pw.MAX_LV, lv + up);

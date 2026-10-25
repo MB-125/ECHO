@@ -16,6 +16,8 @@ ECHO is a desktop RPG built around one idea: **consequence**. You begin as an or
 
 Every system below is real and connected to the others. Nothing is scripted.
 
+**Your money matters**: every notice board's *Spend your coin* page lets you train with the town's master-at-arms (a third of a level a day), arm and drill the town guard, pay for walls, a watchtower or a granary, throw a feast, or put a price on a named monster's head so the realm's fighters hunt it down (kill it yourself and you take the coin back). Shrines sell three-day blessings (valour, warding, swiftness, fortune) and smiths take commissions for epic and legendary masterworks at your level.
+
 **Everything that fights grows**: monsters, wolves, outlaws and townsfolk level up in the middle of a fight, learn to meet the way you hurt them, and each kind remembers how you fight it. A monster that beats you, kills someone or grows twice in a fight takes a name and lives on: it grows day by day, learns arts, gathers a warband, claims land, raids towns, fights the other named ones and comes looking for you. The realm's fighters train toward a level of their own (soldiers and guards half to three-quarters of yours, the rival adventurers yours), become their towns' champions and hunt the named monsters themselves; what roams the open land meets you at half to nine-tenths of your level. Levels for you, the people and the monsters all run to 1500. (Journal → Rising powers.)
 
 **Bodies are solid**: your beast has a body as big as it looks and steps round trees, rocks and walls; a dragon flies over a wood rather than through it, keeps above the tree tops, and lands only where it fits. You slide round trunks and thread your way through thickets.

@@ -172,6 +172,7 @@
       if (!byYou) return;
       UI().banner(`${P.short(r)} is dead`, r.title ? `${r.title} — it will grow no stronger` : 'It will grow no stronger', true);
       pl.renown = (pl.renown || 0) + 5 + Math.round(r.infl * 0.3);
+      if (r.bounty > 0) { game.loot.push({ x: e.x - 0.3, y: e.y, kind: 'gold', qty: r.bounty }); UI().toast(`You take back the ${r.bounty} crowns you put on its head.`, 'legend', 5); r.bounty = 0; }
       // what it carried
       const rng = new ECHO.RNG((Math.random() * 4294967295) >>> 0);
       if (ECHO.Gear && ECHO.Gear.make) {

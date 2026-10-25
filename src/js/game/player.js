@@ -22,7 +22,7 @@
       const wdmg = weapon ? weapon.dmg : 5;
       const charm = k => ECHO.Wonders && ECHO.Wonders.has(game.world, pl, k);
       const might = pl.buffs && pl.buffs.might > 0 ? 1.33 : 1;
-      const lvM = (ECHO.Prowess ? ECHO.Prowess.dmgMult(pl) : 1) * might;
+      const lvM = (ECHO.Prowess ? ECHO.Prowess.dmgMult(pl) : 1) * might * (charm('valour') ? 1.15 : 1);
       const WC = (ECHO.Gear && ECHO.Gear.wclass(weapon)) || { cd: 1, dmg: 1, range: 0, sta: 1, flame: 1 };
       PC.derived = {
         aggr, caution, reck,
@@ -36,7 +36,7 @@
         drawTime: 0.75 * (1 - pl.skills.archery / 250),
         flameDmg: 19 * (ECHO.Prowess ? ECHO.Prowess.gearScale(ECHO.Prowess.level(pl)) : 1) * (0.8 + pl.skills.flame / 55) * (1 + 0.45 * reck) * (pl.spells.includes('starfire') ? 1.25 : 1) * lvM * WC.flame,
         flameInstab: pl.spells.includes('starfire') ? 0 : reck * 0.2,
-        speed: 4.3 * (1 + pl.skills.endurance / 260),
+        speed: 4.3 * (1 + pl.skills.endurance / 260) * (charm('swiftness') ? 1.08 : 1),
         maxHp: 100 + pl.skills.endurance * 0.6 + pl.skills.ward * 0.4 + ((pl.boons && pl.boons.hp) || 0) + (charm('health') ? 20 : 0) - (charm('hindcurse') ? 20 : 0) + (pl.armor && game.world.items[pl.armor] && game.world.items[pl.armor].affix === 'vigor' ? 25 : 0) + (ECHO.Prowess ? ECHO.Prowess.hpBonus(pl) : 0),
         maxSta: 100 + pl.skills.endurance * 0.8 + ((pl.boons && pl.boons.sta) || 0) + (ECHO.Prowess ? ECHO.Prowess.staBonus(pl) : 0),
         maxMana: 60 + pl.skills.flame * 1.2 + ((pl.boons && pl.boons.mana) || 0),
