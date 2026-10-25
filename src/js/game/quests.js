@@ -180,7 +180,8 @@
       const cols = small ? 2 + (depth >= 2 ? 1 : 0) : 3 + (depth >= 5 ? 1 : 0), rows = small ? 2 + (depth >= 4 ? 1 : 0) : 2 + (depth >= 1 ? 1 : 0) + (depth >= 7 ? 1 : 0);
       const G = ECHO.DGen.carve(rng, cols, rows);
       const W = G.W, H = G.H;
-      const L = { id: b.id, b, s, type: 'delve', kind: site.kind, site, depth, floors, W, H, floor: cave ? 'cave' : style === 'stone' ? 'stone' : 'crypt', wall: cave ? 'rock' : 'stone', cave: true, carved: true, G, rev: 0,
+      const voidS = style === 'void';
+      const L = { id: b.id, b, s, type: 'delve', kind: site.kind, site, depth, floors, W, H, floor: cave ? 'cave' : voidS ? 'void' : style === 'stone' ? 'stone' : 'crypt', wall: cave ? 'rock' : voidS ? 'void' : 'stone', cave: true, carved: true, G, rev: 0,
         furn: [], spots: [], lights: [], webs: [], traps: [], blocked: G.blocked, rock: G.blocked.slice(), seen: new Uint8Array(W * H) };
       L.doorX = G.doorX;
       const f = (model, x, y, o = {}) => {
@@ -201,12 +202,17 @@
         const tiles = ECHO.DGen.tiles(G, r, 1);
         const pick = () => { const k = rng.int(0, tiles.length - 1); return tiles.splice(k, 1)[0]; };
         // light in every room
-        f('candles', r.x0 + 1.2, r.y0 + 1.2, { solid: false, light: glow, colors: { flame: def.glow || '#ffb060', glow: def.glow || '#ffb060' } });
+        if (voidS) {
+          // beyond the Rift: braziers of violet fire at the corners
+          f('voidbrazier', r.x0 + 1.2, r.y0 + 1.2, { solid: false, light: { r: 6, a: 1.15, color: '#b48aff', h: 1.2 } });
+          if (r.x1 - r.x0 > 7) f('voidbrazier', r.x1 - 1.2, r.y0 + 1.2, { solid: false, light: { r: 6, a: 1.15, color: '#b48aff', h: 1.2 } });
+        } else f('candles', r.x0 + 1.2, r.y0 + 1.2, { solid: false, light: glow, colors: { flame: def.glow || '#ffb060', glow: def.glow || '#ffb060' } });
         if (r === far || r === ent) continue;
         const n = 2 + rng.int(0, 2);
         for (let i = 0; i < n && tiles.length > 4; i++) {
           const t = pick();
-          if (cave) f('boulder', t.x + 0.5, t.y + 0.5, { scale: 0.55 + rng.next() * 0.35, rot: rng.next() * 6 });
+          if (voidS) f(rng.next() < 0.55 ? 'voidobelisk' : 'voidcrystal', t.x + 0.5, t.y + 0.5, { scale: 0.8 + rng.next() * 0.35, rot: rng.next() * 6, light: rng.next() < 0.3 ? { r: 3, a: 0.7, color: '#8a5aff', h: 1.4 } : null });
+          else if (cave) f('boulder', t.x + 0.5, t.y + 0.5, { scale: 0.55 + rng.next() * 0.35, rot: rng.next() * 6 });
           else f('pillar', t.x + 0.5, t.y + 0.5, { scale: 0.85, colors: style === 'stone' ? { stone: '#5a4a40' } : null });
         }
         if (K === 'hideout' || K === 'warren') for (let i = 0; i < 2 && tiles.length; i++) { const t = pick(); f(i % 2 ? 'crate' : 'barrel', t.x + 0.5, t.y + 0.5); }
@@ -223,10 +229,18 @@
       const fx = far.mx, fy = far.my;
       if (last) {
         L.chest = f('chest', fx, far.y0 + 1.4, { action: 'delvechest', label: site.chestTaken ? 'An empty chest' : 'Open the chest', colors: { metal: '#e8c860' } });
+        if (voidS) {
+          // the throne of the Hollow King, at the end of everything
+          f('riftthrone', fx + 2.6, far.y0 + 1.1, { w: 2, h: 2, rot: -Math.PI / 2, light: { r: 7, a: 1.3, color: '#b48aff', h: 2 } });
+          for (const sx of [far.x0 + 0.9, far.x1 - 0.9]) f('voidcrystal', sx, far.y0 + 0.9, { scale: 1.3, light: { r: 4, a: 0.9, color: '#8a5aff', h: 1.2 } });
+          f('voidbrazier', far.x0 + 1, far.y1 - 1, { solid: false, light: { r: 6, a: 1.2, color: '#b48aff', h: 1.2 } });
+          f('voidbrazier', far.x1 - 1, far.y1 - 1, { solid: false, light: { r: 6, a: 1.2, color: '#b48aff', h: 1.2 } });
+        } else {
         if (!cave || K === 'catacomb' || K === 'sanctum') f('altar', fx, far.y0 + 0.6, { w: 3, h: 1, solid: false, colors: { glow: def.glow } });
         f('standard', far.x0 + 0.8, far.y0 + 0.8, { colors: { banner: '#5a1a1a' } }); f('standard', far.x1 - 0.8, far.y0 + 0.8, { colors: { banner: '#5a1a1a' } });
         f('candles', far.x0 + 1, far.y1 - 1, { solid: false, light: { r: 6, a: 1.2, color: '#ff6a4a', h: 1.1 } });
         f('candles', far.x1 - 1, far.y1 - 1, { solid: false, light: { r: 6, a: 1.2, color: '#ff6a4a', h: 1.1 } });
+        }
       } else f('stairs', fx, fy, { w: 2, h: 2, action: 'delvedown', label: `Go down the stairs (floor ${depth + 2} of ${floors})` });
       // what a cave off the beaten track was known for
       if (last && site.feature === 'paintings') f('tablet', fx - 2.2, far.y0 + 0.9, { action: 'cavepaint', label: site.used.paint ? 'The painted wall' : 'Look at the paintings on the wall', colors: { rune: '#d0803a', stone: '#6a5a48' } });

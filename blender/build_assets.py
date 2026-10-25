@@ -45,6 +45,9 @@ PALETTE = {
     'antler': ('#d8cdb0', 0, .8), 'eyeglow': ('#ffcf3a', 8, .3), 'statue': ('#c8c4ba', 0, .8),
     'rune': ('#9fd3ff', 4, .3), 'water': ('#3a6e9c', 0, .1), 'red': ('#a83a2a', 0, .9),
     'straw': ('#d8b86a', 0, .9), 'iron': ('#3a3a42', 0, .6), 'paper': ('#e8dcc0', 0, .9),
+    # the dead, the void and the things in it
+    'bonedark': ('#a89c84', 0, .8), 'socket': ('#0a0608', 0, 1.0), 'rust': ('#6e4a32', 0, .75), 'rag': ('#3a3448', 0, .95),
+    'ghost': ('#a8c4f0', 1.2, .6), 'voidglow': ('#b48aff', 7, .3), 'obsidian': ('#1e1826', 0, .2), 'crystal': ('#6a3ad0', 2.5, .15),
 }
 
 
@@ -478,6 +481,333 @@ def person():
         bow.box((.04, .03, .16), (hand_l.x - .06 - .06 * (1 - t * t), hand_l.y - .03, hand_l.z + t * .3), 'wood', rot=(0, 25 * t, 0))
     bow.box((.01, .01, .6), (hand_l.x + .02, hand_l.y - .03, hand_l.z), 'white')
     m.part('torch', hand_l, armL).box((.04, .04, .4), (hand_l.x - .03, hand_l.y, hand_l.z + .14), 'darkwood').ball(.07, (hand_l.x - .03, hand_l.y, hand_l.z + .37), 'flame', sub=1, scale=(1, 1, 1.4))
+    return m
+
+
+# ================================================================= THE DEAD AND THE VOID
+# Monsters of their own shape, on the same rig as a person (hips at .42,
+# shoulders at .8, head from .84; facing -X), so they walk, swing and cast with
+# everyone else's motions. Parts named like a person's gear (sword, bow, staff,
+# hood, robe, crown, cape) are shown or hidden by what the monster carries.
+def bone_limb(p, a, b, r, m='bone', knob='bone'):
+    """A long bone from a to b with a knuckle at each end."""
+    A, B = Vector(a), Vector(b)
+    p.tube([A, A.lerp(B, .5), B], [r * 1.25, r * .85, r * 1.15], m, seg=8)
+    p.ball(r * 1.55, a, knob, sub=1).ball(r * 1.4, b, knob, sub=1)
+    return p
+
+
+@model
+def mskeleton():
+    m = Model('m_skeleton')
+    root = m.part('root')
+    hip = 0.42
+    for side, nm in ((-1, 'legL'), (1, 'legR')):
+        y = side * .085
+        L = m.part(nm, (0, y, hip), root)
+        bone_limb(L, (0, y, hip - .02), (-.01, y, .23), .026)
+        bone_limb(L, (-.01, y, .21), (.0, y, .055), .021)
+        L.box((.13, .06, .03), (-.035, y, .025), 'bone').box((.04, .06, .03), (.03, y, .025), 'bonedark')
+    body = m.part('body', (0, 0, hip), root)
+    # pelvis and spine
+    body.ball(.075, (0, -.06, hip + .03), 'bonedark', scale=(.9, 1, .75)).ball(.075, (0, .06, hip + .03), 'bonedark', scale=(.9, 1, .75))
+    body.box((.07, .1, .05), (.02, 0, hip + .06), 'bone')
+    for i in range(7):
+        z = hip + .1 + i * .052
+        body.ball(.028, (.035, 0, z), 'bone', scale=(1.1, 1.25, .8)).box((.03, .012, .018), (.06, 0, z), 'bonedark')
+    # the cage of ribs: arcs from the spine round to the breastbone
+    for k in range(5):
+        z = hip + .2 + k * .043
+        w = .14 - abs(k - 1.6) * .012
+        for s in (-1, 1):
+            pts = [(.035, s * .02, z), (.02, s * w * .85, z - .01), (-.04, s * w, z - .025), (-.095, s * w * .55, z - .035), (-.11, s * .025, z - .03)]
+            body.tube(pts, [.011, .012, .012, .011, .009], 'bone', seg=6, caps=True)
+    body.box((.025, .035, .19), (-.112, 0, hip + .27), 'bonedark')
+    for s in (-1, 1):
+        body.tube([(-.08, s * .02, hip + .4), (-.04, s * .12, hip + .39), (0, s * .2, hip + .38)], [.012, .013, .014], 'bone', seg=6)
+        body.ball(.035, (0, s * .2, hip + .37), 'bone')
+    sh = hip + .38
+    for side, nm in ((-1, 'armL'), (1, 'armR')):
+        y = side * .22
+        A = m.part(nm, (0, y, sh), body)
+        bone_limb(A, (0, y, sh - .01), (0, y, sh - .2), .021)
+        bone_limb(A, (0, y, sh - .22), (-.01, y, sh - .37), .017)
+        A.box((.05, .035, .045), (-.012, y, sh - .4), 'bone')
+        for f in (-1, 0, 1):
+            A.cone(.008, .07, (-.03 - .006 * abs(f), y + f * .012, sh - .45), 'bone', seg=4, rot=(0, 180, 0))
+    hz = hip + .42
+    head = m.part('head', (0, 0, hz), body)
+    head.ball(.03, (.03, 0, hz + .02), 'bone')
+    head.ball(.118, (.005, 0, hz + .15), 'bone', sub=2, scale=(1.08, .94, 1.0))
+    head.box((.09, .15, .08), (-.07, 0, hz + .1), 'bone')
+    for s in (-1, 1):
+        head.ball(.034, (-.105, s * .046, hz + .145), 'socket', scale=(.7, 1, 1.05))
+        head.ball(.015, (-.122, s * .046, hz + .145), 'eyeglow', sub=1)
+        head.box((.05, .02, .05), (-.07, s * .085, hz + .1), 'bonedark')
+    head.cone(.024, .05, (-.125, 0, hz + .095), 'socket', seg=3, rot=(0, 0, 0))
+    jaw = head
+    jaw.box((.07, .13, .03), (-.075, 0, hz + .035), 'bone').box((.04, .04, .07), (-.02, -.06, hz + .06), 'bone').box((.04, .04, .07), (-.02, .06, hz + .06), 'bone')
+    for i in range(6):
+        y = (i - 2.5) * .02
+        jaw.box((.012, .014, .02), (-.118, y, hz + .07), 'white').box((.012, .014, .018), (-.112, y, hz + .052), 'white')
+    # what it carries
+    hr, hl = Vector((0, .22, sh - .42)), Vector((0, -.22, sh - .42))
+    m.part('sword', hr, m.parts[[p.name for p in m.parts].index('armR')]).box((.5, .02, .05), (hr.x - .27, hr.y, hr.z), 'rust').box((.04, .14, .03), (hr.x - .03, hr.y, hr.z), 'darkmetal').box((.1, .025, .025), (hr.x + .04, hr.y, hr.z), 'leather')
+    armL = m.parts[[p.name for p in m.parts].index('armL')]
+    bow = m.part('bow', hl, armL)
+    for i in range(5):
+        t = (i - 2) / 2
+        bow.box((.035, .025, .16), (hl.x - .06 - .06 * (1 - t * t), hl.y - .03, hl.z + t * .3), 'darkwood', rot=(0, 25 * t, 0))
+    bow.box((.008, .008, .6), (hl.x + .02, hl.y - .03, hl.z), 'white')
+    m.part('shield', hl, armL).cyl(.19, .04, (hl.x - .04, hl.y - .06, hl.z + .1), 'wood', seg=10, rot=(90, 0, 0)).box((.04, .02, .36), (hl.x - .04, hl.y - .085, hl.z + .1), 'rust')
+    hood = m.part('hood', (0, 0, hz), head)
+    hood.ball(.14, (.075, 0, hz + .17), 'rag', scale=(1.0, 1.08, 1.1)).cone(.06, .14, (.12, 0, hz + .31), 'rag', seg=5, rot=(0, 30, 0))
+    hood.cyl(.2, .12, (.04, 0, hz + .0), 'rag', seg=10, r2=.13)
+    return m
+
+
+@model
+def mwraith():
+    m = Model('m_wraith')
+    root = m.part('root')
+    hip = 0.42
+    # no legs: rags that hang and sway where legs would be
+    for side, nm in ((-1, 'legL'), (1, 'legR')):
+        y = side * .08
+        L = m.part(nm, (0, y, hip), root)
+        L.tube([(.02, y, hip), (.03, y * 1.2, .25), (.06, y * 1.1, .08), (.1, y, -.0)], [(.07, .05), (.06, .04), (.04, .03), 0], 'cloth2', seg=8)
+        L.tube([(.03, y, .2), (.08, y * 1.1, .02), (.14, y * .9, -.05)], [.05, .03, 0], 'ghost', seg=6)
+    body = m.part('body', (0, 0, hip), root)
+    body.cyl(.25, .42, (.02, 0, .24), 'cloth', seg=12, r2=.15)
+    for i in range(10):
+        a = i / 10 * 2 * math.pi
+        body.cone(.06, .16 + .06 * (i % 3), (.02 + .22 * math.cos(a), .22 * math.sin(a), .02), 'cloth', seg=4, rot=(180, 0, 0))
+    body.ball(.3, (.05, 0, .05), 'ghost', scale=(1.1, 1.1, .35))
+    body.cyl(.15, .38, (0, 0, hip + .2), 'cloth', seg=10, r2=.12)
+    body.tube([(-.12, -.1, hip + .36), (-.15, 0, hip + .2), (-.13, .1, hip + .02)], [.02, .022, .018], 'cloth2', seg=6)
+    for s in (-1, 1):
+        body.ball(.09, (.02, s * .17, hip + .37), 'cloth', scale=(1, 1, .8))
+    # trailing wisps
+    for s in (-1, 0, 1):
+        body.tube([(.12, s * .1, hip + .1), (.3, s * .14, hip - .05), (.5, s * .12, hip - .12)], [.05, .035, 0], 'ghost', seg=6)
+    sh = hip + .38
+    for side, nm in ((-1, 'armL'), (1, 'armR')):
+        y = side * .22
+        A = m.part(nm, (0, y, sh), body)
+        A.cyl(.05, .3, (0, y, sh - .15), 'cloth', seg=8, r2=.085)
+        A.tube([(.0, y, sh - .3), (-.02, y, sh - .38), (-.05, y, sh - .43)], [.025, .02, .016], 'skin', seg=6)
+        for f in (-1, 0, 1):
+            A.tube([(-.05, y + f * .02, sh - .43), (-.08, y + f * .03, sh - .5), (-.12, y + f * .035, sh - .53)], [.01, .008, 0], 'skin', seg=5)
+    hz = hip + .42
+    head = m.part('head', (0, 0, hz), body)
+    head.ball(.15, (.07, 0, hz + .14), 'cloth', scale=(1.05, 1.05, 1.22))
+    head.cone(.08, .2, (.15, 0, hz + .31), 'cloth', seg=6, rot=(0, 35, 0))
+    head.ball(.11, (-.065, 0, hz + .12), 'socket', scale=(.55, .82, 1.0))
+    for s in (-1, 1):
+        head.ball(.022, (-.13, s * .042, hz + .14), 'eyeglow', sub=1)
+    return m
+
+
+@model
+def mcultist():
+    m = Model('m_cultist')
+    root = m.part('root')
+    hip = 0.42
+    for side, nm in ((-1, 'legL'), (1, 'legR')):
+        y = side * .08
+        L = m.part(nm, (0, y, hip), root)
+        L.box((.11, .11, .4), (0, y, hip - .2), 'cloth2').box((.16, .12, .07), (-.02, y, .035), 'leather')
+    body = m.part('body', (0, 0, hip), root)
+    body.cyl(.16, .4, (0, 0, hip + .2), 'cloth', seg=12, r2=.13)
+    body.box((.04, .1, .38), (-.14, 0, hip + .2), 'cloth2')
+    for s in (-1, 1):
+        body.box((.02, .012, .38), (-.165, s * .052, hip + .2), 'gold')
+    body.cyl(.165, .05, (0, 0, hip + .02), 'leather', seg=12)
+    body.tube([(-.12, -.12, hip + .36), (-.15, 0, hip + .22), (-.12, .12, hip + .05)], [.022, .022, .022], 'cloth2', seg=6)
+    body.tube([(-.14, -.05, hip + .37), (-.17, 0, hip + .3), (-.14, .05, hip + .37)], [.006, .006, .006], 'gold', seg=4, caps=False)
+    body.ball(.03, (-.17, 0, hip + .3), 'voidglow', sub=1)
+    for s in (-1, 1):
+        body.ball(.08, (.0, s * .16, hip + .36), 'cloth', scale=(1, 1, .7))
+    robe = m.part('robe', (0, 0, 0), body)
+    robe.cyl(.24, .44, (.01, 0, .24), 'cloth', seg=14, r2=.16)
+    robe.cyl(.245, .035, (.01, 0, .035), 'gold', seg=14, r2=.24)
+    robe.box((.04, .1, .4), (-.2, 0, .24), 'cloth2', rot=(0, -8, 0))
+    sh = hip + .38
+    for side, nm in ((-1, 'armL'), (1, 'armR')):
+        y = side * .21
+        A = m.part(nm, (0, y, sh), body)
+        A.cyl(.05, .32, (0, y, sh - .16), 'cloth', seg=8, r2=.09)
+        A.cyl(.092, .03, (0, y, sh - .33), 'gold', seg=8)
+        A.box((.08, .07, .08), (-.01, y, sh - .38), 'skin')
+    hz = hip + .42
+    head = m.part('head', (0, 0, hz), body)
+    head.ball(.105, (-.005, 0, hz + .12), 'skin', sub=2, scale=(1, .92, 1.1))
+    for s in (-1, 1):
+        head.ball(.016, (-.1, s * .038, hz + .13), 'voidglow', sub=1)
+    head.box((.04, .08, .02), (-.1, 0, hz + .065), 'socket')
+    hood = m.part('hood', (0, 0, hz), head)
+    hood.ball(.15, (.075, 0, hz + .15), 'cloth', scale=(1.0, 1.06, 1.15))
+    hood.cone(.07, .22, (.14, 0, hz + .32), 'cloth', seg=6, rot=(0, 40, 0))
+    hood.cyl(.19, .1, (.03, 0, hz + .0), 'cloth', seg=10, r2=.12)
+    hr, hl = Vector((0, .21, sh - .4)), Vector((0, -.21, sh - .4))
+    armR = m.parts[[p.name for p in m.parts].index('armR')]
+    st = m.part('staff', hr, armR)
+    st.tube([(hr.x - .03, hr.y, hr.z - .45), (hr.x - .05, hr.y, hr.z), (hr.x - .02, hr.y, hr.z + .35), (hr.x - .06, hr.y, hr.z + .62)], [.022, .024, .02, .018], 'darkwood', seg=6)
+    for a in range(3):
+        aa = a * 2 * math.pi / 3
+        st.tube([(hr.x - .06, hr.y, hr.z + .6), (hr.x - .06 + .06 * math.cos(aa), hr.y + .06 * math.sin(aa), hr.z + .7), (hr.x - .06 + .03 * math.cos(aa), hr.y + .03 * math.sin(aa), hr.z + .8)], [.012, .01, 0], 'darkwood', seg=5)
+    st.ball(.055, (hr.x - .06, hr.y, hr.z + .72), 'voidglow', sub=2)
+    m.part('sword', hr, armR).box((.24, .02, .04), (hr.x - .14, hr.y, hr.z), 'darkmetal').box((.08, .025, .03), (hr.x + .02, hr.y, hr.z), 'gold')
+    return m
+
+
+@model
+def mgolem():
+    m = Model('m_golem')
+    root = m.part('root')
+    hip = 0.42
+    for side, nm in ((-1, 'legL'), (1, 'legR')):
+        y = side * .11
+        L = m.part(nm, (0, y, hip), root)
+        L.ball(.11, (0, y, hip - .08), 'stone', scale=(1, 1, 1.2)).ball(.1, (-.01, y, .2), 'darkstone', scale=(1.05, 1, 1.1)).box((.22, .16, .09), (-.03, y, .045), 'stone')
+        L.box((.02, .05, .12), (-.1, y, .2), 'rune')
+    body = m.part('body', (0, 0, hip), root)
+    body.ball(.26, (0, 0, hip + .24), 'stone', sub=2, scale=(.95, 1.2, 1.05))
+    body.ball(.16, (0, 0, hip + .03), 'darkstone', scale=(1, 1.3, .7))
+    for (x, y, z, r, rx) in ((.12, -.12, .66, .12, 20), (.14, .1, .7, .11, -15), (.05, 0, .82, .13, 0), (.18, 0, .52, .1, 10)):
+        body.box((r * 1.4, r * 1.6, r), (x, y, z), 'darkstone', rot=(rx, 30, 10))
+    for (x, y, z, h, rx, ry) in ((.08, -.22, .86, .22, -35, 15), (.12, -.15, .92, .16, -15, 30), (.08, .22, .86, .2, 35, 15), (.14, .14, .9, .15, 15, 30), (.2, 0, .8, .18, 0, 50)):
+        body.cone(.045, h, (x, y, z), 'crystal', seg=5, rot=(rx, ry, 0))
+    body.box((.02, .14, .03), (-.235, 0, hip + .26), 'rune', rot=(0, 0, 8)).box((.02, .03, .12), (-.235, .05, hip + .2), 'rune')
+    sh = hip + .4
+    for side, nm in ((-1, 'armL'), (1, 'armR')):
+        y = side * .3
+        A = m.part(nm, (0, y, sh), body)
+        A.ball(.11, (0, y, sh - .02), 'darkstone').ball(.1, (0, y * 1.03, sh - .18), 'stone', scale=(1, 1, 1.2)).box((.17, .16, .2), (-.01, y * 1.05, sh - .36), 'stone', rot=(0, 0, 10 * side))
+        A.ball(.11, (-.02, y * 1.05, sh - .5), 'darkstone')
+        A.box((.02, .04, .1), (-.08, y * 1.05, sh - .36), 'rune')
+    hz = hip + .44
+    head = m.part('head', (0, 0, hz), body)
+    head.box((.2, .22, .17), (-.03, 0, hz + .06), 'stone', rot=(0, 8, 0)).box((.08, .26, .05), (-.08, 0, hz + .14), 'darkstone')
+    head.box((.02, .14, .025), (-.135, 0, hz + .08), 'rune')
+    return m
+
+
+@model
+def mhollowking():
+    m = Model('m_hollowking')
+    root = m.part('root')
+    hip = 0.42
+    for side, nm in ((-1, 'legL'), (1, 'legR')):
+        y = side * .09
+        L = m.part(nm, (0, y, hip), root)
+        L.box((.12, .12, .42), (0, y, hip - .21), 'cloth2').box((.14, .13, .2), (-.01, y, .12), 'darkmetal').ball(.06, (-.04, y, .24), 'gold').box((.18, .13, .06), (-.03, y, .03), 'darkmetal')
+    body = m.part('body', (0, 0, hip), root)
+    body.cyl(.16, .4, (0, 0, hip + .2), 'darkmetal', seg=12, r2=.15)
+    body.box((.06, .26, .26), (-.13, 0, hip + .26), 'darkmetal')
+    for k in range(4):
+        body.box((.02, .22 - k * .02, .015), (-.165, 0, hip + .16 + k * .05), 'gold')
+    body.ball(.035, (-.17, 0, hip + .32), 'voidglow', sub=1)
+    body.cyl(.17, .06, (0, 0, hip + .02), 'gold', seg=12)
+    for s in (-1, 1):
+        body.ball(.12, (.0, s * .2, hip + .38), 'darkmetal', scale=(1.1, 1, .75))
+        body.cyl(.125, .03, (.0, s * .2, hip + .34), 'gold', seg=10)
+        for k in range(3):
+            body.cone(.025, .14, (.04 - k * .05, s * .23, hip + .46), 'gold', seg=4, rot=(s * -20, 0, 0))
+    robe = m.part('robe', (0, 0, 0), body)
+    robe.cyl(.26, .46, (.02, 0, .23), 'cloth', seg=14, r2=.17)
+    robe.cyl(.265, .04, (.02, 0, .03), 'gold', seg=14, r2=.26)
+    for i in range(8):
+        a = i / 8 * 2 * math.pi
+        robe.cone(.05, .1, (.02 + .25 * math.cos(a), .25 * math.sin(a), .0), 'cloth', seg=4, rot=(180, 0, 0))
+    cape = m.part('cape', (.14, 0, hip + .4), body)
+    outline = [(.15, -.2, hip + .4), (.15, .2, hip + .4), (.22, .24, hip + .0), (.28, .2, .15), (.26, .12, .05), (.3, .05, .12), (.28, -.03, .02), (.3, -.1, .1), (.28, -.18, .04), (.22, -.24, .2)]
+    cape.membrane(outline, 'cloth2', thick=.025)
+    sh = hip + .38
+    for side, nm in ((-1, 'armL'), (1, 'armR')):
+        y = side * .23
+        A = m.part(nm, (0, y, sh), body)
+        A.cyl(.05, .34, (0, y, sh - .17), 'cloth', seg=8, r2=.075).cyl(.07, .14, (0, y, sh - .3), 'darkmetal', seg=8, r2=.06)
+        A.box((.08, .07, .07), (-.01, y, sh - .4), 'darkmetal')
+        for f in (-1, 0, 1):
+            A.cone(.012, .08, (-.05, y + f * .02, sh - .45), 'darkmetal', seg=4, rot=(0, 200, 0))
+    hz = hip + .42
+    head = m.part('head', (0, 0, hz), body)
+    head.ball(.12, (0, 0, hz + .14), 'skin', sub=2, scale=(1.05, .92, 1.08))
+    head.box((.08, .13, .06), (-.07, 0, hz + .05), 'skin')
+    for s in (-1, 1):
+        head.ball(.034, (-.1, s * .045, hz + .15), 'socket', scale=(.7, 1, 1))
+        head.ball(.019, (-.118, s * .045, hz + .15), 'eyeglow', sub=1)
+    crown = m.part('crown', (0, 0, hz), head)
+    crown.cyl(.135, .05, (0, 0, hz + .25), 'gold', seg=12)
+    for i in range(7):
+        a = i / 7 * 2 * math.pi
+        crown.cone(.025, .12 + .06 * (i % 2), (.13 * math.cos(a), .13 * math.sin(a), hz + .33), 'gold', seg=4)
+    crown.ball(.022, (-.135, 0, hz + .26), 'voidglow', sub=1)
+    hr = Vector((0, .23, sh - .42))
+    armR = m.parts[[p.name for p in m.parts].index('armR')]
+    st = m.part('staff', hr, armR)
+    st.cyl(.022, 1.3, (hr.x - .03, hr.y, hr.z + .15), 'darkmetal', seg=6)
+    st.cyl(.06, .05, (hr.x - .03, hr.y, hr.z + .78), 'gold', seg=8)
+    for a in range(4):
+        aa = a * math.pi / 2
+        st.cone(.02, .16, (hr.x - .03 + .05 * math.cos(aa), hr.y + .05 * math.sin(aa), hr.z + .88), 'gold', seg=4, rot=(30 * math.sin(aa), -30 * math.cos(aa), 0))
+    st.ball(.07, (hr.x - .03, hr.y, hr.z + .9), 'voidglow', sub=2)
+    return m
+
+
+# ================================================================= THE RIFT'S FURNISHINGS
+@model
+def voidobelisk():
+    m = Model('voidobelisk')
+    b = m.part('building')
+    b.cyl(.34, .18, (0, 0, .09), 'obsidian', seg=6, r2=.28).cyl(.24, .12, (0, 0, .24), 'obsidian', seg=6, r2=.18)
+    for i in range(5):
+        a = i / 5 * 2 * math.pi
+        b.box((.06, .1, .03), (.3 * math.cos(a), .3 * math.sin(a), .19), 'voidglow', rot=(0, 0, math.degrees(a)))
+    s = m.part('shard', (0, 0, 1.15))
+    s.cyl(.17, .9, (0, 0, 1.1), 'obsidian', seg=5, r2=.1).cone(.1, .3, (0, 0, 1.7), 'obsidian', seg=5).cone(.17, .25, (0, 0, .54), 'obsidian', seg=5, rot=(180, 0, 0))
+    for k in range(4):
+        s.box((.012, .1, .12), (-.15 + .005 * k, 0, .85 + k * .18), 'voidglow', rot=(0, 0, 15 * (k % 2 * 2 - 1)))
+    return m
+
+
+@model
+def voidcrystal():
+    m = Model('voidcrystal')
+    b = m.part('building')
+    b.ball(.22, (0, 0, .05), 'obsidian', scale=(1.3, 1.1, .5))
+    for (x, y, h, rx, ry, r) in ((0, 0, .9, 0, 0, .09), (.12, .05, .6, 18, 22, .07), (-.1, .08, .55, -20, -15, .06), (.05, -.12, .5, 25, -18, .06), (-.08, -.08, .35, -10, 25, .05)):
+        b.cone(r, h, (x, y, .05 + h / 2 * .9), 'crystal', seg=6, rot=(rx, ry, 0))
+    return m
+
+
+@model
+def voidbrazier():
+    m = Model('voidbrazier')
+    b = m.part('building')
+    b.cyl(.2, .06, (0, 0, .03), 'iron', seg=6).cyl(.05, .7, (0, 0, .4), 'iron', seg=6).cyl(.24, .14, (0, 0, .8), 'iron', seg=8, r2=.16)
+    for i in range(4):
+        a = i * math.pi / 2
+        b.cone(.025, .2, (.22 * math.cos(a), .22 * math.sin(a), .92), 'iron', seg=4)
+    m.part('fire', (0, 0, .95)).ball(.13, (0, 0, .95), 'voidglow', sub=1, scale=(1, 1, 1.5)).ball(.07, (0, 0, 1.12), 'voidglow', sub=1, scale=(1, 1, 1.8))
+    return m
+
+
+@model
+def riftthrone():
+    m = Model('riftthrone')
+    b = m.part('building')
+    b.box((1.6, 1.4, .2), (0, 0, .1), 'obsidian').box((1.2, 1.0, .2), (0, 0, .3), 'obsidian')
+    b.box((.7, .8, .14), (0, 0, .62), 'obsidian').box((.18, .8, 1.5), (.3, 0, 1.2), 'obsidian')
+    for s in (-1, 1):
+        b.box((.6, .12, .4), (0, s * .38, .8), 'obsidian')
+        b.cone(.07, .5, (.3, s * .34, 2.1), 'obsidian', seg=5)
+        b.cone(.05, .35, (.3, s * .22, 2.05), 'crystal', seg=5)
+    b.cone(.09, .7, (.3, 0, 2.25), 'obsidian', seg=5)
+    b.ball(.07, (.22, 0, 1.75), 'voidglow', sub=1)
+    for k in range(3):
+        b.box((.02, .5 - k * .1, .02), (.205, 0, 1.0 + k * .2), 'voidglow')
     return m
 
 

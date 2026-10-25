@@ -5,7 +5,7 @@
 //  • instance(name)      → a full clone with its named parts, for animated
 //    characters, creatures and bosses (each gets its own materials).
 (function () {
-  const GLOW = new Set(['glow', 'flame', 'eyeglow', 'rune']);
+  const GLOW = new Set(['glow', 'flame', 'eyeglow', 'rune', 'voidglow']);
 
   const M = ECHO.Models = {
     scenes: {}, baked: {}, ready: false, failed: null,
@@ -40,7 +40,7 @@
       scene.traverse(o => {
         if (!o.isMesh) return;
         const mname = o.material.name;
-        const bucket = GLOW.has(mname) ? 'glow' : mname === 'window' ? 'window' : 'base';
+        const bucket = GLOW.has(mname) || mname === 'crystal' ? 'glow' : mname === 'window' ? 'window' : 'base';
         let g = o.geometry.clone();
         g.applyMatrix4(o.matrixWorld);
         if (g.index) g = g.toNonIndexed();
@@ -96,7 +96,14 @@
           }
           m.name = mname;
           if (colors && colors[mname]) m.color.copy(M.srgb(colors[mname]));
-          if (m.isMeshStandardMaterial && ECHO.Renderer3D && ECHO.Renderer3D.detail) ECHO.Renderer3D.detail(m, 0.1, 3.5);
+          const R3 = ECHO.Renderer3D;
+          // a monster of its own shape: what it is made of drawn on it; ghost-stuff
+          // drifts and shows through, crystal glows
+          if (m.isMeshStandardMaterial && R3 && R3.surface && name.startsWith('m_') && R3.SURF[mname]) {
+            if (mname === 'ghost') { m.transparent = true; m.opacity = 0.8; m.depthWrite = false; m.emissive = base.color.clone().multiplyScalar(0.25); m.userData.keep = true; }
+            if (mname === 'crystal') { m.emissive = base.color.clone().multiplyScalar(0.5); m.roughness = 0.25; m.userData.keep = true; }
+            R3.surface(m, R3.SURF[mname]);
+          } else if (m.isMeshStandardMaterial && R3 && R3.detail) R3.detail(m, 0.1, 3.5);
           o.material = m;
           o.castShadow = true;
           o.receiveShadow = false;

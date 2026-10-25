@@ -171,6 +171,10 @@
         const sl = R.makeFxMesh({ kind: 'slash', angle: 0, arc: 1.5, range: 1, color: '#ffffff', style: 'combo' }); zoo.add(sl); mats.push(sl.material);
         const dm = new THREE.MeshBasicMaterial({ map: R.decalTex('blood'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
         zoo.add(new THREE.Mesh(g, dm)); mats.push(dm);
+        // monsters of their own shape (each kind of stuff its own shader), and beyond the Rift
+        for (const k of Object.values(R.MON_MODEL)) { const mi = ECHO.Models.instance(k); if (mi) { mi.root.scale.setScalar(0.001); zoo.add(mi.root); } }
+        for (const vm of [R.voidFloorMat(), R.voidSkyMat(), R.voidTearMat()]) zoo.add(new THREE.Mesh(g, vm));
+        const vp = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3)).setAttribute('aSeed', new THREE.BufferAttribute(new Float32Array(1), 1)), R.voidMoteMat()); vp.frustumCulled = false; zoo.add(vp);
       } catch (e) { /* drawn when first needed */ }
       for (const tr of [false, true]) { const m = new THREE.LineBasicMaterial({ transparent: tr, opacity: tr ? 0.5 : 1 }); zoo.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0.01, 0)]), m)); mats.push(m); }
       R.scene.add(zoo);
@@ -206,6 +210,88 @@
           diffuseColor.rgb *= 1.0 + (dN - 0.5) * ${(k * 2).toFixed(3)};`)
           .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
           roughnessFactor = clamp(roughnessFactor * (0.9 + dN * 0.2), 0.04, 1.0);`);
+      };
+      mat.needsUpdate = true;
+      return mat;
+    },
+    // What a monster is made of, drawn on it: bone that is pitted and cracked,
+    // cloth that is woven, creased, worn and dirty at the hem, stone split into
+    // plates, metal brushed and scratched with rust in the seams, leather grained,
+    // and ghost-stuff that drifts and glows. Drawn from the part's own space, so
+    // it moves with it; no images needed.
+    SURF: { bone: 'bone', bonedark: 'bone', skin: 'skin', cloth: 'cloth', cloth2: 'cloth', rag: 'cloth', cape: 'cloth', stone: 'stone', darkstone: 'stone', obsidian: 'stone', metal: 'metal', darkmetal: 'metal', iron: 'metal', gold: 'gold', rust: 'rust', leather: 'leather', darkwood: 'wood', wood: 'wood', ghost: 'ghost', crystal: 'crystal' },
+    surface(mat, kind) {
+      if (!mat || mat.userData.surf) return mat;
+      mat.userData.surf = kind;
+      const K = ['bone', 'skin', 'cloth', 'stone', 'metal', 'gold', 'rust', 'leather', 'wood', 'ghost', 'crystal'].indexOf(kind);
+      mat.customProgramCacheKey = () => 'surf' + K;
+      mat.onBeforeCompile = (sh) => {
+        sh.uniforms.uTime = R.waterTime;
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vSP; varying vec3 vSN;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvSP = position; vSN = normal;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+          uniform float uTime; varying vec3 vSP; varying vec3 vSN;
+          float sH(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+          float sN(vec3 p) { vec3 i = floor(p), f = fract(p); vec3 u = f * f * (3.0 - 2.0 * f);
+            return mix(mix(mix(sH(i), sH(i + vec3(1,0,0)), u.x), mix(sH(i + vec3(0,1,0)), sH(i + vec3(1,1,0)), u.x), u.y),
+                       mix(mix(sH(i + vec3(0,0,1)), sH(i + vec3(1,0,1)), u.x), mix(sH(i + vec3(0,1,1)), sH(i + vec3(1,1,1)), u.x), u.y), u.z); }
+          float sF(vec3 p) { return sN(p) * 0.55 + sN(p * 2.1) * 0.3 + sN(p * 4.3) * 0.15; }
+          float sCell(vec3 p) { vec3 i = floor(p), f = fract(p); float d1 = 9.0, d2 = 9.0;
+            for (int x = -1; x <= 1; x++) for (int y = -1; y <= 1; y++) for (int z = -1; z <= 1; z++) { vec3 g = vec3(float(x), float(y), float(z)); vec3 o = vec3(sH(i + g), sH(i + g + 7.1), sH(i + g + 3.3));
+              float d = length(g + o - f); if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d; }
+            return d2 - d1; }
+          vec2 sPlane(vec3 p, vec3 n) { vec3 a = abs(n); return a.x > a.y && a.x > a.z ? p.yz : a.y > a.z ? p.xz : p.xy; }`)
+          .replace('#include <color_fragment>', `#include <color_fragment>
+          float sRough = 1.0; vec3 sEm = vec3(0.0);
+          {
+            vec3 P = vSP; vec3 Nn = normalize(vSN); int K = ${K};
+            if (K == 0 || K == 1) {
+              float f = sF(P * 16.0), pit = smoothstep(0.72, 0.8, sN(P * 70.0)), cr = 1.0 - smoothstep(0.0, 0.035, abs(sN(P * vec3(7.0, 3.0, 7.0)) - 0.5));
+              diffuseColor.rgb *= (0.84 + 0.3 * f) * (1.0 - pit * 0.35) * (1.0 - cr * (K == 0 ? 0.45 : 0.2));
+              diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.78, 0.7, 0.55), smoothstep(0.55, 0.8, sF(P * 5.0)) * 0.6);
+              sRough = 0.85 + f * 0.3;
+            } else if (K == 2) {
+              vec2 q = sPlane(P, Nn) * 190.0;
+              float weave = 0.5 + 0.5 * sin(q.x) * sin(q.y);
+              float folds = sF(vec3(P.x * 9.0, P.y * 0.9, P.z * 9.0));
+              float hem = smoothstep(0.32, 0.0, P.y + 0.05 * sN(P * 20.0)) * step(-0.02, P.y);
+              diffuseColor.rgb *= (0.88 + weave * 0.1) * (0.84 + folds * 0.26);
+              diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.55, 0.5, 0.45), hem * 0.55);
+              diffuseColor.rgb *= 1.0 - smoothstep(0.68, 0.76, sN(P * 26.0)) * 0.14;
+              sRough = 1.05;
+            } else if (K == 3) {
+              float c = sCell(P * 7.0), crack = 1.0 - smoothstep(0.02, 0.09, c), sp = sN(P * 55.0);
+              diffuseColor.rgb *= (0.8 + sF(P * 9.0) * 0.38) * (1.0 - crack * 0.55) * (0.94 + sp * 0.12);
+              sRough = 1.0;
+            } else if (K == 4 || K == 5) {
+              float br = sN(vec3(P.x * 90.0, P.y * 3.0, P.z * 90.0)), sc = 1.0 - smoothstep(0.0, 0.02, abs(sN(P * vec3(30.0, 6.0, 30.0)) - 0.5));
+              float rust = smoothstep(0.62, 0.78, sF(P * 8.0)) * (K == 4 ? 0.4 : 0.2);
+              diffuseColor.rgb *= 0.86 + br * 0.24 + sc * 0.3;
+              diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.18, 0.08, 0.03), rust);
+              sRough = 0.75 + rust * 0.9 - sc * 0.3;
+            } else if (K == 6) {
+              float b = sF(P * 14.0), pit = smoothstep(0.6, 0.75, sN(P * 45.0));
+              diffuseColor.rgb *= 0.7 + b * 0.55; diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.32, 0.14, 0.05), pit * 0.6); sRough = 1.1;
+            } else if (K == 7) {
+              float g = sN(P * 90.0), sc = sF(P * 12.0);
+              diffuseColor.rgb *= 0.8 + g * 0.18 + sc * 0.15; sRough = 0.9 + g * 0.2;
+            } else if (K == 8) {
+              vec3 Q = vec3(P.x * 40.0, P.y * 3.0, P.z * 40.0);
+              diffuseColor.rgb *= 0.72 + sF(Q) * 0.5; sRough = 1.05;
+            } else if (K == 9) {
+              float f = sF(P * 6.0 + vec3(0.0, -uTime * 0.7, 0.0)), w = sF(P * 13.0 + vec3(uTime * 0.3, uTime * 0.9, 0.0));
+              sEm = diffuseColor.rgb * (0.35 + f * 0.9);
+              diffuseColor.a *= clamp(0.25 + f * 0.75 - w * 0.25, 0.08, 1.0);
+            } else if (K == 10) {
+              float c = sCell(P * 9.0), edge = 1.0 - smoothstep(0.0, 0.08, c);
+              sEm = diffuseColor.rgb * (0.55 + 0.45 * sin(uTime * 2.0 + P.y * 9.0)) * (0.6 + edge);
+              sRough = 0.3;
+            }
+          }`)
+          .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+          roughnessFactor = clamp(roughnessFactor * sRough, 0.04, 1.0);`)
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          totalEmissiveRadiance += sEm;`);
       };
       mat.needsUpdate = true;
       return mat;
@@ -940,12 +1026,13 @@
       marble: (x, y) => ((x + y) % 2 ? '#d8d2c6' : '#bfb7a8'),
       cave: (x, y) => ['#4a443c', '#524b42', '#453f37', '#5a5246'][((x * 37 + y * 11) * 2654435761 >>> 0) % 4],
       crypt: (x, y) => ['#55524c', '#5d5a53', '#4e4b45', '#625e56'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4],
+      void: (x, y) => ['#2c2438', '#262032', '#302842', '#241e2e'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4],
       // the worlds beyond the gates
       ember: (x, y) => ECHO.GateWorld.PAL.ember.floor[((x * 37 + y * 11) * 2654435761 >>> 0) % 4],
       abyss: (x, y) => ECHO.GateWorld.PAL.abyss.floor[((x * 37 + y * 11) * 2654435761 >>> 0) % 4],
       thorn: (x, y) => ECHO.GateWorld.PAL.thorn.floor[((x * 37 + y * 11) * 2654435761 >>> 0) % 4]
     },
-    WALLS: { plaster: ['#cbb894', '#5a3e26'], stone: ['#7c766c', '#5a554e'], marble: ['#e0d9cc', '#a89e8c'], rock: ['#5a544a', '#3e3a33'], ember: ['#3a2a24', '#ff6a1a'], abyss: ['#2a4448', '#2ad8c8'], thorn: ['#2a1e30', '#9a4aff'] },
+    WALLS: { plaster: ['#cbb894', '#5a3e26'], stone: ['#7c766c', '#5a554e'], marble: ['#e0d9cc', '#a89e8c'], rock: ['#5a544a', '#3e3a33'], ember: ['#3a2a24', '#ff6a1a'], abyss: ['#2a4448', '#2ad8c8'], thorn: ['#2a1e30', '#9a4aff'], void: ['#1e1826', '#6a3ad0'] },
     // Many boxes as one mesh: a dungeon's walls in a single draw.
     mergeBoxes(boxes, mat) {
       const n = boxes.length, pos = new Float32Array(n * 108), nor = new Float32Array(n * 108);
@@ -970,7 +1057,8 @@
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (!L.rock[y * W + x]) quads.push([x, y]);
       const pos = new Float32Array(quads.length * 18), col = new Float32Array(quads.length * 18);
       let o = 0;
-      const lord = L.lordRoom, tre = L.treasureRoom;
+      const VOID = L.floor === 'void';
+      const lord = VOID ? null : L.lordRoom, tre = VOID ? null : L.treasureRoom;
       for (const [x, y] of quads) {
         const inR = r => r && x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1;
         tmp.set(L.fcol ? L.fcol[y * W + x] : inR(lord) ? R.FLOORS[L.floor === 'cave' ? 'stone' : 'marble'](x, y) : inR(tre) ? R.FLOORS.stone(x, y) : R.FLOORS[L.floor](x, y)).convertSRGBToLinear();
@@ -980,7 +1068,8 @@
       }
       const fg = new THREE.BufferGeometry();
       fg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); fg.setAttribute('color', new THREE.BufferAttribute(col, 3)); fg.computeVertexNormals();
-      const floor = new THREE.Mesh(fg, R.mat.terrain); floor.receiveShadow = true; floor.userData.own = true; g.add(floor);
+      const floor = new THREE.Mesh(fg, VOID ? R.voidFloorMat() : R.mat.terrain); floor.receiveShadow = true; floor.userData.own = true; g.add(floor);
+      if (VOID) { R.buildVoid(game, L, g, B, solidRock, isOpen); R.buildTraps(L, g, B); return; }
       const [wc, tc] = R.WALLS[L.wall] || R.WALLS.stone;
       const wallMat = new THREE.MeshStandardMaterial({ color: C(wc).multiplyScalar(L.type === 'gate' ? 1.6 : 1.25), roughness: 0.92, flatShading: true });
       const capMat = new THREE.MeshStandardMaterial({ color: C(tc), roughness: 0.9 });
@@ -1017,6 +1106,9 @@
       const exit = new THREE.Mesh(new THREE.PlaneGeometry(2, 1.2), new THREE.MeshBasicMaterial({ color: '#fff0c0', transparent: true, opacity: 0.3, depthWrite: false }));
       exit.rotation.x = -Math.PI / 2; exit.position.set(L.inside.x, 0.02, L.inside.y + 0.6); exit.userData.own = true; g.add(exit);
       R.roomDoorGlow = exit; R.roomWinMat = null;
+      R.buildTraps(L, g, B);
+    },
+    buildTraps(L, g, B) {
       // traps
       R.trapMeshes = [];
       const plateMat = new THREE.MeshStandardMaterial({ color: C('#3a3430'), roughness: 0.8, emissive: C('#000000') });
@@ -1031,6 +1123,198 @@
         R.trapMeshes.push({ t, plate, pm, sp });
       }
     },
+    // ------------------------------------------------------------ beyond the Rift
+    // The floor is a slab of obsidian flagstones adrift in the void, seamed with
+    // violet light that pulses; its edges break off into the abyss, where stars
+    // and slow nebulae turn far below and shards of rock drift. Spires of black
+    // glass and violet crystal stand along every edge, tears in the air hang at
+    // the back of the halls, and motes of light rise through it all.
+    voidFloorMat() {
+      if (R._vfm) return R._vfm;
+      const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.32, metalness: 0.3 });
+      m.customProgramCacheKey = () => 'voidfloor';
+      m.onBeforeCompile = sh => {
+        sh.uniforms.uTime = R.waterTime;
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vVW;').replace('#include <project_vertex>', '#include <project_vertex>\nvVW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+          uniform float uTime; varying vec3 vVW;
+          float vh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+          float vn(vec2 p) { vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f); return mix(mix(vh(i), vh(i + vec2(1, 0)), u.x), mix(vh(i + vec2(0, 1)), vh(i + vec2(1, 1)), u.x), u.y); }
+          vec3 vcell(vec2 p) { vec2 i = floor(p), f = fract(p); float d1 = 9.0, d2 = 9.0; vec2 id = vec2(0.0);
+            for (int x = -1; x <= 1; x++) for (int y = -1; y <= 1; y++) { vec2 g = vec2(float(x), float(y)); vec2 o = vec2(vh(i + g), vh(i + g + 5.3)) * 0.85 + 0.075; float d = length(g + o - f);
+              if (d < d1) { d2 = d1; d1 = d; id = i + g; } else if (d < d2) d2 = d; }
+            return vec3(d2 - d1, vh(id), vh(id + 1.7)); }`)
+          .replace('#include <color_fragment>', `#include <color_fragment>
+          vec3 cc = vcell(vVW.xz * 1.35);
+          float seam = 1.0 - smoothstep(0.025, 0.075, cc.x);
+          diffuseColor.rgb *= (0.78 + cc.y * 0.4) * (1.0 - seam * 0.8) * (0.9 + vn(vVW.xz * 6.0) * 0.2);
+          // only here and there does the light of the void show through the seams
+          float vein = (1.0 - smoothstep(0.0, 0.035, cc.x)) * smoothstep(0.64, 0.8, vn(vVW.xz * 0.22 + 3.1));
+          float crack = (1.0 - smoothstep(0.0, 0.02, abs(vn(vVW.xz * 2.3) - 0.5))) * smoothstep(0.7, 0.86, vn(vVW.xz * 0.4 + 9.0));
+          float pulse = 0.55 + 0.45 * sin(uTime * 1.6 + vVW.x * 0.4 + vVW.z * 0.3);
+          vec3 vEm = vec3(0.45, 0.22, 1.0) * (vein + crack * 0.7) * pulse * 0.75;
+          float vRough = mix(0.22, 1.0, seam) * (0.8 + cc.z * 0.45);`)
+          .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = clamp(vRough, 0.05, 1.0);')
+          .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vEm;');
+      };
+      return (R._vfm = m);
+    },
+    buildVoid(game, L, g, B, solidRock, isOpen) {
+      const W = L.W, H = L.H;
+      let s = (ECHO.hashStr(L.id) >>> 0) || 1;
+      const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+      const obs = R._voidObs || (R._voidObs = new THREE.MeshStandardMaterial({ color: C('#1c1626'), roughness: 0.2, metalness: 0.4, flatShading: true, emissive: C('#0c0618') }));
+      const cry = R._voidCry || (R._voidCry = new THREE.MeshStandardMaterial({ color: C('#4a22a0'), emissive: C('#7a44ff'), emissiveIntensity: 0.85, roughness: 0.12, metalness: 0.1, flatShading: true }));
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e3 = new THREE.Euler(), v3 = new THREE.Vector3(), s3 = new THREE.Vector3();
+      // spires of black glass along every edge (low ones on the near side, so they never hide you)
+      const sp = [], cr = [], rub = [];
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        if (!solidRock(x, y)) continue;
+        let edge = false;
+        for (let dy = -1; dy <= 1 && !edge; dy++) for (let dx = -1; dx <= 1; dx++) if (isOpen(x + dx, y + dy)) { edge = true; break; }
+        if (!edge) continue;
+        const low = !solidRock(x, y - 1);
+        const n = low ? 1 : 2 + (rnd() < 0.35 ? 1 : 0);
+        for (let i = 0; i < n; i++) {
+          const h = low ? 0.3 + rnd() * 0.35 : 0.9 + rnd() * 1.9, r = (low ? 0.16 : 0.2) + rnd() * 0.18;
+          (rnd() < 0.13 && !low ? cr : sp).push([B + x + 0.15 + rnd() * 0.7, y + 0.15 + rnd() * 0.7, h, r, (rnd() - 0.5) * 0.4, rnd() * 6.28, (rnd() - 0.5) * 0.4]);
+        }
+        rub.push([B + x + 0.5 + (rnd() - 0.5) * 0.4, y + 0.5 + (rnd() - 0.5) * 0.4, 0.28 + rnd() * 0.2]);
+      }
+      const cone = R._voidCone || (R._voidCone = new THREE.ConeGeometry(1, 1, 5, 1).translate(0, 0.5, 0));
+      const inst = (geo, mat, list, fn) => {
+        if (!list.length) return null;
+        const im = new THREE.InstancedMesh(geo, mat, list.length);
+        list.forEach((a, i) => { fn(a); im.setMatrixAt(i, m4.compose(v3, q, s3)); });
+        im.castShadow = true; im.receiveShadow = true; im.userData.own = false; g.add(im);
+        return im;
+      };
+      const sx = a => { v3.set(a[0], -0.35, a[1]); q.setFromEuler(e3.set(a[4], a[5], a[6])); s3.set(a[3], a[2] + 0.35, a[3]); };
+      inst(cone, obs, sp, sx); inst(cone, cry, cr, sx);
+      const rock = R._voidRock || (R._voidRock = new THREE.DodecahedronGeometry(1, 0));
+      inst(rock, obs, rub, a => { v3.set(a[0], -0.05, a[1]); q.setFromEuler(e3.set(a[2] * 5, a[2] * 11, 0)); s3.set(a[2], a[2] * 0.7, a[2]); });
+      // the slab's broken edge, dropping away into the abyss
+      const cliffs = [];
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        if (!isOpen(x, y) && L.rock[y * W + x]) continue;
+        if (L.rock[y * W + x]) continue;
+        const d = 1.2 + ((x * 7 + y * 13) % 5) * 0.25;
+        if (solidRock(x, y + 1)) cliffs.push({ x: B + x + 0.5, y: -d / 2, z: y + 1 - 0.05, w: 1.02, h: d, d: 0.1 });
+        if (solidRock(x - 1, y)) cliffs.push({ x: B + x + 0.05, y: -d / 2, z: y + 0.5, w: 0.1, h: d, d: 1.02 });
+        if (solidRock(x + 1, y)) cliffs.push({ x: B + x + 0.95, y: -d / 2, z: y + 0.5, w: 0.1, h: d, d: 1.02 });
+      }
+      if (cliffs.length) { const cm = R.mergeBoxes(cliffs, obs); cm.castShadow = false; g.add(cm); }
+      // the abyss: stars and slow nebulae, far below
+      const abyss = new THREE.Mesh(new THREE.PlaneGeometry(260, 260), R.voidSkyMat());
+      abyss.rotation.x = -Math.PI / 2; abyss.position.set(B + W / 2, -7, H / 2); abyss.userData.own = true; g.add(abyss);
+      // rocks adrift in the void
+      const drift = [];
+      for (let y = -6; y < H + 6; y++) for (let x = -6; x < W + 6; x++) {
+        if (!solidRock(x, y) || rnd() > 0.075) continue;
+        let near = false;
+        for (let dy = -1; dy <= 1 && !near; dy++) for (let dx = -1; dx <= 1; dx++) if (isOpen(x + dx, y + dy)) { near = true; break; }
+        if (near) continue;
+        drift.push({ x: B + x + rnd(), z: y + rnd(), y: -0.6 - rnd() * 3.5, r: 0.18 + rnd() * 0.45, ph: rnd() * 6.28, sp: 0.2 + rnd() * 0.5, rx: rnd() * 6, ry: rnd() * 6 });
+        if (drift.length > 90) break;
+      }
+      if (drift.length) {
+        const im = new THREE.InstancedMesh(rock, obs, drift.length); im.castShadow = false; im.frustumCulled = false; g.add(im);
+        R.voidDrift = { im, list: drift };
+        R.animateVoid();
+      }
+      // tears in the air at the back of the halls
+      const tearMat = R.voidTearMat();
+      for (const r of L.G.rooms) {
+        if (r === L.G.entrance || rnd() > 0.6) continue;
+        const w = 1 + rnd() * 0.6, h = 1.8 + rnd() * 0.8;
+        const t = new THREE.Mesh(R._tearGeo || (R._tearGeo = new THREE.PlaneGeometry(1, 1)), tearMat);
+        t.scale.set(w, h, 1); t.position.set(B + r.x0 + 1.5 + rnd() * Math.max(0.5, r.x1 - r.x0 - 3), 0.35 + h / 2, r.y0 + 0.15); t.renderOrder = 8; g.add(t);
+        L.lights.push({ x: t.position.x, y: r.y0 + 0.8, r: 4.5, a: 0.9, color: '#9a6aff', h: 1.4 });
+      }
+      // motes of light rising through the halls
+      const open = []; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (isOpen(x, y)) open.push([x, y]);
+      const N = Math.min(320, Math.round(open.length * 0.8)), mp = new Float32Array(N * 3), ms = new Float32Array(N);
+      for (let i = 0; i < N; i++) { const o = open[Math.floor(rnd() * open.length)]; mp[i * 3] = B + o[0] + rnd(); mp[i * 3 + 1] = rnd() * 2.6; mp[i * 3 + 2] = o[1] + rnd(); ms[i] = rnd(); }
+      const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.BufferAttribute(mp, 3)); mg.setAttribute('aSeed', new THREE.BufferAttribute(ms, 1));
+      const motes = new THREE.Points(mg, R.voidMoteMat()); motes.frustumCulled = false; motes.userData.own = true; motes.renderOrder = 7; g.add(motes);
+      // the way out
+      const exit = new THREE.Mesh(new THREE.PlaneGeometry(2, 1.2), new THREE.MeshBasicMaterial({ color: '#d8c8ff', transparent: true, opacity: 0.3, depthWrite: false }));
+      exit.rotation.x = -Math.PI / 2; exit.position.set(L.inside.x, 0.02, L.inside.y + 0.6); exit.userData.own = true; g.add(exit);
+      R.roomDoorGlow = exit; R.roomWinMat = null; R.roomLiquid = null;
+    },
+    animateVoid() {
+      const D = R.voidDrift;
+      if (!D) return;
+      const m4 = R._vm4 || (R._vm4 = new THREE.Matrix4()), q = R._vq || (R._vq = new THREE.Quaternion()), e3 = R._ve || (R._ve = new THREE.Euler()), v3 = R._vv || (R._vv = new THREE.Vector3()), s3 = R._vs || (R._vs = new THREE.Vector3());
+      const t = R.time;
+      D.list.forEach((d, i) => {
+        v3.set(d.x, d.y + Math.sin(t * d.sp + d.ph) * 0.35, d.z);
+        q.setFromEuler(e3.set(d.rx + t * d.sp * 0.3, d.ry + t * d.sp * 0.2, 0));
+        s3.set(d.r, d.r * 0.75, d.r);
+        D.im.setMatrixAt(i, m4.compose(v3, q, s3));
+      });
+      D.im.instanceMatrix.needsUpdate = true;
+    },
+    voidSkyMat() {
+      return R._vsky || (R._vsky = new THREE.ShaderMaterial({
+        uniforms: { uTime: R.waterTime },
+        vertexShader: 'varying vec3 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+        fragmentShader: `uniform float uTime; varying vec3 vW;
+          float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+          float n(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f); return mix(mix(h(i), h(i + vec2(1, 0)), u.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), u.x), u.y); }
+          float fb(vec2 p){ return n(p) * 0.5 + n(p * 2.03) * 0.3 + n(p * 4.1) * 0.2; }
+          void main(){
+            vec2 p = vW.xz * 0.06;
+            float a = fb(p + vec2(uTime * 0.006, 0.0)), b = fb(p * 1.7 - vec2(0.0, uTime * 0.008) + 4.0);
+            vec3 c = vec3(0.012, 0.006, 0.03);
+            c = mix(c, vec3(0.2, 0.07, 0.4), smoothstep(0.42, 0.9, a));
+            c += vec3(0.04, 0.12, 0.28) * smoothstep(0.6, 0.95, b);
+            vec2 sp = vW.xz * 1.4, id = floor(sp); float hh = h(id);
+            vec2 o = fract(sp) - 0.5 - (vec2(h(id + 3.1), h(id + 7.7)) - 0.5) * 0.6;
+            c += vec3(0.9, 0.85, 1.0) * smoothstep(0.07, 0.0, length(o)) * step(0.94, hh) * (0.55 + 0.45 * sin(uTime * 2.0 + hh * 40.0));
+            gl_FragColor = vec4(c, 1.0);
+          }`,
+        depthWrite: true
+      }));
+    },
+    voidTearMat() {
+      return R._vtear || (R._vtear = new THREE.ShaderMaterial({
+        uniforms: { uTime: R.waterTime },
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: `uniform float uTime; varying vec2 vUv;
+          float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+          float n(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f); return mix(mix(h(i), h(i + vec2(1, 0)), u.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), u.x), u.y); }
+          void main(){
+            vec2 c = vUv * 2.0 - 1.0; c.x *= 1.6;
+            float r = length(c), a = atan(c.y, c.x);
+            float sw = n(vec2(a * 2.0 + uTime * 0.8, r * 4.0 - uTime * 1.4)) * 0.6 + n(vec2(a * 5.0 - uTime, r * 9.0)) * 0.4;
+            float ring = smoothstep(0.22, 0.0, abs(r - 0.68 + sw * 0.18));
+            float core = smoothstep(0.62, 0.0, r);
+            float halo = smoothstep(1.0, 0.55, r) * sw;
+            vec3 col = vec3(0.62, 0.36, 1.0) * ring * 2.0 + vec3(0.9, 0.86, 1.0) * core * (0.25 + sw * 0.4) + vec3(0.32, 0.1, 0.7) * halo;
+            float al = clamp(ring + core * 0.6 + halo * 0.4, 0.0, 1.0);
+            gl_FragColor = vec4(col * al, al);
+          }`,
+        transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
+      }));
+    },
+    voidMoteMat() {
+      return R._vmote || (R._vmote = new THREE.ShaderMaterial({
+        uniforms: { uTime: R.waterTime },
+        vertexShader: `uniform float uTime; attribute float aSeed; varying float vA;
+          void main(){
+            vec3 p = position;
+            p.y = mod(p.y + uTime * (0.12 + aSeed * 0.22), 2.8);
+            p.x += sin(uTime * 0.5 + aSeed * 20.0) * 0.18; p.z += cos(uTime * 0.4 + aSeed * 31.0) * 0.18;
+            vA = smoothstep(0.0, 0.4, p.y) * smoothstep(2.8, 2.0, p.y) * (0.5 + 0.5 * sin(uTime * 3.0 + aSeed * 50.0));
+            vec4 mv = modelViewMatrix * vec4(p, 1.0);
+            gl_PointSize = (1.2 + aSeed * 1.6) * (34.0 / -mv.z);
+            gl_Position = projectionMatrix * mv;
+          }`,
+        fragmentShader: 'varying float vA; void main(){ vec2 c = gl_PointCoord - 0.5; float d = length(c); float a = smoothstep(0.5, 0.0, d) * vA; gl_FragColor = vec4(vec3(0.75, 0.55, 1.0) * a * 0.9, a); }',
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+      }));
+    },
     animateTraps(game) {
       for (const m of R.trapMeshes || []) {
         const st = ECHO.Quests.trapState(game, m.t);
@@ -1041,7 +1325,7 @@
     buildRoom(game, L) {
       const g = R.groups.room;
       for (const o of g.children.slice()) { g.remove(o); o.traverse(c => { if (c.geometry && c.userData.own) c.geometry.dispose(); }); }
-      R.roomWindows = [];
+      R.roomWindows = []; R.voidDrift = null;
       const B = ECHO.Interior.BASE;
       if (L.carved) R.buildCarved(game, L, g, B);
       else {
@@ -1153,9 +1437,11 @@
           m.rotation.x = -Math.PI / 2; m.position.set(B + w.x, 0.04, w.y); m.userData.own = true; g.add(m);
         }
       }
-      // a dark void around the room
+      // a dark void around the room (beyond the Rift, the abyss is the void)
+      if (L.floor !== 'void') {
       const under = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshBasicMaterial({ color: '#050407' }));
       under.rotation.x = -Math.PI / 2; under.position.set(B + L.W / 2, -0.02, L.H / 2); under.userData.own = true; g.add(under);
+      }
     },
     setInteriorMode(on) {
       if (R.indoors === on) return;
@@ -1191,6 +1477,13 @@
         R.scene.background = R._gateBg || (R._gateBg = new THREE.Color()); R.scene.background.set(P.fog);
         R.scene.fog.color.set(P.fog); R.scene.fog.near = 26; R.scene.fog.far = 62;
         if (R.roomLiquid) { const k = 0.85 + Math.sin(R.time * 2) * 0.15; R.roomLiquid.material.color.setScalar(k); }
+      }
+      if (L.floor === 'void') {
+        // beyond the Rift: a dim violet light from nowhere, and the dark of the abyss
+        R.hemi.intensity = 0.42; R.hemi.color.set('#7a68c8').convertSRGBToLinear(); R.hemi.groundColor.set('#160a24').convertSRGBToLinear();
+        R.sun.intensity = 0.22; R.sun.color.set('#a090ff').convertSRGBToLinear();
+        R.scene.background = R._voidBg || (R._voidBg = new THREE.Color('#06030c'));
+        R.scene.fog.color.set('#0a0614'); R.scene.fog.near = 24; R.scene.fog.far = 64;
       }
       R.renderer.toneMappingExposure = 1.15;
       R.mat.window.emissiveIntensity = 0.6;
@@ -1236,11 +1529,12 @@
       else if (e.shape === 'hound') inst = ECHO.Models.instance('wolf');
       else if (e.shape === 'drake') inst = ECHO.Models.instance('drake');
       else if (e.shape === 'stag') inst = ECHO.Models.instance('stag');
+      else if (e.humanoid && e.foe && e.foe.vis && R.MON_MODEL[e.species] && ECHO.Models.scenes[R.MON_MODEL[e.species]]) inst = ECHO.Models.instance(R.MON_MODEL[e.species]);
       else if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) inst = ECHO.Models.instance('person');
       else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' || e.species === 'deer' ? 'stag' : e.species === 'dog' || e.species === 'fox' ? 'wolf' : e.species);
       else if (e.type === 'boss') inst = ECHO.Models.instance(e.boss.kind);
       if (!inst) return null;
-      v = { inst, kind, cfgT: 0, dir: e.dir || 0, bob: Math.random() * 6 };
+      v = { inst, kind, cfgT: 0, dir: e.dir || 0, bob: Math.random() * 6, own: !!(e.humanoid && R.MON_MODEL[e.species] && inst.root && ECHO.Models.scenes[R.MON_MODEL[e.species]]), float: e.species === 'wraith' };
       // The player shows through trees and roofs as a faint silhouette.
       if (e.type === 'player') {
         const ghost = new THREE.MeshBasicMaterial({ color: '#bfe8ff', transparent: true, opacity: 0.32, depthTest: false, depthWrite: false });
@@ -1254,6 +1548,8 @@
       R.configure(game, e, v);
       return v;
     },
+    // monsters with a shape of their own (on a person's rig)
+    MON_MODEL: { skeleton: 'm_skeleton', skelarcher: 'm_skeleton', wraith: 'm_wraith', cultist: 'm_cultist', necromancer: 'm_cultist', golemling: 'm_golem', golem: 'm_golem', hollowking: 'm_hollowking' },
     PROF: null,
     PROF_COL: {
       farmer: ['#7a8a4a', '#5a4a30'], hunter: ['#5a6a3a', '#4a3a2a'], miner: ['#6a6058', '#3a3430'], woodcutter: ['#8a4a3a', '#4a3a2a'],
@@ -1273,13 +1569,21 @@
         else { inst.root.scale.setScalar(e.scale || 1); if (inst.mats && Fd.em) for (const m of inst.mats) if (m.emissive && !(m.userData && m.userData.keep)) m.emissive.set(e.rage ? '#ff3a0a' : Fd.em).multiplyScalar(e.rage ? 0.5 : 0.18); }
         return;
       }
+      // monsters in a person's shape (goblins, ghouls, outlaws, the barrow dead): what
+      // they are made of drawn on them too, not flat colour
+      if (e.humanoid && !v.surfOn) { v.surfOn = true; for (const m of inst.mats) if (m.isMeshStandardMaterial && R.SURF[m.name]) R.surface(m, R.SURF[m.name]); }
       if (e.humanoid && e.foe && e.foe.vis) {
         const V = e.foe.vis;
         M.recolor(inst, 'cloth', V.cloth); M.recolor(inst, 'cloth2', V.cloth2); M.recolor(inst, 'skin', V.skin); M.recolor(inst, 'hair', V.hair);
         M.recolor(inst, 'metal', V.metal || '#8a8a90'); M.recolor(inst, 'cape', V.cloth2);
         for (const k of ['robe', 'apron', 'cape', 'helm', 'bandana', 'hood', 'hairLong', 'beard', 'crown', 'shield', 'bow', 'spear', 'torch', 'staff', 'sword', 'hair']) M.show(inst, k, false);
         for (const k of V.show || []) M.show(inst, k, true);
-        for (const m of inst.mats) { if (m.emissive) m.emissive.set(e.rage ? '#6a0c04' : e.elite ? '#3a0a08' : V.em || '#000000'); if (V.opacity) { m.transparent = true; m.opacity = V.opacity; } }
+        for (const m of inst.mats) {
+          if (m.userData && m.userData.keep) continue;   // (its own glow: ghost-stuff, crystal)
+          if (m.emissive) { if (v.own && !e.rage && !e.elite) m.emissive.copy(C(V.em || '#000000')).multiplyScalar(0.35); else m.emissive.set(e.rage ? '#6a0c04' : e.elite ? '#3a0a08' : V.em || '#000000'); }
+          if (V.opacity) { m.transparent = true; m.opacity = v.own ? Math.max(0.86, V.opacity) : V.opacity; }
+        }
+        if (v.own && e.species === 'necromancer') { M.recolor(inst, 'cloth', '#1e2a24'); M.recolor(inst, 'cloth2', '#0e1410'); M.recolor(inst, 'skin', '#b8c8b0'); }
         inst.root.scale.setScalar(e.scale || 1);
         return;
       }
@@ -1896,6 +2200,7 @@
       else if (choreY) v.yOff = choreY;
       else if (e.seatedGhost) v.yOff = 0.15;
       else if (e.dancing) v.yOff = Math.abs(Math.sin(R.time * 7 + e.id)) * 0.08;
+      else if (v.float && !e.dead) v.yOff = 0.14 + Math.sin(R.time * 2.1 + (e.id || 0)) * 0.06;   // (a wraith drifts above the floor)
       else if (seated) v.yOff = e.indoor.spot && /bench/.test(e.indoor.spot.tag) ? 0 : 0.02;
       // dodge roll: tuck and tumble
       // Dodge roll: dip into a tuck, tumble over the shoulders around the body's
@@ -3391,7 +3696,7 @@
         }
         if (R.rift) R.rift.rotation.y += dt * 0.6;
         R.updateOcclusion(game);
-      } else { for (const f of R.roomFlames || []) f.scale.y = f.scale.x * (1 + Math.sin(R.time * 13 + f.position.x) * 0.12); if (room.carved) R.animateTraps(game); }
+      } else { for (const f of R.roomFlames || []) f.scale.y = f.scale.x * (1 + Math.sin(R.time * 13 + f.position.x) * 0.12); if (room.carved) R.animateTraps(game); if (R.voidDrift) R.animateVoid(); }
       R.updateEntities(game, dt);
       R.updateFx(game, dt);
       R.updateGlows(game);
