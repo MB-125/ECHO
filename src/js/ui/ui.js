@@ -551,6 +551,18 @@
           if (d.brew) { const why = ECHO.Gear.brew(pl, d.brew); if (why) UI.toast(why, 'warn', 3); else { ECHO.Sfx.play('coin'); UI.toast(`You have a ${ECHO.Gear.POTIONS[d.brew].name.toLowerCase()} made up. Drink it with ${ECHO.Gear.POTIONS[d.brew].key}.`, 'info', 3); } }
           if (d.sellmats) { const r = ECHO.Gear.sellMats(pl, s); if (r.total) { ECHO.Sfx.play('coin'); UI.toast(`Sold ${r.out.join(', ')} for ${r.total} crowns.`, 'info', 4); } }
           if (d.sellmat) { const k = d.sellmat, n = pl.inv[k] || 0; if (n) { const got = ECHO.Gear.matPrice(s, k) * n; pl.inv[k] = 0; pl.gold += got; s.wealth = (s.wealth || 0) + got * 0.2; ECHO.Sfx.play('coin'); } }
+          if (d.gtick) {
+            // (ticking is done in place: nothing is redrawn, so your ticks stay)
+            body.querySelectorAll('input.gsel:not([disabled])').forEach(c => { c.checked = d.gtick === 'all' || (d.gtick === 'weaker' && +c.dataset.vs < 0); });
+            UI.gselUpdate(body); return;
+          }
+          if (d.gsell) {
+            const S = UI.sellSets(world, pl);
+            const list = d.gsell === 'sel' ? [...body.querySelectorAll('input.gsel:checked')].map(c => world.items[c.dataset.id]) : S[d.gsell] || [];
+            const r = UI.sellGearMany(world, pl, s, list);
+            if (r.n) UI.toast(`Sold ${r.n} piece${r.n > 1 ? 's' : ''} of gear for ${r.total} crowns.`, 'info', 4);
+          }
+          if (d.keep) UI.toggleKeep(pl, d.keep);
           if (d.sellgear) { const it = world.items[d.sellgear]; if (it && it.id !== pl.weapon && it.id !== pl.bow && it.id !== pl.armor) { const got = UI.gearPrice(world, pl, s, it); pl.items = pl.items.filter(x => x !== it.id); it.holder = null; it.history.push({ d: world.day, t: `sold at the market in ${s.name}` }); pl.gold += got; ECHO.Sfx.play('coin'); UI.toast(`Sold ${it.name} for ${got} crowns.`, 'info', 3); } }
           if (d.picks) { const c = Math.round(9 * am); if (pl.gold >= c) { pl.gold -= c; pl.inv.lockpick = (pl.inv.lockpick || 0) + 3; s.wealth += c; ECHO.Sfx.play('coin'); } }
           if (d.arrows) { const n = +d.arrows; if (pl.gold >= arrowP * n) { pl.gold -= arrowP * n; pl.inv.arrows += 10 * n; s.wealth += arrowP * n; ECHO.Sfx.play('coin'); } }
@@ -594,8 +606,21 @@
           ECHO.Character.train(pl, 'tongue', 0.05);
           render();
         }));
+        body.querySelectorAll('input.gsel').forEach(c => c.addEventListener('change', () => UI.gselUpdate(body)));
+        const au = body.querySelector('input[data-autosell]');
+        if (au) au.addEventListener('change', () => { pl.autoSell = au.checked; if (au.checked) { const r = UI.sellGearMany(world, pl, s, UI.sellSets(world, pl).weaker); if (r.n) UI.toast(`Sold ${r.n} weaker piece${r.n > 1 ? 's' : ''} for ${r.total} crowns. From now on it happens by itself at every market.`, 'info', 5); render(); } });
       };
+      // gear weaker than yours goes by itself, if you asked for that
+      if (pl.autoSell) { const r = UI.sellGearMany(world, pl, s, UI.sellSets(world, pl).weaker); if (r.n) UI.toast(`Sold ${r.n} piece${r.n > 1 ? 's' : ''} of gear weaker than yours for ${r.total} crowns. (You can turn this off under "Gear you do not use".)`, 'info', 5); }
       render();
+    },
+    // the "sell the ticked pieces" button: how many, and what they fetch
+    gselUpdate(body) {
+      const ch = [...body.querySelectorAll('input.gsel:checked')], b = body.querySelector('button.gsel-go');
+      if (!b) return;
+      const tot = ch.reduce((a, c) => a + (+c.dataset.p || 0), 0);
+      b.disabled = !ch.length;
+      b.innerHTML = ch.length ? `Sell the ${ch.length} ticked piece${ch.length > 1 ? 's' : ''} — <span class="gold">${tot} cr</span>` : 'Sell the ticked pieces';
     },
     openSmithy(s) {
       if (ECHO.Tutorial) ECHO.Tutorial.flag('smith');
@@ -727,16 +752,59 @@
     },
     // What a market pays for a piece of gear.
     gearPrice(world, pl, s, it) { return Math.max(3, Math.round(ECHO.Gear.value(it) * (0.7 + (s.prosperity || 50) / 250) / ECHO.Minds.priceMult(world, s, pl))); },
+    // ------------------------------------------------------------ spare gear, in bulk
+    // What you carry but do not use (never what you wield, shoot with or wear, nor a legend).
+    spareGear(world, pl) { return pl.items.map(id => world.items[id]).filter(it => it && it.id !== pl.weapon && it.id !== pl.bow && it.id !== pl.armor && !it.legend); },
+    // 🔒 a piece you mean to keep: no sale in bulk (nor the automatic one) takes it
+    kept(pl, it) { return !!(pl.keepGear && it && pl.keepGear.includes(it.id)); },
+    toggleKeep(pl, id) { pl.keepGear = pl.keepGear || []; const i = pl.keepGear.indexOf(id); if (i >= 0) pl.keepGear.splice(i, 1); else pl.keepGear.push(id); },
+    // how a spare piece measures against what you use in its place: 1 better, -1 weaker, 0 about the same
+    gearVs(world, pl, it) {
+      if (!it || !['sword', 'bow', 'armor'].includes(it.kind)) return 0;
+      const cur = world.items[it.kind === 'armor' ? pl.armor : it.kind === 'bow' ? pl.bow : pl.weapon];
+      const sc = x => !x ? 0 : x.kind === 'armor' ? (x.def || 0) * (1 + (x.plus || 0) * 0.05) : (x.dmg || 0) * (1 + (x.plus || 0) * 0.1);
+      if (!cur) return 1;
+      const a = sc(it), b = sc(cur);
+      return a > b * 1.03 ? 1 : a < b * 0.97 ? -1 : 0;
+    },
+    // the ready-made choices: everything weaker than yours, the plain pieces, all of it
+    sellSets(world, pl) {
+      const sp = UI.spareGear(world, pl).filter(it => !UI.kept(pl, it));
+      return { weaker: sp.filter(it => UI.gearVs(world, pl, it) < 0), plain: sp.filter(it => ['common', 'fine'].includes(it.rarity || 'common')), all: sp };
+    },
+    sellGearMany(world, pl, s, list) {
+      let total = 0, n = 0;
+      for (const it of list) {
+        if (!it || it.id === pl.weapon || it.id === pl.bow || it.id === pl.armor || it.legend || !pl.items.includes(it.id)) continue;
+        const got = UI.gearPrice(world, pl, s, it);
+        pl.items = pl.items.filter(x => x !== it.id); it.holder = null;
+        (it.history = it.history || []).push({ d: world.day, t: `sold at the market in ${s.name}` });
+        pl.gold += got; total += got; n++;
+        if (pl.keepGear) pl.keepGear = pl.keepGear.filter(x => x !== it.id);
+      }
+      if (n) { s.wealth = (s.wealth || 0) + total * 0.2; if (ECHO.Sfx) ECHO.Sfx.play('coin'); }
+      return { n, total };
+    },
     lootMarketHtml(world, pl, s) {
       const Gr = ECHO.Gear, mats = Gr.mats(pl);
-      const spare = pl.items.map(id => world.items[id]).filter(it => it && it.id !== pl.weapon && it.id !== pl.bow && it.id !== pl.armor && !it.legend);
+      const spare = UI.spareGear(world, pl).sort((a, b) => UI.gearVs(world, pl, a) - UI.gearVs(world, pl, b) || UI.gearPrice(world, pl, s, a) - UI.gearPrice(world, pl, s, b));
       let html = '';
       if (mats.length) {
         const total = mats.reduce((a, m) => a + Gr.matPrice(s, m.k) * m.n, 0);
         html += `<h4 class="ware-h">Monster parts</h4><p class="dim">Alchemists, tanners and curio-sellers buy what you bring up from below. A smith can use them too — see the smithy.</p><div class="wares">${mats.map(m => `<div class="ware"><div class="ware-ic" style="color:${m.color}">◆</div><div class="ware-main"><div class="ware-top"><b>${esc(U.cap(m.name))}</b><span class="gold">${Gr.matPrice(s, m.k)} each</span></div><div class="ware-meta">You have <b>${m.n}</b></div><div class="row"><button class="small" data-sellmat="${m.k}">Sell all (${Gr.matPrice(s, m.k) * m.n})</button></div></div></div>`).join('')}</div>
           <div class="row"><button data-sellmats="1">Sell every part — ${total} crowns</button></div>`;
       }
-      if (spare.length) html += `<h4 class="ware-h">Gear you do not use</h4><div class="wares">${spare.map(it => `<div class="ware">${ECHO.GearArt.img(it, 'gear-ic small')}<div class="ware-main"><div class="ware-top"><b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}</b><span class="gold">${UI.gearPrice(world, pl, s, it)} cr</span></div><div class="ware-use">${esc(Gr.line(it))}</div><div class="row"><button class="small" data-sellgear="${it.id}">Sell</button></div></div></div>`).join('')}</div>`;
+      if (spare.length) {
+        const S = UI.sellSets(world, pl), sum = l => l.reduce((a, it) => a + UI.gearPrice(world, pl, s, it), 0);
+        const bulk = (k, label) => `<button data-gsell="${k}" ${S[k].length ? '' : 'disabled'}>${label} — ${S[k].length} piece${S[k].length === 1 ? '' : 's'} · <span class="gold">${sum(S[k])} cr</span></button>`;
+        const vs = it => { const v = UI.gearVs(world, pl, it); return v > 0 ? '<span style="color:#8fe08a" title="better than what you use">▲ better than yours</span>' : v < 0 ? '<span style="color:#e0806a" title="weaker than what you use">▼ weaker</span>' : ['sword', 'bow', 'armor'].includes(it.kind) ? '<span class="dim">≈ like yours</span>' : ''; };
+        html += `<h4 class="ware-h">Gear you do not use (${spare.length})</h4>
+          <p class="dim">Sell it in one go, or tick the pieces you want to part with. 🔒 Keep holds a piece back from every sale in bulk. What you wield, wear and shoot with is never sold.</p>
+          <div class="row" style="flex-wrap:wrap;gap:6px">${bulk('weaker', 'Sell everything weaker than yours')}${bulk('plain', 'Sell all Common & Fine')}${bulk('all', 'Sell everything not kept')}</div>
+          <label class="dim" style="display:block;margin:6px 0;font-size:13px"><input type="checkbox" data-autosell ${pl.autoSell ? 'checked' : ''}> Sell gear weaker than yours by itself whenever I come to a market (pieces you keep 🔒 are never sold)</label>
+          <div class="row" style="flex-wrap:wrap;gap:6px;align-items:center"><button data-gsell="sel" class="gsel-go" disabled>Sell the ticked pieces</button><button class="small" data-gtick="all">Tick all</button><button class="small" data-gtick="weaker">Tick the weaker</button><button class="small" data-gtick="none">Untick all</button></div>
+          <div class="wares">${spare.map(it => { const k = UI.kept(pl, it); return `<div class="ware" style="${k ? 'opacity:.75' : ''}"><label style="display:flex;align-items:flex-start;padding-top:4px"><input type="checkbox" class="gsel" data-id="${it.id}" data-p="${UI.gearPrice(world, pl, s, it)}" data-vs="${UI.gearVs(world, pl, it)}" ${k ? 'disabled' : ''}></label>${ECHO.GearArt.img(it, 'gear-ic small')}<div class="ware-main"><div class="ware-top"><b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}</b><span class="gold">${UI.gearPrice(world, pl, s, it)} cr</span></div><div class="ware-use">${esc(Gr.line(it))}</div><div class="ware-meta">${vs(it)}${k ? ' · <span class="gold">🔒 kept</span>' : ''}</div><div class="row"><button class="small" data-sellgear="${it.id}">Sell</button><button class="small" data-keep="${it.id}">${k ? 'Unlock' : '🔒 Keep'}</button></div></div></div>`; }).join('')}</div>`;
+      }
       return html;
     },
     smithGearHtml(world, pl, s, smith) {
@@ -1634,7 +1702,7 @@
         ${pl.spells.length ? `<p class="gold">Secrets: ${pl.spells.map(k => ECHO.Mysteries.REWARDS[k].name).join(', ')}</p>` : ''}
         ${UI.prowessHtml(world, pl)}
         ${UI.equipHtml(world, pl)}
-        <h3 class="gold">Belongings</h3>${UI.shareAllHtml(game)}<div class="list">${items.map(it => `<div class="card" style="display:flex;gap:10px">${it.kind === 'sword' || it.kind === 'bow' || it.kind === 'armor' ? ECHO.GearArt.img(it, 'gear-ic small') : ''}<div style="flex:1"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}${UI.canGive(pl, it) ? `<div class="row"><button class="small" data-give="${it.id}">Give away…</button></div>` : ''}</div></div>`).join('')}</div>
+        <h3 class="gold">Belongings</h3>${UI.shareAllHtml(game)}<div class="list">${items.map(it => `<div class="card" style="display:flex;gap:10px">${it.kind === 'sword' || it.kind === 'bow' || it.kind === 'armor' ? ECHO.GearArt.img(it, 'gear-ic small') : ''}<div style="flex:1"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}${UI.canGive(pl, it) ? `<div class="row"><button class="small" data-give="${it.id}">Give away…</button><button class="small" data-keep="${it.id}">${UI.kept(pl, it) ? '🔒 Kept — unlock' : '🔒 Keep (never sold in bulk)'}</button></div>` : ''}</div></div>`).join('')}</div>
         ${ECHO.Gear.mats(pl).length ? `<h3 class="gold">Monster parts</h3><div>${ECHO.Gear.mats(pl).map(m => `<span style="color:${m.color}">◆</span> ${m.n} ${esc(m.name)}`).join(' · ')}</div><p class="dim" style="font-size:13px">Sell them at a market, or bring them to a smith to improve your gear.</p>` : ''}
         ${ECHO.Companions ? ECHO.Companions.card(world, pl) : ''}
         ${ECHO.Fellow ? ECHO.Fellow.html(game) : ''}
@@ -1652,6 +1720,7 @@
       if (ECHO.Fellow) ECHO.Fellow.bind(document.querySelector('#panel'), game);
       if (ECHO.Apex) ECHO.Apex.bindUi(document.querySelector('#panel'), game);
       document.querySelectorAll('#panel button[data-give]').forEach(b => b.addEventListener('click', () => UI.giveAway(world.items[b.dataset.give])));
+      document.querySelectorAll('#panel button[data-keep]').forEach(b => b.addEventListener('click', () => { UI.toggleKeep(pl, b.dataset.keep); UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-shareall]').forEach(b => b.addEventListener('click', () => {
         const s0 = ECHO.Sim.settlement(world, b.dataset.shareall), res = ECHO.Delvers.shareAll(world, pl, s0);
         if (!res.length) return;
