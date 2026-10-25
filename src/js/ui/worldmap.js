@@ -100,6 +100,11 @@
         const sp = ECHO.Titans.sp(t), D = Pw ? Pw.diff(t.lvl, me) : { color: '#ff6a4a', skulls: 0 };
         out.push({ layer: 'danger', kind: 'lair', x: t.x, y: t.y, name: `${t.name} ${t.title}`, color: D.color, pri: 9, ref: t, sub: `${t.seen ? '' : 'Said to range here · '}${sp.flies ? 'A dragon' : 'A great beast'} · level ${t.lvl}`, diff: D.skulls >= 2 ? 'Far beyond you: keep off its range' : 'Beat it down and bind it' });
       }
+      // the deep woods: every woodsman warns you off them
+      if (world.wild && ECHO.Wildwood) for (const w of world.wild.woods) {
+        const L1 = ECHO.Wildwood.level(world, 1), L4 = ECHO.Wildwood.level(world, 4), D = Pw ? Pw.diff(L1, me) : { color: '#8aff6a', skulls: 3 };
+        out.push({ layer: 'danger', kind: 'lair', x: w.x, y: w.y, name: U.cap(w.name), color: '#9ac86a', pri: 10, ref: w, sub: `A deep wood · beasts of level ${L1} at its edge, worse further in · ${ECHO.Wildwood.lordAlive(world, w) ? `${U.cap(w.lord.name)} (level ${L4}) at its heart` : `its lord is dead, for now`}`, diff: D.skulls >= 2 ? 'Deadly for you: keep out from under its trees' : 'Its trails lead to the heart' });
+      }
       // the gates: everyone knows where they are
       if (world.gates) for (const g of world.gates.list) {
         const th = ECHO.Gates.THEMES[g.theme], weak = me < ECHO.Gates.MIN;

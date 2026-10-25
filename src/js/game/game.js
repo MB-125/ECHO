@@ -32,10 +32,12 @@
       if (ECHO.Explore) ECHO.Explore.sites(world);
       if (ECHO.Gates) ECHO.Gates.ensure(world);
       if (ECHO.Titans) ECHO.Titans.ensure(world);
+      if (ECHO.Wildwood) ECHO.Wildwood.ensure(world);
       if (ECHO.GateWorld) ECHO.GateWorld.reset();
       if (ECHO.Apex) ECHO.Apex.reset(Game);
       if (ECHO.Growth) ECHO.Growth.reset();
       if (ECHO.GuardField) ECHO.GuardField.reset();
+      if (ECHO.Deepwood) ECHO.Deepwood.reset();
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
       Game.pl.explored = Game.pl.explored || new Array(Math.ceil(world.W / 4) * Math.ceil(world.H / 4)).fill(0);
@@ -179,6 +181,7 @@
       if (ECHO.GateWorld) ECHO.GateWorld.update(Game, dt);
       if (ECHO.Guard) ECHO.Guard.update(Game, dt);
       if (ECHO.GuardField) ECHO.GuardField.update(Game, dt);
+      if (ECHO.Deepwood) ECHO.Deepwood.update(Game, dt);
       if (ECHO.Apex) ECHO.Apex.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;
@@ -674,6 +677,7 @@
       if (ECHO.Camp) out.push(...ECHO.Camp.interactables(Game));
       if (ECHO.Pastimes) out.push(...ECHO.Pastimes.interactables(Game));
       if (ECHO.GateWorld) out.push(...ECHO.GateWorld.interactables(Game));
+      if (ECHO.Deepwood) out.push(...ECHO.Deepwood.interactables(Game));
       if (ECHO.Apex) out.push(...ECHO.Apex.interactables(Game));
       out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game), ...ECHO.Patrol.interactables(Game), ...ECHO.Finds.interactables(Game));
       out.sort((a, b) => a.d - b.d);

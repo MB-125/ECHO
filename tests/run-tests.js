@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -206,6 +206,32 @@ function main() {
     const W5 = ECHO.Save.deserialize(ECHO.Save.serialize(Wg)); delete W5.gates.guard.aux; delete W5.gates.guard.garrisons; delete W5.gates.guard.breaches;
     ECHO.Sim.dailyTick(W5, true);
     check('an old save picks it up without a hitch', Array.isArray(W5.gates.guard.aux) && !!W5.gates.guard.garrisons);
+  }
+
+  console.log('\nThe woods');
+  {
+    const Wf = ECHO.generateWorld({ seed: 12345, name: 'Woods', prehistoryDays: 2 });
+    const WW = ECHO.Wildwood, T = ECHO.TILE;
+    const before = Wf.tiles.slice();
+    WW.ensure(Wf);
+    const N = Wf.W * Wf.H;
+    let trail = 0, forestTrail = 0, tiers = [0, 0, 0, 0], changed = 0;
+    for (let i = 0; i < N; i++) { if (Wf._trail[i]) { trail++; if (Wf.tiles[i] === T.FOREST) forestTrail++; } tiers[Wf._wd[i]]++; if (Wf.tiles[i] !== before[i]) changed++; }
+    check('trails are worn through the forests, clear of trees', trail > 120 && forestTrail === trail, `${trail} tiles of trail`);
+    const ti = Wf._trail.indexOf(1), tx = ti % Wf.W + 0.5, ty = Math.floor(ti / Wf.W) + 0.5;
+    check('walking a trail is faster than pushing through trees', ECHO.World.speedAt(Wf, tx, ty) > 1 && ECHO.World.speedAt(Wf, tx, ty) > ({ [T.TREE]: 0.84 })[T.TREE], `trail ×${ECHO.World.speedAt(Wf, tx, ty)}`);
+    check('the land has deep woods, with a fringe, a deep and a heart', Wf.wild.woods.length >= 1 && tiers[1] > 20 && tiers[2] > 20 && tiers[3] > 20, `${Wf.wild.woods.map(w => w.name).join(', ')}: ${tiers.slice(1).join('/')} tiles`);
+    check('each has a lord at its heart and caches along its trails', Wf.wild.woods.every(w => w.lord && w.lord.name && w.caches.length >= 1));
+    Wf.player = Wf.player || { x: 10, y: 10, alive: true, first: 'T', last: 'P' }; Wf.player.prowess = { lv: 40, xp: 0, kills: 0, best: 0 };
+    const L = [1, 2, 3, 4].map(t => WW.level(Wf, t));
+    check('what lives there is far beyond you, and worse the deeper you go', L[0] > 40 && L[0] < L[1] && L[1] < L[2] && L[2] < L[3], `levels ${L.join(' / ')} for a level-40 you`);
+    const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(Wf)); WW.ensure(W2);
+    let diff = 0; for (let i = 0; i < N; i++) if (W2._wd[i] !== Wf._wd[i] || W2._trail[i] !== Wf._trail[i] || W2.tiles[i] !== Wf.tiles[i]) diff++;
+    check('saved and loaded, the woods are the same', diff === 0);
+    const W3 = ECHO.Save.deserialize(ECHO.Save.serialize(Wf)); delete W3.wild; WW.ensure(W3);
+    check('an old save gets its trails and deep woods when loaded', !!W3.wild && W3.wild.woods.length >= 1);
+    for (let d = 0; d < 30; d++) ECHO.Sim.dailyTick(Wf, true);
+    check('the world goes on round them', Wf.wild.woods.length >= 1);
   }
 
   console.log('\nWorld intelligence');

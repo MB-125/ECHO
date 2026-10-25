@@ -37,6 +37,7 @@
       if (e.stagger > 0) { e.stagger -= dt; e.state = 'stagger'; return; }
       if (e.state === 'stagger') e.state = 'chase';
       if (e.gateMon && ECHO.GateWorld && ECHO.GateWorld.think(game, e, dt)) return;
+      if (e.wood && ECHO.Deepwood && ECHO.Deepwood.think(game, e, dt)) return;
       const d = U.dist(e.x, e.y, pe.x, pe.y);
       const hostile = !pe.dead && !game.pl.capture && !game.defeating;
       const range = e.indoor ? 14 : 9;
@@ -133,7 +134,8 @@
       if (target.keybearer && !target._keyDropped) { target._keyDropped = true; ECHO.Game.loot.push({ x: target.x, y: target.y, kind: 'key', qty: 1, site: target.delve, depth: target.floor || 0 }); }
       const game = ECHO.Game, world = game.world;
       if (target.gateMon && ECHO.GateWorld && ECHO.GateWorld.onKill(game, target, from)) return;
-      if (target.breach && (target._pDmg || 0) < target.maxHp * 0.3) return;   // (a loose beast the Guard ran down: its spoils go back to the gate with them)
+      if (target.breach && (target._pDmg || 0) < target.maxHp * 0.3) return;
+      if (target.wood && ECHO.Deepwood) ECHO.Deepwood.onKill(game, target, from);   // (a loose beast the Guard ran down: its spoils go back to the gate with them)
       if (ECHO.Monsters && ECHO.Monsters.DEFS[target.species]) ECHO.Monsters.onKill(game, target);
       else {
         const gold = target.foe ? (target.foe.elite ? 30 + Math.floor(Math.random() * 40) : Math.floor(Math.random() * 8)) : 0;

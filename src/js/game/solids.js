@@ -39,8 +39,8 @@
       if (t !== T.TREE && t !== T.FOREST && t !== T.GRASS && t !== T.HILL && t !== T.SNOW && t !== T.RUIN) return null;
       const s = world.seed, a = h2(x, y, s + 31), b = h2(x, y, s + 32), c = h2(x, y, s + 33);
       const px = x + 0.5 + (b - 0.5) * 0.5, py = y + 0.5 + (c - 0.5) * 0.5;
-      if (t === T.TREE) return { x: px, y: py, r: 0.17, k: 'trunk' };
-      if (t === T.FOREST) return a < 0.22 ? { x: px, y: py, r: 0.15, k: 'oak', s: 0.6 + b * 0.25 } : null;
+      if (t === T.TREE) return { x: px, y: py, r: world._wd && world._wd[y * world.W + x] ? 0.22 : 0.17, k: 'trunk' };
+      if (t === T.FOREST) return a < 0.22 && !(world._trail && world._trail[y * world.W + x]) ? { x: px, y: py, r: 0.15, k: 'oak', s: 0.6 + b * 0.25 } : null;
       if (t === T.GRASS) return a >= 0.32 && a < 0.335 ? { x: px, y: py, r: RAD.rock * (0.5 + b * 0.4), k: 'rock', s: 0.5 + b * 0.4 } : null;
       if (t === T.HILL || t === T.SNOW) return a < 0.18 ? { x: px, y: py, r: RAD.rock * (0.8 + b), k: 'rock', s: 0.8 + b } : null;
       if (t === T.RUIN && a < 0.06 && world.ruins.some(r => Math.abs(r.x - x) <= 6 && Math.abs(r.y - y) <= 5)) return { x: px, y: py, r: 0.25, k: 'pillar', s: 0.9 };

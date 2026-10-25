@@ -8,7 +8,7 @@
     FARM: 8, ROAD: 9, SWAMP: 10, SNOW: 11, RUIN: 12, BRIDGE: 13, PLAZA: 14, RUINWALL: 15
   };
   const SOLID_TILES = new Set([TILE.DEEP, TILE.WATER, TILE.TREE, TILE.ROCK, TILE.RUINWALL]);
-  const MOVE_COST = { [TILE.WATER]: 0.5, [TILE.DEEP]: 0.55, [TILE.TREE]: 0.7, [TILE.FOREST]: 0.78, [TILE.SWAMP]: 0.6, [TILE.HILL]: 0.82, [TILE.SNOW]: 0.75, [TILE.SAND]: 0.92, [TILE.ROAD]: 1.15, [TILE.BRIDGE]: 1.15, [TILE.PLAZA]: 1.1 };
+  const MOVE_COST = { [TILE.WATER]: 0.5, [TILE.DEEP]: 0.55, [TILE.TREE]: 0.84, [TILE.FOREST]: 0.9, [TILE.SWAMP]: 0.6, [TILE.HILL]: 0.82, [TILE.SNOW]: 0.75, [TILE.SAND]: 0.92, [TILE.ROAD]: 1.15, [TILE.BRIDGE]: 1.15, [TILE.PLAZA]: 1.1 };
 
   // Dimensions belong to each world (old worlds are 200×150; vast ones are larger).
   // The generator works on the active world's size, set by World.use().
@@ -50,14 +50,14 @@
       if (world.blocked[i] === 1) return true;
       const t = world.tiles[i];
       // A tree only blocks at its trunk, so you can thread between them.
-      if (t === TILE.TREE) { if (World.noTrunks) return false; const tx = x + 0.5 + (ECHO.hash2(x, y, world.seed + 32) - 0.5) * 0.5, ty = y + 0.5 + (ECHO.hash2(x, y, world.seed + 33) - 0.5) * 0.5; return (fx - tx) ** 2 + (fy - ty) ** 2 < 0.17 * 0.17; }   // (World.trunk, without making an object)
+      if (t === TILE.TREE) { if (World.noTrunks) return false; const tx = x + 0.5 + (ECHO.hash2(x, y, world.seed + 32) - 0.5) * 0.5, ty = y + 0.5 + (ECHO.hash2(x, y, world.seed + 33) - 0.5) * 0.5; const tr = world._wd && world._wd[i] ? 0.22 : 0.17; return (fx - tx) ** 2 + (fy - ty) ** 2 < tr * tr; }   // (World.trunk, without making an object)
       return SOLID_TILES.has(t);
     },
     // Where the trunk stands in a tree tile (the 3D renderer plants it here too).
     trunk(world, x, y) {
       return { x: x + 0.5 + (ECHO.hash2(x, y, world.seed + 32) - 0.5) * 0.5, y: y + 0.5 + (ECHO.hash2(x, y, world.seed + 33) - 0.5) * 0.5 };
     },
-    speedAt(world, x, y) { return MOVE_COST[World.tile(world, x, y)] || 1; },
+    speedAt(world, x, y) { if (world._trail && x < 9000) { const i = Math.floor(y) * world.W + Math.floor(x); if (world._trail[i]) return 1.08; } return MOVE_COST[World.tile(world, x, y)] || 1; },
     regionAt(world, x, y) {
       if (world.frontier) return World.regionGrid(world, x, y);
       const RC = world.RC || 5, RR = world.RR || 4;

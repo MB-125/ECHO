@@ -73,6 +73,7 @@
     // Returns true when the monster spent this frame on an ability.
     tick(game, e, dt, d, ang) {
       const ab = e.ab, world = game.world, pe = game.pe;
+      if ((e.wab || (e.foe && e.foe.wab)) && ECHO.Deepwood && ECHO.Deepwood.ability(game, e, dt, d, ang)) return true;
       if ((e.gab || (e.foe && e.foe.gab)) && ECHO.GateWorld && ECHO.GateWorld.ability(game, e, dt, d, ang)) return true;
       if (!ab) return false;
       e.abT = e.abT || {};
@@ -178,6 +179,7 @@
         if (p.effect === 'web') { game.pl.slowT = 2.5; ECHO.Combat.floater(target.x, target.y - 1, 'webbed', '#f4f4ff'); M.tip(game, 'web'); }
       }
       if (p.effect === 'burn') target.burn = Math.max(target.burn || 0, 1.2);
+      if (ECHO.Deepwood && p.from && p.from.wood) ECHO.Deepwood.orbHit(game, p, target);
     },
     // When a monster's blow lands on you.
     hitPlayer(game, from, dmg) {
@@ -258,7 +260,7 @@
       const first = !pl.bestiary[e.species];
       pl.bestiary[e.species] = (pl.bestiary[e.species] || 0) + 1;
       if (first) ECHO.Combat.floater(e.x, e.y - 1.6, 'new to your bestiary', '#bfe8ff');
-      if (e.boss2 && !e.summoner) {
+      if (e.boss2 && !e.summoner && !e.wood) {
         if (ECHO.Ambition) ECHO.Ambition.note(pl, 'lords');
         if (e.species === 'hollowking' && ECHO.Story) ECHO.Story.kingSlain(world);
         else if (ECHO.Story && ECHO.Story.lordSlain(world)) { ECHO.UI.toast(`Among what it carried: a seal of black stone, warm to the touch — ${world.story.seals} of 3.`, 'legend', 6); ECHO.Combat.floater(e.x, e.y - 2, 'a seal of the Hollow Crown!', '#c8a8ff', true); }

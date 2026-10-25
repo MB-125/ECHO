@@ -5,7 +5,7 @@
 //  • instance(name)      → a full clone with its named parts, for animated
 //    characters, creatures and bosses (each gets its own materials).
 (function () {
-  const GLOW = new Set(['glow', 'flame', 'eyeglow', 'rune', 'voidglow']);
+  const GLOW = new Set(['glow', 'flame', 'eyeglow', 'rune', 'voidglow', 'shroomglow', 'sicklight']);
 
   const M = ECHO.Models = {
     scenes: {}, baked: {}, ready: false, failed: null,
@@ -100,7 +100,7 @@
           // a monster of its own shape: what it is made of drawn on it; ghost-stuff
           // drifts and shows through, crystal glows
           if (m.isMeshStandardMaterial && R3 && R3.surface && name.startsWith('m_') && R3.SURF[mname]) {
-            if (mname === 'ghost') { m.transparent = true; m.opacity = 0.8; m.depthWrite = false; m.emissive = base.color.clone().multiplyScalar(0.25); m.userData.keep = true; }
+            if (mname === 'ghost' || mname === 'shroud') { m.transparent = true; m.opacity = 0.8; m.depthWrite = false; m.emissive = base.color.clone().multiplyScalar(0.25); m.userData.keep = true; }
             if (mname === 'crystal') { m.emissive = base.color.clone().multiplyScalar(0.5); m.roughness = 0.25; m.userData.keep = true; }
             R3.surface(m, R3.SURF[mname]);
           } else if (m.isMeshStandardMaterial && R3 && R3.detail) R3.detail(m, 0.1, 3.5);

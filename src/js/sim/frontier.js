@@ -77,6 +77,7 @@
       const towns = Fr.towns(world, R, rng);
       Fr.wilds(world, R, towns, regions, rng);
       for (const r of regions) if (ECHO.Ecology && ECHO.Ecology.initRegion) ECHO.Ecology.initRegion(world, r, rng);
+      if (ECHO.Wildwood && world.wild) ECHO.Wildwood.grow(world, R);
       Wd().rebuildBlocked(world);
       world._tileEpoch = (world._tileEpoch || 0) + 1;
       F.sides[side]++; F.n++;

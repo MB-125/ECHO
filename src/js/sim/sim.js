@@ -193,6 +193,7 @@
       if (ECHO.Delvers) ECHO.Delvers.dailyTick(world);
       if (ECHO.Powers) ECHO.Powers.dailyTick(world);
       if (ECHO.Gates) ECHO.Gates.dailyTick(world, rng);
+      if (ECHO.Wildwood) ECHO.Wildwood.dailyTick(world, rng);
       if (ECHO.Titans) ECHO.Titans.dailyTick(world, rng);
       ECHO.Intel.dailyTick(world, rng);
       ECHO.Plights.dailyTick(world, rng);

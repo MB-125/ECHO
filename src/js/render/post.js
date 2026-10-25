@@ -187,6 +187,8 @@
         con = 1.06 - 0.03 * dusk - 0.02 * grey;
         vig = 0.28 + 0.15 * night;
       }
+      const dk = P.R.deepK || 0;
+      if (dk > 0.01 && !room) { sat *= 1 - 0.38 * dk; gain = [gain[0] * (1 - 0.1 * dk), gain[1] * (1 + 0.02 * dk), gain[2] * (1 - 0.06 * dk)]; vig += 0.16 * dk; con += 0.05 * dk; }   // (under the trees of a deep wood)
       if (game.pe && game.pe.hp < game.pe.maxHp * 0.3) { sat *= 0.75; vig += 0.15; }   // the world dims as you weaken
       G.gain.value.set(...gain); G.lift.value.set(...lift); G.saturation.value = sat; G.contrast.value = con; G.vignette.value = vig;
       G.exposure.value = room ? 1.08 : 0.98;

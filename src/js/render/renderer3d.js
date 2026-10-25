@@ -219,11 +219,11 @@
     // plates, metal brushed and scratched with rust in the seams, leather grained,
     // and ghost-stuff that drifts and glows. Drawn from the part's own space, so
     // it moves with it; no images needed.
-    SURF: { bone: 'bone', bonedark: 'bone', skin: 'skin', cloth: 'cloth', cloth2: 'cloth', rag: 'cloth', cape: 'cloth', stone: 'stone', darkstone: 'stone', obsidian: 'stone', metal: 'metal', darkmetal: 'metal', iron: 'metal', gold: 'gold', rust: 'rust', leather: 'leather', darkwood: 'wood', wood: 'wood', ghost: 'ghost', crystal: 'crystal' },
+    SURF: { bone: 'bone', bonedark: 'bone', skin: 'skin', cloth: 'cloth', cloth2: 'cloth', rag: 'cloth', cape: 'cloth', stone: 'stone', darkstone: 'stone', obsidian: 'stone', metal: 'metal', darkmetal: 'metal', iron: 'metal', gold: 'gold', rust: 'rust', leather: 'leather', darkwood: 'wood', wood: 'wood', ghost: 'ghost', crystal: 'crystal', gnarlbark: 'bark', deadbark: 'bark', antlerdark: 'bone', wendskin: 'skin', paleskin: 'skin', gloamfur: 'fur', hairblack: 'fur', moss: 'fur', leafcloak: 'cloth', shroud: 'ghost' },
     surface(mat, kind) {
       if (!mat || mat.userData.surf) return mat;
       mat.userData.surf = kind;
-      const K = ['bone', 'skin', 'cloth', 'stone', 'metal', 'gold', 'rust', 'leather', 'wood', 'ghost', 'crystal'].indexOf(kind);
+      const K = ['bone', 'skin', 'cloth', 'stone', 'metal', 'gold', 'rust', 'leather', 'wood', 'ghost', 'crystal', 'bark', 'fur'].indexOf(kind);
       mat.customProgramCacheKey = () => 'surf' + K;
       mat.onBeforeCompile = (sh) => {
         sh.uniforms.uTime = R.waterTime;
@@ -286,6 +286,19 @@
               float c = sCell(P * 9.0), edge = 1.0 - smoothstep(0.0, 0.08, c);
               sEm = diffuseColor.rgb * (0.55 + 0.45 * sin(uTime * 2.0 + P.y * 9.0)) * (0.6 + edge);
               sRough = 0.3;
+            } else if (K == 11) {
+              // bark: deep furrows running up the wood, ridges between, lichen in patches
+              float ang = atan(P.z, P.x);
+              float fur = sN(vec3(ang * 3.0, P.y * 5.0, 0.0) + sN(P * 4.0) * 1.5);
+              float ridge = smoothstep(0.35, 0.65, fur), knot = smoothstep(0.75, 0.85, sN(P * 9.0));
+              diffuseColor.rgb *= (0.55 + ridge * 0.6) * (0.9 + sN(P * 60.0) * 0.2) * (1.0 - knot * 0.3);
+              diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.2, 0.26, 0.12), smoothstep(0.62, 0.8, sF(P * 6.0)) * 0.5);
+              sRough = 1.1;
+            } else if (K == 12) {
+              // fur, hair, moss: fine strands that catch the light along their length
+              float s1 = sN(vec3(P.x * 140.0, P.y * 14.0, P.z * 140.0)), s2 = sN(P * 25.0);
+              diffuseColor.rgb *= 0.72 + s1 * 0.42 + s2 * 0.12;
+              sRough = 1.05;
             }
           }`)
           .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
@@ -606,6 +619,11 @@
         tmp.copy(C(tileColor(t, season, x, y, world.seed)));
         const jit = 0.9 + hash(x, y, world.seed + 2) * 0.2;
         tmp.multiplyScalar(jit);
+        {
+          const ii = y * world.W + x, trl = world._trail ? world._trail[ii] : 0, dwt = world._wd ? world._wd[ii] : 0;
+          if (trl) tmp.lerp(C(dwt ? '#3e3528' : '#9a8258'), (dwt ? 0.75 : 0.82) * (0.88 + hash(x, y, world.seed + 4) * 0.24));
+          if (dwt) tmp.lerp(C(trl ? '#1a1a14' : '#121a10'), 0.3 + dwt * 0.14);
+        }
         const a = R.cornerH(x, y), b = R.cornerH(x + 1, y), c2 = R.cornerH(x, y + 1), d = R.cornerH(x + 1, y + 1);
         if (a > groundTop) groundTop = a;
         const V = [[x, a, y], [x, c2, y + 1], [x + 1, b, y], [x + 1, b, y], [x, c2, y + 1], [x + 1, d, y + 1]];
@@ -643,6 +661,22 @@
         const t = world.tiles[y * world.W + x];
         const h1 = hash(x, y, world.seed + 31), h2 = hash(x, y, world.seed + 32), h3 = hash(x, y, world.seed + 33);
         const px = x + 0.5 + (h2 - 0.5) * 0.5, py = y + 0.5 + (h3 - 0.5) * 0.5;
+        const ii = y * world.W + x, trl = world._trail ? world._trail[ii] : 0, dwt = world._wd ? world._wd[ii] : 0;
+        // worn paths: nothing grows on them (but in the deep woods, things at the edges)
+        if (trl && (t === TILE.FOREST || t === TILE.TREE)) { if (dwt && h1 < 0.05 && trl === 1) add('shrooms', null, px, py, 0.7 + h2 * 0.4, h1 * 60); else if (!dwt && h1 < 0.18) add('grass', { grass: SEASON.grass[season] }, px, py, 0.8, h1 * 6.28); continue; }
+        // the deep woods: old twisted trees and dead ones, thorns, glowing caps, bones and
+        // the totems of whatever hunts here
+        if (dwt && (t === TILE.TREE || t === TILE.FOREST)) {
+          if (t === TILE.TREE) { if (h1 < 0.45) add('gnarltree', null, px, py, 0.78 + h2 * 0.3, h1 * 6.28); else add('deadtree', null, px, py, 0.8 + h2 * 0.32, h1 * 6.28); }
+          else if (h1 < 0.22) add('deadtree', null, px, py, 0.55 + h2 * 0.25, h1 * 6.28);
+          else if (h1 < 0.42) add('thorns', null, px, py, 0.9 + h2 * 0.6, h1 * 6.28);
+          else if (h1 < 0.52) add('shrooms', null, px, py, 0.7 + h2 * 0.6, h1 * 6.28);
+          else if (h1 < 0.58) add('bones', null, px, py, 1, h1 * 6.28);
+          else if (h1 < 0.6 && dwt >= 2) add('totem', null, px, py, 1, h1 * 6.28);
+          else if (h1 < 0.62 && dwt >= 2) add('hangcage', null, px, py, 1, h1 * 6.28);
+          else if (h1 < 0.7) add('grass', { grass: '#2a3420' }, px, py, 0.9, h1 * 6.28);
+          continue;
+        }
         if (t === TILE.TREE) {
           const reg = regionOf(x, y);
           const pineLand = y < world.H * 0.3 || reg.hill > 0.12 || h1 < 0.18;
@@ -682,6 +716,17 @@
           const nearRuin = world.ruins.some(r => Math.abs(r.x - x) <= 6 && Math.abs(r.y - y) <= 5);
           if (nearRuin && h1 < 0.06) add('pillar', null, px, py, 0.9, h1 * 60);
           else if (h1 < 0.08) add('rock', null, px, py, 0.4, h1 * 60);
+        }
+      }
+      for (const w of (world.wild && world.wild.woods) || []) {
+        if (w.x >= x0 && w.x < x1 && w.y >= y0 && w.y < y1) {
+          add('erlthrone', null, w.x + 0.4, w.y - 0.2, 1.3, 0);
+          for (let k = 0; k < 6; k++) { const a = k / 6 * 6.28 + 0.3; add('totem', null, w.x + Math.cos(a) * 3.2, w.y + Math.sin(a) * 3.2, 1.15, a + Math.PI); }
+        }
+        for (const c of w.caches) if (c.x >= x0 && c.x < x1 && c.y >= y0 && c.y < y1) {
+          if (c.kind === 'cage') add('hangcage', null, c.x + 0.75, c.y, 1, 0);
+          else if (c.kind === 'camp') { add('tent', { tent: '#3a3026', canvas: '#5a5040' }, c.x, c.y - 0.4, 0.8, 0.4); add('bones', null, c.x + 0.4, c.y + 0.3, 1, 2); }
+          else { add('bones', null, c.x, c.y, 1.2, 1); add('totem', null, c.x - 0.6, c.y - 0.4, 0.9, 1); }
         }
       }
       const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sv = new THREE.Vector3(), pv = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
@@ -1526,7 +1571,7 @@
       let inst = null, kind = e.type;
       if (e.shape === 'spider' || e.shape === 'slime' || e.shape === 'serpent' || e.shape === 'horror') inst = R.procMonster(e);
       else if (e.shape === 'rat') inst = ECHO.Models.instance('gnawer');
-      else if (e.shape === 'hound') inst = ECHO.Models.instance('wolf');
+      else if (e.shape === 'hound') inst = ECHO.Models.instance(e.foe && e.foe.model && ECHO.Models.scenes[e.foe.model] ? e.foe.model : 'wolf');
       else if (e.shape === 'drake') inst = ECHO.Models.instance('drake');
       else if (e.shape === 'stag') inst = ECHO.Models.instance('stag');
       else if (e.humanoid && e.foe && e.foe.vis && R.MON_MODEL[e.species] && ECHO.Models.scenes[R.MON_MODEL[e.species]]) inst = ECHO.Models.instance(R.MON_MODEL[e.species]);
@@ -1534,7 +1579,7 @@
       else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' || e.species === 'deer' ? 'stag' : e.species === 'dog' || e.species === 'fox' ? 'wolf' : e.species);
       else if (e.type === 'boss') inst = ECHO.Models.instance(e.boss.kind);
       if (!inst) return null;
-      v = { inst, kind, cfgT: 0, dir: e.dir || 0, bob: Math.random() * 6, own: !!(e.humanoid && R.MON_MODEL[e.species] && inst.root && ECHO.Models.scenes[R.MON_MODEL[e.species]]), float: e.species === 'wraith' };
+      v = { inst, kind, cfgT: 0, dir: e.dir || 0, bob: Math.random() * 6, own: !!(e.humanoid && R.MON_MODEL[e.species] && inst.root && ECHO.Models.scenes[R.MON_MODEL[e.species]]), float: e.species === 'wraith' || e.species === 'bride' };
       // The player shows through trees and roofs as a faint silhouette.
       if (e.type === 'player') {
         const ghost = new THREE.MeshBasicMaterial({ color: '#bfe8ff', transparent: true, opacity: 0.32, depthTest: false, depthWrite: false });
@@ -1549,7 +1594,7 @@
       return v;
     },
     // monsters with a shape of their own (on a person's rig)
-    MON_MODEL: { skeleton: 'm_skeleton', skelarcher: 'm_skeleton', wraith: 'm_wraith', cultist: 'm_cultist', necromancer: 'm_cultist', golemling: 'm_golem', golem: 'm_golem', hollowking: 'm_hollowking' },
+    MON_MODEL: { skeleton: 'm_skeleton', skelarcher: 'm_skeleton', wraith: 'm_wraith', cultist: 'm_cultist', necromancer: 'm_cultist', golemling: 'm_golem', golem: 'm_golem', hollowking: 'm_hollowking', wendigo: 'm_wendigo', barkhulk: 'm_treant', bride: 'm_lady', erlking: 'm_erlking' },
     PROF: null,
     PROF_COL: {
       farmer: ['#7a8a4a', '#5a4a30'], hunter: ['#5a6a3a', '#4a3a2a'], miner: ['#6a6058', '#3a3430'], woodcutter: ['#8a4a3a', '#4a3a2a'],
@@ -2842,6 +2887,59 @@
       }
       R.roostGroup.visible = !room;
     },
+    // ---------------------------------------------------------------- the deep woods
+    // Eyes in the dark between the trees (pairs of small lights that blink, and go
+    // out when you come near), and motes drifting in the still air.
+    updateDeep(game, room, dt) {
+      const D = ECHO.Deepwood, k = R.deepK || 0;
+      if (!R.deepG) {
+        const g = R.deepG = new THREE.Group(); R.scene.add(g);
+        const cv = document.createElement('canvas'); cv.width = cv.height = 32;
+        const cx2 = cv.getContext('2d'), gr = cx2.createRadialGradient(16, 16, 0, 16, 16, 16);
+        gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(255,255,255,0.85)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.25)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+        cx2.fillStyle = gr; cx2.fillRect(0, 0, 32, 32);
+        const tex = new THREE.CanvasTexture(cv);
+        R.eyePool = [];
+        for (let i = 0; i < 28; i++) {
+          const em = new THREE.SpriteMaterial({ map: tex, color: '#d8ff7a', transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending });
+          const pr = new THREE.Group(), a = new THREE.Sprite(em), b = new THREE.Sprite(em); pr.userData.mat = em;
+          a.position.x = -0.1; b.position.x = 0.1; a.scale.set(0.2, 0.13, 1); b.scale.set(0.2, 0.13, 1);
+          pr.add(a, b); pr.visible = false; g.add(pr); R.eyePool.push(pr);
+        }
+        const N = 260, pos = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * 34; pos[i * 3 + 1] = Math.random() * 5; pos[i * 3 + 2] = (Math.random() - 0.5) * 34; }
+        const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        R.deepMotes = new THREE.Points(mg, new THREE.PointsMaterial({ color: '#c8ffb0', size: 0.07, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending }));
+        R.deepMotes.frustumCulled = false; g.add(R.deepMotes);
+      }
+      const on = !room && k > 0.02 && D;
+      R.deepG.visible = !!on;
+      if (!on) return;
+      // motes
+      const tgt = R.camTarget, mp = R.deepMotes.geometry.attributes.position;
+      R.deepMotes.position.set(tgt.x, R.groundH(tgt.x, tgt.z), tgt.z);
+      for (let i = 0; i < mp.count; i++) {
+        let y = mp.getY(i) + dt * (0.08 + (i % 5) * 0.03);
+        if (y > 5) y = 0;
+        mp.setY(i, y); mp.setX(i, mp.getX(i) + Math.sin(R.time * 0.4 + i) * dt * 0.08);
+      }
+      mp.needsUpdate = true;
+      R.deepMotes.material.opacity = 0.75 * k;
+      // eyes
+      const cam = R.camera;
+      R.eyePool.forEach((pr, i) => {
+        const y = D.eyes[i];
+        if (!y) { pr.visible = false; return; }
+        pr.visible = true;
+        pr.position.set(y.x, R.groundH(y.x, y.y) + y.h, y.y);
+        pr.lookAt(cam.position);
+        const fade = Math.min(1, y.t / 1.2, (y.life - y.t) / 0.4);
+        const blink = (Math.sin(R.time * 1.3 + y.blink) > 0.96) ? 0.1 : 1;
+        pr.scale.set(y.s, y.s * blink, y.s);
+        const em = pr.userData.mat; if (em.userData.col !== y.col) { em.color.set(y.col); em.userData.col = y.col; }
+        em.opacity = Math.max(0, fade);
+      });
+    },
     updateGates(game, room, dt) {
       const world = game.world;
       if (!world.gates) return;
@@ -3524,11 +3622,21 @@
       fog = lerpC(fog, C('#7c8690').multiplyScalar(Math.max(0.2, dl)), 0.5 * U.clamp((1 - cloud) / 0.3, 0, 1));
       if (M.heat > 0.01) fog = lerpC(fog, C('#e8d8b0'), 0.25 * dl * M.heat);
       if (dusk > 0) fog = lerpC(fog, C('#d88a5a'), dusk * 0.45);
+      // under the trees of a deep wood: the light goes, the air thickens and greens
+      const dk = R.deepK = U.lerp(R.deepK || 0, ECHO.Deepwood ? ECHO.Deepwood.k : 0, Math.min(1, dt * 0.9));
+      if (dk > 0.005) {
+        R.sun.intensity *= 1 - 0.55 * dk;
+        R.hemi.intensity *= 1 - 0.3 * dk;
+        R.hemi.color.lerp(C('#5a6a52'), 0.6 * dk); R.hemi.groundColor.lerp(C('#0a0c08'), 0.7 * dk);
+        fog = lerpC(fog, C(dl > 0.3 ? '#3a4a36' : '#0e140e'), 0.8 * dk);
+        // (your eyes get used to the dark: what is close by can still be seen)
+        if (dk > 0.25 && game.pe) R._fxLights = (R._fxLights || []).concat([{ x: game.pe.x, y: game.pe.y, r: 6.5, a: 0.55 * dk, color: '#a8c8a0' }]);
+      }
       R.scene.fog.color.copy(fog);
       R.scene.background = R.scene.fog.color;
       const fogK = M.fogK;
-      R.scene.fog.near = R.camDistNow * 1.15 * fogK;
-      R.scene.fog.far = R.camDistNow * (season === 3 ? 2.6 : 3.4) * fogK;
+      R.scene.fog.near = R.camDistNow * 1.15 * fogK * (1 - 0.18 * dk);
+      R.scene.fog.far = R.camDistNow * (season === 3 ? 2.6 : 3.4) * fogK * (1 - 0.45 * dk);
       R.renderer.toneMappingExposure = 1.0 + (1 - dl) * 0.22;
       R.mat.window.emissiveIntensity = R.mat.windowFade.emissiveIntensity = (1 - dl) * 1.6;
       // Point lights: game lights + scene lights, nearest first
@@ -3704,6 +3812,7 @@
       R.updateTownFires(game, room);
       R.updateSecrets(game, room);
       R.updateGates(game, room, dt);
+      R.updateDeep(game, room, dt);
       R.updateRoosts(game, room);
       R.updateHomestead(game, room);
       if (!room) R.updateFestival(game); else if (R.festGroup) R.festGroup.visible = false;

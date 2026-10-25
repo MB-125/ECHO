@@ -48,6 +48,11 @@ PALETTE = {
     # the dead, the void and the things in it
     'bonedark': ('#a89c84', 0, .8), 'socket': ('#0a0608', 0, 1.0), 'rust': ('#6e4a32', 0, .75), 'rag': ('#3a3448', 0, .95),
     'ghost': ('#a8c4f0', 1.2, .6), 'voidglow': ('#b48aff', 7, .3), 'obsidian': ('#1e1826', 0, .2), 'crystal': ('#6a3ad0', 2.5, .15),
+    # the deep woods and what lives in them
+    'gnarlbark': ('#3a2e24', 0, .95), 'deadbark': ('#2a2622', 0, .95), 'darkleaf': ('#1c2a1e', 0, .9), 'moss': ('#4a5a2a', 0, 1.0),
+    'shroomglow': ('#5affc8', 5, .4), 'sicklight': ('#d8ff7a', 8, .3), 'gloamfur': ('#16141a', 0, .95), 'wendskin': ('#b8b0a0', 0, .8),
+    'antlerdark': ('#4a3a2c', 0, .8), 'shroud': ('#d8dcd0', .5, .9), 'hairblack': ('#0c0a0c', 0, .9), 'paleskin': ('#c8ccc0', 0, .8),
+    'leafcloak': ('#1a1e16', 0, .95), 'bloodred': ('#5a0a08', 0, .8),
 }
 
 
@@ -74,7 +79,7 @@ CREASE = math.radians(42)
 LOD = os.environ.get('ECHO_LOD') == '1'
 if LOD:
     LOWPOLY = True
-SCATTER = ['oak', 'oakbare', 'pine', 'willow', 'bush', 'crop', 'grass', 'reeds', 'rock', 'boulder', 'pillar', 'ruinwall']
+SCATTER = ['oak', 'oakbare', 'pine', 'willow', 'bush', 'crop', 'grass', 'reeds', 'rock', 'boulder', 'pillar', 'ruinwall', 'gnarltree', 'deadtree', 'shrooms', 'bones', 'thorns', 'totem', 'hangcage']
 
 
 def mat(name):
@@ -1773,6 +1778,413 @@ def standard():
     b = m.part('building')
     b.box((.06, .06, 2.2), (0, 0, 1.1), 'darkwood').box((.5, .5, .08), (0, 0, .04), 'iron').box((.7, .04, 1.0), (.0, -.05, 1.55), 'banner').box((.3, .05, .3), (0, -.08, 1.6), 'gold')
     return m
+
+
+# ================================================================= THE DEEP WOODS
+# The trees, and the things left lying among them, in the deep woods: old,
+# twisted and dead, with moss hanging off them, mushrooms that glow, bones,
+# brambles, the totems of something that hunts there and the cages it leaves.
+def _rnd(seed):
+    import random
+    return random.Random(seed)
+
+
+def crooked(p, base, h, r0, r1, m, bends=4, seed=1, lean=(0, 0)):
+    """A trunk or branch that wanders as it rises."""
+    R = _rnd(seed)
+    pts, rad = [], []
+    for i in range(bends + 1):
+        f = i / bends
+        pts.append((base[0] + lean[0] * f + (R.random() - .5) * .14 * f, base[1] + lean[1] * f + (R.random() - .5) * .14 * f, base[2] + h * f))
+        rad.append(r0 + (r1 - r0) * f)
+    p.tube(pts, rad, m, seg=9)
+    return pts[-1]
+
+
+def branch(p, a, d, n, r, m, seed):
+    """A crooked limb from a toward direction d, in n kinks."""
+    R = _rnd(seed)
+    pts, rad = [a], [r]
+    cur = Vector(a)
+    D = Vector(d)
+    L = D.length / n
+    D.normalize()
+    for i in range(n):
+        D = (D + Vector(((R.random() - .5) * .7, (R.random() - .5) * .7, (R.random() - .3) * .5))).normalized()
+        cur = cur + D * L
+        pts.append(tuple(cur))
+        rad.append(r * (1 - (i + 1) / (n + .6)))
+    p.tube(pts, rad, m, seg=6)
+    return pts
+
+
+@model
+def gnarltree():
+    m = Model('gnarltree')
+    t = m.part('tree')
+    # roots that grip the ground
+    for k in range(6):
+        a = k / 6 * 2 * math.pi + .3
+        t.tube([(.05 * math.cos(a), .05 * math.sin(a), .35), (.3 * math.cos(a), .3 * math.sin(a), .12), (.55 * math.cos(a + .2), .55 * math.sin(a + .2), .02), (.72 * math.cos(a + .35), .72 * math.sin(a + .35), -.03)], [.13, .09, .05, 0], 'gnarlbark', seg=6)
+    top = crooked(t, (0, 0, 0), 2.1, .24, .12, 'gnarlbark', bends=5, seed=3, lean=(.15, -.1))
+    # a knot like a face in the bark
+    t.ball(.06, (-.2, -.03, 1.1), 'socket', scale=(.6, 1, 1.2)).ball(.06, (-.2, .1, 1.12), 'socket', scale=(.6, 1, 1.2)).ball(.05, (-.21, .04, .92), 'socket', scale=(.5, 1.4, .8))
+    tips = []
+    for k, (dx, dy, dz) in enumerate([(-1.0, -.4, .55), (.9, -.6, .4), (.2, 1.0, .5), (-.4, .7, .9), (.6, .3, 1.0)]):
+        base = (top[0] * .7, top[1] * .7, 1.3 + k * .14)
+        pts = branch(t, base, (dx, dy, dz), 4, .09, 'gnarlbark', 10 + k)
+        tips.append(pts[-1])
+        # moss hanging off the limbs
+        for j in (1, 2, 3):
+            q = pts[j]
+            ln = .35 + .25 * ((k + j) % 3)
+            t.tube([q, (q[0] + .02, q[1], q[2] - ln * .5), (q[0] + .04, q[1] + .02, q[2] - ln)], [.035, .025, 0], 'moss', seg=5)
+    # a thin, ragged canopy that lets the dark through
+    for k, q in enumerate(tips):
+        if k % 2 == 0:
+            t.ball(.17, (q[0], q[1], q[2] + .04), 'darkleaf', sub=1, scale=(1.3, 1.1, .45))
+    return m
+
+
+@model
+def deadtree():
+    m = Model('deadtree')
+    t = m.part('tree')
+    for k in range(4):
+        a = k / 4 * 2 * math.pi + .8
+        t.tube([(0, 0, .25), (.3 * math.cos(a), .3 * math.sin(a), .06), (.5 * math.cos(a + .3), .5 * math.sin(a + .3), -.03)], [.09, .05, 0], 'deadbark', seg=6)
+    top = crooked(t, (0, 0, 0), 2.3, .18, .07, 'deadbark', bends=6, seed=7, lean=(-.2, .15))
+    for k, d in enumerate([(-.9, .2, .6), (.8, .5, .7), (.3, -.9, .5), (-.3, -.5, 1.0), (.5, .1, 1.1), (-.7, .7, .3)]):
+        base = (top[0] * (.4 + k * .1), top[1] * (.4 + k * .1), .9 + k * .25)
+        pts = branch(t, base, d, 4, .06, 'deadbark', 20 + k)
+        for j in (2, 3):
+            branch(t, pts[j], (d[1] * .5, -d[0] * .5, .45), 2, .025, 'deadbark', 40 + k * 3 + j)
+    # a hollow, and a face in it that is only a knot
+    t.ball(.09, (-.15, .02, .7), 'socket', scale=(.5, 1, 1.6))
+    return m
+
+
+@model
+def shrooms():
+    m = Model('shrooms')
+    p = m.part('shrooms')
+    R = _rnd(5)
+    for k in range(6):
+        a, r = R.random() * 6.28, .05 + R.random() * .22
+        h = .1 + R.random() * .22
+        x, y = r * math.cos(a), r * math.sin(a)
+        p.cyl(.022 + h * .05, h, (x, y, h / 2), 'bone', seg=6, r2=.018)
+        p.ball(.05 + h * .25, (x, y, h), 'shroomglow', sub=1, scale=(1, 1, .45))
+    p.ball(.2, (0, 0, .0), 'moss', sub=1, scale=(1.4, 1.2, .2))
+    return m
+
+
+@model
+def bones():
+    m = Model('bones')
+    p = m.part('bones')
+    # what is left of someone
+    for s in (-1, 1):
+        for k in range(4):
+            x = -.1 + k * .07
+            p.tube([(x, s * .02, .03), (x - .02, s * .12, .08), (x - .03, s * .17, .03)], [.012, .012, .01], 'bone', seg=5)
+    p.box((.3, .03, .03), (0, 0, .03), 'bonedark')
+    p.ball(.08, (-.28, .1, .07), 'bone', sub=2, scale=(1.1, .95, 1))
+    for s in (-1, 1):
+        p.ball(.024, (-.34, .1 + s * .03, .08), 'socket', scale=(.6, 1, 1))
+    for (x, y, a) in ((.25, -.15, 20), (.1, .25, 70), (-.15, -.25, -30)):
+        p.box((.32, .03, .03), (x, y, .02), 'bone', rot=(0, 0, a)).ball(.025, (x + .15 * math.cos(math.radians(a)), y + .15 * math.sin(math.radians(a)), .025), 'bone')
+    p.box((.22, .14, .02), (.2, .05, .01), 'rag', rot=(0, 0, 15))
+    return m
+
+
+@model
+def thorns():
+    m = Model('thorns')
+    p = m.part('thorns')
+    R = _rnd(9)
+    for k in range(7):
+        a = k / 7 * 6.28
+        pts = [(0, 0, .05)]
+        for j in range(1, 5):
+            pts.append((math.cos(a + j * .4) * .12 * j, math.sin(a + j * .4) * .12 * j, .08 + .14 * j - .05 * j * j * .3 + R.random() * .05))
+        p.tube(pts, [.03, .025, .02, .015, 0], 'deadbark', seg=5)
+        for q in pts[1:-1]:
+            p.cone(.012, .07, (q[0], q[1], q[2] + .02), 'deadbark', seg=3, rot=(R.random() * 90 - 45, R.random() * 90 - 45, 0))
+    p.ball(.14, (.05, .02, .05), 'bloodred', sub=0, scale=(.3, .3, .3))
+    return m
+
+
+@model
+def totem():
+    m = Model('totem')
+    p = m.part('totem')
+    p.tube([(0, 0, 0), (.03, .02, .7), (-.02, 0, 1.4), (.0, .01, 1.75)], [.05, .045, .04, .03], 'deadbark', seg=6)
+    p.box((.06, .7, .05), (0, 0, 1.45), 'deadbark', rot=(8, 0, 0))
+    # a stag's skull, antlers and all
+    p.ball(.1, (-.04, 0, 1.78), 'bone', sub=2, scale=(1.3, .8, .9)).box((.16, .07, .06), (-.15, 0, 1.73), 'bone')
+    for s in (-1, 1):
+        p.ball(.025, (-.09, s * .05, 1.8), 'socket').ball(.012, (-.1, s * .05, 1.8), 'sicklight', sub=1)
+        a = branch(p, (0, s * .05, 1.86), (.1, s * .4, .45), 3, .022, 'antlerdark', 60 + s)
+        branch(p, a[1], (-.15, s * .2, .25), 2, .015, 'antlerdark', 70 + s)
+        branch(p, a[2], (.1, s * .25, .2), 2, .012, 'antlerdark', 80 + s)
+    # charms on strings
+    for k, y in enumerate((-.3, -.15, .15, .3)):
+        p.box((.005, .005, .25), (0, y, 1.3), 'rag').box((.05, .04, .06), (0, y, 1.16), 'bone' if k % 2 else 'rag')
+    return m
+
+
+@model
+def hangcage():
+    m = Model('hangcage')
+    p = m.part('cage')
+    p.tube([(0, 0, 0), (.02, 0, 1.2), (0, 0, 2.3)], [.07, .06, .05], 'deadbark', seg=6)
+    p.tube([(0, 0, 2.2), (-.4, 0, 2.3), (-.8, 0, 2.25)], [.05, .04, .035], 'deadbark', seg=6)
+    p.box((.012, .012, .5), (-.75, 0, 2.0), 'iron')
+    for k in range(8):
+        a = k / 8 * 6.28
+        p.box((.015, .015, .7), (-.75 + .22 * math.cos(a), .22 * math.sin(a), 1.4), 'iron')
+    p.cyl(.24, .03, (-.75, 0, 1.75), 'iron', seg=8).cyl(.24, .03, (-.75, 0, 1.05), 'iron', seg=8)
+    p.ball(.08, (-.72, .05, 1.17), 'bone', sub=1).tube([(-.75, -.05, 1.1), (-.78, -.1, 1.3), (-.75, -.08, 1.5)], [.02, .02, .015], 'bone', seg=5)
+    p.box((.25, .18, .25), (-.76, 0, 1.25), 'rag')
+    return m
+
+
+@model
+def erlthrone():
+    m = Model('erlthrone')
+    p = m.part('building')
+    p.box((1.0, 1.1, .5), (0, 0, .25), 'gnarlbark').box((.9, 1.0, .08), (0, 0, .54), 'moss')
+    p.box((.3, 1.1, 1.6), (.4, 0, 1.0), 'gnarlbark')
+    for k in range(9):
+        a = math.radians(-70 + k * 17.5)
+        branch(p, (.45, math.sin(a) * .5, 1.7), (0, math.sin(a) * 1.2, math.cos(a) * 1.1 + .3), 4, .05, 'antlerdark', 100 + k)
+    for y in (-.55, .55):
+        p.ball(.14, (-.05, y, .8), 'bone', sub=2, scale=(1.2, .9, 1)).ball(.035, (-.18, y + .04, .82), 'sicklight', sub=1).ball(.035, (-.18, y - .04, .82), 'sicklight', sub=1)
+    for k in range(5):
+        a = k / 5 * 6.28
+        p.tube([(.0, 0, .1), (.8 * math.cos(a), .8 * math.sin(a), .05), (1.3 * math.cos(a + .2), 1.3 * math.sin(a + .2), -.03)], [.12, .07, 0], 'gnarlbark', seg=6)
+    return m
+
+
+# ---- what lives in the deep woods
+@model
+def mgloamstalker():
+    # On the wolf's rig (body, head, tail, four legs): long, lean and low, a mask
+    # of bone for a face and a ridge of black spines down its back.
+    m = Model('m_gloamstalker')
+    body = m.part('body', (0, 0, .42))
+    body.tube([(.42, 0, .5), (.2, 0, .55), (-.1, 0, .6), (-.32, 0, .62)], [(.1, .1), (.14, .15), (.16, .18), (.12, .14)], 'gloamfur', seg=12)
+    for k in range(5):
+        x = .3 - k * .14
+        body.tube([(x, -.02, .62), (x - .02, -.13, .52), (x - .04, -.14, .42)], [.012, .012, .008], 'bonedark', seg=5)
+        body.tube([(x, .02, .62), (x - .02, .13, .52), (x - .04, .14, .42)], [.012, .012, .008], 'bonedark', seg=5)
+    for k in range(8):
+        x = .38 - k * .1
+        body.cone(.025, .12 + .06 * math.sin(k * .9), (x, 0, .7 + .02 * math.sin(k)), 'deadbark', seg=4, rot=(0, 25, 0))
+    head = m.part('head', (-.38, 0, .62), body)
+    head.tube([(-.36, 0, .62), (-.5, 0, .64), (-.66, 0, .6), (-.8, 0, .54)], [(.09, .1), (.08, .09), (.06, .06), (.03, .035)], 'bone', seg=10)
+    head.tube([(-.42, 0, .55), (-.6, 0, .5), (-.76, 0, .48)], [(.06, .03), (.05, .025), (.02, .015)], 'bonedark', seg=8)
+    for s in (-1, 1):
+        head.ball(.032, (-.52, s * .065, .68), 'socket', scale=(.8, .6, .8)).ball(.016, (-.54, s * .07, .68), 'sicklight', sub=1)
+        head.cone(.03, .2, (-.44, s * .07, .77), 'deadbark', seg=4, rot=(s * -20, 40, 0))
+    for k in range(6):
+        head.cone(.008, .045, (-.5 - k * .05, (-1) ** k * .03, .52), 'white', seg=3, rot=(180, 0, 0))
+    m.part('horn', (-.5, 0, .72), head).cone(.03, .25, (-.48, 0, .86), 'sicklight', seg=5, rot=(0, -20, 0))
+    m.part('tail', (.42, 0, .5), body).tube([(.42, 0, .5), (.65, 0, .45), (.85, 0, .4), (1.05, 0, .42)], [.05, .035, .02, 0], 'gloamfur', seg=6)
+    for n, x, y in [('legFL', -.24, -.11), ('legFR', -.24, .11), ('legBL', .28, -.1), ('legBR', .28, .1)]:
+        L = m.part(n, (x, y, .5), body)
+        L.tube([(x, y, .5), (x + .04, y, .28), (x - .02, y, .06), (x - .06, y, .02)], [.05, .035, .025, .02], 'gloamfur', seg=7)
+        for c in (-1, 0, 1):
+            L.cone(.008, .07, (x - .1, y + c * .02, .02), 'bonedark', seg=3, rot=(0, -80, 0))
+    return m
+
+
+@model
+def mwendigo():
+    # On a person's rig, stretched thin: grey skin over ribs, arms to the knee
+    # with claws on them, and a stag's skull with its antlers for a head.
+    m = Model('m_wendigo')
+    root = m.part('root')
+    hip = 0.42
+    for side, nm in ((-1, 'legL'), (1, 'legR')):
+        y = side * .09
+        L = m.part(nm, (0, y, hip), root)
+        L.tube([(0, y, hip), (-.06, y, .26), (.05, y, .12), (-.02, y, .02)], [.05, .035, .028, .02], 'wendskin', seg=7)
+        for c in (-1, 0, 1):
+            L.cone(.01, .08, (-.08, y + c * .025, .015), 'bonedark', seg=3, rot=(0, -80, 0))
+    body = m.part('body', (0, 0, hip), root)
+    body.tube([(0, 0, hip), (-.02, 0, hip + .15), (-.07, 0, hip + .32), (-.12, 0, hip + .4)], [(.08, .1), (.07, .11), (.09, .15), (.07, .12)], 'wendskin', seg=10)
+    for k in range(5):
+        z = hip + .14 + k * .05
+        for s in (-1, 1):
+            body.tube([(.04, s * .02, z), (.0, s * .11, z - .01), (-.08, s * .1, z - .02), (-.11, s * .02, z - .02)], [.009, .01, .009, .007], 'bonedark', seg=5)
+    body.tube([(.06, 0, hip + .05), (.08, 0, hip + .3), (-.02, 0, hip + .42)], [.02, .02, .018], 'bonedark', seg=5)
+    body.box((.1, .16, .08), (0, 0, hip + .02), 'rag')
+    sh = hip + .38
+    for side, nm in ((-1, 'armL'), (1, 'armR')):
+        y = side * .2
+        A = m.part(nm, (-.08, y, sh), body)
+        A.tube([(-.08, y, sh), (-.1, y * 1.05, sh - .25), (-.12, y * 1.05, sh - .5), (-.14, y, sh - .62)], [.035, .028, .024, .02], 'wendskin', seg=7)
+        for c in (-1, 0, 1):
+            A.tube([(-.14, y + c * .025, sh - .62), (-.18, y + c * .03, sh - .72), (-.24, y + c * .03, sh - .76)], [.01, .008, 0], 'bonedark', seg=4)
+    hz = hip + .42
+    head = m.part('head', (-.12, 0, hz), body)
+    head.tube([(-.08, 0, hz + .08), (-.18, 0, hz + .1), (-.3, 0, hz + .06), (-.38, 0, hz + .02)], [(.07, .08), (.065, .07), (.045, .045), (.02, .02)], 'bone', seg=10)
+    for s in (-1, 1):
+        head.ball(.026, (-.19, s * .05, hz + .13), 'socket', scale=(.8, .6, .8)).ball(.014, (-.2, s * .055, hz + .13), 'sicklight', sub=1)
+    for k in range(5):
+        head.cone(.006, .03, (-.24 - k * .03, (-1) ** k * .02, hz + .02), 'white', seg=3, rot=(180, 0, 0))
+    ant = m.part('antlers', (-.12, 0, hz + .14), head)
+    for s in (-1, 1):
+        a = branch(ant, (-.12, s * .04, hz + .14), (.15, s * .45, .5), 4, .025, 'antlerdark', 200 + s)
+        branch(ant, a[1], (-.2, s * .2, .3), 2, .016, 'antlerdark', 210 + s)
+        branch(ant, a[2], (.15, s * .3, .25), 2, .014, 'antlerdark', 220 + s)
+        branch(ant, a[3], (-.1, s * .25, .3), 2, .012, 'antlerdark', 230 + s)
+    return m
+
+
+@model
+def mtreant():
+    # A walking tree: legs of bundled roots, a trunk for a body with moss on its
+    # shoulders and light in its cracks, limbs for arms and a stump of a head
+    # with two hollows where something looks out.
+    m = Model('m_treant')
+    root = m.part('root')
+    hip = 0.42
+    for side, nm in ((-1, 'legL'), (1, 'legR')):
+        y = side * .11
+        L = m.part(nm, (0, y, hip), root)
+        for k in range(3):
+            a = k * 2.1
+            L.tube([(.02 * math.cos(a), y + .02 * math.sin(a), hip), (.03 * math.cos(a), y + .04 * math.sin(a), .2), (-.04 + .08 * math.cos(a), y + .07 * math.sin(a), .02)], [.06, .05, .03], 'gnarlbark', seg=7)
+    body = m.part('body', (0, 0, hip), root)
+    body.tube([(0, 0, hip - .05), (0, 0, hip + .2), (.01, 0, hip + .38), (.02, 0, hip + .48)], [(.17, .19), (.2, .23), (.22, .27), (.16, .2)], 'gnarlbark', seg=12)
+    body.tube([(-.2, -.04, hip + .1), (-.22, .0, hip + .22), (-.19, .05, hip + .32)], [.012, .015, .01], 'sicklight', seg=5)
+    for s in (-1, 1):
+        body.ball(.12, (.02, s * .2, hip + .44), 'moss', sub=1, scale=(1.1, 1, .5))
+        for k in range(3):
+            body.cyl(.012, .06, (.06 - k * .05, s * (.24 - k * .02), hip + .5), 'bone', seg=5).ball(.035, (.06 - k * .05, s * (.24 - k * .02), hip + .53), 'shroomglow', sub=1, scale=(1, 1, .5))
+    sh = hip + .38
+    for side, nm in ((-1, 'armL'), (1, 'armR')):
+        y = side * .28
+        A = m.part(nm, (0, y, sh), body)
+        A.tube([(0, y, sh), (-.02, y * 1.08, sh - .2), (-.04, y * 1.1, sh - .4), (-.07, y * 1.1, sh - .5)], [.075, .06, .05, .04], 'gnarlbark', seg=8)
+        for c in (-1, 0, 1):
+            A.tube([(-.07, y * 1.1, sh - .5), (-.1, y * 1.1 + c * .04, sh - .6), (-.16, y * 1.1 + c * .06, sh - .66)], [.02, .014, 0], 'deadbark', seg=4)
+        A.tube([(-.02, y * 1.08, sh - .2), (.05, y * 1.4, sh - .05), (.08, y * 1.6, sh + .1)], [.025, .015, 0], 'gnarlbark', seg=5)
+    hz = hip + .48
+    head = m.part('head', (0, 0, hz), body)
+    head.tube([(0, 0, hz), (-.01, 0, hz + .14), (0, 0, hz + .22)], [(.14, .15), (.13, .14), (.11, .12)], 'gnarlbark', seg=10)
+    for s in (-1, 1):
+        head.ball(.04, (-.12, s * .055, hz + .12), 'socket', scale=(.6, 1, 1.2)).ball(.02, (-.13, s * .055, hz + .12), 'sicklight', sub=1)
+    head.ball(.035, (-.13, 0, hz + .04), 'socket', scale=(.5, 1.6, .7))
+    for k in range(5):
+        a = k / 5 * 6.28
+        branch(head, (.05 * math.cos(a), .05 * math.sin(a), hz + .2), (.25 * math.cos(a), .25 * math.sin(a), .4), 3, .025, 'deadbark', 300 + k)
+    head.ball(.1, (.05, .1, hz + .45), 'darkleaf', sub=1, scale=(1.2, 1, .6)).ball(.08, (-.06, -.12, hz + .42), 'darkleaf', sub=1, scale=(1.2, 1, .6))
+    return m
+
+
+@model
+def mlady():
+    # The Weeping Bride: a long white dress in rags, drifting a hand above the
+    # ground, pale arms, and long black hair hanging over the whole of her face.
+    m = Model('m_lady')
+    root = m.part('root')
+    hip = 0.42
+    for side, nm in ((-1, 'legL'), (1, 'legR')):
+        y = side * .08
+        L = m.part(nm, (0, y, hip), root)
+        L.tube([(.0, y, hip), (.02, y * 1.3, .22), (.05, y * 1.3, .05), (.08, y, -.02)], [(.08, .06), (.09, .07), (.07, .05), 0], 'shroud', seg=8)
+    body = m.part('body', (0, 0, hip), root)
+    body.cyl(.27, .45, (.02, 0, .22), 'shroud', seg=14, r2=.14)
+    for i in range(12):
+        a = i / 12 * 2 * math.pi
+        body.cone(.05, .14 + .08 * (i % 3), (.02 + .25 * math.cos(a), .25 * math.sin(a), .0), 'shroud', seg=4, rot=(180, 0, 0))
+    body.tube([(0, 0, hip), (0, 0, hip + .2), (-.01, 0, hip + .38)], [(.09, .12), (.08, .11), (.07, .13)], 'shroud', seg=10)
+    body.tube([(-.08, -.1, hip + .02), (-.1, 0, hip + .0), (-.08, .1, hip + .02)], [.012, .012, .012], 'bloodred', seg=5)
+    for s in (-1, 1):
+        body.tube([(.12, s * .08, hip + .35), (.2, s * .12, hip + .1), (.3, s * .1, hip - .2), (.38, s * .08, hip - .38)], [.04, .05, .04, 0], 'hairblack', seg=6)
+    sh = hip + .38
+    for side, nm in ((-1, 'armL'), (1, 'armR')):
+        y = side * .17
+        A = m.part(nm, (0, y, sh), body)
+        A.tube([(0, y, sh), (-.02, y * 1.05, sh - .2), (-.04, y * 1.05, sh - .38), (-.06, y, sh - .46)], [.03, .025, .02, .016], 'paleskin', seg=7)
+        A.tube([(0, y, sh), (.0, y * 1.1, sh - .12), (.05, y * 1.2, sh - .2)], [(.05, .04), (.06, .05), 0], 'shroud', seg=6)
+        for c in (-1, 0, 1):
+            A.tube([(-.06, y + c * .012, sh - .46), (-.09, y + c * .016, sh - .52), (-.12, y + c * .02, sh - .54)], [.007, .005, 0], 'paleskin', seg=4)
+    hz = hip + .42
+    head = m.part('head', (0, 0, hz), body)
+    head.ball(.1, (0, 0, hz + .12), 'paleskin', sub=2, scale=(1, .9, 1.15))
+    head.ball(.12, (.02, 0, hz + .15), 'hairblack', sub=2, scale=(1.05, 1.05, 1.1))
+    # the hair falls over the whole of her face, to the waist
+    for k in range(9):
+        y = (k - 4) * .022
+        head.tube([(-.1, y, hz + .2), (-.12, y * 1.1, hz + .05), (-.12, y * 1.15, hz - .15), (-.1, y * 1.2, hz - .32)], [.018, .02, .017, 0], 'hairblack', seg=5)
+    for s in (-1, 1):
+        head.ball(.012, (-.125, s * .03, hz + .12), 'sicklight', sub=1)
+    return m
+
+
+@model
+def merlking():
+    # The lord of a deep wood: armour of black bark over bone, a cloak of dead
+    # leaves, a skull for a face under a crown of antlers wider than a man is
+    # tall, a hunting spear and a horn at his belt.
+    m = Model('m_erlking')
+    root = m.part('root')
+    hip = 0.42
+    for side, nm in ((-1, 'legL'), (1, 'legR')):
+        y = side * .09
+        L = m.part(nm, (0, y, hip), root)
+        L.tube([(0, y, hip), (-.01, y, .22), (0, y, .04)], [.06, .05, .045], 'leafcloak', seg=8)
+        L.box((.08, .1, .2), (-.04, y, .16), 'deadbark').box((.16, .1, .05), (-.03, y, .025), 'deadbark')
+        L.ball(.04, (-.06, y, .26), 'bone', sub=1)
+    body = m.part('body', (0, 0, hip), root)
+    body.tube([(0, 0, hip - .02), (0, 0, hip + .2), (-.01, 0, hip + .38)], [(.13, .17), (.14, .19), (.13, .2)], 'leafcloak', seg=12)
+    for k in range(4):
+        z = hip + .12 + k * .07
+        body.box((.05, .3 - k * .02, .05), (-.12, 0, z), 'deadbark', rot=(0, 10, 0))
+        body.tube([(-.13, -.11, z + .02), (-.15, 0, z + .03), (-.13, .11, z + .02)], [.008, .008, .008], 'bone', seg=4)
+    body.cyl(.15, .05, (0, 0, hip + .02), 'leather', seg=12)
+    # the horn at his belt
+    body.tube([(-.02, .14, hip + .02), (.05, .2, hip - .05), (.12, .18, hip - .12)], [.035, .025, .012], 'bone', seg=7)
+    for s in (-1, 1):
+        body.ball(.1, (0, s * .19, hip + .38), 'deadbark', sub=1, scale=(1.1, 1, .7))
+        for k in range(3):
+            body.cone(.02, .14, (.02 - k * .04, s * (.2 + k * .02), hip + .45), 'antlerdark', seg=4, rot=(s * -30, 0, 0))
+    cape = m.part('cape', (.1, 0, hip + .38), body)
+    for k in range(7):
+        y = (k - 3) * .07
+        cape.tube([(.1, y * .7, hip + .38), (.18, y, hip + .1), (.24, y * 1.15, hip - .2), (.27, y * 1.2, hip - .38)], [(.04, .05), (.03, .06), (.025, .06), (0, 0)], 'leafcloak', seg=5)
+    sh = hip + .38
+    for side, nm in ((-1, 'armL'), (1, 'armR')):
+        y = side * .23
+        A = m.part(nm, (0, y, sh), body)
+        A.tube([(0, y, sh), (-.01, y, sh - .2), (-.02, y, sh - .38)], [.045, .04, .035], 'leafcloak', seg=8)
+        A.box((.08, .09, .14), (-.02, y, sh - .25), 'deadbark')
+        A.tube([(-.02, y, sh - .38), (-.05, y, sh - .44), (-.09, y, sh - .46)], [.03, .025, .015], 'paleskin', seg=6)
+    hz = hip + .42
+    head = m.part('head', (0, 0, hz), body)
+    head.ball(.11, (0, 0, hz + .13), 'bone', sub=2, scale=(1.1, .92, 1.05))
+    head.box((.08, .12, .07), (-.08, 0, hz + .07), 'bone')
+    for s in (-1, 1):
+        head.ball(.032, (-.09, s * .042, hz + .14), 'socket', scale=(.7, 1, 1)).ball(.016, (-.11, s * .042, hz + .14), 'sicklight', sub=1)
+    head.cyl(.12, .04, (0, 0, hz + .22), 'antlerdark', seg=10)
+    ant = m.part('antlers', (0, 0, hz + .22), head)
+    for s in (-1, 1):
+        a = branch(ant, (0, s * .08, hz + .23), (.05, s * .7, .55), 5, .035, 'antlerdark', 400 + s)
+        for j in (1, 2, 3, 4):
+            branch(ant, a[j], ((-.15 if j % 2 else .12), s * .18, .3 - j * .03), 2, .02 - j * .002, 'antlerdark', 410 + s * 10 + j)
+    hr = Vector((0, .23, sh - .44))
+    armR = m.parts[[p.name for p in m.parts].index('armR')]
+    sp = m.part('spear', hr, armR)
+    sp.tube([(hr.x + .3, hr.y, hr.z - .05), (hr.x - .4, hr.y, hr.z + .02), (hr.x - 1.15, hr.y, hr.z + .08)], [.016, .018, .016], 'darkwood', seg=6)
+    sp.tube([(hr.x - 1.15, hr.y, hr.z + .08), (hr.x - 1.28, hr.y, hr.z + .09), (hr.x - 1.45, hr.y, hr.z + .1)], [(.012, .05), (.01, .04), 0], 'darkmetal', seg=6)
+    sp.box((.03, .04, .12), (hr.x - 1.12, hr.y, hr.z), 'rag')
+    return m
+
 
 # ----------------------------------------------------------------- run
 if __name__ == '__main__':
