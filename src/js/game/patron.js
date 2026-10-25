@@ -173,6 +173,12 @@
       // feast
       const fc = Pa.feastCost(s), fsoon = s.feastDay && world.day - s.feastDay < 7;
       h += `<div class="card"><h4>Throw a feast for ${esc(s.name)} — ${cr(fc)}</h4><div class="dim">Bread, meat and ale for everyone: unrest falls, hunger eases, everyone here thinks better of you, and you go away well fed.</div><div class="row"><button data-pt="feast" ${pl.gold < fc || fsoon ? 'disabled' : ''}>${fsoon ? 'Feasted this week' : 'Throw it'}</button></div></div>`;
+      // a garrison of the National Guard
+      if (ECHO.GuardWork && world.gates && s.faction !== 'ashfang') {
+        const gar = ECHO.GuardWork.garrisonOf(world, s.id), gc = ECHO.GuardWork.askCost(world, s);
+        h += gar ? `<div class="card"><h4>The National Guard holds ${esc(s.name)}</h4><div class="dim">${esc(P().name(gar))}, an auxiliary of the Guard (level ${Pw().lvOf(gar)}), is posted here: raids break on the town far more often, a titan's fall costs fewer lives, and the town's guard is drilled while they stay.</div></div>`
+          : `<div class="card"><h4>Pay the National Guard to hold ${esc(s.name)} — ${cr(gc)}</h4><div class="dim">An auxiliary of the Guard is posted here for two months: raids break on the town far more often, a titan's fall costs fewer lives, and the town's own guard is drilled while they stay.</div><div class="row"><button data-pt="garrison" ${pl.gold < gc ? 'disabled' : ''}>Pay the Guard</button></div></div>`;
+      }
       h += `</div>`;
       // bounties on the named
       const named = Pw() ? Pw().alive(world).sort((a, b) => U.dist(a.x, a.y, s.x, s.y) - U.dist(b.x, b.y, s.x, s.y)).slice(0, 6) : [];
@@ -192,6 +198,15 @@
         for (const u of r.ups) ECHO.Progress.levelUp(game, u);
       } else if (a === 'drill') { const e = Pa.drill(world, s, pl); toast(e || `The guard of ${s.name} drills in new mail with new blades. They will not forget who paid for it.`, e ? 'warn' : 'legend'); }
       else if (a === 'feast') { const e = Pa.feast(world, s, pl); toast(e || `The tables groan, the ale flows, and ${s.name} sings your name until late.`, e ? 'warn' : 'legend'); }
+      else if (a === 'garrison') {
+        const c = ECHO.GuardWork.askCost(world, s);
+        if (!Pa.pay(pl, c)) return toast(`It costs ${c} crowns.`, 'warn');
+        const e = ECHO.GuardWork.ask(world, s);
+        if (e) { pl.gold += c; return toast(e, 'warn'); }
+        const n = ECHO.GuardWork.garrisonOf(world, s.id);
+        ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} paid the National Guard to hold ${s.name}.`, importance: 1, sid: s.id, rep: 6, tag: 'protect' });
+        toast(`The Guard sends ${n ? P().name(n) : 'an auxiliary'} to hold ${s.name}.`, 'legend');
+      }
       else if (a.startsWith('work:')) { const k = a.slice(5), e = Pa.fund(world, s, pl, k); toast(e || `${Pa.WORKS[k].name} for ${s.name}, paid for by you.`, e ? 'warn' : 'legend'); }
       else if (a.startsWith('bounty:')) { const r = Pw().byId(world, a.slice(7)), e = Pa.postBounty(world, pl, r, s); toast(e || `The notice goes up: ${r.bounty} crowns for the head of ${Pw().short(r)}. The fighters of the realm will be after it.`, e ? 'warn' : 'legend'); }
     }

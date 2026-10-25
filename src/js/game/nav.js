@@ -266,6 +266,8 @@
       if (ECHO.Guide && ECHO.Guide.forYou) for (const f of ECHO.Guide.forYou(world, pl, 2)) add('site:' + f.s.id, '▼', `${f.s.found || f.s.seen ? f.s.name : 'An uncharted dungeon'} — floor ${f.f + 1} is Lv ${f.fl}`, { x: f.s.x, y: f.s.y, name: f.s.found || f.s.seen ? f.s.name : 'an uncharted dungeon', vague: !(f.s.found || f.s.seen) }, 'dungeon');
       // the gates, once you are strong enough to stand before them
       if (ECHO.Gates && world.gates && ECHO.Prowess.level(pl) >= ECHO.Gates.MIN) for (const g of world.gates.list) { const id = `mark:${g.x.toFixed(1)}:${(g.y + 3).toFixed(1)}:${U.cap(g.name)}`; add(id, '⛩', `${U.cap(g.name)} — the National Guard${pl.guard ? '' : ' (join at level 150)'}`, { x: g.x, y: g.y + 3, name: U.cap(g.name) }, 'gate'); }
+      // the Guard's work
+      if (ECHO.GuardField) for (const o of ECHO.GuardField.objectives(game)) { const id = pl._gmark && pl.tracked === pl._gmark ? pl._gmark : `mark:${o.where.x.toFixed(1)}:${o.where.y.toFixed(1)}:${o.where.name}`; add(id, o.icon, o.label, o.where, 'job'); }
       // your own marks
       if (pl.tracked && pl.tracked.startsWith('mark:') && !out.some(o => o.id === pl.tracked)) { const g = Pu.trackedGoal(world, pl, pl.tracked); if (g) add(pl.tracked, '⚑', String(g.label).replace(/^⚑\s*/, ''), g.where, 'mark'); }
       // nearest first, but what you're tracking on top

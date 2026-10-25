@@ -116,7 +116,8 @@
     settlementStrength(world, s) {
       let str = 0;
       for (const n of P().residents(world, s)) {
-        if (n.prof === 'guard') str += 12 + n.skill.fight * 0.7 + n.rank * 6;
+        if (n.ngAux) str += 40 + n.skill.fight;   // (an auxiliary of the National Guard is worth a squad)
+        else if (n.prof === 'guard') str += 12 + n.skill.fight * 0.7 + n.rank * 6;
         else if (n.prof !== 'child' && n.prof !== 'elder' && P().has(n, 'brave')) str += 3 + n.skill.fight * 0.15;
       }
       const f = world.factions[s.faction];
@@ -269,7 +270,7 @@
         s.stock.food -= stolen; camp.loot.food += stolen;
         const gold = Math.min(s.wealth * 0.2, 80); s.wealth -= gold; camp.loot.gold += gold;
         s.unrest = Math.min(100, s.unrest + 10);
-        const victims = P().residents(world, s).filter(n => n.prof !== 'child');
+        const victims = P().residents(world, s).filter(n => n.prof !== 'child' && !n.ngAux);
         const dead = [];
         for (let i = 0; i < rng.int(0, 2) && victims.length; i++) {
           const v = victims.splice(rng.int(0, victims.length - 1), 1)[0];

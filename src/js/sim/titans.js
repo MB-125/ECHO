@@ -153,7 +153,9 @@
           if (s) {
             if (s.stock) s.stock.food = Math.max(0, (s.stock.food || 0) * 0.55);
             s.prosperity = Math.max(0, (s.prosperity || 50) - 15);
-            const dead = P().residents(world, s).filter(n => n.prof !== 'ruler' && !n.ng).sort(() => rng.next() - 0.5).slice(0, rng.int(1, 3));
+            const gar = ECHO.GuardWork && ECHO.GuardWork.garrisonOf(world, s.id);
+            const dead = P().residents(world, s).filter(n => n.prof !== 'ruler' && !n.ng && n !== gar).sort(() => rng.next() - 0.5).slice(0, gar ? rng.int(0, 1) : rng.int(1, 3));
+            if (gar) ECHO.GuardWork.tell(world, `${P().name(gar)} of the National Guard held the people of ${s.name} together when ${t.name} came down; most of them lived.`, { sid: s.id, npcs: [gar.id] });
             for (const n of dead) P().kill(world, n, `${sp.element === 'void' ? 'swallowed by the dark' : sp.element === 'sun' ? 'burned' : 'killed'} when ${t.name} fell on ${s.name}`);
             ECHO.Chronicle.add(world, { text: `Catastrophe: ${t.name} ${t.title} fell on ${s.name}. ${sp.element === 'void' ? 'Half the town went dark and did not come back.' : sp.element === 'sun' ? 'The fields burned white.' : 'The walls are broken.'} ${dead.length ? `${dead.map(n => P().name(n)).join(', ')} ${dead.length > 1 ? 'are' : 'is'} dead.` : ''}`, kind: 'beast', importance: 3, sid: s.id, npcs: dead.map(n => n.id) });
           }

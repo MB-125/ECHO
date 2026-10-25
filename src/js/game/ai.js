@@ -329,6 +329,7 @@
       if (e.stranded && ECHO.Director) return ECHO.Director.strandedThink(game, e, npc, dt);
       if (e.escort && !e.target && ECHO.Jobs && ECHO.Jobs.escortThink(game, e, npc, dt)) return;
       if (e.ngWard && ECHO.Guard && ECHO.Guard.think(game, e, npc, dt)) return;
+      if (e.gpatrol && ECHO.GuardField && ECHO.GuardField.think(game, e, npc, dt)) return;
       if (e.hermitOf && !e.target && ECHO.Secrets && ECHO.Secrets.hermitThink(game, e, npc, dt)) return;
       if (e.indoor && e.sleeping) { e.moving = false; if (!e.aggro) return; e.sleeping = false; e.seated = false; }
       if (npc.sick && !e._sickSlow) { e._sickSlow = true; e.speed *= 0.6; }

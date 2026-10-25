@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/titans.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -175,6 +175,37 @@ function main() {
       if (!r.alive && /slain by/.test(r.fate || '')) slain++;
     }
     check('a bounty gets a named monster hunted down', tried && slain >= Math.ceil(tried / 2), `${slain}/${tried} slain within 25 days`);
+  }
+
+  console.log('\nThe National Guard in the realm');
+  {
+    const Wg = ECHO.generateWorld({ seed: 777, name: 'Guard', prehistoryDays: 2 });
+    const pl = Wg.player = Wg.player || { charId: 'c-g', first: 'Ada', last: 'Vane', alive: true, known: [], accepted: [], inv: {}, items: [], skills: {}, x: 50, y: 50 };
+    pl.gold = 0; pl.items = pl.items || []; pl.prowess = { lv: 40, xp: 0, kills: 0, best: 0 };
+    const GW = ECHO.GuardWork;
+    for (let d = 0; d < 150; d++) ECHO.Sim.dailyTick(Wg, true);
+    const g = GW.st(Wg), aux = GW.auxList(Wg), gar = Object.keys(g.garrisons);
+    check('the Guard takes the realm\'s best soldiers as auxiliaries', aux.length >= 6, `${aux.length} auxiliaries, levels ${aux.map(n => GW.lvOf(n)).sort((a, b) => b - a).slice(0, 6).join(', ')}…`);
+    check('auxiliaries train harder than other soldiers', (() => { const sold = Object.values(Wg.npcs).filter(n => n.status === 'alive' && ['guard', 'soldier'].includes(n.prof) && !n.ngAux && !n.ng).map(n => GW.lvOf(n)).sort((a, b) => a - b); const am = aux.map(n => GW.lvOf(n)).sort((a, b) => a - b); return am[am.length >> 1] > sold[sold.length >> 1]; })());
+    check('it posts garrisons to towns in danger', gar.length >= 2, gar.map(sid => ECHO.Sim.settlement(Wg, sid).name).join(', '));
+    check('things get out of the gates, and the Guard runs them down', g.bn >= 1 && Wg.chronicle.some(e => /ran down the .* that got out of/.test(e.text)), `${g.bn} breaches in 150 days`);
+    const s = Wg.settlements.find(t => !g.garrisons[t.id] && t.faction !== 'ashfang');
+    check('a town can pay for a garrison', s && !GW.ask(Wg, s) && !!GW.garrisonOf(Wg, s.id), s && s.name);
+    // contracts and the sworn
+    const r = ECHO.Powers.rise(Wg, { kind: 'goblin', lv: 30, x: pl.x + 10, y: pl.y, why: 'rose', amb: 'power', infl: 4 });
+    r.abroad = true;
+    const o = GW.offers(Wg, pl).find(x => x.id === r.id);
+    GW.take(Wg, pl, o); const g0 = pl.gold, c = GW.fulfil(Wg, pl, 'nem', r.id);
+    check('the Guard pays for the head of a named monster', !!c && pl.gold > g0, o && o.label);
+    pl.guard = { joined: Wg.day, trips: 0, kills: 0 }; const g1 = pl.gold;
+    for (let d = 0; d < 8; d++) ECHO.Sim.dailyTick(Wg, true);
+    check('the sworn draw a weekly wage', pl.gold > g1, `${pl.gold - g1} crowns`);
+    pl.guard.merit = 5; const rq = GW.requisition(Wg, pl, 'sword');
+    check('merit buys legendary gear from the armoury', rq.item && rq.item.rarity === 'legendary' && pl.guard.merit === 1);
+    // an old save without any of it
+    const W5 = ECHO.Save.deserialize(ECHO.Save.serialize(Wg)); delete W5.gates.guard.aux; delete W5.gates.guard.garrisons; delete W5.gates.guard.breaches;
+    ECHO.Sim.dailyTick(W5, true);
+    check('an old save picks it up without a hitch', Array.isArray(W5.gates.guard.aux) && !!W5.gates.guard.garrisons);
   }
 
   console.log('\nWorld intelligence');

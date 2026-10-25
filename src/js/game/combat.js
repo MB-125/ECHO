@@ -422,6 +422,7 @@
       if (ECHO.Companions && (target.isCompanion || target === game.pe)) ECHO.Companions.afterHit(game, target);
       if (target.rider && target.hp > 0 && ECHO.Riders) ECHO.Riders.onHit(game, target, src);
       if (ECHO.Growth) ECHO.Growth.onHit(game, target, from, dmg, src);
+      if (target.breach && from && (from === game.pe || from.isCompanion || from.tamed)) target._pDmg = (target._pDmg || 0) + dmg;
       if (target.hp <= 0) C.kill(target, from, type, src);
       else if (target.ai && target.ai.onHurt) target.ai.onHurt(target, from);
       return dmg;

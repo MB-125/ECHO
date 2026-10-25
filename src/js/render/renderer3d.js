@@ -1678,8 +1678,9 @@
       const robe = ['priest', 'scholar', 'ruler'].includes(prof);
       M.show(inst, 'robe', robe);
       M.show(inst, 'apron', prof === 'smith');
-      M.show(inst, 'cape', e.type === 'player' || (npc && npc.rank >= 2) || prof === 'wanderer');
+      M.show(inst, 'cape', e.type === 'player' || (npc && (npc.rank >= 2 || npc.ng || npc.ngAux)) || prof === 'wanderer');
       if (npc && npc.rank >= 2) M.recolor(inst, 'cape', cols[1]);
+      if (npc && (npc.ng || npc.ngAux)) M.recolor(inst, 'cape', npc.ng ? ((ECHO.Gates.def(npc) || {}).cape || '#24386e') : '#24386e');   // (the Guard's blue; each warden their own)
       M.show(inst, 'helm', helm);
       M.show(inst, 'bandana', bandit && !helm);
       M.show(inst, 'hood', !helm && !bandit && (prof === 'priest' || prof === 'herbalist' || prof === 'hunter'));

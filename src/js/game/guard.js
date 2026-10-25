@@ -70,6 +70,7 @@
       if (game.time - (e.lastHurt || 0) > 3 && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.06 * dt);
       if (e.hurtT > 0) e.lastHurt = game.time;
       if (e.attackT > 0) return true;
+      if (e.huntB && ECHO.GuardField) return ECHO.GuardField.hunt(game, e, npc, dt);
       return e.mentor ? Gd.mentor(game, e, npc, dt) : Gd.watch(game, e, npc, dt);
     },
     foes(game, e, r) {

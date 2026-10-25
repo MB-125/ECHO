@@ -273,9 +273,10 @@
       const res = (s.residents || []).map(id => world.npcs[id]).filter(n => n && n.status === 'alive' && P().age(world, n) >= 16);
       if (!res.length) return;
       const guards = res.filter(n => n.prof === 'guard' || n.prof === 'soldier').sort((a, b) => Pw.lvOf(b) - Pw.lvOf(a));
+      s.raidedDay = world.day;
       const def = guards[0], W = s.works || {};
       // (walls, a watchtower and a well-drilled guard all count)
-      const fort = (W.walls ? 6 : 0) + (W.watch ? 2 : 0) + (s.drilled && world.day - s.drilled < 30 ? 3 : 0);
+      const fort = (W.walls ? 6 : 0) + (W.watch ? 2 : 0) + (s.drilled && world.day - s.drilled < 30 ? 3 : 0) + (ECHO.GuardWork && ECHO.GuardWork.garrisonOf(world, s.id) ? 4 : 0);
       if ((def || W.walls) && rng.next() < 1 / (1 + Math.exp(-((def ? Pw.lvOf(def) : 0) + guards.length * 0.8 + fort - Pw.might(r)) / 3))) {
         if (!def) { r.infl = Math.max(0, r.infl - 2); Pw.tell(world, r, `${Pw.short(r)} came against the walls of ${s.name} and could not get in.`, 1); return; }
         def.renown = (def.renown || 0) + 6; def.lv = Pw.lvOf(def) + 1;
@@ -349,6 +350,7 @@
       if (n.title) k += 0.05;
       k *= 0.65 + Pw.amb(n) * 0.6;
       k *= 0.8 + ((ECHO.hashStr('tal:' + n.id) % 1000) / 1000) * 0.4;
+      if (n.ngAux) k = Math.max(k, 0.8);        // (the Guard's auxiliaries train hardest of all)
       return Math.min(1.12, k);
     },
     aim(world, n, plv) { return Math.min(Pw.MAX_LV, Math.max(ECHO.Delvers ? ECHO.Delvers.baseLv(n) : 1, Math.round(1 + Pw.reach(n) * (Pw.era(world, plv) - 1)))); },
@@ -382,7 +384,7 @@
         const a = Pw.amb(n), lv = Pw.lvOf(n), T = Pw.aim(world, n, plv);
         let up = 0;
         if (lv < T) { const hs = n.home && (n.prof === 'guard' || n.prof === 'soldier') && ECHO.Sim.settlement(world, n.home), dr = hs && hs.drilled && world.day - hs.drilled < 30 ? 2 : 1;
-          const step = (T - lv) * (0.02 + 0.05 * a) * dr; up = Math.floor(step) + (rng.next() < step - Math.floor(step) ? 1 : 0); }
+          const step = (T - lv) * (0.02 + 0.05 * a) * dr * (n.ngAux ? 1.5 : 1); up = Math.floor(step) + (rng.next() < step - Math.floor(step) ? 1 : 0); }
         else if (lv < Pw.MAX_LV && rng.next() < 0.004 + a * 0.01) up = 1;    // (the best keep reaching past it)
         if (up > 0) {
           n.lv = Math.min(Pw.MAX_LV, lv + up);

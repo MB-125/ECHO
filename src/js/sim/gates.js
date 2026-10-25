@@ -315,6 +315,8 @@
           ECHO.Chronicle.add(world, { text: `${P().name(m)} ${m.ng.title} held ${g.name} against a surge from ${th.world}${beast ? ` — ${beast.name.toLowerCase()}s by the dozen` : ''}. Nothing came through.`, kind: 'realm', importance: 1, x: g.x, y: g.y, npcs: [m.id] });
         }
       }
+      // and its work in the realm: auxiliaries, garrisons, breaches, culls
+      if (ECHO.GuardWork) ECHO.GuardWork.dailyTick(world, rng);
     }
   };
 })();

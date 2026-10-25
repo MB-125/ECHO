@@ -35,6 +35,7 @@
       if (ECHO.GateWorld) ECHO.GateWorld.reset();
       if (ECHO.Apex) ECHO.Apex.reset(Game);
       if (ECHO.Growth) ECHO.Growth.reset();
+      if (ECHO.GuardField) ECHO.GuardField.reset();
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
       Game.pl.explored = Game.pl.explored || new Array(Math.ceil(world.W / 4) * Math.ceil(world.H / 4)).fill(0);
@@ -177,6 +178,7 @@
       if (ECHO.Frontier) ECHO.Frontier.tick(Game, dt);
       if (ECHO.GateWorld) ECHO.GateWorld.update(Game, dt);
       if (ECHO.Guard) ECHO.Guard.update(Game, dt);
+      if (ECHO.GuardField) ECHO.GuardField.update(Game, dt);
       if (ECHO.Apex) ECHO.Apex.update(Game, dt);
       Game.pickupLoot();
       Game.exploreTimer -= dt;

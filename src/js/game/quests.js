@@ -64,6 +64,8 @@
         const comp = game.ents.find(o => (o.isCompanion || o.mentor) && !o.dead && !o.hidden);
         if (comp) { const dc = U.dist(e.x, e.y, comp.x, comp.y); if ((dc < d - 1.2 && dc < 4) || (comp.tauntT > 0 && dc < 8)) { T = comp; dT = dc; } }
       }
+      // (a loose beast with a warden on its heels turns on the warden, not on you)
+      if (e.breach && e._hunter && !e._hunter.dead && e._noPl && U.dist(e.x, e.y, e._hunter.x, e._hunter.y) < 16) { T = e._hunter; dT = U.dist(e.x, e.y, T.x, T.y); }
       const ang = Math.atan2(T.y - e.y, T.x - e.x);
       e.target = T;
       if (ECHO.Monsters && ECHO.Monsters.tick(game, e, dt, dT, ang)) return;
@@ -131,6 +133,7 @@
       if (target.keybearer && !target._keyDropped) { target._keyDropped = true; ECHO.Game.loot.push({ x: target.x, y: target.y, kind: 'key', qty: 1, site: target.delve, depth: target.floor || 0 }); }
       const game = ECHO.Game, world = game.world;
       if (target.gateMon && ECHO.GateWorld && ECHO.GateWorld.onKill(game, target, from)) return;
+      if (target.breach && (target._pDmg || 0) < target.maxHp * 0.3) return;   // (a loose beast the Guard ran down: its spoils go back to the gate with them)
       if (ECHO.Monsters && ECHO.Monsters.DEFS[target.species]) ECHO.Monsters.onKill(game, target);
       else {
         const gold = target.foe ? (target.foe.elite ? 30 + Math.floor(Math.random() * 40) : Math.floor(Math.random() * 8)) : 0;
