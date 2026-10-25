@@ -16,39 +16,100 @@
     _base: null, _baseKey: null,
 
     // ------------------------------------------------------------ the land, drawn once
-    // Terrain with light from the north-west, shorelines and a little texture.
+    // A painted chart: several pixels to a tile, colours blended between tiles,
+    // relief shaded from the north-west off a smoothed height of the land, crisp
+    // shorelines with the shallows lighter, the woods dotted with trees, the deep
+    // woods dark, and the trails worn through the forests.
     base(world) {
-      const key = world.id + '|' + (world._tileEpoch || 0) + '|' + world.W;
+      const key = world.id + '|' + (world._tileEpoch || 0) + '|' + world.W + '|' + world.H + '|' + (world._trail ? 1 : 0);
       if (WM._base && WM._baseKey === key) return WM._base;
-      const Tl = T(), W = world.W, H = world.H;
-      const COL = { 0: [34, 62, 98], 1: [58, 104, 146], 2: [222, 202, 150], 3: [112, 148, 78], 4: [78, 116, 60], 5: [56, 92, 46], 6: [150, 140, 98],
-        7: [124, 118, 110], 8: [176, 150, 88], 9: [168, 140, 98], 10: [84, 100, 70], 11: [236, 240, 242], 12: [140, 132, 118], 13: [150, 116, 76], 14: [176, 158, 118], 15: [110, 104, 96] };
-      const HGT = { 0: -1, 1: 0, 2: 1, 3: 1.6, 4: 2.1, 5: 2.4, 6: 3.4, 7: 5, 8: 1.6, 9: 1.6, 10: 1.3, 11: 5.6, 12: 2, 13: 1.6, 14: 1.6, 15: 2.4 };
-      const t = (x, y) => world.tiles[U.clamp(y, 0, H - 1) * W + U.clamp(x, 0, W - 1)];
-      const c = document.createElement('canvas'); c.width = W; c.height = H;
-      const g = c.getContext('2d'), img = g.createImageData(W, H);
-      const wet = k => k === Tl.WATER || k === Tl.DEEP;
-      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        const k = t(x, y), col = COL[k] || [255, 0, 255];
-        let f = 1;
-        if (!wet(k)) {
-          const d = HGT[t(x - 1, y - 1)] - HGT[k];
-          f *= 1 - U.clamp(d, -2, 3) * 0.075;
-          if (wet(t(x - 1, y)) || wet(t(x + 1, y)) || wet(t(x, y - 1)) || wet(t(x, y + 1))) f *= 0.86;        // shoreline
-          f *= 0.94 + ECHO.hash2(x, y, 31) * 0.1;
-          if (k === Tl.TREE || k === Tl.FOREST) f *= ECHO.hash2(x, y, 7) < 0.3 ? 0.82 : 1;
-        } else {
-          let shore = 0;
-          for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (!wet(t(x + dx, y + dy))) shore++;
-          f *= 1 + Math.min(shore, 6) * 0.045;
+      const Tl = T(), W = world.W, H = world.H, N = W * H;
+      const S = WM.baseScale = U.clamp(Math.floor(2600 / Math.max(W, H)), 1, 4);
+      const COL = { 0: [30, 58, 96], 1: [64, 112, 152], 2: [226, 206, 152], 3: [126, 156, 84], 4: [86, 122, 62], 5: [60, 96, 50], 6: [156, 146, 104],
+        7: [128, 122, 114], 8: [190, 164, 96], 9: [176, 148, 104], 10: [92, 108, 76], 11: [238, 242, 244], 12: [146, 138, 122], 13: [150, 116, 76], 14: [182, 164, 124], 15: [116, 110, 100] };
+      const HGT = { 0: -1.5, 1: -0.4, 2: 0.6, 3: 1.2, 4: 1.5, 5: 1.7, 6: 3.4, 7: 5.6, 8: 1.2, 9: 1.2, 10: 0.9, 11: 6.2, 12: 1.4, 13: 1.0, 14: 1.2, 15: 1.8 };
+      const tiles = world.tiles, wet = k => k === Tl.WATER || k === Tl.DEEP;
+      // the height of the land, smoothed twice
+      let h = new Float32Array(N);
+      for (let i = 0; i < N; i++) h[i] = (HGT[tiles[i]] != null ? HGT[tiles[i]] : 1) + ECHO.hash2(i % W, (i / W) | 0, 13) * 0.35;
+      for (let pass = 0; pass < 2; pass++) {
+        const o = new Float32Array(N);
+        for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+          let s = 0, n = 0;
+          for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy < 0 || yy >= H) continue; for (let dx = -1; dx <= 1; dx++) { const xx = x + dx; if (xx < 0 || xx >= W) continue; s += h[yy * W + xx]; n++; } }
+          o[y * W + x] = s / n;
         }
-        const i = (y * W + x) * 4;
-        img.data[i] = Math.min(255, col[0] * f); img.data[i + 1] = Math.min(255, col[1] * f); img.data[i + 2] = Math.min(255, col[2] * f); img.data[i + 3] = 255;
+        h = o;
+      }
+      // how far out to sea each water tile is (for the shallows)
+      const sea = new Uint8Array(N).fill(255), q = [];
+      for (let i = 0; i < N; i++) if (!wet(tiles[i])) { sea[i] = 0; q.push(i); }
+      for (let k = 0; k < q.length; k++) { const i = q[k], x = i % W, y = (i / W) | 0, d = sea[i] + 1; if (d > 8) continue; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue; const j = yy * W + xx; if (sea[j] > d) { sea[j] = d; q.push(j); } } }
+      // the colour of each tile, with what lies on it
+      const col = new Float32Array(N * 3), land = new Float32Array(N);
+      const wd = world._wd, tr = world._trail;
+      for (let i = 0; i < N; i++) {
+        const k = tiles[i], c = COL[k] || [255, 0, 255], x = i % W, y = (i / W) | 0;
+        let r = c[0], g = c[1], b = c[2];
+        if (wet(k)) { const s = Math.min(sea[i], 8) / 8; const sh = [92, 150, 182], dp = [28, 56, 94]; r = sh[0] + (dp[0] - sh[0]) * s; g = sh[1] + (dp[1] - sh[1]) * s; b = sh[2] + (dp[2] - sh[2]) * s; }
+        else land[i] = 1;
+        if (tr && tr[i]) { r = r * 0.35 + 168 * 0.65; g = g * 0.35 + 140 * 0.65; b = b * 0.35 + 96 * 0.65; }
+        if (wd && wd[i]) { const f = 0.62 - wd[i] * 0.08; r = r * f + 22 * (1 - f); g = g * f + 34 * (1 - f); b = b * f + 30 * (1 - f); }
+        const j = 0.975 + ECHO.hash2(x, y, 31) * 0.05;
+        col[i * 3] = r * j; col[i * 3 + 1] = g * j; col[i * 3 + 2] = b * j;
+      }
+      const c = document.createElement('canvas'); c.width = W * S; c.height = H * S;
+      const g = c.getContext('2d'), img = g.createImageData(W * S, H * S), D = img.data;
+      const at = (a, x, y) => a[U.clamp(y, 0, H - 1) * W + U.clamp(x, 0, W - 1)];
+      for (let py = 0; py < H * S; py++) {
+        const fy = (py + 0.5) / S - 0.5, y0 = Math.floor(fy), ty = fy - y0;
+        for (let px = 0; px < W * S; px++) {
+          const fx = (px + 0.5) / S - 0.5, x0 = Math.floor(fx), tx = fx - x0;
+          const w00 = (1 - tx) * (1 - ty), w10 = tx * (1 - ty), w01 = (1 - tx) * ty, w11 = tx * ty;
+          const i00 = U.clamp(y0, 0, H - 1) * W + U.clamp(x0, 0, W - 1), i10 = U.clamp(y0, 0, H - 1) * W + U.clamp(x0 + 1, 0, W - 1), i01 = U.clamp(y0 + 1, 0, H - 1) * W + U.clamp(x0, 0, W - 1), i11 = U.clamp(y0 + 1, 0, H - 1) * W + U.clamp(x0 + 1, 0, W - 1);
+          // land or sea, by the blend (with a little wobble, so coasts are not stepped)
+          const L = land[i00] * w00 + land[i10] * w10 + land[i01] * w01 + land[i11] * w11 + (ECHO.hash2(px >> 1, py >> 1, 5) - 0.5) * 0.18;
+          const isLand = L > 0.5;
+          // blend only among tiles of the same side of the shore
+          let r = 0, gg = 0, b = 0, ws = 0;
+          for (const [ii, ww] of [[i00, w00], [i10, w10], [i01, w01], [i11, w11]]) { if ((land[ii] > 0.5) !== isLand) continue; r += col[ii * 3] * ww; gg += col[ii * 3 + 1] * ww; b += col[ii * 3 + 2] * ww; ws += ww; }
+          if (ws > 0) { r /= ws; gg /= ws; b /= ws; } else { const ii = U.clamp(Math.round(fy), 0, H - 1) * W + U.clamp(Math.round(fx), 0, W - 1); r = col[ii * 3]; gg = col[ii * 3 + 1]; b = col[ii * 3 + 2]; }
+          let f = 1;
+          if (isLand) {
+            // relief: the slope against light from the north-west
+            const hx = (at(h, x0 + 1, y0) - at(h, x0 - 1, y0)) * (1 - ty) + (at(h, x0 + 1, y0 + 1) - at(h, x0 - 1, y0 + 1)) * ty;
+            const hy = (at(h, x0, y0 + 1) - at(h, x0, y0 - 1)) * (1 - tx) + (at(h, x0 + 1, y0 + 1) - at(h, x0 + 1, y0 - 1)) * tx;
+            f *= U.clamp(1 - (hx + hy) * 0.11, 0.62, 1.32);
+            if (Math.abs(L - 0.5) < 0.09) f *= 0.72;                // the shoreline, inked
+          } else if (L > 0.36) { r = r * 0.6 + 214 * 0.4; gg = gg * 0.6 + 226 * 0.4; b = b * 0.6 + 222 * 0.4; }   // surf on the shallows
+          const o = (py * W * S + px) * 4;
+          D[o] = Math.min(255, r * f); D[o + 1] = Math.min(255, gg * f); D[o + 2] = Math.min(255, b * f); D[o + 3] = 255;
+        }
+      }
+      // the trees: a dark crown with a lit edge, where each one stands
+      if (S >= 2) {
+        const dot = (cx, cy, rad, rgb, a) => {
+          for (let yy = Math.floor(cy - rad); yy <= Math.ceil(cy + rad); yy++) for (let xx = Math.floor(cx - rad); xx <= Math.ceil(cx + rad); xx++) {
+            if (xx < 0 || yy < 0 || xx >= W * S || yy >= H * S || (xx - cx) ** 2 + (yy - cy) ** 2 > rad * rad) continue;
+            const o = (yy * W * S + xx) * 4; D[o] = D[o] * (1 - a) + rgb[0] * a; D[o + 1] = D[o + 1] * (1 - a) + rgb[1] * a; D[o + 2] = D[o + 2] * (1 - a) + rgb[2] * a;
+          }
+        };
+        for (let i = 0; i < N; i++) {
+          const k = tiles[i]; if (k !== Tl.TREE && !(k === Tl.FOREST && ECHO.hash2(i % W, (i / W) | 0, world.seed + 31) < 0.22)) continue;
+          if (tr && tr[i]) continue;
+          const x = i % W, y = (i / W) | 0, p = ECHO.World.trunk(world, x, y), deep = wd && wd[i];
+          const rad = S * (k === Tl.TREE ? 0.42 : 0.3);
+          dot(p.x * S + rad * 0.25, p.y * S + rad * 0.3, rad, [12, 20, 10], 0.35);                          // its shadow
+          dot(p.x * S, p.y * S, rad, deep ? [30, 34, 30] : y < H * 0.3 ? [38, 70, 48] : [48, 84, 40], 0.85);
+          if (!deep) dot(p.x * S - rad * 0.3, p.y * S - rad * 0.35, rad * 0.45, [118, 150, 82], 0.5);
+        }
       }
       g.putImageData(img, 0, 0);
       WM._base = c; WM._baseKey = key;
       return c;
     },
+    // the whole map shown (the default), or only what you have walked
+    revealed(pl) { return pl.mapReveal !== false; },
     // Unwalked land, as soft-edged parchment.
     fog(world, pl) {
       const cw = Math.ceil(world.W / 4), ch = Math.ceil(world.H / 4);
@@ -69,29 +130,29 @@
           sx += x; sy += y; n++;
           if (ECHO.Game.explored(x, y)) seen++;
         }
-        if (n && seen / n > 0.3) out.push({ name: r.name, x: sx / n, y: sy / n });
+        if (n && (WM.revealed(pl) || seen / n > 0.3)) out.push({ name: r.name, x: sx / n, y: sy / n });
       }
       return out;
     },
 
     // ------------------------------------------------------------ what is on the map
     features(game) {
-      const world = game.world, pl = game.pl, out = [], seen = (x, y) => game.explored(x, y);
+      const world = game.world, pl = game.pl, out = [], all = WM.revealed(pl), seen = (x, y) => all || game.explored(x, y);
       const Pw = ECHO.Prowess, me = Pw ? Pw.level(pl) : 1;
       for (const s of world.settlements) if (seen(s.x, s.y)) out.push({ layer: 'towns', kind: s.kind === 'capital' ? 'capital' : 'town', x: s.x, y: s.y, name: s.name, color: world.factions[s.faction] ? world.factions[s.faction].color : '#ccc', pri: s.kind === 'capital' ? 9 : 7, ref: s,
         sub: `${s.kind === 'capital' ? 'Capital' : s.kind === 'village' ? 'Village' : 'Town'} of ${world.factions[s.faction] ? world.factions[s.faction].name : 'no one'}${s.warden === pl.charId ? ' · yours' : ''}` });
       for (const site of ECHO.Explore.sites(world)) {
-        if (!site.found && !site.seen) continue;
+        if (!site.found && !site.seen && !all) continue;
         if (site.cat === 'delve') {
-          const told = site.found || site.starter, L = ECHO.Explore.level(world, site), fl = ECHO.Explore.floors(site), done = Math.min(fl, Object.keys(site.floorsDone || {}).length);
+          const told = site.found || site.starter || all, L = ECHO.Explore.level(world, site), fl = ECHO.Explore.floors(site), done = Math.min(fl, Object.keys(site.floorsDone || {}).length);
           const D = Pw ? Pw.diff(L, me) : { color: '#e0a070', word: '' };
           out.push({ layer: 'dungeons', kind: site.cleared ? 'dungeon-cleared' : told ? 'dungeon' : 'dungeon-unknown', x: site.x, y: site.y, name: told ? site.name : 'An uncharted dungeon', color: site.cleared ? '#9a9080' : told ? D.color : '#a89c88', pri: 10, ref: site,
-            stars: told ? ECHO.Explore.stars(site) : '?', sub: !told ? 'A way down, glimpsed from afar' : `${ECHO.Explore.label(site)} · ${ECHO.Explore.stars(site)} · ${fl} floor${fl > 1 ? 's' : ''}${site.cleared ? ' · cleared' : done ? ` · ${done}/${fl} floors cleared` : ''}`, diff: site.cleared ? 'Cleared — it will fill again in time' : site.found ? `${D.word} for you (monsters about level ${L}–${L + Math.floor((fl - 1) / 2) + 1})` : 'Seen from afar. Go closer to learn more.' });
-        } else if (site.cat === 'wonder') out.push({ layer: 'wonders', kind: 'wonder', x: site.x, y: site.y, name: site.found ? site.name : 'Something strange', color: '#ffd38a', pri: 5, ref: site, sub: site.found ? 'A wonder of the wild' : 'Seen from afar' });
-        else out.push({ layer: 'places', kind: 'landmark', x: site.x, y: site.y, name: site.found ? site.name : 'A landmark', color: '#a8e0c0', pri: 4, ref: site, sub: site.found ? ECHO.Explore.label(site) : 'Seen from afar' });
+            stars: told ? ECHO.Explore.stars(site) : '?', sub: !told ? 'A way down, glimpsed from afar' : `${ECHO.Explore.label(site)} · ${ECHO.Explore.stars(site)} · ${fl} floor${fl > 1 ? 's' : ''}${site.cleared ? ' · cleared' : done ? ` · ${done}/${fl} floors cleared` : ''}`, diff: site.cleared ? 'Cleared — it will fill again in time' : site.found || all ? `${D.word} for you (monsters about level ${L}–${L + Math.floor((fl - 1) / 2) + 1})` : 'Seen from afar. Go closer to learn more.' });
+        } else if (site.cat === 'wonder') out.push({ layer: 'wonders', kind: 'wonder', x: site.x, y: site.y, name: site.found || all ? site.name : 'Something strange', color: '#ffd38a', pri: 5, ref: site, sub: site.found ? 'A wonder of the wild' : all ? 'A wonder of the wild · not yet visited' : 'Seen from afar' });
+        else out.push({ layer: 'places', kind: 'landmark', x: site.x, y: site.y, name: site.found || all ? site.name : 'A landmark', color: '#a8e0c0', pri: 4, ref: site, sub: site.found || all ? ECHO.Explore.label(site) + (site.found ? '' : ' · not yet visited') : 'Seen from afar' });
       }
-      for (const cp of world.camps) if (cp.seen && cp.alive) out.push({ layer: 'danger', kind: 'camp', x: cp.x, y: cp.y, name: cp.name || 'Outlaw camp', color: '#e0563c', pri: 6, ref: cp, sub: 'Outlaws camp here' });
-      for (const l of world.lairs) if (l.seen) out.push({ layer: 'danger', kind: l.boss.alive ? 'lair' : 'lair-dead', x: l.x, y: l.y, name: `The lair of ${l.boss.name}`, color: l.boss.alive ? '#ff6a4a' : '#9a9080', pri: 8, ref: l, sub: l.boss.alive ? 'A great beast sleeps here' : 'Its master is dead' });
+      for (const cp of world.camps) if ((cp.seen || all) && cp.alive) out.push({ layer: 'danger', kind: 'camp', x: cp.x, y: cp.y, name: cp.name || 'Outlaw camp', color: '#e0563c', pri: 6, ref: cp, sub: 'Outlaws camp here' });
+      for (const l of world.lairs) if (l.seen || all) out.push({ layer: 'danger', kind: l.boss.alive ? 'lair' : 'lair-dead', x: l.x, y: l.y, name: `The lair of ${l.boss.name}`, color: l.boss.alive ? '#ff6a4a' : '#9a9080', pri: 8, ref: l, sub: l.boss.alive ? 'A great beast sleeps here' : 'Its master is dead' });
       for (const r of world.ruins) if (r.visited || seen(r.x, r.y)) out.push({ layer: 'wonders', kind: 'ruin', x: r.x + 0.5, y: r.y + 0.5, name: r.name || 'Ruins', color: '#c8c0b0', pri: 3, ref: r, sub: r.visited ? 'Ruins you have read' : 'Old ruins' });
       if (world.lang && world.lang.vault && world.lang.vault.revealed && !world.lang.vault.opened) out.push({ layer: 'wonders', kind: 'vault', x: world.lang.vault.x, y: world.lang.vault.y, name: 'The sealed vault', color: '#9fd3ff', pri: 8, sub: 'Its door waits for the words' });
       // the titans: every hunter in the realm knows where the dragons nest, and talks of the great beasts
@@ -114,9 +175,16 @@
       if (ECHO.GuardWork && world.gates) for (const b of ECHO.GuardWork.openBreaches(world)) out.push({ layer: 'gates', kind: 'lair', x: b.x, y: b.y, name: `${ECHO.GuardWork.aBeast(b.kind, true)} out of ${b.gateName}`, color: '#ff4a3a', pri: 10, ref: b, sub: `Level ${b.lv} · loose since day ${b.day} · the National Guard is hunting it`, diff: me < ECHO.Gates.MIN ? 'Far beyond you: keep clear' : 'Run it down' });
       const wst = world.wonders;
       if (wst) {
-        for (const e of wst.echoes || []) if (e.revealed && !e.found) out.push({ layer: 'wonders', kind: 'echo', x: e.x, y: e.y, name: 'An echo of the old world', color: '#bfe8ff', pri: 5, sub: 'Shown to you by the wisps' });
+        for (const e of wst.echoes || []) if ((e.revealed || all) && !e.found) out.push({ layer: 'wonders', kind: 'echo', x: e.x, y: e.y, name: 'An echo of the old world', color: '#bfe8ff', pri: 5, sub: 'Shown to you by the wisps' });
         for (const st of wst.stars || []) if (!st.taken) out.push({ layer: 'wonders', kind: 'star', x: st.x, y: st.y, name: 'A fallen star', color: '#ffffff', pri: 6, sub: 'Star-iron lies here' });
       }
+      // with the whole map shown: the hidden places too
+      if (all && world.secrets && world.secrets.list) {
+        const NM = { cave: 'A hidden cave', shrine: 'A forgotten shrine', wreck: 'A wreck', circle: 'A ring of standing stones', hut: 'A hermit\'s hut' };
+        for (const s of world.secrets.list) if (!s.done) out.push({ layer: 'places', kind: 'landmark', x: s.x, y: s.y, name: s.name || NM[s.kind] || 'Something hidden', color: s.found ? '#a8e0c0' : '#8ac8b0', pri: 3, ref: s, sub: s.found ? 'You have found it' : 'Not yet found' });
+      }
+      if (all) for (const ch of world.caches || []) if (!ch.found) out.push({ layer: 'wonders', kind: 'star', x: ch.x, y: ch.y, name: 'A buried cache', color: '#e8c86a', pri: 2, ref: ch, sub: 'Something is hidden here' });
+      if (all && world.lang && world.lang.vault && !world.lang.vault.revealed && !world.lang.vault.opened) out.push({ layer: 'wonders', kind: 'vault', x: world.lang.vault.x, y: world.lang.vault.y, name: 'The sealed vault', color: '#9fd3ff', pri: 8, sub: 'Its door waits for words no one remembers' });
       return out;
     },
 
@@ -126,9 +194,10 @@
       WM.layers = WM.layers || Object.fromEntries(LAYERS.map(([k]) => [k, true])); if (WM.layers.gates == null) WM.layers.gates = true;
       if (ECHO.Tutorial) ECHO.Tutorial.flag('map');
       const body = UI.openPanel(`Map of ${world.name}`, `<div class="wmap"><div class="wmap-main"><canvas id="worldmap"></canvas><div id="map-tip" class="hidden"></div>
-          <div class="wmap-ctl"><button data-z="1" title="Zoom in">＋</button><button data-z="-1" title="Zoom out">－</button><button data-me="1" title="Centre on you">◎</button></div>
+          <div class="wmap-ctl"><button data-z="1" title="Zoom in">＋</button><button data-z="-1" title="Zoom out">－</button><button data-me="1" title="Centre on you">◎</button><button data-fit="1" title="The whole world">⤢</button></div>
           <div class="wmap-hint">Scroll to zoom · drag to move · click a place for details</div></div>
-        <div class="wmap-side"><div class="wmap-layers">${LAYERS.map(([k, l]) => `<button class="small ${WM.layers[k] ? 'on' : ''}" data-layer="${k}">${l}</button>`).join('')}</div>
+        <div class="wmap-side"><div class="wmap-find"><input id="map-find" type="text" placeholder="Find a place…" autocomplete="off"><div id="map-found"></div></div>
+          <div class="wmap-layers"><button class="small ${WM.revealed(pl) ? 'on' : ''}" data-reveal="1" title="Show the whole world, or only the land you have walked">${WM.revealed(pl) ? 'Whole map shown' : 'Only what you have walked'}</button>${LAYERS.map(([k, l]) => `<button class="small ${WM.layers[k] ? 'on' : ''}" data-layer="${k}">${l}</button>`).join('')}</div>
           <div id="map-sel"></div><h4 class="gold">Dungeons you know</h4><div id="map-dlist"></div><h4 class="gold">Key</h4><div id="map-key"></div></div></div>`, 'map');
       const c = body.querySelector('#worldmap'), main = body.querySelector('.wmap-main');
       const fit = () => { c.width = main.clientWidth; c.height = main.clientHeight; };
@@ -174,7 +243,7 @@
         const r = c.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
         const f = WM.hit(c, mx, my);
         if (f) WM.select(game, f);
-        else { const p = WM.toWorld(c, mx, my); if (p.x >= 0 && p.y >= 0 && p.x < world.W && p.y < world.H && game.explored(p.x, p.y)) WM.select(game, { kind: 'mark', x: p.x, y: p.y, name: 'A spot you marked', sub: (ECHO.World.regionAt(world, p.x, p.y) || {}).name || '', color: '#ffe08a' }); else { WM.sel = null; WM.side(game, c); } }
+        else { const p = WM.toWorld(c, mx, my); if (p.x >= 0 && p.y >= 0 && p.x < world.W && p.y < world.H && (WM.revealed(pl) || game.explored(p.x, p.y))) WM.select(game, { kind: 'mark', x: p.x, y: p.y, name: 'A spot you marked', sub: (ECHO.World.regionAt(world, p.x, p.y) || {}).name || '', color: '#ffe08a' }); else { WM.sel = null; WM.side(game, c); } }
         WM.draw(game, c);
       };
       c.addEventListener('mousemove', move);
@@ -186,6 +255,24 @@
       const tick = setInterval(() => { stop(); if (UI.panelKind === 'map') WM.draw(game, c); }, 250);
       body.querySelectorAll('[data-z]').forEach(b => b.addEventListener('click', () => { V.z = U.clamp(V.z * (+b.dataset.z > 0 ? 1.4 : 0.7), V.min, V.max); WM.draw(game, c); }));
       body.querySelector('[data-me]').addEventListener('click', () => { V.cx = pl.x; V.cy = pl.y; WM.draw(game, c); });
+      body.querySelector('[data-fit]').addEventListener('click', () => { V.cx = world.W / 2; V.cy = world.H / 2; V.z = Math.min(c.width / world.W, c.height / world.H) * 0.98; WM.draw(game, c); });
+      body.querySelector('[data-reveal]').addEventListener('click', ev => {
+        pl.mapReveal = !WM.revealed(pl);
+        ev.currentTarget.classList.toggle('on', WM.revealed(pl)); ev.currentTarget.textContent = WM.revealed(pl) ? 'Whole map shown' : 'Only what you have walked';
+        WM.regions = WM.regionCentres(world, pl); WM.feats = WM.features(game); WM._mf = null;
+        WM.side(game, c); WM.draw(game, c);
+      });
+      // find a place by name
+      const fin = body.querySelector('#map-find'), found = body.querySelector('#map-found');
+      const places = () => WM.feats.concat(WM.regions.map(r => ({ layer: 'regions', kind: 'region', x: r.x, y: r.y, name: U.cap(r.name), color: '#efe3c8', sub: 'A region' })));
+      fin.addEventListener('keydown', ev => ev.stopPropagation());
+      fin.addEventListener('input', () => {
+        const q = fin.value.trim().toLowerCase();
+        if (q.length < 2) { found.innerHTML = ''; return; }
+        const hits = places().filter(f => f.name.toLowerCase().includes(q)).sort((a, b) => a.name.toLowerCase().indexOf(q) - b.name.toLowerCase().indexOf(q) || U.dist(a.x, a.y, pl.x, pl.y) - U.dist(b.x, b.y, pl.x, pl.y)).slice(0, 8);
+        found.innerHTML = hits.length ? hits.map((f, i) => `<div class="dl" data-hit="${i}"><span class="dot" style="border-color:${f.color}"></span><span class="nm">${esc(f.name)}</span><span class="dd">${WM.dist(game, f).d}</span></div>`).join('') : '<div class="dim" style="font-size:12px">Nothing by that name.</div>';
+        found.querySelectorAll('[data-hit]').forEach(el => el.addEventListener('click', () => { const f = hits[+el.dataset.hit]; V.cx = f.x; V.cy = f.y; V.z = Math.max(V.z, 5); if (f.kind !== 'region') WM.select(game, f); WM.draw(game, c); }));
+      });
       body.querySelectorAll('[data-layer]').forEach(b => b.addEventListener('click', () => { WM.layers[b.dataset.layer] = !WM.layers[b.dataset.layer]; b.classList.toggle('on', WM.layers[b.dataset.layer]); WM.draw(game, c); }));
       WM.side(game, c);
       WM.key(body);
@@ -296,23 +383,44 @@
       if (!c || !c.isConnected) return;
       const world = game.world, pl = game.pl, V = WM.view, g = c.getContext('2d');
       const now = performance.now() / 1000;
+      WM._later = [];
       g.setTransform(1, 0, 0, 1, 0, 0);
       g.fillStyle = PARCH; g.fillRect(0, 0, c.width, c.height);
       const o = WM.toScreen(c, 0, 0);
-      g.imageSmoothingEnabled = V.z < 2.5;
-      g.drawImage(WM.base(world), o.x, o.y, world.W * V.z, world.H * V.z);
-      // roads you have seen
-      g.fillStyle = 'rgba(110,80,44,0.75)';
-      const rs = Math.max(1, V.z * 0.7);
-      for (const r of world.roads) for (let k = 0; k < r.path.length; k += V.z > 4 ? 1 : 2) { const i = r.path[k], x = i % world.W, y = (i / world.W) | 0; if (!game.explored(x, y)) continue; const p = WM.toScreen(c, x + 0.5, y + 0.5); if (p.x < -4 || p.y < -4 || p.x > c.width + 4 || p.y > c.height + 4) continue; g.fillRect(p.x - rs / 2, p.y - rs / 2, rs, rs); }
-      // the unwalked, as parchment with soft edges
       g.imageSmoothingEnabled = true;
-      g.drawImage(WM.fogC, o.x - 4 * V.z, o.y - 4 * V.z, WM.fogC.width * 4 * V.z, WM.fogC.height * 4 * V.z);
+      g.drawImage(WM.base(world), o.x, o.y, world.W * V.z, world.H * V.z);
+      const all = WM.revealed(pl), seenAt = (x, y) => all || game.explored(x, y);
+      // roads: drawn as roads, a pale verge under a brown way
+      const RP = WM._rp || (WM._rp = new WeakMap());
+      const rpts = r => { let e = RP.get(r.path); if (!e || e.W !== world.W) { e = { W: world.W, pts: r.path.map(i => ({ x: i % world.W + 0.5, y: ((i / world.W) | 0) + 0.5 })) }; RP.set(r.path, e); } return e.pts; };
+      g.lineCap = 'round'; g.lineJoin = 'round';
+      for (const pass of [0, 1]) {
+        g.strokeStyle = pass ? 'rgba(122,88,50,0.95)' : 'rgba(236,222,186,0.55)'; g.lineWidth = Math.max(1, V.z * (pass ? 0.42 : 0.75));
+        for (const r of world.roads) {
+          if (!Array.isArray(r.path) || r.path.length < 2) continue;
+          const pts = rpts(r); g.beginPath(); let on = false;
+          for (let k = 0; k < pts.length; k += V.z > 3 ? 1 : 2) { const q = pts[k]; if (!seenAt(q.x, q.y)) { on = false; continue; } const p = WM.toScreen(c, q.x, q.y); if (!on) { g.moveTo(p.x, p.y); on = true; } else g.lineTo(p.x, p.y); }
+          g.stroke();
+        }
+      }
+      // the deep woods: a dark line round them and their names
+      if (world.wild) for (const w of world.wild.woods) {
+        if (!seenAt(w.x, w.y)) continue;
+        const p = WM.toScreen(c, w.x, w.y), rr = w.r * V.z;
+        if (p.x < -rr - 60 || p.y < -rr - 60 || p.x > c.width + rr + 60 || p.y > c.height + rr + 60) continue;
+        g.strokeStyle = 'rgba(30,40,24,0.7)'; g.lineWidth = 1.5; g.setLineDash([4, 4]); g.beginPath(); g.arc(p.x, p.y, rr * 0.92, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+        if (V.z >= 1.2) (WM._later = WM._later || []).push({ text: U.cap(w.name), x: p.x, y: p.y + rr * 0.98, font: `italic bold ${Math.round(U.clamp(V.z * 3.6, 12, 20))}px "Cormorant Garamond", Georgia, serif`, fill: '#b8e09a', stroke: 'rgba(14,20,12,0.85)', pri: 2 });
+      }
+      // the gates' menace
+      if (world.gates) for (const gt of world.gates.list) { const p = WM.toScreen(c, gt.x, gt.y); g.strokeStyle = 'rgba(200,40,40,0.55)'; g.lineWidth = 1.5; g.setLineDash([5, 4]); g.beginPath(); g.arc(p.x, p.y, ECHO.Gates.R_HURT * V.z, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }
+      // the unwalked, as parchment with soft edges (unless the whole map is shown)
+      g.imageSmoothingEnabled = true;
+      if (!all) g.drawImage(WM.fogC, o.x - 4 * V.z, o.y - 4 * V.z, WM.fogC.width * 4 * V.z, WM.fogC.height * 4 * V.z);
       // region names
       g.textAlign = 'center'; g.textBaseline = 'middle';
       if (WM.layers.regions && V.z >= 1.6 && V.z < 9) {
-        g.font = `italic ${Math.round(U.clamp(V.z * 4.2, 12, 22))}px "Cormorant Garamond", Georgia, serif`;
-        for (const r of WM.regions) { const p = WM.toScreen(c, r.x, r.y); g.fillStyle = 'rgba(58,42,24,0.55)'; g.fillText(U.cap(r.name), p.x, p.y); }
+        const font = `italic ${Math.round(U.clamp(V.z * 3.4, 11, 19))}px "Cormorant Garamond", Georgia, serif`;
+        for (const r of WM.regions) { const p = WM.toScreen(c, r.x, r.y); (WM._later = WM._later || []).push({ text: U.cap(r.name).toUpperCase().split('').join(String.fromCharCode(8202)), x: p.x, y: p.y, font, fill: 'rgba(58,42,24,0.66)', stroke: 'rgba(236,226,196,0.5)', pri: 0 }); }
       }
       // the way there: the planned route, or a straight line if there is none yet
       const goal = ECHO.Purpose && ECHO.Purpose.current(game);
@@ -334,12 +442,13 @@
         const hi = f === WM.hover || f === WM.sel;
         const pulse = (f.ref && sug && f.ref === sug) || (pl.tracked === 'site:' + (f.ref && f.ref.id));
         WM.icon(g, f.kind, p.x, p.y, f.color, k * (hi ? 1.25 : 1), pulse ? now : 0);
+        rects.push({ x: p.x - 9 * k, y: p.y - 9 * k, w: 18 * k, h: 18 * k });
       }
       // labels: dungeons and towns first
       const lblOrder = pos.slice().sort((a, b) => (b.f === WM.sel || b.f === WM.hover) - (a.f === WM.sel || a.f === WM.hover) || b.f.pri - a.f.pri);
       for (const { f, p } of lblOrder) {
         const hi = f === WM.hover || f === WM.sel;
-        const show = hi || f.layer === 'towns' || (f.layer === 'dungeons' && f.kind !== 'dungeon-unknown' && V.z >= 2.2) || (V.z >= 5 && f.pri >= 5) || V.z >= 8;
+        const show = hi || f.layer === 'towns' || (f.layer === 'dungeons' && f.kind !== 'dungeon-unknown' && V.z >= (WM.revealed(pl) ? 4.5 : 2.2)) || (V.z >= 5 && f.pri >= 5) || V.z >= 8;
         if (!show) continue;
         const size = Math.round(U.clamp(9 + V.z * 0.9, 11, 16) * (f.kind === 'capital' ? 1.12 : 1));
         g.font = `${f.layer === 'towns' ? 'bold ' : ''}${size}px "Pixelify Sans", monospace`;
@@ -349,11 +458,25 @@
         g.lineWidth = 3; g.strokeStyle = 'rgba(20,14,8,0.85)'; g.strokeText(text, p.x, y);
         g.fillStyle = f.layer === 'dungeons' ? f.color : f.layer === 'towns' ? '#fff4dc' : '#efe3c8'; g.fillText(text, p.x, y);
       }
+      // the names of the land, where they fit among the rest
+      for (const L of (WM._later || []).sort((a, b) => b.pri - a.pri)) {
+        g.font = L.font; const w = g.measureText(L.text).width, hh = parseInt(L.font.match(/(\d+)px/)[1], 10);
+        if (!fits(L.x - w / 2, L.y - hh / 2, w, hh) && L.pri < 2) continue;
+        g.lineWidth = 3; g.strokeStyle = L.stroke; g.strokeText(L.text, L.x, L.y); g.fillStyle = L.fill; g.fillText(L.text, L.x, L.y);
+      }
+      WM._later = [];
       // where you are headed, and you
       if (goal && goal.where && goal.where.x != null) { const b = WM.toScreen(c, goal.where.x, goal.where.y); WM.icon(g, 'flag', b.x, b.y - 6, '#ffe08a', 1.2); }
       const me = WM.toScreen(c, pl.x, pl.y);
       g.fillStyle = 'rgba(255,255,255,0.18)'; g.beginPath(); g.arc(me.x, me.y, 14 + Math.sin(now * 3) * 2, 0, Math.PI * 2); g.fill();
       WM.icon(g, 'player', me.x, me.y, '#fff', 1.15, ECHO.Interior.cur ? 0 : (game.pe && game.pe.dir) || 0);
+      // the chart's edge, darkened as old paper is
+      const vg = g.createRadialGradient(c.width / 2, c.height / 2, Math.min(c.width, c.height) * 0.45, c.width / 2, c.height / 2, Math.max(c.width, c.height) * 0.75);
+      vg.addColorStop(0, 'rgba(60,40,20,0)'); vg.addColorStop(1, 'rgba(60,40,20,0.35)'); g.fillStyle = vg; g.fillRect(0, 0, c.width, c.height);
+      // the world's name, in a cartouche
+      g.font = 'italic bold 18px "Cormorant Garamond", Georgia, serif'; const tw = g.measureText(world.name).width + 36;
+      g.fillStyle = 'rgba(236,224,190,0.88)'; g.strokeStyle = 'rgba(58,42,24,0.85)'; g.lineWidth = 1.5; g.fillRect(c.width / 2 - tw / 2, 8, tw, 28); g.strokeRect(c.width / 2 - tw / 2 + 3, 11, tw - 6, 22);
+      g.fillStyle = '#3a2a18'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(world.name, c.width / 2, 22);
       // compass and scale
       g.save(); g.translate(c.width - 34, 34); g.fillStyle = 'rgba(20,14,8,0.6)'; g.beginPath(); g.arc(0, 0, 20, 0, Math.PI * 2); g.fill();
       g.fillStyle = '#e8c86a'; g.beginPath(); g.moveTo(0, -16); g.lineTo(5, 0); g.lineTo(-5, 0); g.closePath(); g.fill(); g.fillStyle = '#a89c88'; g.beginPath(); g.moveTo(0, 16); g.lineTo(5, 0); g.lineTo(-5, 0); g.closePath(); g.fill();
@@ -446,10 +569,12 @@
       const P = (x, y) => ({ x: (x - sx) * scale, y: (y - sy) * scale });
       g.imageSmoothingEnabled = false;
       g.fillStyle = PARCH; g.fillRect(0, 0, c.width, c.height);
-      g.drawImage(WM.base(world), sx, sy, c.width / scale, c.height / scale, 0, 0, c.width, c.height);
+      const bs = WM.base(world), S = WM.baseScale || 1;
+      g.imageSmoothingEnabled = true;
+      g.drawImage(bs, sx * S, sy * S, c.width / scale * S, c.height / scale * S, 0, 0, c.width, c.height);
       const cw = Math.ceil(world.W / 4);
       g.fillStyle = PARCH;
-      for (let y = Math.floor(sy / 4); y <= Math.ceil((sy + c.height / scale) / 4); y++) for (let x = Math.floor(sx / 4); x <= Math.ceil((sx + c.width / scale) / 4); x++) {
+      if (!WM.revealed(pl)) for (let y = Math.floor(sy / 4); y <= Math.ceil((sy + c.height / scale) / 4); y++) for (let x = Math.floor(sx / 4); x <= Math.ceil((sx + c.width / scale) / 4); x++) {
         if (x < 0 || y < 0 || x >= cw || !pl.explored[y * cw + x]) g.fillRect((x * 4 - sx) * scale, (y * 4 - sy) * scale, 4 * scale + 1, 4 * scale + 1);
       }
       const inView = p => p.x > -8 && p.y > -8 && p.x < c.width + 8 && p.y < c.height + 8;

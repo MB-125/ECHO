@@ -430,3 +430,9 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 /* the menace of a gate, at the edge of your sight */
 #gate-veil { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.4s; z-index: 5; mix-blend-mode: multiply; }
 .card.recap { margin: 8px 0; font-size: 14px; line-height: 1.45; border-color: #5a2a22; }
+.wmap-find { margin-bottom: 8px; }
+.wmap-find input { width: 100%; box-sizing: border-box; padding: 6px 8px; background: #1a130e; color: #efe3c8; border: 1px solid var(--edge); font: inherit; font-size: 13px; }
+#map-found .dl { display: grid; grid-template-columns: 14px 1fr 34px; gap: 6px; align-items: center; padding: 4px 6px; border-radius: 3px; cursor: pointer; font-size: 13px; }
+#map-found .dl:hover { background: rgba(200,168,90,0.15); }
+#map-found .dot { width: 10px; height: 10px; border-radius: 50%; border: 3px solid; background: #1a130e; }
+#map-found .dd { color: var(--ink-dim); text-align: right; font-size: 12px; }

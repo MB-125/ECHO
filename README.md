@@ -16,6 +16,8 @@ ECHO is a desktop RPG built around one idea: **consequence**. You begin as an or
 
 Every system below is real and connected to the others. Nothing is scripted.
 
+**A full, finer map**: the whole world is revealed on the map from the start — every town, dungeon, camp, lair, landmark, hidden place, deep wood and gate (switch to only what you have walked if you prefer to explore) — painted in fine detail with shaded relief, inked coasts, dotted woods, drawn roads and trails, with a search for any place by name.
+
 **Forests you can walk, and woods you should not**: every forest has trails worn through it to its heart (faster than anywhere off a road), and the greatest forests hold deep woods — dead and twisted trees, eyes in the dark, whispers and a hunting horn — where six new beasts with arts of their own (the Gloamstalker, the Hollow Man, the Barkhulk, the Weeping Bride, the Bough Widow, the Briarwyrm) grow deadlier the deeper you go, and a lord of the Wild Hunt waits at the heart. Caches of the lost lie along the trails.
 
 **The National Guard works the whole realm**: its blue-caped auxiliaries (the realm's best soldiers, training harder than anyone) ride patrol on the roads and garrison the towns in danger; when a beast gets out of a gate a warden comes down to run it down; named monsters that grow too strong are culled; and anyone can take the Guard's contracts, while sworn members get orders, merit, the armoury and a weekly wage. The Journal's *The Guard* page shows it all.
