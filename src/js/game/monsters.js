@@ -294,7 +294,8 @@
       const roll = rng.next();
       const kind = roll < 0.45 ? 'sword' : roll < 0.65 ? 'bow' : 'armor';
       const rarity = Gr().rollRarity(rng, level, boost);
-      const it = Gr().make(world, rng, kind, level, rarity, where);
+      // now and then, a relic that wakes with mana — more often on the strong
+      const it = ECHO.Arcana && rng.next() < 0.1 + Math.min(0.12, boost * 0.004) ? ECHO.Arcana.make(world, rng, level, rarity, where) : Gr().make(world, rng, kind, level, rarity, where);
       ECHO.Game.dropItem(it.id, x, y);
       const R = Gr().rarity(rarity);
       if (rarity !== 'common' && rarity !== 'fine') { ECHO.Combat.floater(x, y - 1.4, R.name.toLowerCase() + '!', R.color); ECHO.Combat.ring(x, y, 1.2, R.color, 0.8); if (rarity === 'legendary' || rarity === 'epic') ECHO.Music.stinger('star'); }

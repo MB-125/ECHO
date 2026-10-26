@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.11', items: [
+      'Magical equipment: relics worn three at a time and woken with Z, X and C, each spending mana and resting a few seconds after — the Stormcaller (chain lightning), Rimeheart (frost nova that freezes), Aegis (a barrier that takes the harm meant for you), Wayfarer (blink six paces), Lifebloom (heals more than a third of your life and washes off fire and poison), Spectral (three blades circle and cut), Beastbinder (holds a beast still; for twenty seconds it cannot die by your hand and is easier to tame) and Starfall (a star falls where you aim). Find them on what you kill — more often on the strong — or buy them from the arcanist at any market. Wear them from your character page (K).',
+      'Weapons can now be Arcane (each blow draws 3 mana and strikes 40% harder) and armour Manaweave (a third of the harm that reaches you is paid in mana).',
+      'Your mana grows with use: every point you spend, and every moment you stand in a fight, deepen the well — your capacity and how fast it refills. The character page shows how far it has grown.',
+      'Taming without killing: press L for the leash. While it is on, any beast or monster you or yours strike down falls beaten and kneels instead of dying, however hard the blow. Nothing kneeling can be hurt by your blows or your beasts; only Finish (E) ends it.'
+    ] },
     { v: '0.8.10', items: [
       'Healing draughts in three strengths: the minor draught (cheap — a quarter of your life), the healing draught, and the greater draught that closes every wound. 1 drinks the one that best fits your wounds, and does nothing if you are not hurt.',
       'Six new draughts with their own keys: the mending tonic (5) heals slowly but deeply; the purging tincture (6) burns out poison, fire, fever and snares and keeps venom off for half a minute; the second-wind cordial (7) refills your stamina and doubles its return; the heartroot elixir (8) gives fifty more life for three minutes; bloodwine (9) heals you with every blow you land; phoenix tears (0) heal you fully and make you untouchable for five seconds — and if you carry one when a blow would bring you down, it breaks of itself and lifts you up.',

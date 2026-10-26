@@ -40,7 +40,7 @@
         speed: 4.3 * (1 + pl.skills.endurance / 260) * (charm('swiftness') ? 1.08 : 1),
         maxHp: vigor + 100 + pl.skills.endurance * 0.6 + pl.skills.ward * 0.4 + ((pl.boons && pl.boons.hp) || 0) + (charm('health') ? 20 : 0) - (charm('hindcurse') ? 20 : 0) + (pl.armor && game.world.items[pl.armor] && game.world.items[pl.armor].affix === 'vigor' ? 25 : 0) + (ECHO.Prowess ? ECHO.Prowess.hpBonus(pl) : 0),
         maxSta: 100 + pl.skills.endurance * 0.8 + ((pl.boons && pl.boons.sta) || 0) + (ECHO.Prowess ? ECHO.Prowess.staBonus(pl) : 0),
-        maxMana: 60 + pl.skills.flame * 1.2 + ((pl.boons && pl.boons.mana) || 0),
+        maxMana: 60 + pl.skills.flame * 1.2 + ((pl.boons && pl.boons.mana) || 0) + (ECHO.Arcana ? ECHO.Arcana.bonus(pl) : 0),
         wellfed: charm('wellfed')
       };
       pl.maxHp = PC.derived.maxHp; pl.maxSta = PC.derived.maxSta; pl.maxMana = PC.derived.maxMana;
@@ -341,6 +341,8 @@
       if (In.hit('b') && ECHO.Camp) ECHO.Camp.make(game);
       if (In.hit('g')) PC.useHerbs(game);
       if (In.hit('1')) PC.drinkHeal(game);
+      if (ECHO.Arcana && !game.ui.blocksWorld()) ECHO.Arcana.KEYS.forEach((k, i) => { if (In.hit(k)) ECHO.Arcana.use(game, i, aim); });
+      if (In.hit('l') && ECHO.Tame) ECHO.Tame.toggleLeash(game);
       for (const [id, P0] of Object.entries(ECHO.Gear.POTIONS)) if (!P0.rank && In.hit(P0.key)) PC.drink(game, id);
       if (pl.buffs) for (const k in pl.buffs) if (pl.buffs[k] > 0) { pl.buffs[k] -= dt; if (pl.buffs[k] <= 0) { pl.buffs[k] = 0; PC.derivedT = 0; if (k === 'vigor') { PC.computeDerived(game); pe.hp = pl.hp = Math.min(pe.hp, pl.maxHp); } if (ECHO.Gear.POTIONS[k]) ECHO.Combat.floater(pe.x, pe.y - 1.3, `${ECHO.Gear.POTIONS[k].name} wears off`, '#c8c0b0'); } }
       if (PC.drinkT > 0) PC.drinkT -= dt;
@@ -349,7 +351,9 @@
       // ---- Regeneration
       if (!pe.swimming && !pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (pe.wading ? 0.6 : 1) * (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1) * (pl.buffs && pl.buffs.wind > 0 ? 2 : 1) * (ECHO.Camp ? ECHO.Camp.regenMul(pl) : 1));
       if (pe.blocking) pl.stamina = Math.max(0, pl.stamina - 3 * dt * D.blockMul);
-      pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40) * dt);
+      if (ECHO.Arcana) { ECHO.Arcana.measure(game); ECHO.Arcana.tick(game, dt); }
+      pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40 + (ECHO.Arcana ? ECHO.Arcana.regenBonus(pl) : 0)) * dt);
+      if (ECHO.Arcana) ECHO.Arcana.after(game);
       if (game.time - (game.lastHurtTime || -99) > 8 && !pl.sick) pl.hp = Math.min(pl.maxHp, pl.hp + 0.5 * dt);
       pe.hp = pl.hp; pe.maxHp = pl.maxHp;
     },

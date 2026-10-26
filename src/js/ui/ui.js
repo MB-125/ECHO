@@ -136,7 +136,7 @@
       const reg = game.currentRegion;
       set('#hud-place', s ? `${s.name} · ${reg ? U.cap(reg.name) : ''}` : (reg ? U.cap(reg.name) : ''));
       const w = world.items[pl.weapon];
-      const inv = `<span>${w ? esc(w.name) : 'Bare hands'}</span><span>Arrows <b>${pl.inv.arrows}</b></span><span>Food <b>${pl.inv.food + (pl.inv.meat || 0)}</b></span><span>Herbs <b>${pl.inv.herbs}</b></span>${Object.entries(ECHO.Gear.POTIONS).filter(([id]) => (pl.potions || {})[id] > 0).map(([id, P0]) => `<span style="color:${P0.color}">${P0.key}·${P0.short} <b>${pl.potions[id]}</b></span>`).join('')}${Object.entries(pl.buffs || {}).filter(([k, v]) => v > 0 && ECHO.Gear.POTIONS[k]).map(([k, v]) => `<span style="color:${ECHO.Gear.POTIONS[k].color}">✦${ECHO.Gear.POTIONS[k].short} ${Math.ceil(v)}s</span>`).join('')}<span>Crowns <b>${Math.floor(pl.gold)}</b></span>${pl.companion && world.npcs[pl.companion] ? `<span>With <b>${esc(world.npcs[pl.companion].first)}</b></span>` : ''}${pl.inv.starshard ? `<span style="color:#bfe8ff">✦ <b>${pl.inv.starshard}</b></span>` : ''}${ECHO.Letters && ECHO.Letters.unread(world).length ? `<span class="gold">✉ <b>${ECHO.Letters.unread(world).length}</b> (J)</span>` : ''}`;
+      const inv = `<span>${w ? esc(w.name) : 'Bare hands'}</span><span>Arrows <b>${pl.inv.arrows}</b></span><span>Food <b>${pl.inv.food + (pl.inv.meat || 0)}</b></span><span>Herbs <b>${pl.inv.herbs}</b></span>${Object.entries(ECHO.Gear.POTIONS).filter(([id]) => (pl.potions || {})[id] > 0).map(([id, P0]) => `<span style="color:${P0.color}">${P0.key}·${P0.short} <b>${pl.potions[id]}</b></span>`).join('')}${Object.entries(pl.buffs || {}).filter(([k, v]) => v > 0 && ECHO.Gear.POTIONS[k]).map(([k, v]) => `<span style="color:${ECHO.Gear.POTIONS[k].color}">✦${ECHO.Gear.POTIONS[k].short} ${Math.ceil(v)}s</span>`).join('')}${ECHO.Arcana ? ECHO.Arcana.hud(game) : ''}${pl.leash ? '<span style="color:#ffcf6a">⛓ leash</span>' : ''}<span>Crowns <b>${Math.floor(pl.gold)}</b></span>${pl.companion && world.npcs[pl.companion] ? `<span>With <b>${esc(world.npcs[pl.companion].first)}</b></span>` : ''}${pl.inv.starshard ? `<span style="color:#bfe8ff">✦ <b>${pl.inv.starshard}</b></span>` : ''}${ECHO.Letters && ECHO.Letters.unread(world).length ? `<span class="gold">✉ <b>${ECHO.Letters.unread(world).length}</b> (J)</span>` : ''}`;
       if (UI._inv !== inv) { $('#hud-inv').innerHTML = inv; UI._inv = inv; }
       if (UI.bossEnt) {
         const e = UI.bossEnt;
@@ -538,6 +538,7 @@
           ${ECHO.Pastimes ? ECHO.Pastimes.marketHtml(pl, s) : ''}
           ${UI.lootMarketHtml(world, pl, s)}
           ${UI.apothecaryHtml(pl, am)}
+          ${ECHO.Arcana ? ECHO.Arcana.marketHtml(world, pl, s, am) : ''}
           ${UI.stablesHtml(pl, s)}
           ${(pl.inv.starshard || 0) + (pl.inv.whitehide || 0) > 0 ? `<h4 class="ware-h">Rare things</h4><div class="wares">
             ${pl.inv.starshard ? `<div class="ware"><div class="ware-ic">✦</div><div class="ware-main"><div class="ware-top"><b>Star-iron shard</b><span class="gold">they pay ${rare.star}</span></div><div class="ware-use">A smith can forge it into your blade; a priest knows other uses.</div><div class="ware-meta">You have <b>${pl.inv.starshard}</b></div><div class="row"><button class="small" data-rare="starshard">Sell 1</button></div></div></div>` : ''}
@@ -550,6 +551,7 @@
           if (d.horse) { const why = ECHO.Life.buyHorse(pl, d.horse); if (why) UI.toast(why, 'warn', 3); else { s.wealth += ECHO.Life.BREEDS[d.horse].price; UI.toast(`${pl.horse.name} the ${ECHO.Life.BREEDS[d.horse].name.toLowerCase()} is yours, waiting outside. Press V beside it to ride; from further off, V whistles for it.`, 'legend', 5); } }
           if (d.rod) { if (pl.gold >= 12) { pl.gold -= 12; pl.inv.rod = 1; UI.toast('A fishing rod. Stand by any water and press E to cast; press E again when something bites.', 'info', 5); } }
           if (d.brew) { const why = ECHO.Gear.brew(pl, d.brew); if (why) UI.toast(why, 'warn', 3); else { ECHO.Sfx.play('coin'); UI.toast(`You have ${/^[aeiou]/i.test(ECHO.Gear.POTIONS[d.brew].name) ? 'an' : 'a'} ${ECHO.Gear.POTIONS[d.brew].name.toLowerCase()} made up. Drink it with ${ECHO.Gear.POTIONS[d.brew].key}.`, 'info', 3); } }
+          if (d.relic != null && ECHO.Arcana) { const r = ECHO.Arcana.buy(ECHO.Game, s, +d.relic, am); if (typeof r === 'string') UI.toast(r, 'warn', 3); else { ECHO.Sfx.play('coin'); UI.toast(`${r.it.name} is yours${r.on ? ` — worn; wake it with ${ECHO.Arcana.KEYS[ECHO.Arcana.slots(pl).indexOf(r.it.id)].toUpperCase()}` : ' — in your pack; wear it from your character page (K)'}.`, 'legend', 5); } }
           if (d.buypot) { const P0 = ECHO.Gear.POTIONS[d.buypot], c = ECHO.Gear.potionPrice(P0, am), why = ECHO.Gear.buyPotion(pl, d.buypot, am); if (why) UI.toast(why, 'warn', 3); else { s.wealth = (s.wealth || 0) + c; ECHO.Sfx.play('coin'); UI.toast(`${P0.name}, ready-made. Drink it with ${P0.key}.`, 'info', 3); } }
           if (d.sellmats) { const r = ECHO.Gear.sellMats(pl, s); if (r.total) { ECHO.Sfx.play('coin'); UI.toast(`Sold ${r.out.join(', ')} for ${r.total} crowns.`, 'info', 4); } }
           if (d.sellmat) { const k = d.sellmat, n = pl.inv[k] || 0; if (n) { const got = ECHO.Gear.matPrice(s, k) * n; pl.inv[k] = 0; pl.gold += got; s.wealth = (s.wealth || 0) + got * 0.2; ECHO.Sfx.play('coin'); } }
@@ -565,7 +567,7 @@
             if (r.n) UI.toast(`Sold ${r.n} piece${r.n > 1 ? 's' : ''} of gear for ${r.total} crowns.`, 'info', 4);
           }
           if (d.keep) UI.toggleKeep(pl, d.keep);
-          if (d.sellgear) { const it = world.items[d.sellgear]; if (it && it.id !== pl.weapon && it.id !== pl.bow && it.id !== pl.armor) { const got = UI.gearPrice(world, pl, s, it); pl.items = pl.items.filter(x => x !== it.id); it.holder = null; it.history.push({ d: world.day, t: `sold at the market in ${s.name}` }); pl.gold += got; ECHO.Sfx.play('coin'); UI.toast(`Sold ${it.name} for ${got} crowns.`, 'info', 3); } }
+          if (d.sellgear) { const it = world.items[d.sellgear]; if (it && !ECHO.Gear.worn(pl, it.id)) { const got = UI.gearPrice(world, pl, s, it); pl.items = pl.items.filter(x => x !== it.id); it.holder = null; it.history.push({ d: world.day, t: `sold at the market in ${s.name}` }); pl.gold += got; ECHO.Sfx.play('coin'); UI.toast(`Sold ${it.name} for ${got} crowns.`, 'info', 3); } }
           if (d.picks) { const c = Math.round(9 * am); if (pl.gold >= c) { pl.gold -= c; pl.inv.lockpick = (pl.inv.lockpick || 0) + 3; s.wealth += c; ECHO.Sfx.play('coin'); } }
           if (d.arrows) { const n = +d.arrows; if (pl.gold >= arrowP * n) { pl.gold -= arrowP * n; pl.inv.arrows += 10 * n; s.wealth += arrowP * n; ECHO.Sfx.play('coin'); } }
           if (d.rare && pl.inv[d.rare] > 0) {
@@ -774,7 +776,7 @@
     gearPrice(world, pl, s, it) { return Math.max(3, Math.round(ECHO.Gear.value(it) * (0.7 + (s.prosperity || 50) / 250) / ECHO.Minds.priceMult(world, s, pl))); },
     // ------------------------------------------------------------ spare gear, in bulk
     // What you carry but do not use (never what you wield, shoot with or wear, nor a legend).
-    spareGear(world, pl) { return pl.items.map(id => world.items[id]).filter(it => it && it.id !== pl.weapon && it.id !== pl.bow && it.id !== pl.armor && !it.legend); },
+    spareGear(world, pl) { return pl.items.map(id => world.items[id]).filter(it => it && !ECHO.Gear.worn(pl, it.id) && !it.legend); },
     // 🔒 a piece you mean to keep: no sale in bulk (nor the automatic one) takes it
     kept(pl, it) { return !!(pl.keepGear && it && pl.keepGear.includes(it.id)); },
     toggleKeep(pl, id) { pl.keepGear = pl.keepGear || []; const i = pl.keepGear.indexOf(id); if (i >= 0) pl.keepGear.splice(i, 1); else pl.keepGear.push(id); },
@@ -795,7 +797,7 @@
     sellGearMany(world, pl, s, list) {
       let total = 0, n = 0;
       for (const it of list) {
-        if (!it || it.id === pl.weapon || it.id === pl.bow || it.id === pl.armor || it.legend || !pl.items.includes(it.id)) continue;
+        if (!it || ECHO.Gear.worn(pl, it.id) || it.legend || !pl.items.includes(it.id)) continue;
         const got = UI.gearPrice(world, pl, s, it);
         pl.items = pl.items.filter(x => x !== it.id); it.holder = null;
         (it.history = it.history || []).push({ d: world.day, t: `sold at the market in ${s.name}` });
@@ -1728,7 +1730,8 @@
         ${pl.spells.length ? `<p class="gold">Secrets: ${pl.spells.map(k => ECHO.Mysteries.REWARDS[k].name).join(', ')}</p>` : ''}
         ${UI.prowessHtml(world, pl)}
         ${UI.equipHtml(world, pl)}
-        <h3 class="gold">Belongings</h3>${UI.shareAllHtml(game)}<div class="list">${items.map(it => `<div class="card" style="display:flex;gap:10px">${it.kind === 'sword' || it.kind === 'bow' || it.kind === 'armor' ? ECHO.GearArt.img(it, 'gear-ic small') : ''}<div style="flex:1"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}${UI.canGive(pl, it) ? `<div class="row"><button class="small" data-give="${it.id}">Give away…</button><button class="small" data-keep="${it.id}">${UI.kept(pl, it) ? '🔒 Kept — unlock' : '🔒 Keep (never sold in bulk)'}</button></div>` : ''}</div></div>`).join('')}</div>
+        ${ECHO.Arcana ? ECHO.Arcana.html(game) : ''}
+        <h3 class="gold">Belongings</h3>${UI.shareAllHtml(game)}<div class="list">${items.map(it => `<div class="card" style="display:flex;gap:10px">${it.kind === 'sword' || it.kind === 'bow' || it.kind === 'armor' || it.kind === 'relic' ? ECHO.GearArt.img(it, 'gear-ic small') : ''}<div style="flex:1"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}${UI.canGive(pl, it) ? `<div class="row"><button class="small" data-give="${it.id}">Give away…</button><button class="small" data-keep="${it.id}">${UI.kept(pl, it) ? '🔒 Kept — unlock' : '🔒 Keep (never sold in bulk)'}</button></div>` : ''}</div></div>`).join('')}</div>
         ${ECHO.Gear.mats(pl).length ? `<h3 class="gold">Monster parts</h3><div>${ECHO.Gear.mats(pl).map(m => `<span style="color:${m.color}">◆</span> ${m.n} ${esc(m.name)}`).join(' · ')}</div><p class="dim" style="font-size:13px">Sell them at a market, or bring them to a smith to improve your gear.</p>` : ''}
         ${ECHO.Companions ? ECHO.Companions.card(world, pl) : ''}
         ${ECHO.Fellow ? ECHO.Fellow.html(game) : ''}
@@ -1744,6 +1747,7 @@
       document.querySelectorAll('#panel button[data-bow]').forEach(b => b.addEventListener('click', () => { pl.bow = b.dataset.bow; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-arm]').forEach(b => b.addEventListener('click', () => { pl.armor = b.dataset.arm || null; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
       if (ECHO.Fellow) ECHO.Fellow.bind(document.querySelector('#panel'), game);
+      if (ECHO.Arcana) ECHO.Arcana.bind_(document.querySelector('#panel'), game, () => UI.openCharacter());
       if (ECHO.Apex) ECHO.Apex.bindUi(document.querySelector('#panel'), game);
       document.querySelectorAll('#panel button[data-give]').forEach(b => b.addEventListener('click', () => UI.giveAway(world.items[b.dataset.give])));
       document.querySelectorAll('#panel button[data-keep]').forEach(b => b.addEventListener('click', () => { UI.toggleKeep(pl, b.dataset.keep); UI.openCharacter(); }));
@@ -1755,7 +1759,7 @@
       }));
     },
     // Spare gear you could give away (not what you wield, wear or shoot with).
-    canGive(pl, it) { return !!(ECHO.Delvers && it && ECHO.Delvers.slot(it) && it.id !== pl.weapon && it.id !== pl.armor && it.id !== pl.bow); },
+    canGive(pl, it) { return !!(ECHO.Delvers && it && ECHO.Delvers.slot(it) && !ECHO.Gear.worn(pl, it.id)); },
     // The town you are in (or right beside), if any.
     townHere(game) {
       const w = game.world, pe = game.pe;

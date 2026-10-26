@@ -39,6 +39,7 @@
       if (ECHO.GuardField) ECHO.GuardField.reset();
       if (ECHO.Deepwood) ECHO.Deepwood.reset();
       if (ECHO.Tame) ECHO.Tame.reset();
+      if (ECHO.Arcana) ECHO.Arcana.reset();
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
       Game.pl.explored = Game.pl.explored || new Array(Math.ceil(world.W / 4) * Math.ceil(world.H / 4)).fill(0);
@@ -539,7 +540,8 @@
       if (it.kind === 'sword' && (!cur || (eff(it) >= eff(cur) && (it.wclass || 'sword') === (cur.wclass || 'sword')) || eff(it) > eff(cur) * 1.25 || it.legend)) pl.weapon = it.id;
       if (it.kind === 'bow' && (!world.items[pl.bow] || it.dmg > (world.items[pl.bow].dmg || 0))) pl.bow = it.id;
       if (it.kind === 'armor' && (!world.items[pl.armor] || (it.def || 0) > (world.items[pl.armor].def || 0))) pl.armor = it.id;
-      if (it.rarity && ECHO.Gear) ECHO.UI.toast(`${it.name} — ${ECHO.Gear.line(it)}${[pl.weapon, pl.bow, pl.armor].includes(it.id) ? ' (equipped)' : ' (in your pack; sell it, or equip it from your character page)'}`, it.rarity === 'common' ? 'info' : 'legend', 5);
+      const worn = it.kind === 'relic' && ECHO.Arcana && ECHO.Arcana.onTake(pl, it);
+      if (it.rarity && ECHO.Gear) ECHO.UI.toast(`${it.name} — ${ECHO.Gear.line(it)}${worn ? ` (worn — wake it with ${ECHO.Arcana.KEYS[ECHO.Arcana.slots(pl).indexOf(it.id)].toUpperCase()})` : [pl.weapon, pl.bow, pl.armor].includes(it.id) ? ' (equipped)' : ' (in your pack; sell it, or equip it from your character page)'}`, it.rarity === 'common' ? 'info' : 'legend', 5);
       Game.loot = Game.loot.filter(l => l.itemId !== itemId);
       for (const r of world.ruins) r.relics = r.relics.filter(x => x !== itemId);
       ECHO.PlayerCtl.derivedT = 0;

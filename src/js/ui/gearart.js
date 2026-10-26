@@ -108,7 +108,9 @@
       cache.set(key, url);
       return url;
     },
-    img(it, cls = 'gear-ic') { return it ? `<img class="${cls}" src="${A.icon(it)}" alt="">` : `<span class="${cls}"></span>`; },
+    img(it, cls = 'gear-ic') {
+      if (it && it.kind === 'relic') { const D = ECHO.Arcana && ECHO.Arcana.RELICS[it.relic], R = ECHO.Gear.rarity(it.rarity); return `<span class="${cls}" style="display:inline-flex;align-items:center;justify-content:center;font-size:1.5em;color:${D ? D.color : '#fff'};text-shadow:0 0 8px ${R.color}">${D ? D.icon : '✦'}</span>`; }
+      return it ? `<img class="${cls}" src="${A.icon(it)}" alt="">` : `<span class="${cls}"></span>`; },
     // A figure of you in your gear.
     doll(look, skin = '#e0ac85', hair = '#4a3020') {
       const key = 'doll|' + (look ? look.key : '') + skin + hair;

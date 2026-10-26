@@ -275,6 +275,8 @@
       if (target.iframes > 0) { if (target === game.pe) { C.floater(target.x, target.y - 0.8, 'dodged', '#9fd3ff'); if (src.from && src.from !== game.pe) ECHO.Tech.onDodgedHit(game); } return 0; }
       const from = src.from;
       if (from && from.hidden && !from.dead) return 0; // nothing unseen can strike
+      // a beast beaten to its knees is not struck again by you or yours: only Finish (E) ends it
+      if (target.subdued > 0 && !target.pal && !target.titan && from && (from === game.pe || from.pal || from.tamed || from.isCompanion)) return 0;
       if (from === game.pe && target !== game.pe) { game.lastStruck = target; game.lastStruckT = game.time; }
       // a companion's own skill: dodge, parry, shield
       if (target.isCompanion && ECHO.Companions) { amount = ECHO.Companions.defend(game, target, amount, src); if (amount <= 0) return 0; }
@@ -356,12 +358,14 @@
       if (crit) dmg *= 1.8;
       if (src.stealth) dmg *= from === game.pe ? ECHO.Tech.stealthMul() : 3;
       if (from === game.pe && target !== game.pe) dmg *= ECHO.Tech.dealt(target, src);
+      if (from === game.pe && target !== game.pe && (type === 'melee' || type === 'ranged') && ECHO.Arcana) dmg *= ECHO.Arcana.dealt(game, type);
       if (target === game.pe && from !== game.pe && game.pl.mounted && ECHO.Life) dmg = ECHO.Life.hitInSaddle(game, from, dmg);
       if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken() * (ECHO.Gear ? ECHO.Gear.taken(world, game.pl, type) : 1) * (ECHO.Companions ? ECHO.Companions.shield(game) : 1);
       if (target === game.pe && from && from !== game.pe && ECHO.Director && ECHO.Director.mercy(game)) dmg *= 0.82;
       dmg = Math.max(1, Math.round(dmg));
       // Your own fire can hurt you badly, but never below 15% of your life.
       if (target === game.pe && (from === game.pe || (!from && type !== 'drown'))) { const floor = Math.max(1, target.maxHp * 0.15); if (target.hp - dmg < floor) dmg = Math.max(0, Math.floor(target.hp - floor)); }
+      if (target === game.pe && from !== game.pe && ECHO.Arcana) dmg = Math.round(ECHO.Arcana.taken(game, dmg));
       if (target === game.pe && from !== game.pe) dmg = game.grit(dmg);
       if (dmg <= 0) { if (target === game.pe) target.burn = 0; return 0; }
       if (target === game.pe) game.logHit(from, dmg, type === 'melee' ? '' : type);

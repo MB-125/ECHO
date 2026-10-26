@@ -22,6 +22,12 @@
   const T = ECHO.Tame = {
     MAX_OUT, MAX_KEEP, chan: null, t: 0,
     reset() { T.chan = null; T.t = 0; },
+    // L: the leash — while it is on, nothing you or yours strike down that can be tamed is killed; it falls beaten
+    toggleLeash(game) {
+      const pl = game.pl; pl.leash = !pl.leash;
+      UI().toast(pl.leash ? '⛓ Leash on: beasts and monsters you strike down fall beaten instead of dying, ready to be tamed (E). Lords always do. L again to fight to the kill.' : 'Leash off: you fight to the kill.', pl.leash ? 'study' : 'info', 5);
+      ECHO.Combat.floater(game.pe.x, game.pe.y - 1.4, pl.leash ? '⛓ leash on' : 'leash off', '#ffcf6a');
+    },
     pack(pl) { return pl.pack || (pl.pack = []); },
     out(pl) { return T.pack(pl).filter(r => r.out); },
 
@@ -40,7 +46,7 @@
     chance(game, e) {
       const pl = game.pl, f = U.clamp(e.hp / e.maxHp / T.threshold(e), 0, 1);
       const L = ECHO.Prowess.foeLevel(e), me = ECHO.Prowess.level(pl);
-      let c = 0.32 + (1 - f) * 0.5 + Math.min(0.15, (pl.tames || 0) * 0.012) - Math.max(0, L - me) * 0.0015 + (e.subdued > 0 ? 0.15 : 0);
+      let c = 0.32 + (1 - f) * 0.5 + Math.min(0.15, (pl.tames || 0) * 0.012) - Math.max(0, L - me) * 0.0015 + (e.subdued > 0 ? 0.15 : 0) + (e._bound > game.time ? 0.15 : 0);
       if (T.isBoss(e)) c *= 0.8;
       return U.clamp(c, 0.1, 0.95);
     },
@@ -54,7 +60,7 @@
         T._noteT = 0.25;
         for (const e of game.ents) if (!e._tameTold && !e.dead && T.can(game, e) && e.hp <= e.maxHp * T.threshold(e) && U.dist(e.x, e.y, pe.x, pe.y) < 14) {
           e._tameTold = true; ECHO.Combat.floater(e.x, e.y - 1.6 * (e.scale || 1), 'can be tamed — E', '#ffe08a');
-          if (!pl._tameTip) { pl._tameTip = true; UI().toast('A beaten beast can be tamed: stand by it and hold it (E) while you break its will. The weaker it is, the likelier it gives in.', 'study', 7); }
+          if (!pl._tameTip) { pl._tameTip = true; UI().toast('A beaten beast can be tamed: stand by it and hold it (E) while you break its will. The weaker it is, the likelier it gives in. Afraid of killing it by mistake? Press L for the leash: what you strike down falls beaten instead of dying.', 'study', 9); }
         }
       }
       // holding one while you break it
@@ -286,6 +292,15 @@
       }
       // a lord falls beaten, not dead: yours to tame or to finish
       const byYou = from === game.pe || (from && (from.isCompanion || from.pal || from.tamed));
+      // on the leash (L), or bound by a relic: a beast or a monster falls beaten instead of dying
+      const held = e._bound > game.time;
+      if ((game.pl.leash || held) && (byYou || !from) && !e._finish && !T.isBoss(e) && T.can(game, e)) {
+        e.hp = Math.max(1, Math.round(e.maxHp * T.threshold(e) * 0.5)); e.subdued = 25; e.aggro = false; e.state = 'stagger'; e.burn = 0; e.venomT = 0; e.wcast = null;
+        ECHO.Combat.floater(e.x, e.y - 1.8 * (e.scale || 1), 'beaten — tame it (E)', '#ffe08a', true);
+        ECHO.Combat.ring(e.x, e.y, (e.r || 0.4) + 0.8, 'rgba(255,224,138,0.9)', 0.6);
+        if (!game.pl._leashTip) { game.pl._leashTip = true; UI().toast(`${U.cap(T.nameOf(e))} falls, beaten, instead of dying — it kneels for a while. Stand by it and tame it (E), or finish it (E). Your blows cannot touch it while it kneels.`, 'study', 7); }
+        return true;
+      }
       if (byYou && !e._finish && T.isBoss(e) && T.can(game, e) && !e.subdued) {
         e.hp = Math.max(1, Math.round(e.maxHp * 0.08)); e.subdued = 30; e.aggro = false; e.state = 'stagger';
         ECHO.Combat.floater(e.x, e.y - 2.4 * (e.scale || 1), 'beaten!', '#ffe08a', true);
@@ -315,7 +330,7 @@
     // ------------------------------------------------------------ the Animals page
     html(game) {
       const pl = game.pl, world = game.world, pk = T.pack(pl);
-      let h = `<h4 class="ware-h" style="margin-top:14px">Your tamed beasts (${pk.length}/${MAX_KEEP})</h4><p class="dim">Beat any beast or monster down to a third of its life (a lord or a boss to its last tenth — it falls beaten instead of dying) and hold it (E) to tame it. Up to ${MAX_OUT} follow you at once; the rest wait at your den.</p>`;
+      let h = `<h4 class="ware-h" style="margin-top:14px">Your tamed beasts (${pk.length}/${MAX_KEEP})</h4><p class="dim">Beat any beast or monster down to a third of its life (a lord or a boss to its last tenth — it falls beaten instead of dying) and hold it (E) to tame it. With the leash on (L) nothing you strike down that can be tamed dies — it falls beaten and kneels for you. Up to ${MAX_OUT} follow you at once; the rest wait at your den.</p>`;
       if (!pk.length) return h + '<p class="dim">None yet.</p>';
       h += `<div class="list">${pk.map(r => {
         const rest = r.restUntil != null && world.day < r.restUntil;

@@ -51,7 +51,9 @@
     keen: { name: 'Keen', desc: 'finds the weak places more often', slot: 'weapon' },
     warding: { name: 'Warding', desc: 'turns fire and spells aside', slot: 'armor' },
     thorns: { name: 'Thorns', desc: 'hurts what strikes you', slot: 'armor' },
-    vigor: { name: 'Vigor', desc: 'adds to your life', slot: 'armor' }
+    vigor: { name: 'Vigor', desc: 'adds to your life', slot: 'armor' },
+    arcane: { name: 'the Arcane', desc: 'each blow draws 3 mana and strikes 40% harder', slot: 'weapon' },
+    manaweave: { name: 'Manaweave', desc: 'a third of the harm that reaches you is paid in mana', slot: 'armor' }
   };
   const BASES = {
     sword: ['blade', 'sword', 'longsword', 'falchion', 'sabre', 'edge'],
@@ -182,6 +184,7 @@
     // How much an item sells for.
     value(it) {
       if (!it) return 0;
+      if (it.kind === 'relic') return ECHO.Arcana ? ECHO.Arcana.value(it) : 40;
       const R = G.rarity(it.rarity);
       const raw = it.kind === 'armor' ? (it.def || 0) * 2 : it.dmg || 0;
       const stat = raw > 600 ? 600 + (raw - 600) * 0.15 : raw;   // the gear of the gates is priceless — merchants pay what they can
@@ -267,8 +270,11 @@
       return L;
     },
     // Describe an item in a line.
+    // what you have on: weapon, bow, armour, and the relics you wear
+    worn(pl, id) { return !!id && (id === pl.weapon || id === pl.bow || id === pl.armor || (Array.isArray(pl.relics) && pl.relics.includes(id))); },
     line(it) {
       if (!it) return '';
+      if (it.kind === 'relic') return `${G.rarity(it.rarity).name} · ${ECHO.Arcana ? ECHO.Arcana.line(it) : 'relic'}`;
       const R = G.rarity(it.rarity);
       const stat = it.kind === 'armor' ? `armour ${it.def}` : `${it.kind === 'sword' && it.wclass && it.wclass !== 'sword' ? WCLASS[it.wclass].name.toLowerCase() + ' · ' : ''}power ${it.dmg}`;
       return `${R.name !== 'Common' || it.rarity ? R.name + ' · ' : ''}${stat}${it.plus ? ` · +${it.plus}` : ''}${it.affix ? ` · ${AFFIX[it.affix].desc}` : ''}`;
