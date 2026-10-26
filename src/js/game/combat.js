@@ -422,6 +422,8 @@
       if (ECHO.Companions && (target.isCompanion || target === game.pe)) ECHO.Companions.afterHit(game, target);
       if (target.rider && target.hp > 0 && ECHO.Riders) ECHO.Riders.onHit(game, target, src);
       if (ECHO.Growth) ECHO.Growth.onHit(game, target, from, dmg, src);
+      // Bloodwine: the hurt you do, drunk back as life
+      if (from === game.pe && target !== game.pe && game.pl.buffs && game.pl.buffs.leech > 0 && !game.pe.dead && game.pl.hp < game.pl.maxHp) { const pl = game.pl, got = Math.max(1, Math.round(Math.min(dmg / 6, pl.maxHp * 0.06))); pl.hp = game.pe.hp = Math.min(pl.maxHp, game.pe.hp + got); C.floater(game.pe.x + 0.3, game.pe.y - 1.1, `+${got}`, '#ff5a7a'); }
       if (target.breach && from && (from === game.pe || from.isCompanion || from.tamed)) target._pDmg = (target._pDmg || 0) + dmg;
       if (target.hp <= 0) C.kill(target, from, type, src);
       else if (target.ai && target.ai.onHurt) target.ai.onHurt(target, from);
@@ -433,7 +435,7 @@
       const game = G();
       const world = game.world;
       if (target.dead) return;
-      if (target === game.pe) { target.hp = 0; game.playerDefeated(from); return; }
+      if (target === game.pe) { if (type !== 'drown' && ECHO.PlayerCtl && ECHO.PlayerCtl.phoenixSave(game)) return; target.hp = 0; game.playerDefeated(from); return; }
       if (target.titan && ECHO.Apex) { if (target.tamed) ECHO.Apex.spent(game, target); else if (target.state !== 'subdued') { target.hp = Math.max(1, target.maxHp * 0.1); ECHO.Apex.subdue(game, target); } return; }
       if (ECHO.Tame && ECHO.Tame.onDeath(game, target, from)) return;
       if (target.mounted && ECHO.Riders) ECHO.Riders.fell(game, target);

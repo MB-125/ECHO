@@ -95,13 +95,25 @@
     { id: 'fangbow', name: 'Beastfang bow', kind: 'bow', dmg: 30, rarity: 'epic', gold: 180, mats: { greatfang: 1, silk: 4 }, desc: 'Strung with spider silk, tipped with a great beast\'s fang.' },
     { id: 'heartblade', name: 'Heartblade', kind: 'sword', wclass: 'sword', dmg: 40, rarity: 'legendary', affix: 'thirst', gold: 380, mats: { heartstone: 1, queensilk: 1, grave: 2 }, desc: 'It drinks. It is never full.' }
   ];
-  // Potions brewed from herbs and monster parts; drunk with 1–4.
+  // Potions brewed from herbs and monster parts; drunk with the number keys (1 for the healing draughts, 2–0 the rest).
   const POTIONS = {
-    heal: { key: '1', name: 'Healing draught', short: 'heal', color: '#e05a6a', gold: 10, mats: { herbs: 3 }, desc: 'Heals most of your wounds at once.' },
+    // the healing draughts, three strengths: 1 drinks the one that best fits your wounds
+    minor: { key: '1', heal: 0.25, rank: 1, name: 'Minor healing draught', short: 'minor', color: '#f08a8a', gold: 4, mats: { herbs: 1 }, desc: 'A quarter of your life back, at once. Cheap, and the first a town apothecary always has.' },
+    heal: { key: '1', heal: 0.6, rank: 2, name: 'Healing draught', short: 'heal', color: '#e05a6a', gold: 10, mats: { herbs: 3 }, desc: 'Heals most of your wounds at once.' },
+    greater: { key: '1', heal: 1, rank: 3, name: 'Greater healing draught', short: 'greater', color: '#ff3a5a', gold: 35, mats: { herbs: 4, ecto: 1 }, desc: 'Every wound closed, at once — your whole life back.' },
     might: { key: '2', name: 'Draught of might', short: 'might', color: '#ffb84a', gold: 25, mats: { herbs: 2, venom: 1 }, desc: 'A third more damage with every weapon, for a minute.' },
     stone: { key: '3', name: 'Stoneskin tonic', short: 'stone', color: '#a8a8b0', gold: 20, mats: { herbs: 2, bonedust: 2 }, desc: 'Take a third less damage, for a minute.' },
-    ward: { key: '4', name: 'Fireward philtre', short: 'ward', color: '#7ab8ff', gold: 20, mats: { herbs: 2, gel: 2 }, desc: 'Fire and spells hurt far less, for a minute and a half.' }
+    ward: { key: '4', name: 'Fireward philtre', short: 'ward', color: '#7ab8ff', gold: 20, mats: { herbs: 2, gel: 2 }, desc: 'Fire and spells hurt far less, for a minute and a half.' },
+    // healing of other kinds
+    regen: { key: '5', dur: 18, name: 'Mending tonic', short: 'mend', color: '#ff9ab8', gold: 12, mats: { herbs: 3, rattail: 2 }, desc: 'Slow but deep: heals a twentieth of your life every second for eighteen seconds — nearly all of it, if you can keep on your feet.' },
+    cure: { key: '6', dur: 30, heal: 0.15, name: 'Purging tincture', short: 'purge', color: '#b8ff7a', gold: 14, mats: { herbs: 2, venom: 1 }, desc: 'Burns out poison, puts out fire, breaks a fever and frees you of webs, roots and slows; a little life back, and for half a minute no venom takes hold.' },
+    wind: { key: '7', dur: 45, heal: 0.35, name: 'Second-wind cordial', short: 'wind', color: '#7affd8', gold: 18, mats: { herbs: 2, fish: 2 }, desc: 'A third of your life and all your breath back at once, and for 45 seconds your stamina returns twice as fast.' },
+    vigor: { key: '8', dur: 180, name: 'Heartroot elixir', short: 'vigor', color: '#ff6a3a', gold: 45, mats: { herbs: 3, tusk: 1 }, desc: 'Fifty more life — and filled — for three minutes. For the long fights.' },
+    leech: { key: '9', dur: 60, name: 'Bloodwine', short: 'leech', color: '#e8405e', gold: 30, mats: { herbs: 2, sigil: 1 }, desc: 'For a minute, every blow you land heals you — a sixth of the hurt you do, drunk back as life.' },
+    phoenix: { key: '0', dur: 5, heal: 1, rare: true, name: 'Phoenix tears', short: 'phoenix', color: '#ffd84a', gold: 160, mats: { herbs: 5, heartstone: 1 }, desc: 'Drunk: all your life back, and nothing can touch you for five seconds. Carried: if a blow would bring you down, one breaks of itself and lifts you up with half your life. No market sells them; only made to order.' }
   };
+  // what a market asks for one made up already (gold only): the making, the makings, and the trouble
+  const potionPrice = (P0, am = 1) => Math.round((P0.gold * 1.6 + Object.entries(P0.mats).reduce((s, [k, n]) => s + n * (k === 'herbs' ? 3 : (MATS[k] ? MATS[k].value : 5)) * 1.4, 0)) * am);
 
   const G = ECHO.Gear = {
     MATS, RARITY, AFFIX, HONE, CRAFT, WCLASS, FORGE, POTIONS,
@@ -117,6 +129,10 @@
       pl.items.push(it.id);
       return { item: it };
     },
+    potionPrice,
+    healIds() { return Object.keys(POTIONS).filter(k => POTIONS[k].rank).sort((a, b) => POTIONS[a].rank - POTIONS[b].rank); },
+    // bought ready-made, for crowns alone
+    buyPotion(pl, id, am = 1) { const P0 = POTIONS[id]; if (!P0 || P0.rare) return 'No market sells that.'; const c = potionPrice(P0, am); if (pl.gold < c) return 'You cannot afford it.'; pl.gold -= c; pl.potions = pl.potions || {}; pl.potions[id] = (pl.potions[id] || 0) + 1; return null; },
     brew(pl, id) {
       const P0 = POTIONS[id];
       if (!P0) return 'No such potion.';

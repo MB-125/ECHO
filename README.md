@@ -18,6 +18,8 @@ Every system below is real and connected to the others. Nothing is scripted.
 
 **Tame anything**: beat any beast, monster or lord down and tame it (E) — lords fall beaten instead of dying, for you to tame or finish. Up to three follow you and fight at your side, grow on their kills and rest a day when beaten; twelve can be kept.
 
+**Potions of many kinds**: healing comes in three strengths — minor (cheap), the healing draught and the greater draught that closes every wound — and **1** drinks the one that best fits your wounds. Beside them: the mending tonic that heals slowly but deeply, the purging tincture against poison, fire, fever and snares, the second-wind cordial that refills your stamina and doubles its return, the heartroot elixir for fifty more life, bloodwine that heals you with every blow you land, and phoenix tears that, carried, save you once from a killing blow. Each has its own makings and price; the apothecary makes them from your herbs and monster parts, or sells them ready-made for crowns alone (all but the phoenix tears).
+
 **A full, finer map**: the whole world is revealed on the map from the start — every town, dungeon, camp, lair, landmark, hidden place, deep wood and gate (switch to only what you have walked if you prefer to explore) — painted in fine detail with shaded relief, inked coasts, dotted woods, drawn roads and trails, with a search for any place by name.
 
 **Forests you can walk, and woods you should not**: every forest has trails worn through it to its heart (faster than anywhere off a road), and the greatest forests hold deep woods — dead and twisted trees, eyes in the dark, whispers and a hunting horn — where six new beasts with arts of their own (the Gloamstalker, the Hollow Man, the Barkhulk, the Weeping Bride, the Bough Widow, the Briarwyrm) grow deadlier the deeper you go, and a lord of the Wild Hunt waits at the heart. Caches of the lost lie along the trails.
@@ -352,7 +354,8 @@ A see-through controls card sits on the left of the screen (folded away at first
 | **F** (hold) | study a creature or boss |
 | **E** | talk / interact / enter and leave buildings |
 | **H / G** | eat / use herbs |
-| **1–4** | drink a healing, might, stoneskin or warding draught |
+| **1** | drink the healing draught that best fits your wounds (minor, healing or greater) |
+| **2–0** | might, stoneskin, fireward, mending tonic, purging tincture, second-wind cordial, heartroot elixir, bloodwine, phoenix tears |
 | **V** | mount or dismount your horse; from further off, whistle for it. Beside a dragon you have bound: climb on and fly (V again to come down) |
 | **Y** | switch animal: each press calls the next of your animals — your horse, then each of your beasts in turn — and sends the one with you away (a resting beast is skipped) |
 | **U** | your animals: your beasts, your horse and your dog — where they are, how they are, and buttons to call them, send them away or home (also Journal → Animals) |

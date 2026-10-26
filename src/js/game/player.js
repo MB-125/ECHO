@@ -22,6 +22,7 @@
       const wdmg = weapon ? weapon.dmg : 5;
       const charm = k => ECHO.Wonders && ECHO.Wonders.has(game.world, pl, k);
       const might = pl.buffs && pl.buffs.might > 0 ? 1.33 : 1;
+      const vigor = pl.buffs && pl.buffs.vigor > 0 ? 50 : 0;
       const lvM = (ECHO.Prowess ? ECHO.Prowess.dmgMult(pl) : 1) * might * (charm('valour') ? 1.15 : 1);
       const WC = (ECHO.Gear && ECHO.Gear.wclass(weapon)) || { cd: 1, dmg: 1, range: 0, sta: 1, flame: 1 };
       PC.derived = {
@@ -37,7 +38,7 @@
         flameDmg: 19 * (ECHO.Prowess ? ECHO.Prowess.gearScale(ECHO.Prowess.level(pl)) : 1) * (0.8 + pl.skills.flame / 55) * (1 + 0.45 * reck) * (pl.spells.includes('starfire') ? 1.25 : 1) * lvM * WC.flame,
         flameInstab: pl.spells.includes('starfire') ? 0 : reck * 0.2,
         speed: 4.3 * (1 + pl.skills.endurance / 260) * (charm('swiftness') ? 1.08 : 1),
-        maxHp: 100 + pl.skills.endurance * 0.6 + pl.skills.ward * 0.4 + ((pl.boons && pl.boons.hp) || 0) + (charm('health') ? 20 : 0) - (charm('hindcurse') ? 20 : 0) + (pl.armor && game.world.items[pl.armor] && game.world.items[pl.armor].affix === 'vigor' ? 25 : 0) + (ECHO.Prowess ? ECHO.Prowess.hpBonus(pl) : 0),
+        maxHp: vigor + 100 + pl.skills.endurance * 0.6 + pl.skills.ward * 0.4 + ((pl.boons && pl.boons.hp) || 0) + (charm('health') ? 20 : 0) - (charm('hindcurse') ? 20 : 0) + (pl.armor && game.world.items[pl.armor] && game.world.items[pl.armor].affix === 'vigor' ? 25 : 0) + (ECHO.Prowess ? ECHO.Prowess.hpBonus(pl) : 0),
         maxSta: 100 + pl.skills.endurance * 0.8 + ((pl.boons && pl.boons.sta) || 0) + (ECHO.Prowess ? ECHO.Prowess.staBonus(pl) : 0),
         maxMana: 60 + pl.skills.flame * 1.2 + ((pl.boons && pl.boons.mana) || 0),
         wellfed: charm('wellfed')
@@ -339,11 +340,14 @@
       if (In.hit('h')) PC.eat(game);
       if (In.hit('b') && ECHO.Camp) ECHO.Camp.make(game);
       if (In.hit('g')) PC.useHerbs(game);
-      for (const [id, P0] of Object.entries(ECHO.Gear.POTIONS)) if (In.hit(P0.key)) PC.drink(game, id);
-      if (pl.buffs) for (const k in pl.buffs) if (pl.buffs[k] > 0) { pl.buffs[k] -= dt; if (pl.buffs[k] <= 0) { pl.buffs[k] = 0; PC.derivedT = 0; ECHO.Combat.floater(pe.x, pe.y - 1.3, `${ECHO.Gear.POTIONS[k].name} wears off`, '#c8c0b0'); } }
+      if (In.hit('1')) PC.drinkHeal(game);
+      for (const [id, P0] of Object.entries(ECHO.Gear.POTIONS)) if (!P0.rank && In.hit(P0.key)) PC.drink(game, id);
+      if (pl.buffs) for (const k in pl.buffs) if (pl.buffs[k] > 0) { pl.buffs[k] -= dt; if (pl.buffs[k] <= 0) { pl.buffs[k] = 0; PC.derivedT = 0; if (k === 'vigor') { PC.computeDerived(game); pe.hp = pl.hp = Math.min(pe.hp, pl.maxHp); } if (ECHO.Gear.POTIONS[k]) ECHO.Combat.floater(pe.x, pe.y - 1.3, `${ECHO.Gear.POTIONS[k].name} wears off`, '#c8c0b0'); } }
+      if (PC.drinkT > 0) PC.drinkT -= dt;
+      if (pl.buffs) PC.potionTick(game, dt);
 
       // ---- Regeneration
-      if (!pe.swimming && !pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (pe.wading ? 0.6 : 1) * (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1) * (ECHO.Camp ? ECHO.Camp.regenMul(pl) : 1));
+      if (!pe.swimming && !pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (pe.wading ? 0.6 : 1) * (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1) * (pl.buffs && pl.buffs.wind > 0 ? 2 : 1) * (ECHO.Camp ? ECHO.Camp.regenMul(pl) : 1));
       if (pe.blocking) pl.stamina = Math.max(0, pl.stamina - 3 * dt * D.blockMul);
       pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40) * dt);
       if (game.time - (game.lastHurtTime || -99) > 8 && !pl.sick) pl.hp = Math.min(pl.maxHp, pl.hp + 0.5 * dt);
@@ -412,16 +416,66 @@
       if (ECHO.Wits) ECHO.Wits.note(game, 'ranged');
       ECHO.Character.train(pl, 'flame', 0.1);
     },
+    // 1: of the healing draughts you carry, the one that best fits your wounds —
+    // the smallest that closes them, or failing that the strongest you have.
+    drinkHeal(game) {
+      const pl = game.pl, pe = game.pe, P = ECHO.Gear.POTIONS, have = ECHO.Gear.healIds().filter(k => (pl.potions || {})[k] > 0);
+      if (!have.length) return ECHO.Combat.floater(pe.x, pe.y - 1.2, 'no healing draughts', '#c8c0b0');
+      const miss = pl.maxHp - pl.hp;
+      if (miss < 1) return ECHO.Combat.floater(pe.x, pe.y - 1.2, 'not hurt', '#c8c0b0');
+      const id = have.find(k => P[k].heal * pl.maxHp >= miss * 0.9) || have[have.length - 1];
+      PC.drink(game, id);
+    },
+    heal(game, amt, col = '#7aff8a') {
+      const pl = game.pl, pe = game.pe, got = Math.round(Math.min(amt, pl.maxHp - pl.hp));
+      pl.hp = Math.min(pl.maxHp, pl.hp + amt); pe.hp = pl.hp;
+      if (got > 0) ECHO.Combat.floater(pe.x, pe.y - 1.3, `+${got}`, col, true);
+      return got;
+    },
+    // what the draughts do while they last
+    potionTick(game, dt) {
+      const pl = game.pl, pe = game.pe, bf = pl.buffs;
+      if (bf.regen > 0 && pl.hp < pl.maxHp && !pe.dead) { pl.hp = Math.min(pl.maxHp, pl.hp + pl.maxHp * 0.05 * dt * (pe.burn > 0 ? 0.5 : 1)); pe.hp = pl.hp; if (Math.random() < dt * 4) ECHO.Combat.burst(pe.x, pe.y - 0.6, '#ff9ab8', 2, 1, 0.5, 1); }
+      if (bf.cure > 0) { if (pl.poisonT > 0) { pl.poisonT = 0; pl.poisonDps = 0; } }
+      if (bf.phoenix > 0) { pe.iframes = Math.max(pe.iframes || 0, 0.12); if (Math.random() < dt * 8) ECHO.Combat.burst(pe.x, pe.y - 0.4, '#ffd84a', 2, 2, 0.5, 1); }
+    },
+    // The blow that would bring you down: a phoenix tear you carry breaks of itself.
+    phoenixSave(game) {
+      const pl = game.pl, pe = game.pe;
+      if (!(pl.potions && pl.potions.phoenix > 0) || pl.capture || game.defeating) return false;
+      pl.potions.phoenix--;
+      pe.dead = false; pl.hp = pe.hp = Math.round(pl.maxHp * 0.5);
+      pe.iframes = Math.max(pe.iframes || 0, 2.5); pe.burn = 0; pl.poisonT = 0; pl.poisonDps = 0;
+      ECHO.Combat.floater(pe.x, pe.y - 1.5, 'PHOENIX TEARS', '#ffd84a', true);
+      ECHO.Combat.burst(pe.x, pe.y, '#ffd84a', 40, 4, 0.9, 3); ECHO.Combat.ring(pe.x, pe.y, 2.2, 'rgba(255,216,74,0.9)', 0.8);
+      if (game.slowMo) game.slowMo(0.3, 0.7); if (game.hurtFlash) game.hurtFlash(0.6);
+      ECHO.Sfx.play('heal');
+      game.ui.toast('A phoenix tear breaks in your pack — fire runs through you and you rise.', 'legend', 4);
+      return true;
+    },
     drink(game, id) {
       const pl = game.pl, pe = game.pe, P0 = ECHO.Gear.POTIONS[id];
       pl.potions = pl.potions || {};
       if (!(pl.potions[id] > 0)) return ECHO.Combat.floater(pe.x, pe.y - 1.2, `no ${P0.name.toLowerCase()}`, '#c8c0b0');
+      if (PC.drinkT > 0) return;   // one swallow at a time
+      PC.drinkT = 0.6;
       pl.potions[id]--;
       pl.buffs = pl.buffs || {};
-      if (id === 'heal') { const amt = Math.round(pl.maxHp * 0.6); pl.hp = Math.min(pl.maxHp, pl.hp + amt); pe.hp = pl.hp; ECHO.Combat.floater(pe.x, pe.y - 1.3, `+${amt}`, '#7aff8a', true); }
-      else { pl.buffs[id] = id === 'ward' ? 90 : 60; PC.derivedT = 0; ECHO.Combat.floater(pe.x, pe.y - 1.3, P0.name, P0.color, true); }
+      if (P0.rank) PC.heal(game, pl.maxHp * P0.heal);
+      else if (id === 'vigor') { pl.buffs.vigor = P0.dur; PC.computeDerived(game); PC.heal(game, 50, P0.color); ECHO.Combat.floater(pe.x, pe.y - 1.7, P0.name, P0.color, true); }
+      else {
+        pl.buffs[id] = P0.dur || (id === 'ward' ? 90 : 60); PC.derivedT = 0;
+        if (P0.heal) PC.heal(game, pl.maxHp * P0.heal);
+        if (id === 'cure') {
+          pl.poisonT = 0; pl.poisonDps = 0; pe.burn = 0; pl.slowT = 0; pl.rootT = 0;
+          if (pl.sick) { (pl.immune = pl.immune || []).push(pl.sick.d); delete pl.sick; game.ui.toast('The tincture burns the fever out of you.', 'mercy', 3); }
+        }
+        if (id === 'wind') pl.stamina = pl.maxSta;
+        if (id === 'phoenix') { pe.burn = 0; pl.poisonT = 0; ECHO.Combat.ring(pe.x, pe.y, 2, 'rgba(255,216,74,0.9)', 0.6); }
+        ECHO.Combat.floater(pe.x, pe.y - 1.7, P0.name, P0.color, true);
+      }
       ECHO.Combat.burst(pe.x, pe.y, P0.color, 14, 2, 0.6, 2);
-      ECHO.Sfx.play('coin', { pitch: 1.6 });
+      ECHO.Sfx.play(P0.heal || id === 'regen' ? 'heal' : 'coin', { pitch: 1.6 });
     },
     swing(game, aim, D, kind) {
       const pe = game.pe, pl = game.pl, world = game.world;
