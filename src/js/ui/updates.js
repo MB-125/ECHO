@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.22', items: [
+      'Size matters below ground. Every tamed beast is small, large or huge: small is anything up to a cave troll\'s build; large are ogres, golems, the great hounds and the like; huge are the great beasts of the lairs, the widows and wyrms of the deep woods. Caves, hideouts and grots let only the small in; dungeons, crypts and mines keep out the huge; the worlds beyond the gates take any.',
+      'Beasts too big for a place wait at the way in (you are told who), and are with you again when you come out. Press O inside and smaller ones from your den come in their place. The Tamed beasts page shows each one\'s size, and which are too big for where you are.'
+    ] },
     { v: '0.8.21', items: [
       'Dragons fly much faster: cruising 22 (was 14), Shift 42 (was 27) — and hold Shift a moment longer and your dragon finds the wind and rides it at 52. They gather speed twice as quickly, climb and dive more readily, and leave the ground in a second (was over two).',
       'Landing is quick: your dragon flies straight at the nearest clearing, drops hard and true and flares at the last moment — about two seconds from cruising height (was six). Press V again while it comes in to drop straight down at once.'

@@ -52,14 +52,34 @@
     // the ones that could come now, strongest first
     ready_(game) { return T.pack(game.pl).filter(r => !r.out && !T.resting(game.world, r)).sort((a, b) => b.lvl - a.lvl || (b.kills || 0) - (a.kills || 0)); },
     indoors() { const L = ECHO.Interior.cur; return !!(L && !L.carved && L.type !== 'gate'); },
+    // ---- how big a beast is, and how much room a place below has
+    // small: anything up to a troll's build; large: ogres, golems, the great hounds and spiders;
+    // huge: the great beasts of the lairs, the widows and wyrms of the deep woods
+    SIZES: ['small', 'large', 'huge'],
+    sizeOf(r) {
+      const sc = r.scale || 1;
+      if (r.cat === 'boss' || sc >= 2.2) return 'huge';
+      if (sc >= 1.5 || r.lord) return 'large';
+      return 'small';
+    },
+    // a cave, a hideout or a grot: only the small; a dungeon, a crypt, a mine: not the huge; a gate's world: anything
+    roomOf(L) {
+      if (!L) return 'huge';
+      if (L.type === 'gate') return 'huge';
+      if (!L.carved) return null;
+      return L.site && ECHO.Explore && ECHO.Explore.small(L.site) ? 'small' : 'large';
+    },
+    fits(r, L = ECHO.Interior.cur) { const room = T.roomOf(L); return !!room && T.SIZES.indexOf(T.sizeOf(r)) <= T.SIZES.indexOf(room); },
+    roomWord(L) { const room = T.roomOf(L); return room === 'small' ? 'this cramped place' : 'these passages'; },
     // call one to your side; if all the places are taken, the weakest of those with you goes home for it
     call(game, r, quiet) {
       const pl = game.pl, world = game.world;
       if (!r || r.out) return null;
+      if (ECHO.Interior.cur && T.roomOf(ECHO.Interior.cur) && !T.fits(r)) { if (!quiet) UI().toast(`${r.name} is too big for ${T.roomWord(ECHO.Interior.cur)}. Call it when you are out under the sky (or in a bigger place).`, 'warn', 4); return null; }
       if (T.resting(world, r)) { if (!quiet) UI().toast(`${r.name} is still resting${T.restLeft(world, r) != null ? ` — back in ${T.restLeft(world, r)} s` : ''}.`, 'warn', 3); return null; }
       let swapped = null;
       const out = T.out(pl);
-      if (out.length >= MAX_OUT) { swapped = out.slice().sort((a, b) => a.lvl - b.lvl)[0]; swapped.out = false; }
+      if (out.length >= MAX_OUT) { swapped = out.slice().sort((a, b) => (T.fits(a) - T.fits(b)) || a.lvl - b.lvl)[0]; swapped.out = false; }
       r.out = true; T.t = 0;
       if (!quiet) UI().toast(`${r.name} comes to you${swapped ? ` — ${swapped.name} goes back to the den` : ''}.${T.indoors() ? ' (They wait for you outside.)' : ''}`, 'info', 3);
       return swapped;
@@ -68,13 +88,20 @@
     rally(game) {
       const pl = game.pl, pk = T.pack(pl);
       if (!pk.length) return UI().toast('You have no tamed beasts yet. Knock any beast or monster down and press E.', 'info', 3.5);
-      const came = [];
-      for (const r of T.ready_(game)) {
+      const came = [], L = ECHO.Interior.cur, below = !!(L && T.roomOf(L));
+      // below ground, the ones that will not fit go home for ones that will
+      if (below) for (const r of T.ready_(game).filter(r => T.fits(r, L))) {
+        const big = T.out(pl).find(o => !T.fits(o, L));
+        if (!big) break;
+        big.out = false; r.out = true; came.push(r.name);
+      }
+      for (const r of T.ready_(game).filter(r => !below || T.fits(r, L))) {
         const out = T.out(pl);
         if (out.length < MAX_OUT) { T.call(game, r, true); came.push(r.name); continue; }
         const weak = out.slice().sort((a, b) => a.lvl - b.lvl)[0];
         if (weak && weak.lvl < r.lvl) { T.call(game, r, true); came.push(r.name); } else break;
       }
+      T.t = 0;
       const n = T.out(pl).length;
       UI().toast(came.length ? `Your pack comes: ${came.join(', ')}. (${n}/${MAX_OUT} with you.)${T.indoors() ? ' They wait for you outside.' : ''}` : n ? `Your strongest are already with you (${n}/${MAX_OUT}).${T.ready_(game).length ? '' : ' The rest are resting.'}` : 'All your beasts are resting — they will answer again shortly.', 'info', 4);
     },
@@ -133,10 +160,19 @@
       T.t = 0.5;
       const L = ECHO.Interior.cur, ok = !L || L.carved || L.type === 'gate';
       const out = T.out(pl), world = game.world;
+      // into a place below: who fits, and who waits at the way in
+      if (L !== T._lastL) {
+        T._lastL = L;
+        const wait = L && ok ? out.filter(r => !T.resting(world, r) && !T.fits(r, L)) : [];
+        if (wait.length) {
+          const more = T.ready_(game).some(r => T.fits(r, L));
+          UI().toast(`${wait.map(r => r.name).join(', ')} ${wait.length > 1 ? 'are' : 'is'} too big for ${T.roomWord(L)} and wait${wait.length > 1 ? '' : 's'} at the way in.${more ? ' Press O and smaller ones from your den come in their place.' : ''}`, 'info', 6);
+        }
+      }
       for (const r of out) {
         if (T.resting(world, r)) { r.out = false; continue; }
         const e = game.ents.find(o => o.pal === r && !o.dead);
-        if (!ok || pl.flying && false) { if (e) { e.dead = true; e.vanish = true; } continue; }
+        if (!ok || (L && !T.fits(r, L))) { if (e) { e.dead = true; e.vanish = true; } continue; }
         if (T.resting(world, r)) { if (e) { e.dead = true; e.vanish = true; } continue; }
         if (!e) T.spawn(game, r);
       }
@@ -470,27 +506,29 @@
     page(game) {
       const pl = game.pl, world = game.world, pk = T.pack(pl), out = T.out(pl);
       const bar = (f, col) => `<div class="t"><i style="width:${Math.round(U.clamp(f, 0, 1) * 100)}%;background:${col}"></i></div>`;
+      const below = !!(ECHO.Interior.cur && T.roomOf(ECHO.Interior.cur));
       const weakest = out.length >= MAX_OUT ? out.slice().sort((a, b) => a.lvl - b.lvl)[0] : null;
       const callLbl = r => weakest ? `Call (${esc(weakest.name)} goes home)` : 'Call to your side';
       // the den, many at once: one line each, with a small picture
       const row = r => {
         const rest = T.resting(world, r), hpF = rest ? 0.3 : (r.hp == null ? 1 : r.hp), pic = T._pics[r.id];
         return `<div class="pal-row${rest ? ' rest' : ''}"><div class="pal-thumb" data-palpic="${r.id}"${pic ? ' data-done="1"' : ''}>${pic ? `<img src="${pic}" alt="">` : '<span class="pal-ph">🐾</span>'}</div>
-          <div class="pal-row-main"><b class="gold">${esc(r.name)}</b> <span class="dim">· Lv ${r.lvl}${r.cat === 'boss' || r.lord ? ' ♛' : r.elite ? ' ✦' : ''} · ${esc(T.kindOf(r).toLowerCase())} · ${r.kills || 0} kills</span>
+          <div class="pal-row-main"><b class="gold">${esc(r.name)}</b> <span class="dim">· Lv ${r.lvl}${r.cat === 'boss' || r.lord ? ' ♛' : r.elite ? ' ✦' : ''} · ${esc(T.kindOf(r).toLowerCase())} · ${T.sizeOf(r)} · ${r.kills || 0} kills</span>
             <div class="pal-bar"><span>Life</span>${bar(hpF, hpF > 0.5 ? '#9fe08a' : hpF > 0.25 ? '#e0c060' : '#e05a4a')}<span>${rest ? `<span class="ember">resting${T.restLeft(world, r) != null ? ' · ' + T.restLeft(world, r) + ' s' : ''}</span>` : Math.round(hpF * 100) + '%'}</span></div></div>
-          <div class="pal-row-btns"><button class="small" data-pal-call="${r.id}" ${rest ? 'disabled' : ''}>${weakest ? 'Call (swap)' : 'Call'}</button><button class="small" data-pal-name="${r.id}" title="Rename">✎</button><button class="small" data-pal-free="${r.id}" title="Release">✕</button></div></div>`;
+          <div class="pal-row-btns"><button class="small" data-pal-call="${r.id}" ${rest || (below && !T.fits(r)) ? 'disabled' : ''}>${below && !T.fits(r) ? 'too big here' : weakest ? 'Call (swap)' : 'Call'}</button><button class="small" data-pal-name="${r.id}" title="Rename">✎</button><button class="small" data-pal-free="${r.id}" title="Release">✕</button></div></div>`;
       };
       const card = r => {
         const rest = T.resting(world, r), e = T.live(game, r), st = T.look(game, r);
         const hpF = e ? e.hp / e.maxHp : (rest ? 0.3 : (r.hp == null ? 1 : r.hp)), need = 12 + r.lvl * 4;
-        const status = rest ? `<span class="ember">resting — ${T.restLeft(world, r) != null ? 'back in ' + T.restLeft(world, r) + ' s' : 'back tomorrow'}</span>` : r.out ? (e ? `<span class="gold">with you</span> · ${Math.round(U.dist(e.x, e.y, game.pe.x, game.pe.y))} paces off` : '<span class="gold">with you</span> · on its way') : 'in your den';
+        const big = below && !T.fits(r);
+        const status = big && r.out ? '<span class="ember">too big for this place — waiting at the way in</span>' : rest ? `<span class="ember">resting — ${T.restLeft(world, r) != null ? 'back in ' + T.restLeft(world, r) + ' s' : 'back tomorrow'}</span>` : r.out ? (e ? `<span class="gold">with you</span> · ${Math.round(U.dist(e.x, e.y, game.pe.x, game.pe.y))} paces off` : '<span class="gold">with you</span> · on its way') : 'in your den';
         const pic = T._pics[r.id];
         const tag = r.cat === 'boss' || r.lord ? '♛' : r.elite ? '✦ elite' : '';
         return `<div class="pal-card${r.out && !rest ? ' out' : ''}${rest ? ' rest' : ''}">
           <div class="pal-pic" data-palpic="${r.id}"${pic ? ' data-done="1"' : ''}>${pic ? `<img src="${pic}" alt="">` : '<span class="pal-ph">🐾</span>'}<span class="pal-lv">Lv ${r.lvl}</span>${tag ? `<span class="pal-tag gold">${tag}</span>` : ''}</div>
           <div class="pal-body">
             <div class="pal-head"><h4>${esc(r.name)}</h4></div>
-            <div class="pal-sub">${esc(T.kindOf(r))}${r.was && r.was !== r.name ? ' · once ' + esc(r.was) : ''} · tamed day ${r.day}</div>
+            <div class="pal-sub">${esc(T.kindOf(r))} · ${T.sizeOf(r)}${r.was && r.was !== r.name ? ' · once ' + esc(r.was) : ''} · tamed day ${r.day}</div>
             <div class="pal-bar"><span>Life</span>${bar(hpF, hpF > 0.5 ? '#9fe08a' : hpF > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hpF * 100)}%</span></div>
             <div class="pal-bar"><span>Growth</span>${bar((r.xp || 0) / need, '#8fb8ff')}<span>${Math.floor(r.xp || 0)}/${need}</span></div>
             <div class="pal-stats"><span>Life <b>${st.maxHp || '—'}</b></span><span>Strikes <b>${st.dmg || '—'}</b></span><span>Kills <b>${r.kills || 0}</b></span></div>
@@ -498,7 +536,7 @@
             <div class="row">${r.out ? `<button class="small" data-pal-rest="${r.id}">Send to the den</button>` : `<button class="small" data-pal-call="${r.id}" ${rest ? 'disabled' : ''}>${callLbl(r)}</button>`}<button class="small" data-pal-name="${r.id}">Rename</button><button class="small" data-pal-free="${r.id}">Release</button></div>
           </div></div>`;
       };
-      let h = `<p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. <b>O</b> calls your strongest at any time; Call on any one brings it (if your side is full, the weakest with you goes home for it). When one is beaten it goes home to rest for about 45 seconds, and the strongest rested one comes in its place. L changes how you strike things down.</p>`;
+      let h = `<p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. <b>O</b> calls your strongest at any time; Call on any one brings it (if your side is full, the weakest with you goes home for it). When one is beaten it goes home to rest for about 45 seconds, and the strongest rested one comes in its place. L changes how you strike things down. <b>Size matters below ground:</b> caves, hideouts and grots let only small beasts in; dungeons, crypts and mines keep out the huge (the great beasts of the lairs, widows, wyrms); the worlds beyond the gates take any. Those too big wait at the way in.</p>`;
       if (!pk.length) return h + '<div class="card"><p class="dim">No tamed beasts yet.</p></div>';
       const withYou = pk.filter(r => r.out), den = pk.filter(r => !r.out).sort((a, b) => (T.resting(world, a) - T.resting(world, b)) || b.lvl - a.lvl);
       h += `<div class="row" style="gap:6px;margin:6px 0 10px"><button data-pal-rally="1" ${T.ready_(game).length ? '' : 'disabled'}>Call my strongest (O)</button>${withYou.length ? '<button data-pal-home="1">Send all to the den</button>' : ''}</div>`;
