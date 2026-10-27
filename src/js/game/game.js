@@ -40,6 +40,7 @@
       if (ECHO.Deepwood) ECHO.Deepwood.reset();
       if (ECHO.Tame) ECHO.Tame.reset();
       if (ECHO.Arcana) ECHO.Arcana.reset();
+      if (ECHO.Pack) ECHO.Pack.reset();
       Game.pe = ECHO.Ent.make({ type: 'player', x: Game.pl.x, y: Game.pl.y, r: 0.33, hp: Game.pl.hp, maxHp: Game.pl.maxHp, faction: 'player', speed: 4.3, look: Game.playerLook() });
       Game.ents.push(Game.pe);
       Game.pl.explored = Game.pl.explored || new Array(Math.ceil(world.W / 4) * Math.ceil(world.H / 4)).fill(0);

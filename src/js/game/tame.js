@@ -127,6 +127,7 @@
         if (e.dead || U.dist(e.x, e.y, pe.x, pe.y) > T.REACH + 6) { T.chan = null; UI().toast(e.dead ? 'It is dead.' : 'You lose your hold on it.', 'warn', 3); }
         else if (C.t >= C.dur) { T.chan = null; T.take(game, e); }
       }
+      if (ECHO.Pack) ECHO.Pack.tick(game, dt);
       // your animals out with you
       if ((T.t -= dt) > 0) return;
       T.t = 0.5;
@@ -215,7 +216,7 @@
       const world = game.world, pe = game.pe;
       const sp = ECHO.Ent.freeSpot(world, x != null ? x : pe.x - 1.5, y != null ? y : pe.y + 1, 4) || { x: pe.x, y: pe.y };
       // (one of yours does not fall far behind you: it trains at your side)
-      const want = Math.round(ECHO.Prowess.level(game.pl) * (r.lord ? 0.8 : 0.6));
+      const want = Math.round(ECHO.Prowess.level(game.pl) * (r.lord || r.cat === 'boss' ? 1 : 0.85));
       if (r.lvl < want) { r.lvl0 = r.lvl0 || r.lvl; r.lvl = want; }
       const e = T.build(game, r, sp.x, sp.y);
       if (!e) return null;
@@ -265,6 +266,8 @@
       e.t = (e.t || 0) + dt; e.cd = Math.max(0, (e.cd || 0) - dt);
       r.hp = e.hp / e.maxHp;
       if (e.stagger > 0) { e.stagger -= dt; e.state = 'stagger'; e.moving = false; return true; }
+      // the pack mind (pack.js) fights; with nothing to fight, it walks at your side
+      if (ECHO.Pack) { if (ECHO.Pack.fight(game, e, dt)) return true; e.palFoe = null; e.state = e.state === 'windup' || e.state === 'attack' ? 'idle' : e.state; return T.follow(game, e, dt); }
       // a foe: what is at you, at it, or what you are fighting
       let f = e.palFoe;
       const hostile = o => o && !o.dead && !o.hidden && !o.vanish && o !== pe && !o.tamed && !o.isCompanion && game.hostileTo(e, o) && !(o.subdued > 0) && !(T.chan && T.chan.e === o);
@@ -319,7 +322,11 @@
         else { e.moving = false; e.state = 'chase'; }
         return true;
       }
-      // no foe: at your side, and healing
+      return T.follow(game, e, dt);
+    },
+    // no foe: at your side, and healing
+    follow(game, e, dt) {
+      const world = game.world, pe = game.pe, pl = game.pl, r = e.pal, spd = e.speed || 3;
       e.aggro = false; e.target = null;
       if (e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.025 * dt);
       const idx = T.out(pl).indexOf(r), dP = U.dist(e.x, e.y, pe.x, pe.y);
@@ -373,7 +380,7 @@
       // on the leash (L), or bound by a relic: a beast or a monster falls beaten instead of dying
       const held = e._bound > game.time, mode = T.mode(game.pl);
       // on its last breath (the default): a moment, warned, to tame it before it dies
-      if (mode === 'breath' && !held && (byYou || !from) && !e._finish && !T.isBoss(e) && T.can(game, e) && T.pack(game.pl).length < MAX_KEEP) {
+      if (mode === 'breath' && !held && (from === game.pe || (!from && e.burnFrom === game.pe)) && !e._finish && !T.isBoss(e) && T.can(game, e) && T.pack(game.pl).length < MAX_KEEP) {
         e.hp = Math.max(1, Math.round(e.maxHp * T.threshold(e) * 0.5)); e.subdued = 12; e._lastBreath = true; e._breathAt = game.time; e._breathSay = 13;
         e.aggro = false; e.state = 'stagger'; e.burn = 0; e.venomT = 0; e.wcast = null; e._tameCd = 0;
         ECHO.Combat.floater(e.x, e.y - 1.9 * (e.scale || 1), 'LAST BREATH — TAME IT (E)', '#ffe08a', true);

@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.18', items: [
+      'Your tamed beasts fight as one pack, with a mind for the fight. They fall on what you are fighting — the one you are locked on to (R), else what you last struck, else what is coming at you hardest — and spread round it, the far side first: a blow from behind lands harder, and on anything staggered they all strike harder still. An amber ring marks what the pack is on.',
+      'They look after you: anything else at your throat is met by the nearest free beast; a blow wound up against you is broken by the nearest beast that can reach it ("interrupted!"); when you are badly hurt the toughest stands at your side and takes a third of every blow meant for you; a beast near the end of its strength falls back behind you to recover while the others hold the line. What they cannot reach, they leave for what they can.',
+      'Each uses everything it has: wolves and hounds charge and howl (the whole pack strikes harder for a while), spiders poison and web foes in place, drakes breathe fire, wraiths blink behind their prey and drink from it, shamans heal the pack and you, slammers and lords throw back everything round them — and every beast has a power strike and a roar.',
+      'They are stronger: they keep up with you (85% of your level, lords and great beasts your level) and hit a third harder for you than they did wild.',
+      'What your beasts strike down dies; only your own blows leave a beast on its last breath (with the leash on, theirs spare it too).'
+    ] },
     { v: '0.8.17', items: ['Fixed: the character page (K) would not open, with an error, if you carried an Arcane weapon or Manaweave armour — their pictures had no colour for the new magic. They glow blue and violet now.'] },
     { v: '0.8.16', items: [
       'Fixed: beasts that were beaten went home to rest but still held their place at your side, so you could not call the others. A resting beast no longer holds a place — and your save is fixed as it loads.',
