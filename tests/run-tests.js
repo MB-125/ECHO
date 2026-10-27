@@ -633,6 +633,7 @@ function main() {
     const fresh = { skills: {}, items: [] };
     const bx = Pw.xpFor(fresh, beast), gained = Pw.gain(fresh, bx).length;
     check('slaying a great beast lifts you several levels at once', gained >= 2 && gained <= 3, `${bx} xp → ${gained} levels`);
+    check('every gear property has a look and a line', Object.keys(ECHO.Gear.AFFIX).every(a => { const it = { kind: ECHO.Gear.AFFIX[a].slot === 'armor' ? 'armor' : 'sword', rarity: 'rare', affix: a, dmg: 10, def: 10, plus: 0 }; try { const L = ECHO.Gear.look(it); return L && typeof L.glowCol === 'string' && L.glowCol[0] === '#' && ECHO.Gear.line(it).length > 0; } catch (e) { return false; } }));
     check('great beasts leave hide and fangs worth having', ECHO.Gear.MATS.greathide && ECHO.Gear.MATS.greatfang && ECHO.Gear.CRAFT.some(c => c.mats.greathide));
     const lv = Pw.level(pl), x0 = Pw.st(pl).xp, xp = Pw.onKill(pl, { lvl: 1 }).xp;
     check('things far beneath you teach you almost nothing', xp <= 3 && Pw.level(pl) === lv, `${xp} xp`);

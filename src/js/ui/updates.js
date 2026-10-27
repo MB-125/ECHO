@@ -7,6 +7,7 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.17', items: ['Fixed: the character page (K) would not open, with an error, if you carried an Arcane weapon or Manaweave armour — their pictures had no colour for the new magic. They glow blue and violet now.'] },
     { v: '0.8.16', items: [
       'Fixed: beasts that were beaten went home to rest but still held their place at your side, so you could not call the others. A resting beast no longer holds a place — and your save is fixed as it loads.',
       'O calls your pack: your strongest rested beasts come to your side at once, filling the empty places and trading up for weaker ones. Up to five can be with you now (was three).',

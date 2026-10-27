@@ -174,7 +174,7 @@
       let affix = null;
       if (rng.next() < R.affix) { const opts = Object.keys(AFFIX).filter(a => AFFIX[a].slot === (kind === 'armor' ? 'armor' : 'weapon') && (kind !== 'bow' || a !== 'venom')); affix = opts[rng.int(0, opts.length - 1)]; }
       const stat = kind === 'armor' ? Math.round((4 + level * 4) * R.mult) : Math.round((kind === 'bow' ? 13 : 12) + level * 3.2 * R.mult + (R.mult - 1) * 10);
-      const name = `${pre} ${base}${affix ? ' of ' + AFFIX[affix].name : ''}`;
+      const name = `${pre} ${base}${affix ? ' of ' + AFFIX[affix].name : ''}`;   // (an affix's colour is in look())
       const it = ECHO.Character.makeItem(world, { kind, name: U.cap(name), dmg: kind === 'armor' ? 0 : stat, holder: null, history: [{ d: world.day, t: where ? `found ${where}` : 'found' }] });
       it.rarity = R.k; it.affix = affix; it.level = level; it.plus = 0;
       if (wclass) it.wclass = wclass;
@@ -252,9 +252,9 @@
     look(it) {
       if (!it) return null;
       const R = G.rarity(it.rarity), plus = it.plus || 0;
-      const AFX = { ember: '#ff8a3a', venom: '#8fe05a', thirst: '#ff4a5a', keen: '#e8f4ff', warding: '#9fd3ff', thorns: '#c8e07a', vigor: '#ff9ab0' };
+      const AFX = { ember: '#ff8a3a', venom: '#8fe05a', thirst: '#ff4a5a', keen: '#e8f4ff', warding: '#9fd3ff', thorns: '#c8e07a', vigor: '#ff9ab0', arcane: '#8fb8ff', manaweave: '#b89aff' };
       const METAL = { common: '#a8acb4', fine: '#d4d8e0', rare: '#9cc4ff', epic: '#c4a0ff', legendary: '#ffd884' };
-      const glowCol = it.affix ? AFX[it.affix] : it.starforged ? '#bfe8ff' : R.color;
+      const glowCol = it.affix && AFX[it.affix] ? AFX[it.affix] : it.starforged ? '#bfe8ff' : R.color;
       const glow = Math.min(1, plus * 0.14 + (it.starforged || 0) * 0.15 + ({ common: 0, fine: 0.05, rare: 0.15, epic: 0.3, legendary: 0.45 }[R.k] || 0) + (it.affix ? 0.1 : 0));
       const lift = (hex, f) => { const n = parseInt(hex.slice(1), 16), c = v => Math.min(255, Math.round(v + (255 - v) * f)); return '#' + ((c(n >> 16) << 16) | (c((n >> 8) & 255) << 8) | c(n & 255)).toString(16).padStart(6, '0'); };
       const L = { wclass: it.kind === 'sword' ? it.wclass || 'sword' : null, rarity: R.k, color: R.color, plus, gems: Math.min(5, plus), glow, glowCol, metal: lift(METAL[R.k] || METAL.common, plus * 0.07), gold: R.k === 'epic' || R.k === 'legendary' || plus >= 4, affix: it.affix || null };
@@ -277,7 +277,7 @@
       if (it.kind === 'relic') return `${G.rarity(it.rarity).name} · ${ECHO.Arcana ? ECHO.Arcana.line(it) : 'relic'}`;
       const R = G.rarity(it.rarity);
       const stat = it.kind === 'armor' ? `armour ${it.def}` : `${it.kind === 'sword' && it.wclass && it.wclass !== 'sword' ? WCLASS[it.wclass].name.toLowerCase() + ' · ' : ''}power ${it.dmg}`;
-      return `${R.name !== 'Common' || it.rarity ? R.name + ' · ' : ''}${stat}${it.plus ? ` · +${it.plus}` : ''}${it.affix ? ` · ${AFFIX[it.affix].desc}` : ''}`;
+      return `${R.name !== 'Common' || it.rarity ? R.name + ' · ' : ''}${stat}${it.plus ? ` · +${it.plus}` : ''}${it.affix && AFFIX[it.affix] ? ` · ${AFFIX[it.affix].desc}` : ''}`;
     }
   };
 })();
