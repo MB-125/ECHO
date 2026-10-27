@@ -1304,7 +1304,7 @@
     // ------------------------------------------------------------ flight
     // The land's height under (x, y) as it is drawn (0 where there is no 3D view).
     gnd(x, y) { const R3 = ECHO.Renderer3D; return R3 && R3.hc && R3.world ? R3.groundH(x, y) : 0; },
-    FLY: { cruise: 9, hMin: 4, hMax: 20, slow: 14, fast: 27, climb: 7 },
+    FLY: { cruise: 9, hMin: 4, hMax: 22, slow: 22, fast: 42, gale: 52, climb: 11 },
     mount(game, e) {
       const pl = game.pl, pe = game.pe, t = Ti().byId(game.world, e.titan);
       if (!t || pl.mounted || ECHO.Interior.cur) return;
@@ -1317,12 +1317,12 @@
       e.atk = null; e.altGoal = 0;
       ECHO.PlayerCtl.unlock && ECHO.PlayerCtl.unlock(game, false);
       ECHO.Combat.ring(pe.x, pe.y, 3, 'rgba(230,230,255,0.7)', 0.6);
-      if (!A.told.fly) { A.told.fly = true; UI().toast(`You are on ${t.name}'s back. WASD to steer, Shift to fly fast, Space to climb, Ctrl to go lower, V to come down (over open ground). Nothing on the ground can reach you up here.`, 'legend', 9); }
+      if (!A.told.fly) { A.told.fly = true; UI().toast(`You are on ${t.name}'s back. WASD to steer, Shift to fly fast (hold it and it rides the wind), Space to climb, Ctrl to go lower, V to come down over open ground (V again to drop straight down). Nothing on the ground can reach you up here.`, 'legend', 9); }
     },
     land(game, force) {
       const F = A.fly, pe = game.pe, world = game.world;
       if (!F) { game.pl.flying = null; pe.alt = 0; return; }
-      if (F.phase === 'landing') return;
+      if (F.phase === 'landing') { if (F.t > 0.15) A.finishLand(game); return; }   // V again: straight down, now
       // somewhere its body fits: open ground, not among trees, rocks or roofs — it
       // glides to the nearest such place below you
       const e = A.entOf(game, game.pl.flying);
@@ -1362,11 +1362,11 @@
       let thrust = 0, wantH = F.h;
       if (F.phase === 'takeoff') {
         // crouch, then spring up
-        if (F.t < 0.45) { F.crouch = Math.min(1, F.t / 0.3); wantH = 0; F.flap = 0.2; }
+        if (F.t < 0.22) { F.crouch = Math.min(1, F.t / 0.15); wantH = 0; F.flap = 0.2; }
         else {
-          if (!F.leapt) { F.leapt = true; F.vz = 9; F.crouch = 0; game.shake(0.3); ECHO.Combat.ring(pe.x, pe.y, 4, 'rgba(230,220,200,0.6)', 0.6); for (let i = 0; i < 14; i++) { const a = Math.random() * 6.28; ECHO.Combat.fx.push({ kind: 'smoke', x: pe.x + Math.cos(a) * 1.2, y: pe.y + Math.sin(a), vx: Math.cos(a) * 3, vy: 0, t: 0, life: 1 + Math.random(), size: 3, sh: 0.3 }); } if (ECHO.Sfx) ECHO.Sfx.play('roar', { vol: 0.5, pitch: 1.2 }); }
-          F.flap = 1; wantH = F.h; thrust = 0.5;
-          if (F.t > 2.2) F.phase = 'fly';
+          if (!F.leapt) { F.leapt = true; F.vz = 13; F.crouch = 0; game.shake(0.3); ECHO.Combat.ring(pe.x, pe.y, 4, 'rgba(230,220,200,0.6)', 0.6); for (let i = 0; i < 14; i++) { const a = Math.random() * 6.28; ECHO.Combat.fx.push({ kind: 'smoke', x: pe.x + Math.cos(a) * 1.2, y: pe.y + Math.sin(a), vx: Math.cos(a) * 3, vy: 0, t: 0, life: 1 + Math.random(), size: 3, sh: 0.3 }); } if (ECHO.Sfx) ECHO.Sfx.play('roar', { vol: 0.5, pitch: 1.2 }); }
+          F.flap = 1; wantH = F.h; thrust = len ? (fast ? 1 : 0.6) : 0.5;
+          if (F.t > 1.0) F.phase = 'fly';
         }
       } else if (F.phase === 'landing') {
         wantH = 0; thrust = 0;
@@ -1382,7 +1382,7 @@
       }
       // ---- steering: the turn builds and eases; tighter when slow, wider when fast
       F.want = len && F.phase !== 'landing' ? Math.atan2(my, mx) : null;   // (where you are steering: its head turns there first)
-      if (len && F.phase !== 'landing' && !(F.phase === 'takeoff' && F.t < 0.45)) {
+      if (len && F.phase !== 'landing' && !(F.phase === 'takeoff' && F.t < 0.22)) {
         const want = Math.atan2(my, mx), err = U.angleDiff(F.dir, want);
         const maxRate = U.lerp(2.8, 1.25, U.clamp(F.v / C.fast, 0, 1));
         const rate = U.clamp(err * 3, -maxRate, maxRate);
@@ -1396,17 +1396,28 @@
       else F.yawRate *= Math.exp(-dt * 4);
       F.dir += F.yawRate * dt;
       // ---- speed along the heading
-      const top = F.phase === 'takeoff' ? 7 : F.auto ? 9 : thrust >= 1 ? C.fast : thrust > 0 ? C.slow : 0;
-      if (top > F.v) F.v = Math.min(top, F.v + dt * (thrust >= 1 ? 8 : 5));
-      else F.v = Math.max(top, F.v - dt * (F.phase === 'landing' ? 5 : thrust ? 4 : 1.3));   // let go and it glides on, slowing gently
+      // held long at full speed, it finds the wind: a gale behind it
+      F.galeT = thrust >= 1 && F.phase === 'fly' ? (F.galeT || 0) + dt : 0;
+      const gale = F.galeT > 1.5;
+      if (gale && !F.galeSaid) { F.galeSaid = true; ECHO.Combat.floater(pe.x, pe.y - 2, 'it rides the wind!', '#cfe8ff'); }
+      if (!gale) F.galeSaid = false;
+      const top = F.phase === 'takeoff' ? (thrust >= 1 ? 24 : 16) : F.auto ? 12 : thrust >= 1 ? (gale ? C.gale : C.fast) : thrust > 0 ? C.slow : 0;
+      if (top > F.v) F.v = Math.min(top, F.v + dt * (thrust >= 1 ? 18 : 11));
+      else F.v = Math.max(top, F.v - dt * (F.phase === 'landing' ? 9 : thrust ? 8 : 2));   // let go and it glides on, slowing gently
       // climbing costs speed, diving gives it
-      if (F.phase !== 'landing') F.v = U.clamp(F.v - F.vz * dt * (F.vz > 0 ? 0.35 : 0.5), 0, C.fast * 1.25);
+      if (F.phase !== 'landing') F.v = U.clamp(F.v - F.vz * dt * (F.vz > 0 ? 0.3 : 0.5), 0, C.gale * 1.15);
       else {
-        F.v = Math.min(F.v, 4 + (F.z - A.gnd(pe.x, pe.y)) * 0.9);   // coming in to land it sheds its speed as it comes down
-        if (F.landAt) { const dl = U.dist(pe.x, pe.y, F.landAt.x, F.landAt.y); F.v = dl > 0.6 ? Math.max(Math.min(F.v, dl * 1.4), Math.min(5, dl * 1.2)) : F.v * Math.exp(-dt * 4); }
+        F.v = Math.min(F.v, 9 + (F.z - A.gnd(pe.x, pe.y)) * 1.8);   // coming in to land it sheds its speed as it comes down
+        if (F.landAt) { const dl = U.dist(pe.x, pe.y, F.landAt.x, F.landAt.y); F.v = dl > 0.6 ? Math.max(Math.min(F.v, dl * 2.6), Math.min(14, dl * 2.2)) : F.v * Math.exp(-dt * 8); }
       }
       // the body follows the heading, sliding a little through a hard turn
-      const hx = Math.cos(F.dir) * F.v, hy = Math.sin(F.dir) * F.v, grip = 1 - Math.exp(-dt * 3.2);
+      let hx = Math.cos(F.dir) * F.v, hy = Math.sin(F.dir) * F.v, grip = 1 - Math.exp(-dt * 3.2);
+      // coming in to land it flies straight at its clearing and does not overshoot it
+      if (F.phase === 'landing' && F.landAt) {
+        const dxl = F.landAt.x - pe.x, dyl = F.landAt.y - pe.y, dl = Math.hypot(dxl, dyl);
+        if (dl > 0.25) { hx = dxl / dl * Math.min(F.v, dl * 3); hy = dyl / dl * Math.min(F.v, dl * 3); } else { hx = 0; hy = 0; }
+        grip = 1 - Math.exp(-dt * 7);
+      }
       F.vx += (hx - F.vx) * grip; F.vy += (hy - F.vy) * grip;
       pe.x = U.clamp(pe.x + F.vx * dt, 3, world.W - 3);
       pe.y = U.clamp(pe.y + F.vy * dt, 3, world.H - 3);
@@ -1424,8 +1435,10 @@
         if (dl > 1.6) zT = Math.max(zT, g0 + 2.2, roof);           // (still on its way to the clearing)
         else if (!F.landAt && roof > g0 + 1.2 && !(ride && A.bodyAny(world, ride, pe.x, pe.y))) zT = Math.max(zT, roof);   // (over the clearing it found, it comes straight down)
       } else zT = Math.max(zT, roof);
-      const vzMax = F.phase === 'landing' ? 6.5 : 9;
-      F.vz += U.clamp((zT - F.z) * 2.4 - F.vz * 2.2, -16, 16) * dt;
+      const vzMax = F.phase === 'landing' ? 15 : 13;
+      // coming down it drops hard and true; flying it rides the height smoothly
+      if (F.phase === 'landing') F.vz += U.clamp((zT - F.z) * 5 - F.vz * 3.2, -30, 30) * dt;
+      else F.vz += U.clamp((zT - F.z) * 3 - F.vz * 2.5, -22, 22) * dt;
       F.vz = U.clamp(F.vz, -vzMax, vzMax);
       F.z += F.vz * dt;
       if (F.z < g0) { F.z = g0; F.vz = Math.max(0, F.vz); }
@@ -1433,8 +1446,8 @@
       // ---- wings: hard beats to climb or speed up, a glide when cruising, a flare to land
       const work = U.clamp(0.25 + Math.max(0, F.vz) * 0.09 + thrust * 0.5 - (F.v > 10 && thrust < 1 ? 0.35 : 0) + (F.v < 4 ? 0.45 : 0), 0, 1);
       F.flap += ((F.phase === 'takeoff' && F.leapt) ? 1 - F.flap : (work - F.flap)) * Math.min(1, dt * 3);
-      const flare = F.phase === 'landing' && alt < 2.5 ? 1 - alt / 2.5 : 0;
-      if (flare > 0) { F.flap = Math.max(F.flap, 0.85); F.v *= Math.exp(-dt * 2.5); }
+      const flare = F.phase === 'landing' && alt < 1.6 ? 1 - alt / 1.6 : 0;
+      if (flare > 0) { F.flap = Math.max(F.flap, 0.85); F.v *= Math.exp(-dt * 4); }
       // the look of it: lean into the turn, nose up to climb, down to dive
       const bankT = U.clamp(-F.yawRate * (0.18 + F.v * 0.018), -0.65, 0.65);
       const pitchT = U.clamp(-F.vz * 0.05, -0.32, 0.32) - flare * 0.35 - F.crouch * 0.12;
@@ -1448,7 +1461,7 @@
       pe.iframes = Math.max(pe.iframes || 0, 0.1);
       if (pl.stamina < pl.maxSta) pl.stamina = Math.min(pl.maxSta, pl.stamina + 20 * dt);
       // touch down
-      if (F.phase === 'landing' && alt < 0.05 && F.t > 0.4) return A.finishLand(game);
+      if (F.phase === 'landing' && alt < 0.12 && F.t > 0.25) return A.finishLand(game);
       // wind past you, more of it the faster you go; wisps of cloud up high
       if (F.v > 8 && Math.random() < dt * F.v * 0.8) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + (Math.random() - 0.5) * 7, y: pe.y + (Math.random() - 0.5) * 5, vx: -F.vx * 0.9, vy: -F.vy * 0.9, t: 0, life: 0.45, color: 'rgba(255,255,255,0.55)', size: 2 });
       if (alt > 12 && Math.random() < dt * 2) ECHO.Combat.fx.push({ kind: 'smoke', x: pe.x + F.vx * 0.6 + (Math.random() - 0.5) * 10, y: pe.y + F.vy * 0.6 + (Math.random() - 0.5) * 8, vx: -F.vx * 0.3, vy: 0, t: 0, life: 2, size: 4, sh: alt - 1 });

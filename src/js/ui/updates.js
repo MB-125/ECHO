@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.21', items: [
+      'Dragons fly much faster: cruising 22 (was 14), Shift 42 (was 27) — and hold Shift a moment longer and your dragon finds the wind and rides it at 52. They gather speed twice as quickly, climb and dive more readily, and leave the ground in a second (was over two).',
+      'Landing is quick: your dragon flies straight at the nearest clearing, drops hard and true and flares at the last moment — about two seconds from cruising height (was six). Press V again while it comes in to drop straight down at once.'
+    ] },
     { v: '0.8.20', items: [
       'Your tamed beasts no longer fall on townsfolk, the watch or the realm\'s soldiers. They had been killing anyone who turned on you — and every such death was laid at your door as murder, until the towns would not trade with you. Now they fight only outlaws, beasts and monsters, and those who came at you first.',
       'A market, smithy or inn that will not deal with you now shows your standing in the town, and lets you make amends with a gift of crowns — after which they trade with you again.',
