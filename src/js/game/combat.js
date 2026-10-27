@@ -429,6 +429,7 @@
       if (ECHO.Growth) ECHO.Growth.onHit(game, target, from, dmg, src);
       // Bloodwine: the hurt you do, drunk back as life
       if (from === game.pe && target !== game.pe && game.pl.buffs && game.pl.buffs.leech > 0 && !game.pe.dead && game.pl.hp < game.pl.maxHp) { const pl = game.pl, got = Math.max(1, Math.round(Math.min(dmg / 6, pl.maxHp * 0.06))); pl.hp = game.pe.hp = Math.min(pl.maxHp, game.pe.hp + got); C.floater(game.pe.x + 0.3, game.pe.y - 1.1, `+${got}`, '#ff5a7a'); }
+      if (ECHO.Pack && from && (target === game.pe || target.pal)) ECHO.Pack.alert(game, from, target);
       if (target.breach && from && (from === game.pe || from.isCompanion || from.tamed)) target._pDmg = (target._pDmg || 0) + dmg;
       if (target.hp <= 0) C.kill(target, from, type, src);
       else if (target.ai && target.ai.onHurt) target.ai.onHurt(target, from);

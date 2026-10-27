@@ -116,7 +116,7 @@
         if (e === Game.pe || e.dead) continue;
         try {
           ECHO.Combat.thinker = e;
-          if (ECHO.Aware && !(e.subdued > 0) && ECHO.Aware.preempt(Game, e, dt)) { /* stepping out of harm's way this moment */ }
+          if (ECHO.Aware && !(e.subdued > 0) && !e.pal && ECHO.Aware.preempt(Game, e, dt)) { /* stepping out of harm's way this moment */ }
           else if (e.marvel) ECHO.Marvels.updateEnt(Game, e, dt);
           else if (e.humanoid) ECHO.Quests.updateFoe(Game, e, dt);
           else if (e.type === 'creature') ECHO.AI.Creature.update(Game, e, dt);

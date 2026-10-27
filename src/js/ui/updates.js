@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.19', items: [
+      'Your tamed beasts no longer stand about in a fight. They know everything that has struck you or them (archers and casters far off too), everything that means you harm near you, and they think again the moment you are hit.',
+      'Anything shooting at you from afar is hunted down by the quickest beast ("hunts the shooter"); anything that attacks one of your beasts is answered by it; anything else at your throat is met ("guards you"); your mark (R) is answered at once ("on your mark").',
+      'When you are badly hurt, the beast covering you goes for whatever is nearest you instead of standing at your side — and when nothing is near you it fights with the rest.',
+      'A beast only gives up on a foe it truly cannot reach (it is stuck, not merely chasing), and then finds a way round or turns to the next; when its foe falls it goes straight to the next. They step out of the ground about to break under them and the breath about to come, and no longer shy away from your own heavy blows.'
+    ] },
     { v: '0.8.18', items: [
       'Your tamed beasts fight as one pack, with a mind for the fight. They fall on what you are fighting — the one you are locked on to (R), else what you last struck, else what is coming at you hardest — and spread round it, the far side first: a blow from behind lands harder, and on anything staggered they all strike harder still. An amber ring marks what the pack is on.',
       'They look after you: anything else at your throat is met by the nearest free beast; a blow wound up against you is broken by the nearest beast that can reach it ("interrupted!"); when you are badly hurt the toughest stands at your side and takes a third of every blow meant for you; a beast near the end of its strength falls back behind you to recover while the others hold the line. What they cannot reach, they leave for what they can.',

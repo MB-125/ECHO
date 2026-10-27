@@ -25,6 +25,12 @@
   const P = ECHO.Pack = {
     plan: null, t: 0, buffT: 0, howlCd: 0, ringT: 0,
     reset() { P.plan = null; P.t = 0; P.buffT = 0; P.howlCd = 0; },
+    // something struck you or one of yours: marked, and the pack thinks again at once
+    alert(game, from, target) {
+      if (!from || from === game.pe || from.pal || from.tamed || from.isCompanion) return;
+      if (target === game.pe) from._hitPlT = game.time; else if (target && target.pal) from._hitPalT = game.time; else return;
+      if (P.t > 0.05) P.t = 0.05;
+    },
     pals(game) { return game.ents.filter(e => e.pal && !e.dead && !e.vanish); },
     hostile(game, o) {
       const pe = game.pe;
@@ -59,26 +65,31 @@
       if (!pals.length || pe.dead) { P.plan = null; return; }
       const lock = ECHO.PlayerCtl && ECHO.PlayerCtl.lock;
       const struck = game.lastStruck && game.time - (game.lastStruckT || -99) < 5 ? game.lastStruck : null;
-      const foes = [];
+      const foes = [], now = game.time, fighting = game.combatT != null && now - game.combatT < 6;
+      const AGG = new Set(['fight', 'chase', 'windup', 'attack', 'lunge', 'charge', 'cast', 'hunt', 'stalk', 'strike', 'aim', 'draw']);
       for (const o of game.ents) {
         if (!P.hostile(game, o)) continue;
         const dp = U.dist(o.x, o.y, pe.x, pe.y);
-        if (dp > 16) continue;
-        const onUs = o.target === pe || (o.target && o.target.pal);
-        if (!(o.aggro || onUs || o === lock || o === struck || o.state === 'fight' || dp < 6)) continue;
-        foes.push({ o, dp, onUs });
+        if (dp > 26) continue;
+        // what it has done: struck you, struck one of yours; what it means to do
+        const hitMe = o._hitPlT != null && now - o._hitPlT < 8, hitUs = o._hitPalT != null && now - o._hitPalT < 8;
+        const onUs = o.target === pe || !!(o.target && (o.target.pal || o.target.isCompanion));
+        const angry = !!o.aggro || AGG.has(o.state);
+        if (!(hitMe || hitUs || o === lock || o === struck || (dp < 16 && (onUs || angry && (fighting || dp < 10))) || dp < 7)) continue;
+        const ab = (o.foe && o.foe.ab) || {};
+        foes.push({ o, dp, onUs, hitMe, hitUs, shoots: !!(ab.ranged || ab.bolt || o.archer || o.ranged || (o.role && /archer|crossbow/.test(o.role))) });
       }
       if (!foes.length) { P.plan = null; return; }
       // the focus: yours first
       let focus = lock && foes.find(f => f.o === lock) ? lock : struck && foes.find(f => f.o === struck) ? struck : null;
       if (!focus) {
         let bs = Infinity;
-        for (const f of foes) { const s = f.dp - (f.o.target === pe ? 4 : 0) - (P.busy(f.o) && f.o.target === pe ? 3 : 0); if (s < bs) { bs = s; focus = f.o; } }
+        for (const f of foes) { const s = f.dp - (f.hitMe ? 6 : 0) - (f.o.target === pe ? 4 : 0) - (P.busy(f.o) && f.o.target === pe ? 3 : 0); if (s < bs) { bs = s; focus = f.o; } }
       }
       const role = new Map(), free = new Set(pals);
       // cover: when you are badly hurt, the toughest stands by you
       let cover = null;
-      if (pl.hp < pl.maxHp * 0.45 && pals.length >= 2) {
+      if (pl.hp < pl.maxHp * 0.45 && pals.length >= 2 && foes.some(f => f.dp < 5.5)) {
         cover = pals.filter(p => !P.kit(p).ranged).sort((a, b) => b.hp - a.hp)[0] || null;
         if (cover) { role.set(cover, { kind: 'cover' }); free.delete(cover); }
       }
@@ -93,6 +104,20 @@
         if (!best) break;
         role.set(best, { kind: 'guard', target: t.o }); free.delete(best);
       }
+      // hunters: what shoots at you from afar is run down by the quickest free beast
+      for (const f of foes.filter(x => x.o !== focus && x.shoots && (x.hitMe || x.o.target === pe) && x.dp > 4).sort((a, b) => a.dp - b.dp)) {
+        if (free.size <= 1) break;
+        let best = null, bs = Infinity;
+        for (const p of free) { const K = P.kit(p); const s = U.dist(p.x, p.y, f.o.x, f.o.y) / ((p.speed || 3) * (K.charge || K.blink ? 1.6 : 1)); if (s < bs) { bs = s; best = p; } }
+        if (!best) break;
+        role.set(best, { kind: 'guard', target: f.o, hunt: true }); free.delete(best);
+      }
+      // what is at one of yours: that one answers it (unless it is the focus anyway)
+      for (const f of foes) {
+        const t = f.o.target;
+        if (f.o === focus || !t || !t.pal || !free.has(t) || P.kit(t).ranged || free.size <= 1) continue;
+        role.set(t, { kind: 'guard', target: f.o, self: true }); free.delete(t);
+      }
       // the rest on the focus, spread round it — the far side first
       const melee = [...free].filter(p => !P.kit(p).ranged), base = Math.atan2(focus.y - pe.y, focus.x - pe.x);
       melee.sort((a, b) => U.angleDiff(Math.atan2(a.y - focus.y, a.x - focus.x), base) - U.angleDiff(Math.atan2(b.y - focus.y, b.x - focus.x), base));
@@ -102,6 +127,16 @@
       // with nobody on it, anything left goes after the nearest foe
       for (const p of pals) if (!role.has(p)) role.set(p, { kind: 'focus', target: focus, ang: base });
       P.plan = { focus, foes, role, cover, t: game.time };
+      // what each has newly taken on, said
+      for (const [p, R] of role) {
+        const key = R.kind + (R.target ? ':' + (R.target.id || R.target.label || R.target.species) : '');
+        if (p._roleKey === key) continue;
+        p._roleKey = key;
+        if (R.hunt) P.say(p, 'hunts the shooter', '#ffc87a');
+        else if (R.kind === 'guard' && !R.self) P.say(p, 'guards you', '#ffe08a');
+        else if (R.kind === 'focus' && R.target === lock && p._lastFocus !== lock) P.say(p, 'on your mark', '#ffa05a');
+        if (R.kind === 'focus') p._lastFocus = R.target;
+      }
       // what the pack is on, marked
       if ((P.ringT -= 0.3) <= 0) { P.ringT = 1.2; C().ring(focus.x, focus.y, (focus.r || 0.4) + 0.55, 'rgba(255,160,90,0.55)', 0.45); }
     },
@@ -150,6 +185,17 @@
         }
         e.moving = true; e.state = 'chase';
         return true;
+      }
+      // the ground about to break, the breath about to come: out of it first
+      if (ECHO.Aware && (e._ev2 || (e._dz = (e._dz || 0) - dt) <= 0)) {
+        if (e._ev2) {
+          if (game.time > e._ev2.until || U.dist(e.x, e.y, e._ev2.x, e._ev2.y) < 0.3) e._ev2 = null;
+          else { ECHO.Ent.travel(world, e, e._ev2.x, e._ev2.y, spd * 1.6, dt); e.state = 'chase'; e.moving = true; return true; }
+        } else {
+          e._dz = 0.15;
+          const here = ECHO.Aware.danger(game, e, e.x, e.y);
+          if (here > 0) { const b = ECHO.Aware.safest(game, e, here); if (b) { e._ev2 = { x: b.x, y: b.y, until: game.time + 0.9 }; if (e.state === 'windup') { e.state = 'chase'; e._wind = null; } return true; } }
+        }
       }
       if (e.state === 'windup') {
         e.moving = false;
@@ -222,29 +268,42 @@
 
       // ---- cover: at your side, between you and harm
       if (R.kind === 'cover') {
-        const near = plan.foes.filter(f => f.dp < 3.5).sort((a, b) => a.dp - b.dp)[0];
-        const o = near ? near.o : plan.focus;
-        const a = Math.atan2(o.y - pe.y, o.x - pe.x), gx = pe.x + Math.cos(a) * 1.3, gy = pe.y + Math.sin(a) * 1.3;
-        if (near && U.dist(e.x, e.y, o.x, o.y) <= P.reach(e, o) && e.cd <= 0) return P.swing(game, e, o, 1, 0);
-        if (U.dist(e.x, e.y, gx, gy) > 0.6) { ECHO.Ent.travel(world, e, gx, gy, spd * 1.3, dt); e.state = 'chase'; }
-        else { e.moving = false; e.state = 'idle'; e.dir = a; }
         if (!e._saidCover) { e._saidCover = true; P.say(e, 'covers you', '#ffe08a'); }
-        return true;
+        // a bodyguard: it goes for whatever is nearest you, and stays within a few paces of you
+        const live = plan.foes.filter(f => !f.o.dead).map(f => ({ o: f.o, dp: U.dist(f.o.x, f.o.y, pe.x, pe.y) })).sort((a, b) => a.dp - b.dp);
+        const near = live.find(f => f.dp < 5) || (plan.focus && !plan.focus.dead && U.dist(plan.focus.x, plan.focus.y, pe.x, pe.y) < 6 ? { o: plan.focus } : null);
+        if (near) {
+          const o = near.o, d = U.dist(e.x, e.y, o.x, o.y);
+          e.dir = Math.atan2(o.y - e.y, o.x - e.x); e.target = o;
+          if (d <= P.reach(e, o)) { if (e.cd <= 0) return ready('power') ? (use('power', 6), P.swing(game, e, o, 2.2, 0.6)) : P.swing(game, e, o, 1, 0); e.moving = false; return true; }
+          // between you and it
+          const a = Math.atan2(o.y - pe.y, o.x - pe.x), gx = U.dist(o.x, o.y, pe.x, pe.y) < 2.6 ? o.x : pe.x + Math.cos(a) * 1.4, gy = U.dist(o.x, o.y, pe.x, pe.y) < 2.6 ? o.y : pe.y + Math.sin(a) * 1.4;
+          ECHO.Ent.travel(world, e, U.dist(e.x, e.y, o.x, o.y) < 4 ? o.x : gx, U.dist(e.x, e.y, o.x, o.y) < 4 ? o.y : gy, spd * 1.3, dt); e.state = 'chase';
+          return true;
+        }
+        // nothing close to you: it does not stand idle — it fights with the rest (and the plan calls it back if anything comes near you)
       }
-      e._saidCover = false;
+      if (R.kind !== 'cover') e._saidCover = false;
 
       let o = R.target;
+      // what it was on is down: straight to the next — the focus, else the nearest still standing
+      if (!o || o.dead) o = plan.focus && !plan.focus.dead ? plan.focus : (plan.foes.filter(f => !f.o.dead).sort((a, b) => U.dist(a.o.x, a.o.y, e.x, e.y) - U.dist(b.o.x, b.o.y, e.x, e.y))[0] || {}).o || null;
       // what it cannot reach (across water, behind rock) it leaves for a while, for the nearest it can
       if (o && e._skip && e._skip.o === o && e._skip.until > game.time) {
         o = plan.foes.map(f => f.o).filter(x => !(e._skip.o === x)).sort((a, b) => U.dist(a.x, a.y, e.x, e.y) - U.dist(b.x, b.y, e.x, e.y))[0] || null;
       }
       if (!o || o.dead) return false;
       const d = U.dist(e.x, e.y, o.x, o.y), ang = Math.atan2(o.y - e.y, o.x - e.x), reach = P.reach(e, o);
-      if (d > reach + 0.5 && !e._dash) {
+      if (d > reach + 0.5 && !e._dash && !K.ranged) {
+        // stuck is when it cannot get anywhere — not when what it chases runs
         const pr = e._prog;
-        if (!pr || pr.o !== o) e._prog = { o, d, t: game.time };
-        else if (d < pr.d - 0.6) { pr.d = d; pr.t = game.time; }
-        else if (game.time - pr.t > 1.6 && !K.ranged) { e._skip = { o, until: game.time + 5 }; e._prog = null; }
+        if (!pr || pr.o !== o) e._prog = { o, x: e.x, y: e.y, t: game.time };
+        else if (U.dist(e.x, e.y, pr.x, pr.y) > 0.5) { pr.x = e.x; pr.y = e.y; pr.t = game.time; }
+        else if (game.time - pr.t > 1.5) {
+          e._prog = null;
+          if (plan.foes.length > 1) e._skip = { o, until: game.time + 4 };
+          else { const sp = ECHO.Ent.freeSpot(world, (e.x + o.x) / 2, (e.y + o.y) / 2, 2.5); if (sp && U.dist(sp.x, sp.y, o.x, o.y) < d - 0.5) { e.x = sp.x; e.y = sp.y; C().burst(e.x, e.y, '#ffe08a', 6, 2, 0.3, 2); } }   // a way round, found
+        }
       } else e._prog = null;
       e.dir = ang; e.flip = Math.cos(ang) < 0; e.target = o;
       if (e.state !== 'windup' && e.state !== 'attack') e.state = 'chase';
