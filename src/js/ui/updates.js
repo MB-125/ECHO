@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.16', items: [
+      'Fixed: beasts that were beaten went home to rest but still held their place at your side, so you could not call the others. A resting beast no longer holds a place — and your save is fixed as it loads.',
+      'O calls your pack: your strongest rested beasts come to your side at once, filling the empty places and trading up for weaker ones. Up to five can be with you now (was three).',
+      'Call works on any beast in your den at any time: if your side is full, the weakest with you goes home for it. Send all to the den with one button.',
+      'When one of yours is beaten it rests about 45 seconds (not until the next day), and the strongest rested one in the den comes to take its place.',
+      'The den on the Tamed beasts page is a compact list, strongest first, each with its picture and a Call button.'
+    ] },
     { v: '0.8.15', items: [
       'A page of its own for your tamed beasts (U, or Journal → Tamed beasts): each one on a card with its picture, drawn from its own body — wolf, goblin, spider, skeleton, golem, drake and the rest — with its level, what it was, its life, how near it is to its next level, its strength, its kills, and where it is. Those with you are shown first, then the ones in your den.',
       'From the cards: call a beast to your side, send it to the den, rename it, or release it (it asks first).'

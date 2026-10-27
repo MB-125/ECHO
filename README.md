@@ -16,7 +16,7 @@ ECHO is a desktop RPG built around one idea: **consequence**. You begin as an or
 
 Every system below is real and connected to the others. Nothing is scripted.
 
-**Tame anything**: knock any beast, monster or lord down — it kneels instead of dying — and press E — from where you stand, up to about eighteen paces (a golden ring marks which one): it is yours, every time. Up to three follow you and fight at your side, grow on their kills and rest a day when beaten; thirty can be kept. The Tamed beasts page (U) shows each one on a card with its picture, level, life, growth, strength and kills, and lets you call, send home, rename or release it.
+**Tame anything**: knock any beast, monster or lord down — it kneels instead of dying — and press E — from where you stand, up to about eighteen paces (a golden ring marks which one): it is yours, every time. Up to five follow you and fight at your side and grow on their kills; when one is beaten it rests about 45 seconds and the strongest rested one takes its place. **O** calls your strongest at any time; thirty can be kept. The Tamed beasts page (U) shows each one on a card with its picture, level, life, growth, strength and kills, and lets you call, send home, rename or release it.
 
 **Potions of many kinds**: healing comes in three strengths — minor (cheap), the healing draught and the greater draught that closes every wound — and **1** drinks the one that best fits your wounds. Beside them: the mending tonic that heals slowly but deeply, the purging tincture against poison, fire, fever and snares, the second-wind cordial that refills your stamina and doubles its return, the heartroot elixir for fifty more life, bloodwine that heals you with every blow you land, and phoenix tears that, carried, save you once from a killing blow. Each has its own makings and price; the apothecary makes them from your herbs and monster parts, or sells them ready-made for crowns alone (all but the phoenix tears).
 
@@ -362,6 +362,7 @@ A see-through controls card sits on the left of the screen (folded away at first
 | **L** | how you fight what could be tamed: *last breath* (default — what you strike down kneels 12 seconds, warned; press E near it and it is yours, every time; strike again or wait and it dies), *leash* (it kneels 25 seconds and nothing you do hurts it) or *to the kill* |
 | **V** | mount or dismount your horse; from further off, whistle for it. Beside a dragon you have bound: climb on and fly (V again to come down) |
 | **Y** | switch animal: each press calls the next of your animals — your horse, then each of your beasts in turn — and sends the one with you away (a resting beast is skipped) |
+| **O** | call your pack: your strongest rested tamed beasts come to your side (up to five), trading up for weaker ones already with you |
 | **U** | your animals: your beasts, your horse and your dog — where they are, how they are, and buttons to call them, send them away or home (also Journal → Animals) |
 | **T** | orders for your companion — in a fight, attack your target; otherwise follow / hold here / stay back |
 | **Tab** · **M** · **K** | journal (promises, places, the realm…) · map (zoom, drag, click a place to be guided there) · character (choose which techniques to carry) |

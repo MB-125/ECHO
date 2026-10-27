@@ -45,6 +45,7 @@
         if (In.pressed.has('c') && !In.down.has('Control')) { /* c also sneaks; character sheet on K */ }
         if (In.pressed.has('k')) UI.openCharacter();
         if (In.pressed.has('y') && ECHO.Apex) ECHO.Apex.cycle(game);
+        if (In.pressed.has('o') && ECHO.Tame && !UI.blocksWorld()) ECHO.Tame.rally(game);
         if (In.pressed.has('u') && ECHO.Apex) UI.openJournal(ECHO.Tame && ECHO.Tame.pack(game.pl).length ? 'tamed' : 'animals');
         if (In.pressed.has('n') && ECHO.Nav) ECHO.Nav.openPicker(game);
         if (In.pressed.has('F1') || In.pressed.has('/') || In.pressed.has('?')) UI.toggleHelp();

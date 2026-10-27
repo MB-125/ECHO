@@ -14,7 +14,7 @@
   const { U } = ECHO;
   const UI = () => ECHO.UI;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const MAX_OUT = 3, MAX_KEEP = 30;
+  const MAX_OUT = 5, MAX_KEEP = 30;
   const NAMES = ['Ash', 'Briar', 'Cinder', 'Dusk', 'Ember', 'Fang', 'Gloom', 'Hollow', 'Ink', 'Jinx', 'Knell', 'Lurk', 'Mire', 'Nettle', 'Onyx', 'Pyre', 'Quill', 'Rook', 'Sorrow', 'Thorn', 'Umber', 'Vex', 'Wisp', 'Yew', 'Grim', 'Moth', 'Scar', 'Bramble', 'Hush', 'Soot'];
   const PEOPLE = new Set(['brigand', 'chief']);   // (outlaws are people: they can be beaten, not tamed)
 
@@ -45,6 +45,40 @@
     },
     pack(pl) { return pl.pack || (pl.pack = []); },
     out(pl) { return T.pack(pl).filter(r => r.out); },
+    // a beaten one rests three hours of the day (about 45 seconds), then answers again
+    now(world) { return world.day * 1440 + world.minute; },
+    resting(world, r) { if (r.restAt != null) return T.now(world) < r.restAt; return r.restUntil != null && world.day < r.restUntil; },
+    restLeft(world, r) { return r.restAt != null ? Math.max(0, Math.ceil((r.restAt - T.now(world)) / ECHO.TIME.MIN_PER_SEC)) : null; },
+    // the ones that could come now, strongest first
+    ready_(game) { return T.pack(game.pl).filter(r => !r.out && !T.resting(game.world, r)).sort((a, b) => b.lvl - a.lvl || (b.kills || 0) - (a.kills || 0)); },
+    indoors() { const L = ECHO.Interior.cur; return !!(L && !L.carved && L.type !== 'gate'); },
+    // call one to your side; if all the places are taken, the weakest of those with you goes home for it
+    call(game, r, quiet) {
+      const pl = game.pl, world = game.world;
+      if (!r || r.out) return null;
+      if (T.resting(world, r)) { if (!quiet) UI().toast(`${r.name} is still resting${T.restLeft(world, r) != null ? ` — back in ${T.restLeft(world, r)} s` : ''}.`, 'warn', 3); return null; }
+      let swapped = null;
+      const out = T.out(pl);
+      if (out.length >= MAX_OUT) { swapped = out.slice().sort((a, b) => a.lvl - b.lvl)[0]; swapped.out = false; }
+      r.out = true; T.t = 0;
+      if (!quiet) UI().toast(`${r.name} comes to you${swapped ? ` — ${swapped.name} goes back to the den` : ''}.${T.indoors() ? ' (They wait for you outside.)' : ''}`, 'info', 3);
+      return swapped;
+    },
+    // O: your strongest, rested, to your side — filling the empty places, then trading up
+    rally(game) {
+      const pl = game.pl, pk = T.pack(pl);
+      if (!pk.length) return UI().toast('You have no tamed beasts yet. Knock any beast or monster down and press E.', 'info', 3.5);
+      const came = [];
+      for (const r of T.ready_(game)) {
+        const out = T.out(pl);
+        if (out.length < MAX_OUT) { T.call(game, r, true); came.push(r.name); continue; }
+        const weak = out.slice().sort((a, b) => a.lvl - b.lvl)[0];
+        if (weak && weak.lvl < r.lvl) { T.call(game, r, true); came.push(r.name); } else break;
+      }
+      const n = T.out(pl).length;
+      UI().toast(came.length ? `Your pack comes: ${came.join(', ')}. (${n}/${MAX_OUT} with you.)${T.indoors() ? ' They wait for you outside.' : ''}` : n ? `Your strongest are already with you (${n}/${MAX_OUT}).${T.ready_(game).length ? '' : ' The rest are resting.'}` : 'All your beasts are resting — they will answer again shortly.', 'info', 4);
+    },
+    sendAll(game) { for (const r of T.out(game.pl)) r.out = false; T.t = 0; UI().toast('Your beasts go back to the den.', 'info', 2.5); },
 
     // ------------------------------------------------------------ what can be tamed
     isBoss(e) { return !!(e.boss2 || e.type === 'boss' || e.lord || e.sovereign || (e.foe && e.foe.boss)); },
@@ -99,9 +133,10 @@
       const L = ECHO.Interior.cur, ok = !L || L.carved || L.type === 'gate';
       const out = T.out(pl), world = game.world;
       for (const r of out) {
+        if (T.resting(world, r)) { r.out = false; continue; }
         const e = game.ents.find(o => o.pal === r && !o.dead);
         if (!ok || pl.flying && false) { if (e) { e.dead = true; e.vanish = true; } continue; }
-        if (r.restUntil != null && world.day < r.restUntil) { if (e) { e.dead = true; e.vanish = true; } continue; }
+        if (T.resting(world, r)) { if (e) { e.dead = true; e.vanish = true; } continue; }
         if (!e) T.spawn(game, r);
       }
       // (any left over from one sent home)
@@ -324,10 +359,13 @@
     onDeath(game, e, from) {
       if (e.pal) {
         const r = e.pal;
-        r.restUntil = game.world.day + 1; r.hp = 0.5;
+        r.restAt = T.now(game.world) + 180; r.restUntil = null; r.hp = 0.5; r.out = false;
         e.dead = true; e.vanish = true;
         ECHO.Combat.burst(e.x, e.y, '#c8b080', 20, 3, 0.7, 3);
-        UI().toast(`${r.name} is beaten and limps away to rest. It will be back tomorrow.`, 'warn', 5);
+        // its place is not left empty: the strongest rested one in the den comes
+        const next = T.ready_(game)[0];
+        if (next) T.call(game, next, true);
+        UI().toast(`${r.name} is beaten and limps home to rest (back in about 45 seconds).${next ? ` ${next.name} comes to take its place.` : ''}`, 'warn', 5);
         return true;
       }
       // a lord falls beaten, not dead: yours to tame or to finish
@@ -425,10 +463,20 @@
     page(game) {
       const pl = game.pl, world = game.world, pk = T.pack(pl), out = T.out(pl);
       const bar = (f, col) => `<div class="t"><i style="width:${Math.round(U.clamp(f, 0, 1) * 100)}%;background:${col}"></i></div>`;
+      const weakest = out.length >= MAX_OUT ? out.slice().sort((a, b) => a.lvl - b.lvl)[0] : null;
+      const callLbl = r => weakest ? `Call (${esc(weakest.name)} goes home)` : 'Call to your side';
+      // the den, many at once: one line each, with a small picture
+      const row = r => {
+        const rest = T.resting(world, r), hpF = rest ? 0.3 : (r.hp == null ? 1 : r.hp), pic = T._pics[r.id];
+        return `<div class="pal-row${rest ? ' rest' : ''}"><div class="pal-thumb" data-palpic="${r.id}"${pic ? ' data-done="1"' : ''}>${pic ? `<img src="${pic}" alt="">` : '<span class="pal-ph">🐾</span>'}</div>
+          <div class="pal-row-main"><b class="gold">${esc(r.name)}</b> <span class="dim">· Lv ${r.lvl}${r.cat === 'boss' || r.lord ? ' ♛' : r.elite ? ' ✦' : ''} · ${esc(T.kindOf(r).toLowerCase())} · ${r.kills || 0} kills</span>
+            <div class="pal-bar"><span>Life</span>${bar(hpF, hpF > 0.5 ? '#9fe08a' : hpF > 0.25 ? '#e0c060' : '#e05a4a')}<span>${rest ? `<span class="ember">resting${T.restLeft(world, r) != null ? ' · ' + T.restLeft(world, r) + ' s' : ''}</span>` : Math.round(hpF * 100) + '%'}</span></div></div>
+          <div class="pal-row-btns"><button class="small" data-pal-call="${r.id}" ${rest ? 'disabled' : ''}>${weakest ? 'Call (swap)' : 'Call'}</button><button class="small" data-pal-name="${r.id}" title="Rename">✎</button><button class="small" data-pal-free="${r.id}" title="Release">✕</button></div></div>`;
+      };
       const card = r => {
-        const rest = r.restUntil != null && world.day < r.restUntil, e = T.live(game, r), st = T.look(game, r);
+        const rest = T.resting(world, r), e = T.live(game, r), st = T.look(game, r);
         const hpF = e ? e.hp / e.maxHp : (rest ? 0.3 : (r.hp == null ? 1 : r.hp)), need = 12 + r.lvl * 4;
-        const status = rest ? '<span class="ember">resting — back tomorrow</span>' : r.out ? (e ? `<span class="gold">with you</span> · ${Math.round(U.dist(e.x, e.y, game.pe.x, game.pe.y))} paces off` : '<span class="gold">with you</span> · on its way') : 'in your den';
+        const status = rest ? `<span class="ember">resting — ${T.restLeft(world, r) != null ? 'back in ' + T.restLeft(world, r) + ' s' : 'back tomorrow'}</span>` : r.out ? (e ? `<span class="gold">with you</span> · ${Math.round(U.dist(e.x, e.y, game.pe.x, game.pe.y))} paces off` : '<span class="gold">with you</span> · on its way') : 'in your den';
         const pic = T._pics[r.id];
         const tag = r.cat === 'boss' || r.lord ? '♛' : r.elite ? '✦ elite' : '';
         return `<div class="pal-card${r.out && !rest ? ' out' : ''}${rest ? ' rest' : ''}">
@@ -440,20 +488,23 @@
             <div class="pal-bar"><span>Growth</span>${bar((r.xp || 0) / need, '#8fb8ff')}<span>${Math.floor(r.xp || 0)}/${need}</span></div>
             <div class="pal-stats"><span>Life <b>${st.maxHp || '—'}</b></span><span>Strikes <b>${st.dmg || '—'}</b></span><span>Kills <b>${r.kills || 0}</b></span></div>
             <div style="font-size:12px">${status}</div>
-            <div class="row">${r.out ? `<button class="small" data-pal-rest="${r.id}">Send to the den</button>` : `<button class="small" data-pal-call="${r.id}" ${out.length >= MAX_OUT || rest ? 'disabled' : ''}>Call to your side</button>`}<button class="small" data-pal-name="${r.id}">Rename</button><button class="small" data-pal-free="${r.id}">Release</button></div>
+            <div class="row">${r.out ? `<button class="small" data-pal-rest="${r.id}">Send to the den</button>` : `<button class="small" data-pal-call="${r.id}" ${rest ? 'disabled' : ''}>${callLbl(r)}</button>`}<button class="small" data-pal-name="${r.id}">Rename</button><button class="small" data-pal-free="${r.id}">Release</button></div>
           </div></div>`;
       };
-      let h = `<p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. They grow on what they kill, and when beaten they rest until the next day. <b>Y</b> calls each in turn; L changes how you strike things down.</p>`;
+      let h = `<p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. <b>O</b> calls your strongest at any time; Call on any one brings it (if your side is full, the weakest with you goes home for it). When one is beaten it goes home to rest for about 45 seconds, and the strongest rested one comes in its place. L changes how you strike things down.</p>`;
       if (!pk.length) return h + '<div class="card"><p class="dim">No tamed beasts yet.</p></div>';
-      const withYou = pk.filter(r => r.out), den = pk.filter(r => !r.out);
-      h += `<h3 class="gold">With you (${withYou.length}/${MAX_OUT})</h3>${withYou.length ? `<div class="pal-grid">${withYou.map(card).join('')}</div>` : '<p class="dim">None at your side. Call one from your den.</p>'}`;
-      h += `<h3 class="gold">In your den (${den.length}) <span class="dim" style="font-size:13px">· ${pk.length}/${MAX_KEEP} kept</span></h3>${den.length ? `<div class="pal-grid">${den.map(card).join('')}</div>` : '<p class="dim">Empty.</p>'}`;
+      const withYou = pk.filter(r => r.out), den = pk.filter(r => !r.out).sort((a, b) => (T.resting(world, a) - T.resting(world, b)) || b.lvl - a.lvl);
+      h += `<div class="row" style="gap:6px;margin:6px 0 10px"><button data-pal-rally="1" ${T.ready_(game).length ? '' : 'disabled'}>Call my strongest (O)</button>${withYou.length ? '<button data-pal-home="1">Send all to the den</button>' : ''}</div>`;
+      h += `<h3 class="gold">With you (${withYou.length}/${MAX_OUT})</h3>${withYou.length ? `<div class="pal-grid">${withYou.map(card).join('')}</div>` : '<p class="dim">None at your side. Press <b>O</b> (or the button above) and your strongest come, or call any one from your den below.</p>'}`;
+      h += `<h3 class="gold">In your den (${den.length}) <span class="dim" style="font-size:13px">· ${pk.length}/${MAX_KEEP} kept · strongest first</span></h3>${den.length ? `<div class="pal-list">${den.map(row).join('')}</div>` : '<p class="dim">Empty.</p>'}`;
       return h;
     },
     bind(root, game, again) {
       const pl = game.pl, pk = T.pack(pl), by = id => pk.find(r => r.id === id);
       const on = (sel, fn) => root.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { fn(b); again(); }));
-      on('button[data-pal-call]', b => { const r = by(b.dataset.palCall); if (r && T.out(pl).length < MAX_OUT) { r.out = true; T.t = 0; } });
+      on('button[data-pal-call]', b => T.call(game, by(b.dataset.palCall)));
+      on('button[data-pal-rally]', () => T.rally(game));
+      on('button[data-pal-home]', () => T.sendAll(game));
       on('button[data-pal-rest]', b => { const r = by(b.dataset.palRest); if (r) r.out = false; });
       root.querySelectorAll('button[data-pal-free]').forEach(b => b.addEventListener('click', () => {
         const r = by(b.dataset.palFree); if (!r) return;
