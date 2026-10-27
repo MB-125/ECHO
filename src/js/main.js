@@ -1,5 +1,7 @@
 // Boot.
 (function () {
+  // anything that goes wrong in a button or a page is shown, not swallowed (so it can be reported)
+  window.addEventListener('error', ev => { try { if (ECHO.UI && ECHO.UI.error) ECHO.UI.error(ev.error || ev.message); } catch (e) { /* (nothing more to do) */ } });
   window.addEventListener('DOMContentLoaded', async () => {
     const canvas = document.getElementById('game');
     ECHO.Input.attach(canvas);

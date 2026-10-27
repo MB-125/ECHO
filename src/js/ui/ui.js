@@ -498,7 +498,7 @@
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const body = UI.openPanel(`Market of ${s.name}`, '', 'market');
       if (ECHO.Courier) ECHO.Courier.note(world, pl, s);
-      if (ECHO.Minds.refuses(world, s, pl)) { body.innerHTML = `<p class="prose">The stallholders turn their backs on you. "We don't trade with your kind here. Go on — before someone calls the guard."</p>`; return; }
+      if (ECHO.Minds.refuses(world, s, pl)) { body.innerHTML = `<p class="prose">The stallholders turn their backs on you. "We don't trade with your kind here. Go on — before someone calls the guard."</p>${UI.amendsHtml(s)}`; UI.amendsBind(body, s, () => UI.openMarket(s)); return; }
       const render = () => {
         const hist = s.priceHistory.slice(-20);
         const max = Math.max(...hist, 1);
@@ -536,11 +536,11 @@
           <h4 class="ware-h">Supplies</h4><div class="wares">${['food', 'herbs'].map(card).join('')}</div>
           <h4 class="ware-h">Sell your hunt</h4><div class="wares">${['meat', 'hide'].map(card).join('')}</div>
           <h4 class="ware-h">Trade goods</h4><div class="wares">${['ore', 'timber', 'arms'].map(card).join('')}</div>
-          ${ECHO.Pastimes ? ECHO.Pastimes.marketHtml(pl, s) : ''}
-          ${UI.lootMarketHtml(world, pl, s)}
-          ${UI.apothecaryHtml(pl, am)}
-          ${ECHO.Arcana ? ECHO.Arcana.marketHtml(world, pl, s, am) : ''}
-          ${UI.stablesHtml(pl, s)}
+          ${ECHO.Pastimes ? UI.safe(() => ECHO.Pastimes.marketHtml(pl, s), 'craftsmen\'s stall') : ''}
+          ${UI.safe(() => UI.lootMarketHtml(world, pl, s), 'gear-buyer')}
+          ${UI.safe(() => UI.apothecaryHtml(pl, am), 'apothecary')}
+          ${ECHO.Arcana ? UI.safe(() => ECHO.Arcana.marketHtml(world, pl, s, am), 'arcanist') : ''}
+          ${UI.safe(() => UI.stablesHtml(pl, s), 'stables')}
           ${(pl.inv.starshard || 0) + (pl.inv.whitehide || 0) > 0 ? `<h4 class="ware-h">Rare things</h4><div class="wares">
             ${pl.inv.starshard ? `<div class="ware"><div class="ware-ic">✦</div><div class="ware-main"><div class="ware-top"><b>Star-iron shard</b><span class="gold">they pay ${rare.star}</span></div><div class="ware-use">A smith can forge it into your blade; a priest knows other uses.</div><div class="ware-meta">You have <b>${pl.inv.starshard}</b></div><div class="row"><button class="small" data-rare="starshard">Sell 1</button></div></div></div>` : ''}
             ${pl.inv.whitehide ? `<div class="ware"><div class="ware-ic">🦌</div><div class="ware-main"><div class="ware-top"><b>White hind's hide</b><span class="gold">they pay ${rare.hide}</span></div><div class="ware-use">Nobody asks where it came from. Everybody knows.</div><div class="ware-meta">You have <b>${pl.inv.whitehide}</b></div><div class="row"><button class="small" data-rare="whitehide">Sell 1</button></div></div></div>` : ''}</div>` : ''}
@@ -648,7 +648,7 @@
       const pm = ECHO.Minds.priceMult(world, s, pl);
       for (const w of wares) w.price = Math.round(w.price * pm);
       const body = UI.openPanel(`Smithy of ${s.name}`, '', 'smithy');
-      if (ECHO.Minds.refuses(world, s, pl)) { body.innerHTML = `<p class="prose">${smith ? esc(smith.first) : 'The smith'} doesn't look up from the anvil. "I don't arm murderers. Get out of my forge."</p>`; return; }
+      if (ECHO.Minds.refuses(world, s, pl)) { body.innerHTML = `<p class="prose">${smith ? esc(smith.first) : 'The smith'} doesn't look up from the anvil. "I don't arm murderers. Get out of my forge."</p>${UI.amendsHtml(s)}`; UI.amendsBind(body, s, () => UI.openSmithy(s)); return; }
       const render = () => {
         body.innerHTML = `<p class="prose">${smith ? `<b>${esc(P().name(smith))}</b> wipes soot from ${smith.sex === 'f' ? 'her' : 'his'} hands. "Everything here is my own work."` : 'The forge is cold; an apprentice minds the stock.'}</p>
           <p>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns. Wielding: <b>${esc(world.items[pl.weapon] ? world.items[pl.weapon].name : 'nothing')}</b>.</p>
@@ -763,6 +763,25 @@
         <div class="ware"><div class="ware-ic">🎣</div><div class="ware-main"><div class="ware-top"><b>Fishing rod</b><span class="gold">12 cr</span></div><div class="ware-use">Fish at any water (E). Trout to eat, silverfin and moonfish to sell.</div><div class="row"><button class="small" data-rod="1" ${pl.inv.rod || pl.gold < 12 ? 'disabled' : ''}>${pl.inv.rod ? 'You have one' : 'Buy'}</button></div></div></div>
         <div class="ware"><div class="ware-ic">🛶</div><div class="ware-main"><div class="ware-top"><b>Rowboat</b><span class="gold">80 cr</span></div><div class="ware-use">Your own boat, left at the shore nearest the town. Row it with the movement keys; beach it wherever you step ashore. Holds you and a companion — not a horse.</div><div class="row"><button class="small" data-boat="1" ${pl.gold < 80 ? 'disabled' : ''}>${pl.boat ? 'Buy another (the old one is left)' : 'Buy'}</button></div></div></div></div>`;
     },
+    // A town that will not trade with you: what it thinks of you, and a way back — a gift to the town, in crowns.
+    amendsCost(s) { const pl = ECHO.Game.pl, rep = (s.rep && s.rep[pl.charId]) || 0; return Math.round(40 + Math.max(0, -40 - rep) * 3); },
+    amendsHtml(s) {
+      const pl = ECHO.Game.pl, rep = Math.round((s.rep && s.rep[pl.charId]) || 0), c = UI.amendsCost(s);
+      return `<div class="card" style="margin-top:10px"><h4>Your standing in ${esc(s.name)}: <span class="ember">${rep}</span></h4><div class="dim" style="font-size:13px">Below −60, no one here will sell to you. Deaths laid at your door, and crimes, cost the most; work done for the town and gifts win it back.</div>
+        <div class="row"><button data-amends="1" ${pl.gold < c ? 'disabled' : ''}>Make amends — a gift of ${c} crowns to the town</button><span class="dim" style="font-size:13px">${pl.gold < c ? `you have ${Math.floor(pl.gold)}` : 'they will trade with you again, warily'}</span></div></div>`;
+    },
+    amendsBind(body, s, reopen) {
+      const b = body.querySelector('button[data-amends]');
+      if (b) b.addEventListener('click', () => {
+        const pl = ECHO.Game.pl, c = UI.amendsCost(s);
+        if (pl.gold < c) return;
+        pl.gold -= c; s.wealth = (s.wealth || 0) + c; s.rep = s.rep || {}; s.rep[pl.charId] = Math.max((s.rep[pl.charId] || 0), -40);
+        ECHO.Sfx.play('coin'); UI.toast(`Your gift of ${c} crowns is taken, and grudgingly the town of ${s.name} will deal with you again.`, 'mercy', 5);
+        reopen();
+      });
+    },
+    // one part of a page that will not draw does not take the whole page with it
+    safe(fn, what) { try { return fn(); } catch (err) { console.error(err); UI.error(err); return `<p class="dim">(The ${what} is shut just now.)</p>`; } },
     apothecaryHtml(pl, am = 1) {
       const Gr = ECHO.Gear;
       const cost = c => `<span class="gold">${c.gold} cr</span>${Object.entries(c.mats).map(([k, n]) => ` + <span class="${(pl.inv[k] || 0) >= n ? '' : 'ember'}">${n} ${esc(k === 'herbs' ? 'herbs' : Gr.MATS[k] ? Gr.MATS[k].name : k)} (${pl.inv[k] || 0})</span>`).join('')}`;
@@ -847,7 +866,7 @@
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const keeper = P().residents(world, s).find(n => n.prof === 'innkeeper');
       const body = UI.openPanel(`The inn at ${s.name}`, '', 'inn');
-      if (ECHO.Minds.refuses(world, s, pl)) { body.innerHTML = `<p class="prose">${keeper ? esc(keeper.first) : 'The innkeeper'} folds their arms. "No rooms. Not for you. Not tonight, not ever."</p>`; return; }
+      if (ECHO.Minds.refuses(world, s, pl)) { body.innerHTML = `<p class="prose">${keeper ? esc(keeper.first) : 'The innkeeper'} folds their arms. "No rooms. Not for you. Not tonight, not ever."</p>${UI.amendsHtml(s)}`; UI.amendsBind(body, s, () => UI.openInn(s)); return; }
       const room = 5, week = 25, season = 70;
       body.innerHTML = `<p class="prose">${keeper ? `<b>${esc(P().name(keeper))}</b> pours you something warm. "${esc(ECHO.Dialogue.ambient(world, keeper, null) || 'What\'ll it be?')}"` : 'The common room is warm and loud.'}</p>
         <div class="list">

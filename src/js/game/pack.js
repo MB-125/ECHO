@@ -34,7 +34,16 @@
     pals(game) { return game.ents.filter(e => e.pal && !e.dead && !e.vanish); },
     hostile(game, o) {
       const pe = game.pe;
-      return o && !o.dead && !o.hidden && !o.vanish && o !== pe && !o.tamed && !o.pal && !o.isCompanion && !(o.subdued > 0) && !(ECHO.Tame.chan && ECHO.Tame.chan.e === o) && game.hostileTo(pe, o);
+      if (!(o && !o.dead && !o.hidden && !o.vanish && o !== pe && !o.tamed && !o.pal && !o.isCompanion && !(o.subdued > 0) && !(ECHO.Tame.chan && ECHO.Tame.chan.e === o) && game.hostileTo(pe, o))) return false;
+      return o.type !== 'person' || P.fairGame(game, o);
+    },
+    // People are not beasts' prey. Your beasts fall only on outlaws, and on those who came at you
+    // first — never on townsfolk, the watch or the soldiers of the realm (whose deaths would be
+    // laid at your door as murder, and turn every town against you).
+    fairGame(game, o) {
+      if (o.ngWard || o.role === 'guard' || o.role === 'soldier' || o.role === 'captive' || o.yielded) return false;
+      const npc = o.npcId && game.world.npcs[o.npcId];
+      return o.role === 'bandit' || !!(npc && npc.faction === 'ashfang') || !!o.startedFight || !!o.dqFoe;
     },
     busy(o) { return o.state === 'windup' || o.state === 'cast' || o.state === 'charge' || o.state === 'lunge' || !!o.wcast || !!o.gcast; },
 

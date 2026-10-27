@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.20', items: [
+      'Your tamed beasts no longer fall on townsfolk, the watch or the realm\'s soldiers. They had been killing anyone who turned on you — and every such death was laid at your door as murder, until the towns would not trade with you. Now they fight only outlaws, beasts and monsters, and those who came at you first.',
+      'A market, smithy or inn that will not deal with you now shows your standing in the town, and lets you make amends with a gift of crowns — after which they trade with you again.',
+      'The market cannot be shut whole by one stall: if any part of it fails to draw, the rest opens, and whatever went wrong is shown on screen (anywhere in the game) so it can be reported.'
+    ] },
     { v: '0.8.19', items: [
       'Your tamed beasts no longer stand about in a fight. They know everything that has struck you or them (archers and casters far off too), everything that means you harm near you, and they think again the moment you are hit.',
       'Anything shooting at you from afar is hunted down by the quickest beast ("hunts the shooter"); anything that attacks one of your beasts is answered by it; anything else at your throat is met ("guards you"); your mark (R) is answered at once ("on your mark").',
