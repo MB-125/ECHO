@@ -1568,7 +1568,14 @@
         if (B.n > 0 && performance.now() - B.t0 > 2.5) return null;
         B.n++;
       }
-      let inst = null, kind = e.type;
+      const inst = R.instFor(e), kind = e.type;
+      if (!inst) return null;
+      v = { inst, kind, cfgT: 0, dir: e.dir || 0, bob: Math.random() * 6, own: !!(e.humanoid && R.MON_MODEL[e.species] && inst.root && ECHO.Models.scenes[R.MON_MODEL[e.species]]), float: e.species === 'wraith' || e.species === 'bride' };
+      return R.viewRest(game, e, v);
+    },
+    // the model a thing is drawn with
+    instFor(e) {
+      let inst = null;
       if (e.shape === 'spider' || e.shape === 'slime' || e.shape === 'serpent' || e.shape === 'horror') inst = R.procMonster(e);
       else if (e.shape === 'rat') inst = ECHO.Models.instance('gnawer');
       else if (e.shape === 'hound') inst = ECHO.Models.instance(e.foe && e.foe.model && ECHO.Models.scenes[e.foe.model] ? e.foe.model : 'wolf');
@@ -1578,8 +1585,10 @@
       else if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) inst = ECHO.Models.instance('person');
       else if (e.type === 'creature') inst = ECHO.Models.instance(e.species === 'hind' || e.species === 'deer' ? 'stag' : e.species === 'dog' || e.species === 'fox' ? 'wolf' : e.species);
       else if (e.type === 'boss') inst = ECHO.Models.instance(e.boss.kind);
-      if (!inst) return null;
-      v = { inst, kind, cfgT: 0, dir: e.dir || 0, bob: Math.random() * 6, own: !!(e.humanoid && R.MON_MODEL[e.species] && inst.root && ECHO.Models.scenes[R.MON_MODEL[e.species]]), float: e.species === 'wraith' || e.species === 'bride' };
+      return inst;
+    },
+    viewRest(game, e, v) {
+      const inst = v.inst;
       // The player shows through trees and roofs as a faint silhouette.
       if (e.type === 'player') {
         const ghost = new THREE.MeshBasicMaterial({ color: '#bfe8ff', transparent: true, opacity: 0.32, depthTest: false, depthWrite: false });
@@ -4061,6 +4070,36 @@
     },
 
     // A head-and-shoulders picture of someone, from their own 3D model in their own clothes and gear.
+    // A beast, monster or lord, whole, at three-quarters — for the page of your tamed beasts.
+    beastPortrait(game, e, w, h) {
+      try {
+        const P = R._bport || (R._bport = (() => {
+          const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+          r.outputEncoding = THREE.sRGBEncoding; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.15;
+          const sc = new THREE.Scene();
+          sc.add(new THREE.HemisphereLight('#fff2e0', '#30261c', 0.9));
+          const key = new THREE.DirectionalLight('#ffe8c8', 1.4); key.position.set(2, 3, 2.6); sc.add(key);
+          const rim = new THREE.DirectionalLight('#9fc0ff', 0.8); rim.position.set(-2.4, 2, -2.2); sc.add(rim);
+          return { r, sc, cam: new THREE.PerspectiveCamera(30, 1, 0.05, 200) };
+        })());
+        if (P.w !== w || P.h !== h) { P.r.setSize(w, h, false); P.cam.aspect = w / h; P.cam.updateProjectionMatrix(); P.w = w; P.h = h; }
+        const inst = R.instFor(e);
+        if (!inst) return null;
+        const v = { inst, kind: e.type, cfgT: 0, dir: 0, bob: 0, own: !!(e.humanoid && R.MON_MODEL[e.species] && inst.root && ECHO.Models.scenes[R.MON_MODEL[e.species]]), float: e.species === 'wraith' || e.species === 'bride' };
+        R.configure(game, { ...e, dead: false, hurtT: 0, rage: false }, v);
+        for (const k of ['torch', 'lantern']) if (ECHO.Models.show) ECHO.Models.show(inst, k, false);
+        inst.root.position.set(0, 0, 0); inst.root.rotation.set(0, Math.PI / 2 + 0.6, 0);
+        P.sc.add(inst.root);
+        inst.root.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(inst.root), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+        const R0 = Math.max(sz.x, sz.y * 1.1, sz.z) * 0.47 + 0.04, dist = R0 / Math.sin(THREE.MathUtils.degToRad(15));
+        P.cam.position.set(c.x + dist * 0.18, c.y + dist * 0.32, c.z + dist * 0.93); P.cam.lookAt(c.x, c.y, c.z);
+        P.cam.near = Math.max(0.01, dist / 50); P.cam.far = dist * 4; P.cam.updateProjectionMatrix();
+        P.r.render(P.sc, P.cam);
+        P.sc.remove(inst.root);
+        return P.r.domElement;
+      } catch (err) { console.error(err); return null; }
+    },
     portrait(game, e, w, h) {
       try {
         const P = R._port || (R._port = (() => {

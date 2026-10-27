@@ -182,6 +182,17 @@
       // (one of yours does not fall far behind you: it trains at your side)
       const want = Math.round(ECHO.Prowess.level(game.pl) * (r.lord ? 0.8 : 0.6));
       if (r.lvl < want) { r.lvl0 = r.lvl0 || r.lvl; r.lvl = want; }
+      const e = T.build(game, r, sp.x, sp.y);
+      if (!e) return null;
+      e.hp = Math.max(1, Math.round(e.maxHp * U.clamp(r.hp == null ? 1 : r.hp, 0.2, 1)));
+      e.cd = 0.5; e.palArtT = 4 + Math.random() * 3;
+      game.addEnt(e);
+      ECHO.Combat.burst(sp.x, sp.y, '#ffe08a', 12, 2, 0.5, 2);
+      return e;
+    },
+    // one of yours, made up (not yet set down in the world; a likeness for its page, if `look`)
+    build(game, r, x, y, look) {
+      const world = game.world, pe = game.pe, sp = { x, y };
       let e = null;
       if (ECHO.Growth) ECHO.Growth._noAdapt = true;
       try {
@@ -207,10 +218,7 @@
       if (!e) return null;
       e.pal = r; e.tamed = true; e.faction = 'player'; e.aggro = false; e.label = r.name; e.lvl = r.lvl; e.home = null;
       e.r = Math.min(e.r || 0.4, 0.6);
-      e.hp = Math.max(1, Math.round(e.maxHp * U.clamp(r.hp == null ? 1 : r.hp, 0.2, 1)));
-      e.cd = 0.5; e.palArtT = 4 + Math.random() * 3;
-      game.addEnt(e);
-      ECHO.Combat.burst(sp.x, sp.y, '#ffe08a', 12, 2, 0.5, 2);
+      void look;
       return e;
     },
 
@@ -370,16 +378,76 @@
       }
     },
 
-    // ------------------------------------------------------------ the Animals page
+    // ------------------------------------------------------------ the Tamed beasts page
+    // (on the Animals page: a word and a way there)
     html(game) {
-      const pl = game.pl, world = game.world, pk = T.pack(pl);
-      let h = `<h4 class="ware-h" style="margin-top:14px">Your tamed beasts (${pk.length}/${MAX_KEEP})</h4><p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — then press <b>E</b> — from wherever you are, as long as you can see it. It is yours; taming never fails. (A beast kneels 12 seconds before it dies; L switches to the leash, where it kneels 25 seconds and nothing can kill it, or to fighting to the kill.) Up to ${MAX_OUT} follow you at once; the rest wait at your den.</p>`;
-      if (!pk.length) return h + '<p class="dim">None yet.</p>';
-      h += `<div class="list">${pk.map(r => {
-        const rest = r.restUntil != null && world.day < r.restUntil;
-        return `<div class="card"><h4>${esc(r.name)} <span class="dim">· level ${r.lvl}${r.lord ? ' · ♛' : ''}</span></h4><div class="dim" style="font-size:13px">${esc(r.was && r.was !== r.name ? 'Once ' + r.was + ' · ' : '')}tamed on day ${r.day} · ${r.kills || 0} kills${rest ? ' · <span class="ember">resting until tomorrow</span>' : r.out ? ' · <span class="gold">with you</span>' : ' · at your den'}</div>
-          <div class="row" style="gap:6px">${r.out ? `<button class="small" data-pal-rest="${r.id}">Send to the den</button>` : `<button class="small" data-pal-call="${r.id}" ${T.out(pl).length >= MAX_OUT ? 'disabled' : ''}>Call</button>`}<button class="small" data-pal-free="${r.id}">Release</button></div></div>`;
-      }).join('')}</div>`;
+      const pl = game.pl, pk = T.pack(pl);
+      return `<h3 class="gold">Tamed beasts (${pk.length}/${MAX_KEEP})</h3><div class="card"><div style="font-size:13px">${pk.length ? `${T.out(pl).length} with you · ${pk.length - T.out(pl).length} in your den.` : 'None yet. Knock any beast, monster or lord down and press E.'}</div><div class="row"><button class="small" data-tab="tamed">Open the Tamed beasts page</button></div></div>`;
+    },
+    _pics: {}, _stats: {},
+    live(game, r) { return game.ents.find(o => o.pal === r && !o.dead) || null; },
+    // what it is like, made up once from its own body (a likeness, or one that stands in)
+    look(game, r) {
+      const k = r.id + '|' + r.lvl;
+      if (T._stats[k]) return T._stats[k];
+      let e = T.live(game, r), made = false;
+      if (!e) { try { e = T.build(game, r, game.pe.x, game.pe.y, true); made = true; } catch (err) { e = null; } }
+      const st = { maxHp: e ? Math.round(e.maxHp) : 0, dmg: e ? Math.round(e.palDmg || 0) : 0, ent: made ? e : null };
+      T._stats[k] = st;
+      return st;
+    },
+    kindOf(r) { return r.cat === 'boss' ? 'Great beast of a lair' : r.lord ? 'Lord' : r.cat === 'creature' ? 'Beast' : 'Monster'; },
+    // its picture, drawn from its own model (cached; drawn a few at a time)
+    pic(game, r) {
+      if (T._pics[r.id]) return T._pics[r.id];
+      const R = ECHO.Renderer;
+      if (!R || !R.beastPortrait) return null;
+      const e = T.live(game, r) || T.look(game, r).ent || T.build(game, r, game.pe.x, game.pe.y, true);
+      if (!e) return null;
+      const cv = R.beastPortrait(game, e, 360, 260);
+      if (!cv) return null;
+      try { T._pics[r.id] = cv.toDataURL('image/png'); } catch (err) { return null; }
+      return T._pics[r.id];
+    },
+    fillPics(root, game) {
+      const imgs = [...root.querySelectorAll('[data-palpic]')].filter(el => !el.dataset.done);
+      const next = () => {
+        const el = imgs.shift();
+        if (!el || !el.isConnected) { if (imgs.length) setTimeout(next, 0); return; }
+        el.dataset.done = '1';
+        const r = T.pack(game.pl).find(x => x.id === el.dataset.palpic);
+        const src = r && T.pic(game, r);
+        if (src) el.innerHTML = `<img src="${src}" alt="">`;
+        if (imgs.length) setTimeout(next, 16);
+      };
+      setTimeout(next, 30);
+    },
+    page(game) {
+      const pl = game.pl, world = game.world, pk = T.pack(pl), out = T.out(pl);
+      const bar = (f, col) => `<div class="t"><i style="width:${Math.round(U.clamp(f, 0, 1) * 100)}%;background:${col}"></i></div>`;
+      const card = r => {
+        const rest = r.restUntil != null && world.day < r.restUntil, e = T.live(game, r), st = T.look(game, r);
+        const hpF = e ? e.hp / e.maxHp : (rest ? 0.3 : (r.hp == null ? 1 : r.hp)), need = 12 + r.lvl * 4;
+        const status = rest ? '<span class="ember">resting — back tomorrow</span>' : r.out ? (e ? `<span class="gold">with you</span> · ${Math.round(U.dist(e.x, e.y, game.pe.x, game.pe.y))} paces off` : '<span class="gold">with you</span> · on its way') : 'in your den';
+        const pic = T._pics[r.id];
+        const tag = r.cat === 'boss' || r.lord ? '♛' : r.elite ? '✦ elite' : '';
+        return `<div class="pal-card${r.out && !rest ? ' out' : ''}${rest ? ' rest' : ''}">
+          <div class="pal-pic" data-palpic="${r.id}"${pic ? ' data-done="1"' : ''}>${pic ? `<img src="${pic}" alt="">` : '<span class="pal-ph">🐾</span>'}<span class="pal-lv">Lv ${r.lvl}</span>${tag ? `<span class="pal-tag gold">${tag}</span>` : ''}</div>
+          <div class="pal-body">
+            <div class="pal-head"><h4>${esc(r.name)}</h4></div>
+            <div class="pal-sub">${esc(T.kindOf(r))}${r.was && r.was !== r.name ? ' · once ' + esc(r.was) : ''} · tamed day ${r.day}</div>
+            <div class="pal-bar"><span>Life</span>${bar(hpF, hpF > 0.5 ? '#9fe08a' : hpF > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hpF * 100)}%</span></div>
+            <div class="pal-bar"><span>Growth</span>${bar((r.xp || 0) / need, '#8fb8ff')}<span>${Math.floor(r.xp || 0)}/${need}</span></div>
+            <div class="pal-stats"><span>Life <b>${st.maxHp || '—'}</b></span><span>Strikes <b>${st.dmg || '—'}</b></span><span>Kills <b>${r.kills || 0}</b></span></div>
+            <div style="font-size:12px">${status}</div>
+            <div class="row">${r.out ? `<button class="small" data-pal-rest="${r.id}">Send to the den</button>` : `<button class="small" data-pal-call="${r.id}" ${out.length >= MAX_OUT || rest ? 'disabled' : ''}>Call to your side</button>`}<button class="small" data-pal-name="${r.id}">Rename</button><button class="small" data-pal-free="${r.id}">Release</button></div>
+          </div></div>`;
+      };
+      let h = `<p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. They grow on what they kill, and when beaten they rest until the next day. <b>Y</b> calls each in turn; L changes how you strike things down.</p>`;
+      if (!pk.length) return h + '<div class="card"><p class="dim">No tamed beasts yet.</p></div>';
+      const withYou = pk.filter(r => r.out), den = pk.filter(r => !r.out);
+      h += `<h3 class="gold">With you (${withYou.length}/${MAX_OUT})</h3>${withYou.length ? `<div class="pal-grid">${withYou.map(card).join('')}</div>` : '<p class="dim">None at your side. Call one from your den.</p>'}`;
+      h += `<h3 class="gold">In your den (${den.length}) <span class="dim" style="font-size:13px">· ${pk.length}/${MAX_KEEP} kept</span></h3>${den.length ? `<div class="pal-grid">${den.map(card).join('')}</div>` : '<p class="dim">Empty.</p>'}`;
       return h;
     },
     bind(root, game, again) {
@@ -387,7 +455,16 @@
       const on = (sel, fn) => root.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { fn(b); again(); }));
       on('button[data-pal-call]', b => { const r = by(b.dataset.palCall); if (r && T.out(pl).length < MAX_OUT) { r.out = true; T.t = 0; } });
       on('button[data-pal-rest]', b => { const r = by(b.dataset.palRest); if (r) r.out = false; });
-      on('button[data-pal-free]', b => { const r = by(b.dataset.palFree); if (!r) return; pl.pack = pk.filter(x => x !== r); for (const e of game.ents) if (e.pal === r) { e.dead = true; e.vanish = true; } UI().toast(`You let ${r.name} go. It looks back once, and is gone.`, 'info', 4); });
+      root.querySelectorAll('button[data-pal-free]').forEach(b => b.addEventListener('click', () => {
+        const r = by(b.dataset.palFree); if (!r) return;
+        UI().modal({ title: `Release ${r.name}?`, html: `<p>${esc(r.name)} goes back to the wild, and is gone for good.</p>`, choices: [{ label: `Release ${r.name}`, onPick: () => { pl.pack = T.pack(pl).filter(x => x !== r); for (const e of game.ents) if (e.pal === r) { e.dead = true; e.vanish = true; } delete T._pics[r.id]; UI().toast(`You let ${r.name} go. It looks back once, and is gone.`, 'info', 4); again(); } }, { label: 'Keep it' }] });
+      }));
+      root.querySelectorAll('button[data-pal-name]').forEach(b => b.addEventListener('click', () => {
+        const r = by(b.dataset.palName); if (!r) return;
+        UI().modal({ title: `Rename ${r.name}`, html: `<p><input id="palname" maxlength="28" value="${esc(r.name)}" style="width:100%;padding:6px;font-size:16px"></p>`, choices: [{ label: 'Name it', onPick: () => { const i = document.querySelector('#palname'); const v = i && i.value.trim(); if (v) { r.was = r.was || r.name; r.name = v.slice(0, 28); for (const e of game.ents) if (e.pal === r) e.label = r.name; } again(); } }, { label: 'Leave it' }] });
+        setTimeout(() => { const i = document.querySelector('#palname'); if (i) { i.focus(); i.select(); i.addEventListener('keydown', ev => ev.stopPropagation()); } }, 30);
+      }));
+      T.fillPics(root, game);
     }
   };
 })();

@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.15', items: [
+      'A page of its own for your tamed beasts (U, or Journal → Tamed beasts): each one on a card with its picture, drawn from its own body — wolf, goblin, spider, skeleton, golem, drake and the rest — with its level, what it was, its life, how near it is to its next level, its strength, its kills, and where it is. Those with you are shown first, then the ones in your den.',
+      'From the cards: call a beast to your side, send it to the den, rename it, or release it (it asks first).'
+    ] },
     { v: '0.8.14', items: [
       'Tame from a distance: no need to go near. Beat something down with arrows, fire, relics or your blade, and press E from where you stand — up to about eighteen paces, anything you can see. A golden ring marks the one E will tame; with several beaten at once, E takes the one you are locked on to (R), else the one nearest your cursor.'
     ] },
