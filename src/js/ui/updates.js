@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.13', items: [
+      'Taming made simple: knock it down, it kneels, press E — it is yours. Taming never fails any more, takes under a second (a lord a little longer), works from four or five paces away, and is not broken by blows. When a beaten beast is near, E always means "tame it" first.',
+      'A beast or monster you strike down now kneels for 12 seconds (was 8) before it dies. Anything worn below a third of its life can be tamed with E too, even while it still fights.',
+      'You can keep up to 30 tamed beasts (was 12); three follow you at a time.'
+    ] },
     { v: '0.8.12', items: [
       'No more taming chances lost to one hard blow. Now, by default, any beast or monster you strike down is left on its last breath: it kneels for 8 seconds with a warning and a countdown over it, slow-motion for a moment as it falls. Tame it (E) in that time, or strike it again to finish it; if the time runs out, it dies. Nothing you do hurts it in the first moment it falls, and the countdown stops while you hold it to tame.',
       'L now changes between three ways: last breath (the default), the leash (everything you strike down kneels for 25 seconds and gets up again — nothing kills it but Finish) and to the kill (it dies at once, as before). The bottom of the screen shows the leash or to-the-kill when they are on.'
