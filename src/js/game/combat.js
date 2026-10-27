@@ -276,7 +276,7 @@
       const from = src.from;
       if (from && from.hidden && !from.dead) return 0; // nothing unseen can strike
       // a beast beaten to its knees is not struck again by you or yours: only Finish (E) ends it
-      if (target.subdued > 0 && !target.pal && !target.titan && from && (from === game.pe || from.pal || from.tamed || from.isCompanion)) return 0;
+      if (target.subdued > 0 && !target.pal && !target.titan && from && (from === game.pe || from.pal || from.tamed || from.isCompanion)) { if (from === game.pe && ECHO.Tame) ECHO.Tame.breathFinish(game, target); return 0; }
       if (from === game.pe && target !== game.pe) { game.lastStruck = target; game.lastStruckT = game.time; }
       // a companion's own skill: dodge, parry, shield
       if (target.isCompanion && ECHO.Companions) { amount = ECHO.Companions.defend(game, target, amount, src); if (amount <= 0) return 0; }

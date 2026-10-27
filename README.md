@@ -359,7 +359,7 @@ A see-through controls card sits on the left of the screen (folded away at first
 | **1** | drink the healing draught that best fits your wounds (minor, healing or greater) |
 | **2–0** | might, stoneskin, fireward, mending tonic, purging tincture, second-wind cordial, heartroot elixir, bloodwine, phoenix tears |
 | **Z · X · C** | wake the relics you wear (each spends mana and rests a few seconds) |
-| **L** | the leash — while on, beasts and monsters you strike down fall beaten instead of dying, ready to tame |
+| **L** | how you fight what could be tamed: *last breath* (default — what you strike down kneels 8 seconds, warned, to be tamed with E; strike again or wait and it dies), *leash* (it kneels 25 seconds and nothing you do hurts it) or *to the kill* |
 | **V** | mount or dismount your horse; from further off, whistle for it. Beside a dragon you have bound: climb on and fly (V again to come down) |
 | **Y** | switch animal: each press calls the next of your animals — your horse, then each of your beasts in turn — and sends the one with you away (a resting beast is skipped) |
 | **U** | your animals: your beasts, your horse and your dog — where they are, how they are, and buttons to call them, send them away or home (also Journal → Animals) |

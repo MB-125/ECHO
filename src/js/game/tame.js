@@ -23,10 +23,26 @@
     MAX_OUT, MAX_KEEP, chan: null, t: 0,
     reset() { T.chan = null; T.t = 0; },
     // L: the leash — while it is on, nothing you or yours strike down that can be tamed is killed; it falls beaten
+    // How you fight what could be tamed (L cycles):
+    //  'breath' (the default) — a killing blow leaves it on its last breath: it kneels for
+    //     8 seconds, warned, for you to tame (E); strike it again, or let the time run out, and it dies;
+    //  'leash' — it falls beaten and kneels for 25 seconds; nothing you do hurts it; it gets up again;
+    //  'kill' — it dies as it falls.
+    MODES: { breath: { name: 'last breath', col: '#ffe08a', say: 'Last breath: a beast or monster you strike down kneels for 8 seconds before it dies — time to tame it (E). Strike it again to finish it.' }, leash: { name: 'leash', col: '#ffcf6a', say: '⛓ Leash: beasts and monsters you strike down fall beaten and kneel instead of dying, however hard the blow. Nothing you do hurts them while they kneel; tame (E) or Finish (E).' }, kill: { name: 'to the kill', col: '#e0806a', say: 'To the kill: what you strike down dies at once. (L again: last breath.)' } },
+    mode(pl) { return pl.tameMode || (pl.leash ? 'leash' : 'breath'); },
     toggleLeash(game) {
-      const pl = game.pl; pl.leash = !pl.leash;
-      UI().toast(pl.leash ? '⛓ Leash on: beasts and monsters you strike down fall beaten instead of dying, ready to be tamed (E). Lords always do. L again to fight to the kill.' : 'Leash off: you fight to the kill.', pl.leash ? 'study' : 'info', 5);
-      ECHO.Combat.floater(game.pe.x, game.pe.y - 1.4, pl.leash ? '⛓ leash on' : 'leash off', '#ffcf6a');
+      const pl = game.pl, order = ['breath', 'leash', 'kill'];
+      pl.tameMode = order[(order.indexOf(T.mode(pl)) + 1) % 3]; pl.leash = pl.tameMode === 'leash';
+      const M = T.MODES[pl.tameMode];
+      UI().toast(`${M.say} (L to change.)`, 'study', 6);
+      ECHO.Combat.floater(game.pe.x, game.pe.y - 1.4, `taming: ${M.name}`, M.col, true);
+    },
+    // a blow on one kneeling on its last breath finishes it (not in the first moment it falls)
+    breathFinish(game, e) {
+      if (!e._lastBreath || game.time - (e._breathAt || 0) < 0.8 || (T.chan && T.chan.e === e)) return false;
+      e.subdued = 0; e._finish = true; e._lastBreath = false;
+      ECHO.Combat.kill(e, game.pe, 'melee', { angle: Math.atan2(e.y - game.pe.y, e.x - game.pe.x) });
+      return true;
     },
     pack(pl) { return pl.pack || (pl.pack = []); },
     out(pl) { return T.pack(pl).filter(r => r.out); },
@@ -118,7 +134,7 @@
       const pl = game.pl, c = T.chance(game, e);
       if (Math.random() < c) return T.take(game, e);
       e._tameCd = game.time + 3;
-      e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.06); e.subdued = 0; e.aggro = true; e.cd = 0;
+      e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.06); e.subdued = 0; e.aggro = true; e.cd = 0; e._lastBreath = false;
       ECHO.Combat.burst(e.x, e.y, '#ff6a4a', 18, 4, 0.6, 3);
       ECHO.Combat.floater(e.x, e.y - 1.8 * (e.scale || 1), 'it tears free!', '#ff6a4a', true);
       if (ECHO.Sfx) ECHO.Sfx.play('roar', { pitch: 0.9 });
@@ -270,8 +286,16 @@
     },
     // a lord beaten down: it kneels, waiting for you to choose
     beaten(game, e, dt) {
-      e.subdued -= dt; e.moving = false; e.state = 'stagger'; e.stagger = 0.2; e.aggro = false; e.cd = 1;
+      const holding = T.chan && T.chan.e === e;
+      e.subdued -= holding ? 0 : dt; e.moving = false; e.state = 'stagger'; e.stagger = 0.2; e.aggro = false; e.cd = 1;
       if (Math.random() < dt * 3) ECHO.Combat.fx.push({ kind: 'p', x: e.x + (Math.random() - 0.5) * 1.5, y: e.y - 0.5, vx: 0, vy: -0.6, t: 0, life: 1, color: '#ffe08a', size: 2 });
+      if (e._lastBreath) {
+        // the count, said aloud: the seconds it has left
+        const s = Math.ceil(e.subdued);
+        if (s < e._breathSay && s > 0 && !holding) { e._breathSay = s; ECHO.Combat.floater(e.x, e.y - 1.7 * (e.scale || 1), `tame it (E) · ${s}`, s <= 3 ? '#ff8a6a' : '#ffe08a'); }
+        if (e.subdued <= 0) { e.subdued = 0; e._finish = true; e._lastBreath = false; ECHO.Combat.kill(e, game.pe, 'melee', {}); }
+        return true;
+      }
       if (e.subdued <= 0) {
         e.subdued = 0; e.hp = Math.max(e.hp, e.maxHp * 0.3); e.aggro = true; e._subOnce = true;
         UI().toast(`${U.cap(T.nameOf(e))} gets up again.`, 'warn', 4);
@@ -293,8 +317,19 @@
       // a lord falls beaten, not dead: yours to tame or to finish
       const byYou = from === game.pe || (from && (from.isCompanion || from.pal || from.tamed));
       // on the leash (L), or bound by a relic: a beast or a monster falls beaten instead of dying
-      const held = e._bound > game.time;
-      if ((game.pl.leash || held) && (byYou || !from) && !e._finish && !T.isBoss(e) && T.can(game, e)) {
+      const held = e._bound > game.time, mode = T.mode(game.pl);
+      // on its last breath (the default): a moment, warned, to tame it before it dies
+      if (mode === 'breath' && !held && (byYou || !from) && !e._finish && !T.isBoss(e) && T.can(game, e) && T.pack(game.pl).length < MAX_KEEP) {
+        e.hp = Math.max(1, Math.round(e.maxHp * T.threshold(e) * 0.5)); e.subdued = 8; e._lastBreath = true; e._breathAt = game.time; e._breathSay = 9;
+        e.aggro = false; e.state = 'stagger'; e.burn = 0; e.venomT = 0; e.wcast = null; e._tameCd = 0;
+        ECHO.Combat.floater(e.x, e.y - 1.9 * (e.scale || 1), 'LAST BREATH — TAME IT (E)', '#ffe08a', true);
+        ECHO.Combat.ring(e.x, e.y, (e.r || 0.4) + 0.9, 'rgba(255,224,138,0.95)', 0.8);
+        if (game.slowMo) game.slowMo(0.45, 0.35);
+        if (ECHO.Sfx) ECHO.Sfx.play('growl', { pitch: 0.6 });
+        if (!game.pl._breathTip) { game.pl._breathTip = true; UI().toast(`${U.cap(T.nameOf(e))} is on its last breath: it kneels for 8 seconds before it dies. Stand by it and tame it (E) — or strike it again to finish it. (L changes this: the leash spares everything you strike down; "to the kill" spares nothing.)`, 'legend', 9); }
+        return true;
+      }
+      if ((mode === 'leash' || held) && (byYou || !from) && !e._finish && !T.isBoss(e) && T.can(game, e)) {
         e.hp = Math.max(1, Math.round(e.maxHp * T.threshold(e) * 0.5)); e.subdued = 25; e.aggro = false; e.state = 'stagger'; e.burn = 0; e.venomT = 0; e.wcast = null;
         ECHO.Combat.floater(e.x, e.y - 1.8 * (e.scale || 1), 'beaten — tame it (E)', '#ffe08a', true);
         ECHO.Combat.ring(e.x, e.y, (e.r || 0.4) + 0.8, 'rgba(255,224,138,0.9)', 0.6);

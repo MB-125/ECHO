@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.12', items: [
+      'No more taming chances lost to one hard blow. Now, by default, any beast or monster you strike down is left on its last breath: it kneels for 8 seconds with a warning and a countdown over it, slow-motion for a moment as it falls. Tame it (E) in that time, or strike it again to finish it; if the time runs out, it dies. Nothing you do hurts it in the first moment it falls, and the countdown stops while you hold it to tame.',
+      'L now changes between three ways: last breath (the default), the leash (everything you strike down kneels for 25 seconds and gets up again — nothing kills it but Finish) and to the kill (it dies at once, as before). The bottom of the screen shows the leash or to-the-kill when they are on.'
+    ] },
     { v: '0.8.11', items: [
       'Magical equipment: relics worn three at a time and woken with Z, X and C, each spending mana and resting a few seconds after — the Stormcaller (chain lightning), Rimeheart (frost nova that freezes), Aegis (a barrier that takes the harm meant for you), Wayfarer (blink six paces), Lifebloom (heals more than a third of your life and washes off fire and poison), Spectral (three blades circle and cut), Beastbinder (holds a beast still; for twenty seconds it cannot die by your hand and is easier to tame) and Starfall (a star falls where you aim). Find them on what you kill — more often on the strong — or buy them from the arcanist at any market. Wear them from your character page (K).',
       'Weapons can now be Arcane (each blow draws 3 mana and strikes 40% harder) and armour Manaweave (a third of the harm that reaches you is paid in mana).',
