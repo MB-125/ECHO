@@ -19,7 +19,7 @@
   const PEOPLE = new Set(['brigand', 'chief']);   // (outlaws are people: they can be beaten, not tamed)
 
   const T = ECHO.Tame = {
-    MAX_OUT, MAX_KEEP, chan: null, t: 0,
+    MAX_OUT, MAX_KEEP, chan: null, t: 0, REACH: 18,
     reset() { T.chan = null; T.t = 0; },
     // L: the leash — while it is on, nothing you or yours strike down that can be tamed is killed; it falls beaten
     // How you fight what could be tamed (L cycles):
@@ -75,9 +75,12 @@
         T._noteT = 0.25;
         for (const e of game.ents) if (!e._tameTold && !e.dead && T.can(game, e) && e.hp <= e.maxHp * T.threshold(e) && U.dist(e.x, e.y, pe.x, pe.y) < 14) {
           e._tameTold = true; ECHO.Combat.floater(e.x, e.y - 1.6 * (e.scale || 1), 'can be tamed — E', '#ffe08a');
-          if (!pl._tameTip) { pl._tameTip = true; UI().toast('A beaten beast can be tamed: come near it and press E — it is yours. Taming never fails. Afraid of killing it by mistake? Press L for the leash: what you strike down falls beaten instead of dying.', 'study', 9); }
+          if (!pl._tameTip) { pl._tameTip = true; UI().toast('A beaten beast can be tamed: press E — from where you stand, no need to come close — and it is yours. Taming never fails. Afraid of killing it by mistake? Press L for the leash: what you strike down falls beaten instead of dying.', 'study', 9); }
         }
       }
+      // the one E would tame, marked where it lies
+      const it0 = game._interact;
+      if (it0 && it0.tameEnt && !T.chan && (T._markT = (T._markT || 0) - dt) <= 0) { T._markT = 0.6; const m = it0.tameEnt; ECHO.Combat.ring(m.x, m.y, (m.r || 0.4) + 0.7, 'rgba(255,224,138,0.85)', 0.5); }
       // holding one while you break it
       const C = T.chan;
       if (C) {
@@ -86,7 +89,8 @@
         pl.rootT = Math.max(pl.rootT || 0, 0.1);
         e.stagger = Math.max(e.stagger || 0, 0.2); e.moving = false;
         if (Math.random() < dt * 24) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + (e.x - pe.x) * Math.random(), y: pe.y + (e.y - pe.y) * Math.random() - 0.5, vx: 0, vy: -0.4, t: 0, life: 0.5, color: '#ffe08a', size: 2 });
-        if (e.dead || U.dist(e.x, e.y, pe.x, pe.y) > 7) { T.chan = null; UI().toast(e.dead ? 'It is dead.' : 'You lose your hold on it.', 'warn', 3); }
+        if (Math.random() < dt * 18) ECHO.Combat.fx.push({ kind: 'arc', x: pe.x, y: pe.y, x2: e.x, y2: e.y, h: 0.7, t: 0, life: 0.3, color: '#ffe08a' });
+        if (e.dead || U.dist(e.x, e.y, pe.x, pe.y) > T.REACH + 6) { T.chan = null; UI().toast(e.dead ? 'It is dead.' : 'You lose your hold on it.', 'warn', 3); }
         else if (C.t >= C.dur) { T.chan = null; T.take(game, e); }
       }
       // your animals out with you
@@ -108,14 +112,18 @@
     interactables(game) {
       const out = [], pe = game.pe, pl = game.pl;
       if (pl.flying || T.chan) return out;
+      let mouse = null; try { mouse = game.screenToWorld(ECHO.Input.mx, ECHO.Input.my); } catch (err) { mouse = null; }
       for (const e of game.ents) {
         if (!T.ready(game, e)) continue;
         const d = U.dist(e.x, e.y, pe.x, pe.y);
-        if (d > (e.r || 0.4) + 4.5) continue;
+        // from a distance: anything you have beaten that you can see (indoors and out are worlds apart)
+        if (d > T.REACH || (e.x >= 9000) !== (pe.x >= 9000)) continue;
         const nm = T.nameOf(e);
-        // first of all you could do here: a beaten beast near you is what E is for
-        out.push({ kind: 'act', label: T.pack(pl).length >= MAX_KEEP ? `Tame ${nm} — your den is full (U)` : `Tame ${nm}`, d: -1 + d * 0.01, act: () => T.begin(game, e) });
-        if (e.subdued > 0) out.push({ kind: 'act', label: `Finish ${nm}`, d: d * 0.5 + 0.01, act: () => { e.subdued = 0; e._finish = true; ECHO.Combat.kill(e, pe, 'melee', { angle: Math.atan2(e.y - pe.y, e.x - pe.x) }); } });
+        // the one you mean: the one you are locked on, else the one nearest your cursor, else the nearest
+        const lock = ECHO.PlayerCtl && ECHO.PlayerCtl.lock === e, dm = mouse ? U.dist(e.x, e.y, mouse.x, mouse.y) : d;
+        // first of all you could do here: a beaten beast is what E is for
+        out.push({ kind: 'act', label: T.pack(pl).length >= MAX_KEEP ? `Tame ${nm} — your den is full (U)` : `Tame ${nm}${d > 5 ? ' (from here)' : ''}`, d: -1 + (lock ? 0 : 0.001 + Math.min(dm, d) * 0.001), tameEnt: e, act: () => T.begin(game, e) });
+        if (e.subdued > 0 && d < 2.5) out.push({ kind: 'act', label: `Finish ${nm}`, d: d * 0.5 + 0.01, act: () => { e.subdued = 0; e._finish = true; ECHO.Combat.kill(e, pe, 'melee', { angle: Math.atan2(e.y - pe.y, e.x - pe.x) }); } });
       }
       return out;
     },
@@ -326,7 +334,7 @@
         ECHO.Combat.ring(e.x, e.y, (e.r || 0.4) + 0.9, 'rgba(255,224,138,0.95)', 0.8);
         if (game.slowMo) game.slowMo(0.45, 0.35);
         if (ECHO.Sfx) ECHO.Sfx.play('growl', { pitch: 0.6 });
-        if (!game.pl._breathTip) { game.pl._breathTip = true; UI().toast(`${U.cap(T.nameOf(e))} is on its last breath: it kneels for 12 seconds before it dies. Come near and press E — it is yours — or strike it again to finish it. (L changes this: the leash spares everything you strike down; "to the kill" spares nothing.)`, 'legend', 9); }
+        if (!game.pl._breathTip) { game.pl._breathTip = true; UI().toast(`${U.cap(T.nameOf(e))} is on its last breath: it kneels for 12 seconds before it dies. Press E — from where you stand — and it is yours — or strike it again to finish it. (L changes this: the leash spares everything you strike down; "to the kill" spares nothing.)`, 'legend', 9); }
         return true;
       }
       if ((mode === 'leash' || held) && (byYou || !from) && !e._finish && !T.isBoss(e) && T.can(game, e)) {
@@ -365,7 +373,7 @@
     // ------------------------------------------------------------ the Animals page
     html(game) {
       const pl = game.pl, world = game.world, pk = T.pack(pl);
-      let h = `<h4 class="ware-h" style="margin-top:14px">Your tamed beasts (${pk.length}/${MAX_KEEP})</h4><p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — then come near and press <b>E</b>. It is yours; taming never fails. (A beast kneels 12 seconds before it dies; L switches to the leash, where it kneels 25 seconds and nothing can kill it, or to fighting to the kill.) Up to ${MAX_OUT} follow you at once; the rest wait at your den.</p>`;
+      let h = `<h4 class="ware-h" style="margin-top:14px">Your tamed beasts (${pk.length}/${MAX_KEEP})</h4><p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — then press <b>E</b> — from wherever you are, as long as you can see it. It is yours; taming never fails. (A beast kneels 12 seconds before it dies; L switches to the leash, where it kneels 25 seconds and nothing can kill it, or to fighting to the kill.) Up to ${MAX_OUT} follow you at once; the rest wait at your den.</p>`;
       if (!pk.length) return h + '<p class="dim">None yet.</p>';
       h += `<div class="list">${pk.map(r => {
         const rest = r.restUntil != null && world.day < r.restUntil;

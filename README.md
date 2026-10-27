@@ -16,7 +16,7 @@ ECHO is a desktop RPG built around one idea: **consequence**. You begin as an or
 
 Every system below is real and connected to the others. Nothing is scripted.
 
-**Tame anything**: knock any beast, monster or lord down — it kneels instead of dying — and press E near it: it is yours, every time. Up to three follow you and fight at your side, grow on their kills and rest a day when beaten; thirty can be kept.
+**Tame anything**: knock any beast, monster or lord down — it kneels instead of dying — and press E — from where you stand, up to about eighteen paces (a golden ring marks which one): it is yours, every time. Up to three follow you and fight at your side, grow on their kills and rest a day when beaten; thirty can be kept.
 
 **Potions of many kinds**: healing comes in three strengths — minor (cheap), the healing draught and the greater draught that closes every wound — and **1** drinks the one that best fits your wounds. Beside them: the mending tonic that heals slowly but deeply, the purging tincture against poison, fire, fever and snares, the second-wind cordial that refills your stamina and doubles its return, the heartroot elixir for fifty more life, bloodwine that heals you with every blow you land, and phoenix tears that, carried, save you once from a killing blow. Each has its own makings and price; the apothecary makes them from your herbs and monster parts, or sells them ready-made for crowns alone (all but the phoenix tears).
 

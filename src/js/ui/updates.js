@@ -7,6 +7,9 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.14', items: [
+      'Tame from a distance: no need to go near. Beat something down with arrows, fire, relics or your blade, and press E from where you stand — up to about eighteen paces, anything you can see. A golden ring marks the one E will tame; with several beaten at once, E takes the one you are locked on to (R), else the one nearest your cursor.'
+    ] },
     { v: '0.8.13', items: [
       'Taming made simple: knock it down, it kneels, press E — it is yours. Taming never fails any more, takes under a second (a lord a little longer), works from four or five paces away, and is not broken by blows. When a beaten beast is near, E always means "tame it" first.',
       'A beast or monster you strike down now kneels for 12 seconds (was 8) before it dies. Anything worn below a third of its life can be tamed with E too, even while it still fights.',
