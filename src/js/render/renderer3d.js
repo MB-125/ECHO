@@ -3929,7 +3929,8 @@
       const mouse = game.screenToWorld(ECHO.Input.mx, ECHO.Input.my);
       const placed = [];
       // in a crowd, only the nearest few foes are named (and whatever you look at, lock on to, or must fear)
-      const pe0 = game.pe, nearFoes = new Set(game.ents.filter(o => !o.dead && !o.pal && !o.tamed && o.type !== 'person' && o !== pe0 && U.dist(o.x, o.y, pe0.x, pe0.y) < 9).sort((a, b) => U.dist(a.x, a.y, pe0.x, pe0.y) - U.dist(b.x, b.y, pe0.x, pe0.y)).slice(0, 5));
+      const allTags = ECHO.UI.settings && ECHO.UI.settings.labels === 'all';
+      const pe0 = game.pe, nearFoes = allTags ? { has: () => true } : new Set(game.ents.filter(o => !o.dead && !o.pal && !o.tamed && o.type !== 'person' && o !== pe0 && U.dist(o.x, o.y, pe0.x, pe0.y) < 9).sort((a, b) => U.dist(a.x, a.y, pe0.x, pe0.y) - U.dist(b.x, b.y, pe0.x, pe0.y)).slice(0, 5));
       // avoid: keep this text clear of the other labels and numbers already drawn this frame
       const text = (t, x, y, col, bg, avoid) => {
         if (!t) return;
@@ -3987,7 +3988,7 @@
         // your own beasts: named only when you look at one, or it is hurt — the fight is not buried in labels
         if (e.pal || (e.tamed && !e.titan)) {
           const hurt = e.hp < e.maxHp * 0.5;
-          if (hover || hurt || e === ECHO.PlayerCtl.lock) {
+          if (hover || hurt || e === ECHO.PlayerCtl.lock || allTags) {
             text(e.pal ? e.pal.name : (e.label || 'yours'), p.x, ty, '#9fe08a', 'rgba(14,10,8,0.55)');
             const bw = 40 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw, bh); ctx.fillStyle = hurt ? '#e0c060' : '#8fe08a'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw * U.clamp(e.hp / e.maxHp, 0, 1), bh);
           }

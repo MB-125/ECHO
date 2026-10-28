@@ -15,6 +15,7 @@
       UI.toastsEl = $('#toasts');
       $('#panel .close').addEventListener('click', () => UI.closePanel());
       try { const s = JSON.parse(localStorage.getItem('echo.settings') || '{}'); Object.assign(UI.settings, s); } catch (e) { /* ignore */ }
+      UI.applyZoom();
     },
     paused() { return UI.panelOpen || UI.modalOpen || UI.screenOpen || UI.pauseOpen || !!(ECHO.Game.ff) || !!ECHO.Game.defeating; },
     blocksWorld() { return UI.paused(); },
@@ -80,6 +81,7 @@
       return r;
     },
     overHud(x0, y0, x1, y1, dpr) { return UI.hudRects(dpr).some(h => x0 < h[2] && x1 > h[0] && y0 < h[3] && y1 > h[1]); },
+    applyZoom() { document.documentElement.style.setProperty('--uiz', String(+UI.settings.uiz || 1)); },
     applyHelp() {
       const hide = UI.settings.hideHelp !== false;   // folded away unless you open it (F1); the tutorial teaches the basics
       $('#hud-help').classList.toggle('hidden', hide);

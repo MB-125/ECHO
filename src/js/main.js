@@ -25,6 +25,12 @@
     window.addEventListener('beforeunload', saveNow);
     window.addEventListener('pagehide', saveNow);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveNow(); });
+    // switch away from the game and it waits for you (a setting in the menu)
+    window.addEventListener('blur', () => {
+      const UI = ECHO.UI;
+      if (!ECHO.Game.world || !ECHO.Game.pl || UI.screenOpen || UI.pauseOpen || UI.panelOpen || UI.modalOpen || (UI.settings && UI.settings.autoPause === 'off')) return;
+      try { ECHO.Screens.openPause(); } catch (e) { console.error(e); }
+    });
     if (window.echoNative && window.echoNative.onBeforeClose) {
       window.echoNative.onBeforeClose(async () => {
         try { if (ECHO.Game.world) await ECHO.Game.save(); } catch (e) { console.error(e); }

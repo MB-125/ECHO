@@ -467,3 +467,6 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 .pal-row-main { flex: 1; min-width: 0; font-size: 13px; display: flex; flex-direction: column; gap: 3px; }
 .pal-row-btns { display: flex; gap: 4px; flex: none; }
 @media (max-width: 560px) { .pal-row { flex-wrap: wrap; } .pal-row-btns { width: 100%; } }
+
+/* ---- interface size (menu → Interface size) */
+#hud-left, #hud-right, #hud-bottom, #hud-goal, #hud-target, #panel .panel-body, #panel header, #modal .modal-inner, #toasts { zoom: var(--uiz, 1); }

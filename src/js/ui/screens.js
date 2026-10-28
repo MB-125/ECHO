@@ -297,6 +297,13 @@
         <button data-a="journal">Journal (Tab)</button><button data-a="map">Map (M)</button><button data-a="char">Character (K)</button>
         <button data-a="save">Save now</button>
         <div class="upd-slot"></div>
+        ${(() => { const st = UI.settings, opt = (k, v, lbl, def) => `<button class="small" data-gs="${k}:${v}" ${(st[k] || def) === v ? 'disabled' : ''}>${lbl}</button>`;
+          return `<div class="card"><h4>Gameplay</h4>
+          <div class="row"><span style="min-width:190px">Pause when you switch away</span>${opt('autoPause', 'on', 'On', 'on')}${opt('autoPause', 'off', 'Off', 'on')}</div>
+          <div class="row"><span style="min-width:190px">Screen shake</span>${opt('shake', 'full', 'Full', 'full')}${opt('shake', 'gentle', 'Gentle', 'full')}${opt('shake', 'off', 'Off', 'full')}</div>
+          <div class="row"><span style="min-width:190px">Damage numbers</span>${opt('dmgNums', 'on', 'On', 'on')}${opt('dmgNums', 'off', 'Off', 'on')}</div>
+          <div class="row"><span style="min-width:190px">Name tags in a fight</span>${opt('labels', 'compact', 'The nearest', 'compact')}${opt('labels', 'all', 'All', 'compact')}</div>
+          <div class="row"><span style="min-width:190px">Interface size</span>${opt('uiz', '0.9', 'Smaller', '1')}${opt('uiz', '1', 'Normal', '1')}${opt('uiz', '1.15', 'Larger', '1')}${opt('uiz', '1.3', 'Largest', '1')}</div></div>`; })()}
         <div class="card"><h4>View distance</h4><div class="row"><button class="small" data-z="-1">Closer</button><button class="small" data-z="1">Farther</button><span class="dim">${UI.settings.zoom}</span></div></div>
         ${`<div class="card"><h4>Quality</h4><div class="row">${['low', 'medium', 'high'].map(q => `<button class="small" data-q="${q}" ${(UI.settings.quality || 'high') === q ? 'disabled' : ''}>${{ low: 'Low', medium: 'Medium', high: 'High' }[q]}</button>`).join('')}</div><div class="dim">Low: the fastest — no shadows or finishing effects, a shorter view, lower resolution. Medium: shadows, glow (bloom), smooth edges and graded light. High: all of that plus ambient occlusion and finer detail. On every setting the game lowers its own resolution a step if frames start to slow, and climbs back when they don't.</div></div>`}
         <div class="card"><h4>Controller</h4><div class="dim">${ECHO.Input.padName ? `Connected: ${ECHO.Input.padName}.` : 'Plug in a gamepad and press any button.'} Left stick move · right stick aim · RT strike (hold: heavy) · LT bow · A roll · B use/back · X herbs · Y fire · LB lock on (tap) · hold LB and press X / Y / B to wake your three relics, A to call your pack · RB guard (fly fast on a dragon) · R3 ride · L3 sneak · D-pad: map, character, healing draught, guide · Back journal · Start menu.</div></div>
@@ -334,6 +341,12 @@
       body.querySelectorAll('button[data-lo]').forEach(b => b.addEventListener('click', () => { if (ECHO.Game.world) ECHO.Game.world.livesOn = b.dataset.lo === 'on'; Scr.openPause(); }));
       const mv = body.querySelector('#musvol'); if (mv) mv.addEventListener('input', () => ECHO.Music.setVolume(mv.value / 100));
       body.querySelectorAll('button[data-s]').forEach(b => b.addEventListener('click', () => { ECHO.Sfx.setEnabled(b.dataset.s === 'on'); Scr.openPause(); }));
+      body.querySelectorAll('button[data-gs]').forEach(b => b.addEventListener('click', () => {
+        const [k, v] = b.dataset.gs.split(':'); UI.settings[k] = v;
+        if (k === 'uiz') UI.applyZoom();
+        try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ }
+        Scr.openPause();
+      }));
       body.querySelectorAll('button[data-z]').forEach(b => b.addEventListener('click', () => {
         UI.settings.zoom = U.clamp(UI.settings.zoom + +b.dataset.z, -2, 3);
         try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ }

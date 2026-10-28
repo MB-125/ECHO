@@ -10,6 +10,8 @@
     reset() { C.proj = []; C.fx = []; C.floaters = []; C.decals = []; },
 
     floater(x, y, text, color = '#fff', big) {
+      // (damage numbers can be turned off in the menu; words and healing still show)
+      if (ECHO.UI && ECHO.UI.settings && ECHO.UI.settings.dmgNums === 'off' && /^✦?[\d.,]+k?m?$/.test(String(text))) return;
       // long numbers shortened (6.5k), and floaters that pop up together stacked, never on top of each other
       text = String(text).replace(/\d{4,}/g, m => ECHO.U.short(+m));
       let n = 0;

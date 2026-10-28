@@ -325,7 +325,7 @@
       Game.camPunch *= Math.exp(-dt * 9);
       Game.hurtFlashT = Math.max(0, Game.hurtFlashT - dt * 1.8);
     },
-    shake(a) { Game.shakeT = 0.25; Game.shakeA = Math.max(Game.shakeA * (Game.shakeT > 0 ? 1 : 0), a); },
+    shake(a) { const m = { full: 1, gentle: 0.4, off: 0 }[(ECHO.UI.settings && ECHO.UI.settings.shake) || 'full']; if (m == null || !m) return; a *= m; Game.shakeT = 0.25; Game.shakeA = Math.max(Game.shakeA * (Game.shakeT > 0 ? 1 : 0), a); },
     noise(x, y, r) {
       if (ECHO.Stealth) ECHO.Stealth.loud(Game, x, y, r * 1.3);
       if (ECHO.Senses) ECHO.Senses.noise(Game, x, y, r * 2, { kind: 'fight', by: Game.pe });
