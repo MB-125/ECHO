@@ -16,6 +16,13 @@
       $('#panel .close').addEventListener('click', () => UI.closePanel());
       try { const s = JSON.parse(localStorage.getItem('echo.settings') || '{}'); Object.assign(UI.settings, s); } catch (e) { /* ignore */ }
       UI.applyZoom();
+      if (ECHO.Input.applyBinds) { ECHO.Input.applyBinds(); setTimeout(() => UI.applyKeys(), 0); }
+    },
+    // the controls card shows the keys as you have set them
+    applyKeys() {
+      const In = ECHO.Input; if (!In.ACTIONS) return;
+      const map = new Map(In.ACTIONS.map(([act]) => [In.keyName(act), In.keyName(In.bound(act))]));
+      document.querySelectorAll('#hud-help kbd').forEach(k => { if (k.dataset.k == null) k.dataset.k = k.textContent; const v = map.get(k.dataset.k); k.textContent = v || k.dataset.k; });
     },
     paused() { return UI.panelOpen || UI.modalOpen || UI.screenOpen || UI.pauseOpen || !!(ECHO.Game.ff) || !!ECHO.Game.defeating; },
     blocksWorld() { return UI.paused(); },

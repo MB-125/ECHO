@@ -4,16 +4,47 @@
     down: new Set(), pressed: new Set(), released: new Set(),
     mx: 0, my: 0, mdown: [false, false, false], mpressed: [false, false, false], mreleased: [false, false, false],
     wheel: 0, enabled: true,
+    // ---- the keys, as you have set them (menu → Keys). The game asks for an action's own key
+    // ('q' for fire); the key you press is turned into it here.
+    ACTIONS: [
+      ['w', 'Move up'], ['a', 'Move left'], ['s', 'Move down'], ['d', 'Move right'], [' ', 'Dodge roll'], ['Shift', 'Guard · fly fast'], ['Control', 'Sneak · fly lower'],
+      ['q', 'Fire (hold) · dragon dive'], ['r', 'Lock on'], ['e', 'Talk · enter · use · tame'], ['f', 'Study · dragon\'s art'], ['z', 'Relic 1'], ['x', 'Relic 2'], ['c', 'Relic 3'],
+      ['1', 'Healing draught'], ['h', 'Eat'], ['g', 'Herbs'], ['b', 'Make camp'], ['v', 'Ride · fly'], ['y', 'Switch animal'], ['u', 'Tamed beasts'], ['o', 'Call your pack'], ['l', 'Taming: breath / leash / kill'],
+      ['t', 'Orders for a companion'], ['p', 'Play'], ['Tab', 'Journal'], ['j', 'Guide'], ['m', 'Map'], ['k', 'Character'], ['n', 'Where to?']
+    ],
+    remap: new Map(), dead: new Set(),
+    keyName(k) { return k === ' ' ? 'Space' : k === 'Control' ? 'Ctrl' : k.length === 1 ? k.toUpperCase() : k; },
+    bound(act) { const s = (ECHO.UI && ECHO.UI.settings && ECHO.UI.settings.keys) || {}; return s[act] || act; },
+    applyBinds() {
+      In.remap = new Map(); In.dead = new Set();
+      for (const [act] of In.ACTIONS) { const k = In.bound(act); if (k !== act) { In.remap.set(k, act); In.dead.add(act); } }
+      for (const k of In.remap.keys()) In.dead.delete(k);
+      In.down.clear();
+    },
+    // set an action's key; whatever had that key takes this one's old key
+    rebind(act, key) {
+      const UI = ECHO.UI, s = UI.settings.keys = UI.settings.keys || {};
+      const old = In.bound(act), other = In.ACTIONS.find(([a]) => a !== act && In.bound(a) === key);
+      s[act] = key; if (other) s[other[0]] = old;
+      for (const k of Object.keys(s)) if (s[k] === k) delete s[k];
+      try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ }
+      In.applyBinds();
+    },
+    resetBinds() { const UI = ECHO.UI; UI.settings.keys = {}; try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ } In.applyBinds(); },
+    logical(k) { if (In.remap.has(k)) return In.remap.get(k); if (In.dead.has(k)) return null; return k; },
     attach(el) {
       window.addEventListener('keydown', e => {
         if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-        const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+        if (In.capture) { e.preventDefault(); e.stopImmediatePropagation(); const f = In.capture; In.capture = null; f(e.key.length === 1 ? e.key.toLowerCase() : e.key); return; }
+        const k = In.logical(e.key.length === 1 ? e.key.toLowerCase() : e.key);
+        if (k == null) return;
         if (!In.down.has(k)) In.pressed.add(k);
         In.down.add(k);
         if (['Tab', ' ', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F1', '/'].includes(e.key)) e.preventDefault();
       });
       window.addEventListener('keyup', e => {
-        const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+        const k = In.logical(e.key.length === 1 ? e.key.toLowerCase() : e.key);
+        if (k == null) return;
         In.down.delete(k); In.released.add(k);
       });
       window.addEventListener('blur', () => { In.down.clear(); In.mdown = [false, false, false]; });

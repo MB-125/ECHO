@@ -370,7 +370,7 @@ A see-through controls card sits on the left of the screen (folded away at first
 | **N** | where to? — pick what to head for; a golden trail and the top line lead you there by the best way |
 | **Esc** | menu · **F11** fullscreen |
 
-A gamepad works too; the mapping is in the Esc menu.
+Every key can be changed: Esc → Keys… (if another action has the key you pick, the two swap). A gamepad works too; the mapping is in the Esc menu.
 
 Worlds are saved automatically (each in-game day, every minute of play, and whenever the window is closed, reloaded or hidden) to your user data folder, one file per world. In the browser version they are kept in the browser's storage: in localStorage and in IndexedDB, which has room for worlds that have grown large, and the newest copy is loaded. Updating the game never resets a world: old saves load into new versions, and anything new (dungeon levels and floors, cave sites, grown land) is added to the world you already have. Use Export world on the title screen to keep a backup file.
 

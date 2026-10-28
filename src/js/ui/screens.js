@@ -295,7 +295,7 @@
       const body = UI.openPanel('Paused', `<div class="list" style="max-width:420px;margin:0 auto">
         <button data-a="resume" class="primary">Resume</button>
         <button data-a="journal">Journal (Tab)</button><button data-a="map">Map (M)</button><button data-a="char">Character (K)</button>
-        <button data-a="save">Save now</button>
+        <button data-a="save">Save now</button><button data-a="keys">Keys…</button>
         <div class="upd-slot"></div>
         ${(() => { const st = UI.settings, opt = (k, v, lbl, def) => `<button class="small" data-gs="${k}:${v}" ${(st[k] || def) === v ? 'disabled' : ''}>${lbl}</button>`;
           return `<div class="card"><h4>Gameplay</h4>
@@ -324,6 +324,7 @@
         if (a === 'map') UI.openMap();
         if (a === 'char') UI.openCharacter();
         if (a === 'help') UI.openJournal('help');
+        if (a === 'keys') { Scr.openKeys(); return; }
         if (a === 'save') { await ECHO.Game.save(); UI.toast('The world is saved.', 'info', 2); UI.closePanel(); }
         if (a === 'title') { await ECHO.Game.save(); UI.closePanel(); Scr.title(); }
         if (a === 'quit') { await ECHO.Game.save(); window.echoNative.closeNow(); }
@@ -352,6 +353,21 @@
         try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ }
         ECHO.Renderer.resize(); Scr.openPause();
       }));
+    },
+    // Keys: every action, its key, and a way to change it
+    openKeys() {
+      const In = ECHO.Input, UI = ECHO.UI;
+      UI.pauseOpen = false;   // (a panel of its own: Esc closes it and you are back in the world)
+      const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const rows = In.ACTIONS.map(([act, lbl]) => `<div class="row" style="justify-content:space-between;border-bottom:1px solid #2e251b;padding:4px 0;margin:0"><span>${esc(lbl)}</span><span style="display:flex;gap:8px;align-items:center"><kbd style="min-width:54px;text-align:center">${esc(In.keyName(In.bound(act)))}</kbd><button class="small" data-key="${esc(act)}">Change</button></span></div>`).join('');
+      const body = UI.openPanel('Keys', `<p class="dim">Click Change, then press the key you want. If another action has that key, the two swap. Esc cancels. (Mouse buttons, Esc and F1 stay as they are.)</p>
+        <div class="card">${rows}</div><div class="row" style="margin-top:10px"><button data-keys="back" class="primary">Back</button><button data-keys="reset">Reset all to the defaults</button></div>`, 'keys');
+      body.querySelectorAll('button[data-key]').forEach(b => b.addEventListener('click', () => {
+        b.textContent = 'press a key…'; b.disabled = true;
+        In.capture = k => { if (k !== 'Escape' && k !== 'F1') In.rebind(b.dataset.key, k); UI.applyKeys(); Scr.openKeys(); };
+      }));
+      body.querySelector('button[data-keys="back"]').addEventListener('click', () => { In.capture = null; Scr.openPause(); });
+      body.querySelector('button[data-keys="reset"]').addEventListener('click', () => { In.resetBinds(); UI.applyKeys(); Scr.openKeys(); });
     },
     closePause() { ECHO.UI.pauseOpen = false; ECHO.UI.closePanel(); }
   };
