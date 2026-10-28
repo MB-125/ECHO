@@ -42,7 +42,7 @@
         if (In.pressed.has('Tab')) UI.openJournal();
         if (In.pressed.has('j')) UI.openJournal('guide');
         if (In.pressed.has('m')) UI.openMap();
-        if (In.pressed.has('c') && !In.down.has('Control')) { /* c also sneaks; character sheet on K */ }
+        // (C wakes your third relic; Ctrl sneaks; the character sheet is on K)
         if (In.pressed.has('k')) UI.openCharacter();
         if (In.pressed.has('y') && ECHO.Apex) ECHO.Apex.cycle(game);
         if (In.pressed.has('o') && ECHO.Tame && !UI.blocksWorld()) ECHO.Tame.rally(game);

@@ -1446,7 +1446,7 @@
       } else {
         // height: Space climbs, Ctrl goes lower
         if (In.key(' ')) F.h = Math.min(C.hMax, F.h + C.climb * dt);
-        if (In.key('Control') || In.key('c')) F.h = Math.max(C.hMin, F.h - C.climb * dt);
+        if (In.key('Control')) F.h = Math.max(C.hMin, F.h - C.climb * dt);
         wantH = F.h;
         thrust = len ? (fast ? 1 : 0.6) : 0;
         // leave the reins alone and it flies on by itself, in long lazy circles

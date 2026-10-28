@@ -80,7 +80,7 @@
       if (In.key('s') || In.key('ArrowDown')) my += 1;
       if (In.key('a') || In.key('ArrowLeft')) mx -= 1;
       if (In.key('d') || In.key('ArrowRight')) mx += 1;
-      PC.sneaking = In.key('Control') || In.key('c');
+      PC.sneaking = In.key('Control');   // (C wakes your third relic now; Ctrl sneaks)
       pe.sneaking = PC.sneaking;
       let len = Math.hypot(mx, my);
       if (len) { mx /= len; my /= len; }

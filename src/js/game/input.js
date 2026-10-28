@@ -27,6 +27,7 @@
     // A standard controller drives the same keys and buttons as the keyboard
     // and mouse: sticks move and aim, the rest map onto actions.
     padName: null, padAim: null, padPrev: [], padKeys: new Set(),
+    CHORD: { 0: 'o', 2: 'z', 3: 'x', 1: 'c' },
     PAD: { 0: ' ', 1: 'e', 2: 'g', 3: 'q', 4: 'r', 5: 'Shift', 7: 'M0', 6: 'M2', 8: 'Tab', 9: 'Escape', 10: 'Control', 11: 'v', 12: 'm', 13: 'k', 14: '1', 15: 'j' },
     pollPad() {
       const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -35,9 +36,18 @@
       if (!In.padName) { In.padName = gp.id.replace(/\(.*\)/, '').trim() || 'Controller'; if (ECHO.UI && ECHO.UI.toast) ECHO.UI.toast(`Controller connected: ${In.padName}. Settings in the menu (Start).`, 'info', 4); }
       const ui = ECHO.UI, panel = ui && ui.panelOpen;
       // buttons
+      // LB is a shift key too: tapped alone it locks on; held, A/X/Y/B call your pack and wake your relics
+      const lbOn = !!(gp.buttons[4] && (gp.buttons[4].pressed || gp.buttons[4].value > 0.5));
       gp.buttons.forEach((b, i) => {
         const on = b.pressed || b.value > 0.5, was = !!In.padPrev[i];
         In.padPrev[i] = on;
+        if (i === 4 && !panel) {
+          if (on && !was) In._lb = { used: false };
+          if (!on && was) { if (In._lb && !In._lb.used) { In.pressed.add('r'); } In._lb = null; }
+          return;
+        }
+        if (lbOn && !panel && In._lb && In.CHORD[i] && on && !was) { In._lb.used = true; In.pressed.add(In.CHORD[i]); return; }
+        if (lbOn && !panel && In._lb && In.CHORD[i]) return;
         let k = In.PAD[i]; if (!k) return;
         if (panel && i === 1) k = 'Escape';             // B backs out of menus
         if (on === was) return;

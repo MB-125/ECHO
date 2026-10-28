@@ -189,6 +189,7 @@
       return null;
     },
     enter(game, b, s) {
+      if (!b || (b.type !== 'delve' && b.type !== 'gate' && !I.enterable(b))) return;   // (a stall or a field has no inside)
       const why = I.canEnter(game, b, s);
       if (why) { ECHO.UI.toast(why, 'warn', 3); return; }
       ECHO.Sfx.play('door');

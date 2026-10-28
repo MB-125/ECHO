@@ -48,7 +48,7 @@
     // a beaten one rests three hours of the day (about 45 seconds), then answers again
     now(world) { return world.day * 1440 + world.minute; },
     resting(world, r) { if (r.restAt != null) return T.now(world) < r.restAt; return r.restUntil != null && world.day < r.restUntil; },
-    restLeft(world, r) { return r.restAt != null ? Math.max(0, Math.ceil((r.restAt - T.now(world)) / ECHO.TIME.MIN_PER_SEC)) : null; },
+    restLeft(world, r) { return r.restAt != null ? Math.max(0, Math.ceil((r.restAt - T.now(world)) / (ECHO.Game.minPerSec ? ECHO.Game.minPerSec() : 4))) : null; },
     // the ones that could come now, strongest first
     ready_(game) { return T.pack(game.pl).filter(r => !r.out && !T.resting(game.world, r)).sort((a, b) => b.lvl - a.lvl || (b.kills || 0) - (a.kills || 0)); },
     indoors() { const L = ECHO.Interior.cur; return !!(L && !L.carved && L.type !== 'gate'); },
@@ -405,7 +405,7 @@
     onDeath(game, e, from) {
       if (e.pal) {
         const r = e.pal;
-        r.restAt = T.now(game.world) + 180; r.restUntil = null; r.hp = 0.5; r.out = false;
+        r.restAt = T.now(game.world) + 45 * (game.minPerSec ? game.minPerSec() : 4);   // 45 real seconds, whatever the pace r.restUntil = null; r.hp = 0.5; r.out = false;
         e.dead = true; e.vanish = true;
         ECHO.Combat.burst(e.x, e.y, '#c8b080', 20, 3, 0.7, 3);
         // its place is not left empty: the strongest rested one in the den comes
