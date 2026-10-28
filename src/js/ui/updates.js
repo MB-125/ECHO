@@ -7,6 +7,7 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.24', items: ['Monsters, beasts and your tamed pack no longer pass through one another. Each takes up as much room as it is drawn (a great ogre is as wide as it looks), walks round the others instead of into them, is stopped by the bodies behind it when it is thrown back or charges, and the bigger shoulders the smaller aside. Bodies that end up on top of one another are pushed apart at once.'] },
     { v: '0.8.23', items: ['Fixed: while you flew on your dragon, your tamed beasts below kept vanishing and reappearing — they could not keep up, and were snatched back to you over and over. Now, while you are in the air, they follow out of sight, and the moment you land they are at your side ("your beasts catch up").'] },
     { v: '0.8.22', items: [
       'Size matters below ground. Every tamed beast is small, large or huge: small is anything up to a cave troll\'s build; large are ogres, golems, the great hounds and the like; huge are the great beasts of the lairs, the widows and wyrms of the deep woods. Caves, hideouts and grots let only the small in; dungeons, crypts and mines keep out the huge; the worlds beyond the gates take any.',

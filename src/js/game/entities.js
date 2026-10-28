@@ -207,6 +207,8 @@
       }
       if (e._onPath) e._bear = 0;
       if (e._bear && d > 0.7) { const a = Math.atan2(dy, dx) + e._bear, L = Math.min(sp, d); mx = Math.cos(a) * L; my = Math.sin(a) * L; }
+      // other bodies: it does not walk into them, it slides round them
+      if (e.type !== 'player' && !e.ghost && (e.aggro || e.pal || e.target)) { const v = Ent.slideBodies(e, mx, my); mx = v.x; my = v.y; }
       const before = { x: e.x, y: e.y };
       Ent.move(world, e, mx, my);
       e.moving = true;
@@ -410,27 +412,44 @@
       }
       return Ent.seek(world, e, tx, ty, speed, dt, 0.35);
     },
+    // How much room a body takes among other bodies: what it looks like, not the narrow
+    // circle it threads between trees with (a great ogre is as wide as it is drawn).
+    bodyR(e) {
+      if (e._bodyR != null && e._bodyRS === e.scale) return e._bodyR;
+      let r = e.r || 0.33;
+      if (e.titan && ECHO.Apex && ECHO.Apex.bodyR) r = Math.max(r, ECHO.Apex.bodyR(e) * 0.8);
+      else if (e.type !== 'person' && e.type !== 'player' && e.type !== 'boss') r = Math.max(r, 0.34 * (e.scale || 1));
+      e._bodyR = r; e._bodyRS = e.scale;
+      return r;
+    },
     separate(ents, dt) {
-      // Soft separation between bodies.
+      // Bodies do not pass through one another: each pushes the other out of the room it takes,
+      // the bigger shoving the smaller.
       const n = ents.length;
       for (let i = 0; i < n; i++) {
         const a = ents[i];
-        if (a.dead || a.hidden || a.ghost || a.seated || (a.sleeping && a.indoor)) continue;
+        if (a.dead || a.hidden || a.ghost || a.seated || a.burrowed || (a.sleeping && a.indoor)) continue;
+        const ra = Ent.bodyR(a);
         for (let j = i + 1; j < n; j++) {
           const b = ents[j];
-          if (b.dead || b.hidden || b.ghost || b.seated || (b.sleeping && b.indoor)) continue;
+          if (b.dead || b.hidden || b.ghost || b.seated || b.burrowed || (b.sleeping && b.indoor)) continue;
           if ((a.alt || 0) > 1 || (b.alt || 0) > 1) continue;
+          const rb = Ent.bodyR(b), reach = ra + rb;
           const dx = b.x - a.x, dy = b.y - a.y;
-          if (Math.abs(dx) > 1.5 || Math.abs(dy) > 1.5) continue;
-          const min = (a.r + b.r) * 0.9;
+          if (Math.abs(dx) > reach || Math.abs(dy) > reach) continue;
+          const min = reach * 0.92;
           const d2 = dx * dx + dy * dy;
-          if (d2 > 0.0001 && d2 < min * min) {
+          if (d2 < min * min) {
             const settled = !a.moving && !b.moving;
-            const d = Math.sqrt(d2);
-            if (settled && d > min * 0.6) continue;  // standing side by side is fine
-            const push = (min - d) * 0.5 * Math.min(1, dt * (settled ? 4 : 8));
-            const ux = dx / d, uy = dy / d;
-            const wa = a.type === 'boss' ? 0.1 : b.type === 'boss' ? 0.9 : 0.5;
+            let d = Math.sqrt(d2), ux, uy;
+            if (d < 0.0001) { const ang = (i * 2.399 + j) % 6.283; ux = Math.cos(ang); uy = Math.sin(ang); d = 0; }   // right on top of each other: apart, some way
+            else { ux = dx / d; uy = dy / d; }
+            if (settled && d > min * 0.85) continue;  // standing shoulder to shoulder is fine
+            // sunk deep into one another: out at once; a graze: eased apart
+            const push = (min - d) * 0.5 * (d < min * 0.7 ? 0.9 : Math.min(1, dt * (settled ? 6 : 12)));
+            // the heavier gives less ground (a lair's beast hardly at all)
+            const ma = a.type === 'boss' ? 9 : ra * ra, mb = b.type === 'boss' ? 9 : rb * rb;
+            const wa = ma / (ma + mb);   // (the share of the push b takes: the heavier a is, the more b gives)
             a.pushx = (a.pushx || 0) - ux * push * (1 - wa) * 2;
             a.pushy = (a.pushy || 0) - uy * push * (1 - wa) * 2;
             b.pushx = (b.pushx || 0) + ux * push * wa * 2;
@@ -439,9 +458,27 @@
         }
       }
     },
+    // A step (mx, my) for e with whatever part of it runs into another body taken out: it slides
+    // along them instead.
+    slideBodies(e, mx, my) {
+      const ents = ECHO.Game && ECHO.Game.ents;
+      if (!ents || e.ghost || (e.alt || 0) > 1) return { x: mx, y: my };
+      const re = Ent.bodyR(e);
+      for (const o of ents) {
+        if (o === e || o.dead || o.hidden || o.ghost || o.seated || o.burrowed || (o.alt || 0) > 1) continue;
+        const ox = o.x - e.x, oy = o.y - e.y, lim = re + Ent.bodyR(o);
+        if (Math.abs(ox) > lim + 0.5 || Math.abs(oy) > lim + 0.5) continue;
+        if (Math.hypot(ox - mx, oy - my) >= lim * 0.92) continue;
+        const od = Math.hypot(ox, oy) || 0.0001, ux = ox / od, uy = oy / od, inward = mx * ux + my * uy;
+        if (inward > 0) { mx -= ux * inward; my -= uy * inward; }   // (keep only the sideways part of the step)
+      }
+      return { x: mx, y: my };
+    },
     applyPush(world, e) {
       if (e.pushx || e.pushy) { Ent.move(world, e, e.pushx || 0, e.pushy || 0); e.pushx = 0; e.pushy = 0; }
       if (e.kbx || e.kby) {
+        // thrown back, it is stopped by the bodies behind it (it does not pass through them)
+        if (e.type !== 'player') { const v = Ent.slideBodies(e, e.kbx, e.kby); e.kbx = v.x; e.kby = v.y; }
         Ent.move(world, e, e.kbx, e.kby);
         e.kbx *= 0.7; e.kby *= 0.7;
         if (Math.abs(e.kbx) + Math.abs(e.kby) < 0.005) { e.kbx = 0; e.kby = 0; }

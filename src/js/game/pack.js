@@ -186,7 +186,7 @@
       // a dash under way
       if (e._dash) {
         const D = e._dash; D.t -= dt;
-        ECHO.Ent.move(world, e, Math.cos(D.ang) * D.spd * dt, Math.sin(D.ang) * D.spd * dt);
+        { const v = ECHO.Ent.slideBodies(e, Math.cos(D.ang) * D.spd * dt, Math.sin(D.ang) * D.spd * dt); ECHO.Ent.move(world, e, v.x, v.y); }
         if (Math.random() < dt * 30) C().fx.push({ kind: 'p', x: e.x, y: e.y - 0.3, vx: 0, vy: 0, t: 0, life: 0.3, color: '#ffe08a', size: 2 });
         if (D.t <= 0 || (D.o && U.dist(e.x, e.y, D.o.x, D.o.y) < (D.o.r || 0.4) + (e.r || 0.4) + 0.6)) {
           e._dash = null;
