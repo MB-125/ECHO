@@ -104,16 +104,34 @@
       Pg.targetHud(game);
     },
     // Labels for loot lying near you.
+    // A heap of spoils is one tidy list (best first, the rest summed up), never a pile of
+    // labels written over each other.
     lootLabels(game) {
       const out = [], pe = game.pe, world = game.world;
       if (!pe) return out;
+      const RANK = ['common', 'fine', 'rare', 'epic', 'legendary'];
+      const one = l => {
+        const it = l.kind === 'item' && world.items[l.itemId];
+        if (it) return { text: `${it.name}${it.plus ? ' +' + it.plus : ''} [E]`, color: ECHO.Gear.rarity(it.rarity).color, w: 10 + RANK.indexOf(it.rarity || 'common') };
+        if (l.kind === 'gold') return { text: `${l.qty} crown${l.qty === 1 ? '' : 's'}`, color: '#ffd84a', w: 5 };
+        if (l.kind === 'key') return { text: 'Iron key', color: '#ffd84a', w: 9 };
+        const m = ECHO.Gear.MATS[l.kind];
+        return m ? { text: `${l.qty} ${m.name}`, color: m.color, w: 1 } : null;
+      };
+      const heaps = [];
       for (const l of game.loot) {
         if (l.taken || U.dist(l.x, l.y, pe.x, pe.y) > 9) continue;
-        const it = l.kind === 'item' && world.items[l.itemId];
-        if (it) out.push({ x: l.x, y: l.y, text: `${it.name}${it.plus ? ' +' + it.plus : ''} [E]`, color: ECHO.Gear.rarity(it.rarity).color });
-        else if (l.kind === 'gold') out.push({ x: l.x, y: l.y, text: `${l.qty} crown${l.qty === 1 ? '' : 's'}`, color: '#ffd84a' });
-        else if (l.kind === 'key') out.push({ x: l.x, y: l.y, text: 'Iron key', color: '#ffd84a' });
-        else { const m = ECHO.Gear.MATS[l.kind]; if (m) out.push({ x: l.x, y: l.y, text: `${l.qty} ${m.name}`, color: m.color }); }
+        const lab = one(l);
+        if (!lab) continue;
+        let h = heaps.find(h => Math.abs(h.x - l.x) < 1.4 && Math.abs(h.y - l.y) < 1.4);
+        if (!h) heaps.push(h = { x: l.x, y: l.y, labs: [] });
+        h.labs.push(lab);
+      }
+      for (const h of heaps) {
+        h.labs.sort((a, b) => b.w - a.w);
+        const show = h.labs.length <= 3 ? h.labs : h.labs.slice(0, 2);
+        show.forEach((lab, i) => out.push({ x: h.x, y: h.y, text: lab.text, color: lab.color, line: i }));
+        if (show.length < h.labs.length) out.push({ x: h.x, y: h.y, text: `and ${h.labs.length - show.length} more`, color: '#cfc6b0', line: show.length });
       }
       return out;
     },

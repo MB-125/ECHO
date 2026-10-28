@@ -936,6 +936,22 @@ function main() {
     check('the healing draughts are found in order of strength', Gr.healIds().join(',') === 'minor,heal,greater');
   }
 
+  console.log('\nChallenge and spoils');
+  {
+    const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite, Uint8Array, Int32Array, Float32Array };
+    ctx.globalThis = ctx; vm.createContext(ctx);
+    for (const f of ['core.js', 'sim/gear.js', 'game/combat.js', 'game/progress.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx);
+    const E = ctx.ECHO, C = E.Combat;
+    E.UI = { settings: {} };
+    const d0 = C.difficulty(); E.UI.settings.difficulty = 'story'; const d1 = C.difficulty(); E.UI.settings.difficulty = 'hard'; const d2 = C.difficulty(); E.UI.settings.difficulty = 'nonsense';
+    check('the challenge is Balanced unless chosen; Story hits softer, Hard harder; nonsense falls back', d0 === C.DIFF.normal && d1.taken < 1 && d1.dealt > 1 && d2.taken > 1 && C.difficulty() === C.DIFF.normal);
+    // a heap of spoils is one tidy list, best first
+    const world = { items: { s: { id: 's', name: 'Fine sword', rarity: 'epic' } } };
+    const loot = [{ x: 5, y: 5, kind: 'gold', qty: 9 }, { x: 5.3, y: 5.2, kind: 'bonedust', qty: 2 }, { x: 4.8, y: 5.1, kind: 'gel', qty: 1 }, { x: 5.1, y: 4.9, kind: 'item', itemId: 's' }, { x: 5.2, y: 5.4, kind: 'rattail', qty: 3 }, { x: 9, y: 5, kind: 'gold', qty: 1 }];
+    const L = E.Progress.lootLabels({ pe: { x: 5, y: 6 }, world, loot });
+    check('spoils lying together make one list: the best thing first, the rest summed up, and a heap apart labelled apart', L.length === 4 && L[0].text.startsWith('Fine sword') && L[0].line === 0 && /and 3 more/.test(L[2].text) && L[3].text === '1 crown');
+  }
+
   console.log(`\n${passes} passed, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 }

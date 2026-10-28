@@ -3896,7 +3896,7 @@
     updateCut(game, dt) {
       const U2 = R.cutU, pe = game.pe;
       if (!U2) return;
-      const want = !pe || pe.dead || (pe.alt || 0) > 1.5 || (ECHO.UI.settings && ECHO.UI.settings.seeThrough === 'off') ? 0 : 1.55;
+      const want = !pe || pe.dead || (pe.alt || 0) > 1.5 || (ECHO.UI.settings && ECHO.UI.settings.seeThrough === 'off') ? 0 : 1.8;
       U2.uCutR.value += (want - U2.uCutR.value) * Math.min(1, (dt || 0.016) * 6);
       if (U2.uCutR.value < 0.02) U2.uCutR.value = 0;
       if (!pe) return;
@@ -4014,7 +4014,7 @@
         ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       }
       if (ECHO.Fest) { ECHO.Fest.drawHUD(ctx, game, R.cw); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
-      if (ECHO.Progress) { ctx.font = `${Math.round(fs * 0.85)}px "Pixelify Sans", monospace`; for (const ll of ECHO.Progress.lootLabels(game)) { if (!R.onScreen(game, ll.x, ll.y)) continue; const p = R.project(ll.x, ll.y, 0.75); if (p.z > 1) continue; text(ll.text, p.x, p.y, ll.color, null, true); } ctx.font = `${fs}px "Pixelify Sans", monospace`; }
+      if (ECHO.Progress) { ctx.font = `${Math.round(fs * 0.85)}px "Pixelify Sans", monospace`; for (const ll of ECHO.Progress.lootLabels(game)) { if (!R.onScreen(game, ll.x, ll.y)) continue; const p = R.project(ll.x, ll.y, 0.75); if (p.z > 1) continue; text(ll.text, p.x, p.y - (ll.line || 0) * Math.round(fs * 1.05), ll.color, null, true); } ctx.font = `${fs}px "Pixelify Sans", monospace`; }
       if (ECHO.Progress) for (const sl of ECHO.Progress.siteLabels(game)) { if (!R.onScreen(game, sl.x, sl.y)) continue; const p = R.project(sl.x, sl.y, 2.6); if (p.z > 1) continue; ctx.globalAlpha = sl.a; text(sl.text, p.x, p.y, sl.color, 'rgba(14,10,8,0.66)', true); ctx.globalAlpha = 1; }
       const heights = { player: 1.25, person: 1.25, boss: 3.6 };
       for (const e of game.ents) {

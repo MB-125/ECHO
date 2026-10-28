@@ -268,6 +268,8 @@
     },
 
     // ------------------------------------------------------------ Damage
+    DIFF: { story: { taken: 0.5, dealt: 1.3, name: 'Story' }, normal: { taken: 1, dealt: 1, name: 'Balanced' }, hard: { taken: 1.4, dealt: 0.9, name: 'Hard' } },
+    difficulty() { const k = ECHO.UI && ECHO.UI.settings && ECHO.UI.settings.difficulty; return C.DIFF[k] || C.DIFF.normal; },
     damage(target, amount, src) {
       const game = G();
       const world = game.world;
@@ -284,6 +286,13 @@
       if (target.isCompanion && ECHO.Companions) { amount = ECHO.Companions.defend(game, target, amount, src); if (amount <= 0) return 0; }
       const type = src.type;
       let dmg = amount * (from && from.growDmg ? from.growDmg : 1);   // (what it has grown into, fight by fight)
+      // how hard the world hits back (Esc → Gameplay → Challenge)
+      const dif = C.difficulty();
+      if (dif !== C.DIFF.normal && from && target !== from) {
+        const ours = e => e === game.pe || e.pal || e.isCompanion;
+        if (ours(target) && !ours(from)) dmg *= dif.taken;
+        else if (ours(from) && !ours(target)) dmg *= dif.dealt;
+      }
       const incoming = src.angle != null ? src.angle + Math.PI : null;
       const facingIncoming = incoming != null && Math.abs(U.angleDiff(target.dir, incoming)) < 1.25;
       // Blocking

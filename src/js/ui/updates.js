@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.30', items: [
+      'Choose your challenge: Esc → Gameplay → Story (foes hit half as hard and fall sooner), Balanced, or Hard. Change it whenever you like; your world and progress are untouched.',
+      'Spoils lying in a heap are one tidy list over it — the best thing first, the rest summed up ("and 3 more") — instead of labels written over each other.',
+      'The settings you have chosen are lit in gold, so they no longer look greyed out; the menu is wider, so each choice sits on one line.',
+      'The see-through circle around you is a little wider, for thick woods.'
+    ] },
     { v: '0.8.29', items: [
       'Never lost behind the scenery: a boulder, a tree crown or the corner of a house that stands between you and the camera now fades away in a soft circle around you (its shadow stays). Turn it off in Esc → Gameplay if you prefer.',
       'Underground you carry a little light of your own, so you and your pack are never black shapes in a dark tunnel.',

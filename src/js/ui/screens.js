@@ -292,13 +292,15 @@
     openPause() {
       const UI = ECHO.UI;
       UI.pauseOpen = true;
-      const body = UI.openPanel('Paused', `<div class="list" style="max-width:420px;margin:0 auto">
+      const body = UI.openPanel('Paused', `<div class="list" style="max-width:600px;margin:0 auto">
         <button data-a="resume" class="primary">Resume</button>
         <button data-a="journal">Journal (Tab)</button><button data-a="map">Map (M)</button><button data-a="char">Character (K)</button>
         <button data-a="save">Save now</button><button data-a="keys">Keys…</button>
         <div class="upd-slot"></div>
         ${(() => { const st = UI.settings, opt = (k, v, lbl, def) => `<button class="small" data-gs="${k}:${v}" ${(st[k] || def) === v ? 'disabled' : ''}>${lbl}</button>`;
           return `<div class="card"><h4>Gameplay</h4>
+          <div class="row"><span style="min-width:190px">Challenge</span>${opt('difficulty', 'story', 'Story', 'normal')}${opt('difficulty', 'normal', 'Balanced', 'normal')}${opt('difficulty', 'hard', 'Hard', 'normal')}</div>
+          <div class="dim" style="margin:-2px 0 6px">Story: foes hit half as hard and fall sooner. Hard: they hit harder and take more killing. Change it any time; your world is untouched.</div>
           <div class="row"><span style="min-width:190px">Pause when you switch away</span>${opt('autoPause', 'on', 'On', 'on')}${opt('autoPause', 'off', 'Off', 'on')}</div>
           <div class="row"><span style="min-width:190px">Screen shake</span>${opt('shake', 'full', 'Full', 'full')}${opt('shake', 'gentle', 'Gentle', 'full')}${opt('shake', 'off', 'Off', 'full')}</div>
           <div class="row"><span style="min-width:190px">Damage numbers</span>${opt('dmgNums', 'on', 'On', 'on')}${opt('dmgNums', 'off', 'Off', 'on')}</div>
