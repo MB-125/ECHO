@@ -172,10 +172,13 @@
       for (const r of out) {
         if (T.resting(world, r)) { r.out = false; continue; }
         const e = game.ents.find(o => o.pal === r && !o.dead);
+        // on a dragon's back: they follow far below, out of sight, and are at your side when you land
+        if (pl.flying) { if (e) { e.dead = true; e.vanish = true; } T._flew = true; continue; }
         if (!ok || (L && !T.fits(r, L))) { if (e) { e.dead = true; e.vanish = true; } continue; }
         if (T.resting(world, r)) { if (e) { e.dead = true; e.vanish = true; } continue; }
         if (!e) T.spawn(game, r);
       }
+      if (T._flew && !pl.flying) { T._flew = false; if (out.some(r => !T.resting(world, r))) ECHO.Combat.floater(game.pe.x, game.pe.y - 1.6, 'your beasts catch up', '#ffe08a'); }
       // (any left over from one sent home)
       for (const e of game.ents) if (e.pal && !e.dead && !e.pal.out) { e.dead = true; e.vanish = true; ECHO.Combat.burst(e.x, e.y, '#ffe08a', 10, 2, 0.5, 2); }
     },

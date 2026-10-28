@@ -7,6 +7,7 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.23', items: ['Fixed: while you flew on your dragon, your tamed beasts below kept vanishing and reappearing — they could not keep up, and were snatched back to you over and over. Now, while you are in the air, they follow out of sight, and the moment you land they are at your side ("your beasts catch up").'] },
     { v: '0.8.22', items: [
       'Size matters below ground. Every tamed beast is small, large or huge: small is anything up to a cave troll\'s build; large are ogres, golems, the great hounds and the like; huge are the great beasts of the lairs, the widows and wyrms of the deep woods. Caves, hideouts and grots let only the small in; dungeons, crypts and mines keep out the huge; the worlds beyond the gates take any.',
       'Beasts too big for a place wait at the way in (you are told who), and are with you again when you come out. Press O inside and smaller ones from your den come in their place. The Tamed beasts page shows each one\'s size, and which are too big for where you are.'
