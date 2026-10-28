@@ -166,6 +166,12 @@
     // couple of minutes; idle chatter (news, tips) gives way when the screen is
     // busy; never more than three at once, the important ones staying longest.
     TOAST_HIGH: new Set(['warn', 'boss', 'legend', 'mercy', 'crime', 'intel']),
+    // a hint that no longer applies (the cave you are now inside) goes, and so do its queued twins
+    dropToasts(re) {
+      if (!UI.toastsEl) return;
+      for (const c of UI.toastsEl.children) if (re.test(c.textContent) && !c.classList.contains('out')) { c.classList.add('out'); setTimeout(() => c.remove(), 700); }
+      if (UI._q) UI._q = UI._q.filter(q => !re.test(q.text));
+    },
     toast(text, kind = 'info', secs = 4) {
       if (!UI.toastsEl) return;
       const now = performance.now(), key = String(text).replace(/\d+/g, '#').slice(0, 80);

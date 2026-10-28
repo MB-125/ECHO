@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.29', items: [
+      'Never lost behind the scenery: a boulder, a tree crown or the corner of a house that stands between you and the camera now fades away in a soft circle around you (its shadow stays). Turn it off in Esc → Gameplay if you prefer.',
+      'Underground you carry a little light of your own, so you and your pack are never black shapes in a dark tunnel.',
+      'Cave and crypt floors are rough rock and worn flagstones now, not a chequered pattern; house floors lost their stripes too.',
+      'Entering a cave or crypt clears its "E to enter" note.'
+    ] },
     { v: '0.8.28', items: ['Set your own keys: menu (Esc) → Keys… lists every action with its key — click Change and press the key you want (if another action has it, the two swap), or reset them all. The controls card (F1) shows your keys.'] },
     { v: '0.8.27', items: [
       'New Gameplay settings in the menu (Esc): pause when you switch away from the game (on by default — click elsewhere and the world waits), screen shake (full, gentle or off), damage numbers (on or off), name tags in a fight (the nearest, or all), and the size of the interface (smaller, normal, larger, largest).',

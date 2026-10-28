@@ -210,6 +210,7 @@
         I.update(game, 0, true);
         ECHO.UI.fadeIn(350);
         ECHO.UI.banner(L.name, '', true);
+        if (ECHO.UI.dropToasts) ECHO.UI.dropToasts(/E to enter|\(E\)/);
         if (b.type === 'delve') ECHO.Quests.populate(game, L);
         if (b.type === 'gate') ECHO.GateWorld.populate(game, L);
         if (b.type === 'house' && !I.isMine(b, game.pl) && !b.legend) {

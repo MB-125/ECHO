@@ -111,7 +111,7 @@
       // the ground and everything built on it has a grain of its own
       R.detail(R.mat.terrain, 0.16, 1.3);
       R.groundDetail(R.mat.terrain);
-      R.detail(R.mat.prop, 0.12, 2.5);
+      R.detail(R.mat.prop, 0.12, 2.5, true);
       // See-through versions for buildings that stand between the camera and the player.
       R.mat.propFade = R.mat.prop.clone(); R.mat.propFade.transparent = true; R.mat.propFade.opacity = 0.28; R.mat.propFade.depthWrite = false;
       R.mat.windowFade = R.mat.window.clone(); R.mat.windowFade.transparent = true; R.mat.windowFade.opacity = 0.28; R.mat.windowFade.depthWrite = false;
@@ -186,12 +186,37 @@
     // itself (a few octaves of noise on the world position), so a stone square,
     // a meadow or a plastered wall is never one flat colour — and a little
     // variation in how rough it is, so the light catches it unevenly.
-    detail(mat, k, scale) {
+    // see-through: whatever stands between the camera and you (a boulder, a tree's crown,
+    // the corner of a house) is stippled away in a soft circle, so you are never lost
+    // behind it; the shadows it casts stay whole
+    cutU: null,
+    detail(mat, k, scale, seeThrough) {
       if (!mat || mat.userData.detail) return mat;
       mat.userData.detail = true;
-      const key = 'detail' + k + ':' + scale;
+      const cut = seeThrough && (R.cutU = R.cutU || { uCutP: { value: new THREE.Vector3() }, uCutC: { value: new THREE.Vector3() }, uCutR: { value: 0 } });
+      const key = 'detail' + k + ':' + scale + (cut ? ':cut' : '');
       mat.customProgramCacheKey = () => key;
       mat.onBeforeCompile = (sh) => {
+        if (cut) {
+          Object.assign(sh.uniforms, cut);
+          sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+          uniform vec3 uCutP; uniform vec3 uCutC; uniform float uCutR;
+          float cutBayer(vec2 p) { vec2 q = mod(floor(p), 4.0);
+            int i = int(q.x) + int(q.y) * 4;
+            float m[16]; m[0]=0.0;m[1]=8.0;m[2]=2.0;m[3]=10.0;m[4]=12.0;m[5]=4.0;m[6]=14.0;m[7]=6.0;m[8]=3.0;m[9]=11.0;m[10]=1.0;m[11]=9.0;m[12]=15.0;m[13]=7.0;m[14]=13.0;m[15]=5.0;
+            for (int k = 0; k < 16; k++) if (k == i) return (m[k] + 0.5) / 16.0;
+            return 0.5; }`)
+            .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+          if (uCutR > 0.0 && vDetailW.y > uCutP.y - 0.55) {
+            vec3 seg = uCutP - uCutC;
+            float t = dot(vDetailW - uCutC, seg) / dot(seg, seg);
+            if (t > 0.3 && t < 0.985) {
+              float d = length(vDetailW - (uCutC + seg * t));
+              float rad = uCutR * smoothstep(0.3, 0.8, t);
+              if (d < rad) { float a = d / rad; if (cutBayer(gl_FragCoord.xy) > a * a * 1.15 - 0.05) discard; }
+            }
+          }`);
+        }
         sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vDetailW;')
           .replace('#include <project_vertex>', `#include <project_vertex>
           vec4 dw = vec4(transformed, 1.0);
@@ -1065,17 +1090,28 @@
     // Rooms are built from their layout: a tiled floor, walls (the south wall
     // kept low so the camera can see in), windows that follow the daylight,
     // and Blender-built furniture.
+    // a real hash for tile colours: (x·a + y·b)·k mod 4 is only a diagonal stripe, which
+    // made every rough cave floor look laid with chequered tiles
+    tileH(x, y, n) {
+      let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263)) | 0;
+      h = Math.imul(h ^ (h >>> 13), 1274126177);
+      return ((h ^ (h >>> 16)) >>> 0) % n;
+    },
+    // slow patches of light and dark over a floor, so rock reads as rock and not as tiling
+    blotch(x, y) {
+      return 0.5 + 0.25 * Math.sin(x * 0.41 + Math.sin(y * 0.27) * 2.1) + 0.25 * Math.cos(y * 0.36 + Math.sin(x * 0.19) * 1.7);
+    },
     FLOORS: {
       wood: (x, y) => { const plank = (y * 3 + ((x + (y % 2) * 0.5) / 2.5 | 0)) * 7919 % 100 / 100; return ['#7a5634', '#6e4c2e', '#835c38', '#73512f'][(plank * 4) | 0]; },
-      stone: (x, y) => ['#6f6a62', '#77726a', '#68635c', '#7d776d'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4],
+      stone: (x, y) => ['#6f6a62', '#77726a', '#68635c', '#7d776d'][R.tileH(x, y, 4)],
       marble: (x, y) => ((x + y) % 2 ? '#d8d2c6' : '#bfb7a8'),
-      cave: (x, y) => ['#4a443c', '#524b42', '#453f37', '#5a5246'][((x * 37 + y * 11) * 2654435761 >>> 0) % 4],
-      crypt: (x, y) => ['#55524c', '#5d5a53', '#4e4b45', '#625e56'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4],
-      void: (x, y) => ['#2c2438', '#262032', '#302842', '#241e2e'][((x * 31 + y * 17) * 2654435761 >>> 0) % 4],
+      cave: (x, y) => ['#4a443c', '#524b42', '#453f37', '#5a5246'][R.tileH(x, y + 977, 4)],
+      crypt: (x, y) => ['#55524c', '#5d5a53', '#4e4b45', '#625e56'][R.tileH(x, y, 4)],
+      void: (x, y) => ['#2c2438', '#262032', '#302842', '#241e2e'][R.tileH(x, y, 4)],
       // the worlds beyond the gates
-      ember: (x, y) => ECHO.GateWorld.PAL.ember.floor[((x * 37 + y * 11) * 2654435761 >>> 0) % 4],
-      abyss: (x, y) => ECHO.GateWorld.PAL.abyss.floor[((x * 37 + y * 11) * 2654435761 >>> 0) % 4],
-      thorn: (x, y) => ECHO.GateWorld.PAL.thorn.floor[((x * 37 + y * 11) * 2654435761 >>> 0) % 4]
+      ember: (x, y) => ECHO.GateWorld.PAL.ember.floor[R.tileH(x, y + 977, 4)],
+      abyss: (x, y) => ECHO.GateWorld.PAL.abyss.floor[R.tileH(x, y + 977, 4)],
+      thorn: (x, y) => ECHO.GateWorld.PAL.thorn.floor[R.tileH(x, y + 977, 4)]
     },
     WALLS: { plaster: ['#cbb894', '#5a3e26'], stone: ['#7c766c', '#5a554e'], marble: ['#e0d9cc', '#a89e8c'], rock: ['#5a544a', '#3e3a33'], ember: ['#3a2a24', '#ff6a1a'], abyss: ['#2a4448', '#2ad8c8'], thorn: ['#2a1e30', '#9a4aff'], void: ['#1e1826', '#6a3ad0'] },
     // Many boxes as one mesh: a dungeon's walls in a single draw.
@@ -1104,12 +1140,17 @@
       let o = 0;
       const VOID = L.floor === 'void';
       const lord = VOID ? null : L.lordRoom, tre = VOID ? null : L.treasureRoom;
+      const roughBase = L.fcol ? null : new THREE.Color(R.FLOORS[L.floor](0, 0)).convertSRGBToLinear();
       for (const [x, y] of quads) {
         const inR = r => r && x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1;
         tmp.set(L.fcol ? L.fcol[y * W + x] : inR(lord) ? R.FLOORS[L.floor === 'cave' ? 'stone' : 'marble'](x, y) : inR(tre) ? R.FLOORS.stone(x, y) : R.FLOORS[L.floor](x, y)).convertSRGBToLinear();
-        const j = L.fcol ? 0.97 + ((x * 13 + y * 7) % 3) * 0.02 : 0.94 + ((x * 13 + y * 7) % 5) * 0.03;
+        const rough = !L.fcol && !inR(lord) && !inR(tre) && L.floor !== 'marble' && L.floor !== 'wood';
+        if (rough) tmp.lerp(roughBase, 0.45);
+        const j = L.fcol ? 0.97 + R.tileH(x, y, 3) * 0.02 : rough ? 1 : 0.94 + R.tileH(x + 5, y, 5) * 0.03;
         const X = B + x;
-        for (const [qx, qy] of [[X, y], [X, y + 1], [X + 1, y], [X + 1, y], [X, y + 1], [X + 1, y + 1]]) { pos[o] = qx; pos[o + 1] = 0; pos[o + 2] = qy; col[o] = tmp.r * j; col[o + 1] = tmp.g * j; col[o + 2] = tmp.b * j; o += 3; }
+        // rough rock is shaded at the corners (shared with the neighbours), so it runs in
+        // soft patches instead of a grid of squares
+        for (const [qx, qy] of [[X, y], [X, y + 1], [X + 1, y], [X + 1, y], [X, y + 1], [X + 1, y + 1]]) { const k = rough ? j * (0.9 + R.tileH(qx - B, qy, 7) * 0.025) * (0.82 + 0.32 * R.blotch(qx - B, qy)) : j; pos[o] = qx; pos[o + 1] = 0; pos[o + 2] = qy; col[o] = tmp.r * k; col[o + 1] = tmp.g * k; col[o + 2] = tmp.b * k; o += 3; }
       }
       const fg = new THREE.BufferGeometry();
       fg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); fg.setAttribute('color', new THREE.BufferAttribute(col, 3)); fg.computeVertexNormals();
@@ -1141,7 +1182,7 @@
         if (lq.length) {
           const lp = new Float32Array(lq.length * 18), lc = new Float32Array(lq.length * 18), c1 = C(L.pal.liquid), c2 = C(L.pal.liquid2);
           let k = 0;
-          for (const [x, y] of lq) { const t = ((x * 13 + y * 7) % 7) / 7, cc = c1.clone().lerp(c2, t * (L.theme === 'ember' ? 0.6 : 0.25)); for (const [qx, qy] of [[B + x, y], [B + x, y + 1], [B + x + 1, y], [B + x + 1, y], [B + x, y + 1], [B + x + 1, y + 1]]) { lp[k] = qx; lp[k + 1] = 0.02; lp[k + 2] = qy; lc[k] = cc.r; lc[k + 1] = cc.g; lc[k + 2] = cc.b; k += 3; } }
+          for (const [x, y] of lq) { const t = R.tileH(x, y + 31, 7) / 7, cc = c1.clone().lerp(c2, t * (L.theme === 'ember' ? 0.6 : 0.25)); for (const [qx, qy] of [[B + x, y], [B + x, y + 1], [B + x + 1, y], [B + x + 1, y], [B + x, y + 1], [B + x + 1, y + 1]]) { lp[k] = qx; lp[k + 1] = 0.02; lp[k + 2] = qy; lc[k] = cc.r; lc[k + 1] = cc.g; lc[k + 2] = cc.b; k += 3; } }
           const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(lp, 3)); lg.setAttribute('color', new THREE.BufferAttribute(lc, 3));
           const lm = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({ vertexColors: true })); lm.userData.own = true; g.add(lm);
           R.roomLiquid = lm;
@@ -1381,7 +1422,7 @@
       let o = 0;
       for (let y = 1; y < L.H - 1; y++) for (let x = 1; x < L.W - 1; x++) {
         tmp.set(R.FLOORS[L.floor](x, y)).convertSRGBToLinear();
-        const j = 0.94 + ((x * 13 + y * 7) % 5) * 0.03;
+        const j = 0.94 + R.tileH(x + 5, y, 5) * 0.03;
         const X = B + x, quad = [[X, y], [X, y + 1], [X + 1, y], [X + 1, y], [X, y + 1], [X + 1, y + 1]];
         for (const [qx, qy] of quad) { pos[o] = qx; pos[o + 1] = 0; pos[o + 2] = qy; col[o] = tmp.r * j; col[o + 1] = tmp.g * j; col[o + 2] = tmp.b * j; o += 3; }
       }
@@ -1538,6 +1579,12 @@
       const tgt = R.camTarget;
       const push = (x, y, r, a, color, h = 1.1) => cand.push({ x, y, r, a, color, h, d: (x - tgt.x) ** 2 + (y - tgt.z) ** 2 });
       for (const l of L.lights) push(l.x, l.y, l.r, l.a, l.color, l.h);
+      // underground you carry a little light of your own: a warm glow at your shoulder, so
+      // you, your pack and the stones at your feet are never lost in the dark
+      if (L.cave && game.pe && !game.pe.dead) {
+        const pe = game.pe, cd = (pe.x - tgt.x) ** 2 + (pe.y - tgt.z) ** 2;
+        cand.push({ x: pe.x - 0.3, y: pe.y - 0.4, r: 4.6, a: 0.75, color: '#ffcf96', h: 2.3, d: Math.min(cd, -1) });
+      }
       for (const w of R.roomWindows || []) if (dl > 0.2) push(w.x, w.y, 4, 0.7 * dl, '#cfe0ff', 1.6);
       for (const Lg of (game._updLights || game.lights || [])) push(Lg.x, Lg.y, Lg.r, Lg.a, Lg.color, 1.3);
       for (const p of ECHO.Combat.proj) { if (p.kind === 'fire') push(p.x, p.y, 3.5 + p.radius, 1.4, '#ff9a3c', 0.6); else if (p.kind === 'orb') push(p.x, p.y, 2.5, 1, p.color || '#b48aff', 0.6); }
@@ -3833,6 +3880,7 @@
       R.renderer.shadowMap.autoUpdate = false;
       const fastNow = (R.camSpeed || 0) > 4.5 || (game.pe && (game.pe.alt || 0) > 0.5);
       R.renderer.shadowMap.needsUpdate = room ? true : R.sunDark ? ((R.frameNo || 0) % 30) === 0 : (every <= 1 || fastNow || ((R.frameNo || 0) % every) === 0);
+      R.updateCut(game, dt);
       if (ECHO.Post && ECHO.Post.R) ECHO.Post.render(game, dt); else R.renderer.render(R.scene, R.camera);
       R.drawOverlay(game);
     },
@@ -3844,6 +3892,16 @@
       const want = U.clamp(((pe.alt || 0) - 8) * 0.035, 0, 0.5) + Math.min(0.3, (F.v || 0) * 0.011);
       R._fz = (R._fz || 0) + (want - (R._fz || 0)) * 0.03;
       return R._fz;
+    },
+    updateCut(game, dt) {
+      const U2 = R.cutU, pe = game.pe;
+      if (!U2) return;
+      const want = !pe || pe.dead || (pe.alt || 0) > 1.5 || (ECHO.UI.settings && ECHO.UI.settings.seeThrough === 'off') ? 0 : 1.55;
+      U2.uCutR.value += (want - U2.uCutR.value) * Math.min(1, (dt || 0.016) * 6);
+      if (U2.uCutR.value < 0.02) U2.uCutR.value = 0;
+      if (!pe) return;
+      U2.uCutP.value.set(pe.x, R.groundH(pe.x, pe.y) + 0.95 + (pe.alt || 0), pe.y);
+      U2.uCutC.value.copy(R.camera.position);
     },
     // Buildings just south of the player (between player and camera) turn see-through.
     updateOcclusion(game) {

@@ -302,6 +302,7 @@
           <div class="row"><span style="min-width:190px">Pause when you switch away</span>${opt('autoPause', 'on', 'On', 'on')}${opt('autoPause', 'off', 'Off', 'on')}</div>
           <div class="row"><span style="min-width:190px">Screen shake</span>${opt('shake', 'full', 'Full', 'full')}${opt('shake', 'gentle', 'Gentle', 'full')}${opt('shake', 'off', 'Off', 'full')}</div>
           <div class="row"><span style="min-width:190px">Damage numbers</span>${opt('dmgNums', 'on', 'On', 'on')}${opt('dmgNums', 'off', 'Off', 'on')}</div>
+          <div class="row"><span style="min-width:190px">See through what hides you</span>${opt('seeThrough', 'on', 'On', 'on')}${opt('seeThrough', 'off', 'Off', 'on')}</div>
           <div class="row"><span style="min-width:190px">Name tags in a fight</span>${opt('labels', 'compact', 'The nearest', 'compact')}${opt('labels', 'all', 'All', 'compact')}</div>
           <div class="row"><span style="min-width:190px">Interface size</span>${opt('uiz', '0.9', 'Smaller', '1')}${opt('uiz', '1', 'Normal', '1')}${opt('uiz', '1.15', 'Larger', '1')}${opt('uiz', '1.3', 'Largest', '1')}</div></div>`; })()}
         <div class="card"><h4>View distance</h4><div class="row"><button class="small" data-z="-1">Closer</button><button class="small" data-z="1">Farther</button><span class="dim">${UI.settings.zoom}</span></div></div>
