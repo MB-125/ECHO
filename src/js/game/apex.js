@@ -306,7 +306,7 @@
     // who its arts can land on: you and your side — or, for your own beast, its foes
     targetsOf(g, e) {
       const pe = g.pe;
-      return g.ents.filter(o => !o.dead && !o.hidden && o !== e && (o.alt || 0) < 1.5 && (e.tamed ? (g.hostileTo(pe, o) && o.type !== 'person') || (o.type === 'boss' && !o.tamed) || o.foe : (o === pe || o.isCompanion || o.tamed || o.mentor || (o.type === 'person' && g.hostileTo(e, o)))));
+      return g.ents.filter(o => !o.dead && !o.hidden && o !== e && (o.alt || 0) < 1.5 && (e.tamed ? !o.pal && !o.tamed && !o.isCompanion && o !== pe && ((g.hostileTo(pe, o) && o.type !== 'person') || (o.type === 'boss' && !o.tamed) || o.foe) : (o === pe || o.isCompanion || o.tamed || o.mentor || (o.type === 'person' && g.hostileTo(e, o)))));
     },
     hurt(g, e, o, mult, op = {}) {
       const el = ELEM[e.elem] || ELEM.earth, pl = g.pl;
@@ -1317,7 +1317,7 @@
       e.atk = null; e.altGoal = 0;
       ECHO.PlayerCtl.unlock && ECHO.PlayerCtl.unlock(game, false);
       ECHO.Combat.ring(pe.x, pe.y, 3, 'rgba(230,230,255,0.7)', 0.6);
-      if (!A.told.fly) { A.told.fly = true; UI().toast(`You are on ${t.name}'s back. WASD to steer, Shift to fly fast (hold it and it rides the wind), Space to climb, Ctrl to go lower, V to come down over open ground (V again to drop straight down). Nothing on the ground can reach you up here.`, 'legend', 9); }
+      if (!A.told.fly) { A.told.fly = true; UI().toast(`You are on ${t.name}'s back. WASD to steer, Shift to fly fast (hold it and it rides the wind), Space to climb, Ctrl to go lower, V to come down over open ground (V again to drop straight down). Fight from up here: LMB breathes along the ground toward your mark, RMB rains it down round the mark, Q dives on the mark, F looses its own art (R marks a foe for all of it). Nothing on the ground can reach you up here.`, 'legend', 9); }
     },
     land(game, force) {
       const F = A.fly, pe = game.pe, world = game.world;
@@ -1348,6 +1348,68 @@
       for (let i = 0; i < 18; i++) { const a = Math.random() * 6.28; ECHO.Combat.fx.push({ kind: 'smoke', x: sp.x + Math.cos(a) * 1.5, y: sp.y + Math.sin(a) * 1.2, vx: Math.cos(a) * 2.5, vy: 0, t: 0, life: 1.2 + Math.random(), size: 3, sh: 0.3 }); }
       game.checkPlace();
     },
+    // ------------------------------------------------------------ fighting from the sky
+    // From your dragon's back: LMB breathes its element along the ground toward your mark,
+    // RMB rains it down round the mark, Q dives on the mark and slams it, F looses its own art (R marks a foe).
+    AIR: { breath: { cd: 0.9 }, rain: { cd: 3.2 }, dive: { cd: 6 }, art: { cd: 10 } },
+    airCd: {},
+    airMark(game) {
+      const pe = game.pe, m = game.screenToWorld(ECHO.Input.mx, ECHO.Input.my), L = ECHO.PlayerCtl.lock;
+      if (L && !L.dead) return { x: L.x, y: L.y };
+      const a = Math.atan2(m.y - pe.y, m.x - pe.x), d = U.clamp(U.dist(m.x, m.y, pe.x, pe.y), 2, 16);
+      return { x: pe.x + Math.cos(a) * d, y: pe.y + Math.sin(a) * d };
+    },
+    airReady(game, k) { return !((A.airCd[k] || 0) > game.time); },
+    airTick(game, dt) {
+      const pl = game.pl, F = A.fly, In = ECHO.Input;
+      if (!F || F.phase !== 'fly' || game.ui.blocksWorld()) return;
+      const e = A.entOf(game, pl.flying), t = e && Ti().byId(game.world, e.titan);
+      if (!e || !t) return;
+      e.castId = e.castId || 1;
+      const go = (k, fn) => { if (!A.airReady(game, k)) return; A.airCd[k] = game.time + A.AIR[k].cd; fn(); };
+      if (In.mdown[0]) go('breath', () => A.airBreath(game, e));
+      if (In.mpressed[2]) go('rain', () => A.airRain(game, e));
+      if (In.hit('q') && !F.dive) go('dive', () => { const m = A.airMark(game); F.dive = { x: m.x, y: m.y, t: 0, e }; });
+      if (In.hit('f')) {
+        const S = SIG[t.sp], art = S && S.arts.find(a => a.tamed);
+        if (!art) return;
+        if (!A.airReady(game, 'art')) return ECHO.Combat.floater(game.pe.x, game.pe.y - 2.2, `${art.name}: ${Math.ceil(A.airCd.art - game.time)} s`, '#c8c0b0');
+        A.airCd.art = game.time + Math.max(A.AIR.art.cd, art.cd * 0.8);
+        const m = A.airMark(game), tg = { x: m.x, y: m.y, dead: false, hp: 1, r: 0.5 };
+        try { art.use(game, e, t, tg); } catch (err) { console.error(err); }
+        A.shout(e, art.name, (ELEM[e.elem] || ELEM.earth).col);
+      }
+    },
+    airBreath(game, e) {
+      const pe = game.pe, m = A.airMark(game), a = Math.atan2(m.y - pe.y, m.x - pe.x), el = ELEM[e.elem] || ELEM.earth;
+      // from the ground under you to past your mark
+      A.line(game, e, pe.x + Math.cos(a) * 0.6, pe.y + Math.sin(a) * 0.6, a, Math.min(14, U.dist(pe.x, pe.y, m.x, m.y) + 4), 2.4, 0.3, 0.9, { col: el.tele });
+      for (let i = 0; i < 18; i++) { const s = Math.random() * 6; ECHO.Combat.fx.push({ kind: 'p', x: pe.x + Math.cos(a) * s, y: pe.y + Math.sin(a) * s - (pe.alt || 0) * (1 - s / 7), vx: Math.cos(a) * 4, vy: 3, t: 0, life: 0.45, color: el.col, size: 3 }); }
+      if (ECHO.Sfx) ECHO.Sfx.play('fireRelease', { pitch: 0.7 });
+    },
+    airRain(game, e) {
+      const m = A.airMark(game);
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * Math.PI * 2 + Math.random(), r = i ? 1.6 + Math.random() * 2 : 0;
+        A.blast(game, e, m.x + Math.cos(a) * r, m.y + Math.sin(a) * r, 1.7, 0.45 + i * 0.12, 0.85, { fall: true });
+      }
+      A.shout(e, 'rains down', (ELEM[e.elem] || ELEM.earth).col);
+    },
+    diveStrike(game, D) {
+      const e = D.e, pe = game.pe;
+      if (!e || e.dead) { A.fly.dive = null; return; }
+      D.struck = true; D.st = D.t;
+      A.blast(game, e, pe.x, pe.y, 3.6, 0.05, 2.2, { knock: 1.2, stagger: true });
+      game.shake(0.7); if (game.hitStop) game.hitStop(0.08);
+      for (let i = 0; i < 20; i++) { const a = Math.random() * 6.28; ECHO.Combat.fx.push({ kind: 'smoke', x: pe.x + Math.cos(a) * 1.8, y: pe.y + Math.sin(a) * 1.4, vx: Math.cos(a) * 4, vy: 0, t: 0, life: 1, size: 3, sh: 0.3 }); }
+    },
+    // what you can do up here, and when (for the foot of the screen)
+    airHud(game) {
+      const pl = game.pl; if (!pl.flying || !A.fly) return '';
+      const e = A.entOf(game, pl.flying), t = e && Ti().byId(game.world, e.titan), S = t && SIG[t.sp], art = S && S.arts.find(a => a.tamed);
+      const k = (lbl, key) => { const left = Math.max(0, (A.airCd[key] || 0) - game.time); return `<span style="color:${left > 0 ? '#7a7a8a' : '#ffcf8a'}">${lbl}${left > 0 ? ' ' + Math.ceil(left) + 's' : ''}</span>`; };
+      return k('LMB breath', 'breath') + k('RMB rain', 'rain') + k('Q dive', 'dive') + (art ? k('F ' + art.name, 'art') : '');
+    },
     // Flying, every frame (instead of walking). The dragon has weight: it banks
     // into its turns and carries its speed through them, climbs at the cost of
     // speed and gathers speed in a dive, glides when you let it, and keeps its
@@ -1370,6 +1432,17 @@
         }
       } else if (F.phase === 'landing') {
         wantH = 0; thrust = 0;
+      } else if (F.dive) {
+        // a dive: down on the mark, and up again
+        const D = F.dive; D.t += dt;
+        const dd = U.dist(pe.x, pe.y, D.x, D.y);
+        wantH = D.struck ? F.h : 0.8; thrust = 1;
+        if (!D.struck) {
+          F.dir = U.lerpAngle ? U.lerpAngle(F.dir, Math.atan2(D.y - pe.y, D.x - pe.x), Math.min(1, dt * 10)) : Math.atan2(D.y - pe.y, D.x - pe.x);
+          F.v = Math.min(34, dd * 3.5 + 3);   // fast in, checking as it comes over the mark
+          const low = F.z - A.gnd(pe.x, pe.y);
+          if ((low < 2.2 && dd < 2.2) || D.t > 1.8) A.diveStrike(game, D);
+        } else if (D.t > D.st + 0.9) F.dive = null;
       } else {
         // height: Space climbs, Ctrl goes lower
         if (In.key(' ')) F.h = Math.min(C.hMax, F.h + C.climb * dt);
@@ -1435,9 +1508,9 @@
         if (dl > 1.6) zT = Math.max(zT, g0 + 2.2, roof);           // (still on its way to the clearing)
         else if (!F.landAt && roof > g0 + 1.2 && !(ride && A.bodyAny(world, ride, pe.x, pe.y))) zT = Math.max(zT, roof);   // (over the clearing it found, it comes straight down)
       } else zT = Math.max(zT, roof);
-      const vzMax = F.phase === 'landing' ? 15 : 13;
+      const vzMax = F.phase === 'landing' || (F.dive && !F.dive.struck) ? 18 : 13;
       // coming down it drops hard and true; flying it rides the height smoothly
-      if (F.phase === 'landing') F.vz += U.clamp((zT - F.z) * 5 - F.vz * 3.2, -30, 30) * dt;
+      if (F.phase === 'landing' || (F.dive && !F.dive.struck)) F.vz += U.clamp((zT - F.z) * (F.dive ? 7 : 5) - F.vz * 3.2, -40, 30) * dt;
       else F.vz += U.clamp((zT - F.z) * 3 - F.vz * 2.5, -22, 22) * dt;
       F.vz = U.clamp(F.vz, -vzMax, vzMax);
       F.z += F.vz * dt;

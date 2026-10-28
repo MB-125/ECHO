@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.25', items: [
+      'Fight from the sky. On your dragon\'s back: hold the left mouse button and it breathes its element in a line along the ground toward your mark; the right button rains it down round the mark; Q sends it diving on the mark — it swoops down, slams the ground and climbs again; F looses its own great art (a wall of fire, a blizzard, chain lightning, a sunbeam… by its kind). Lock on (R) to a foe and all of it goes there. Your relics (Z, X, C) work up there too. The foot of the screen shows what is ready.',
+      'Fixed: your own dragon\'s attacks no longer strike your tamed beasts.'
+    ] },
     { v: '0.8.24', items: ['Monsters, beasts and your tamed pack no longer pass through one another. Each takes up as much room as it is drawn (a great ogre is as wide as it looks), walks round the others instead of into them, is stopped by the bodies behind it when it is thrown back or charges, and the bigger shoulders the smaller aside. Bodies that end up on top of one another are pushed apart at once.'] },
     { v: '0.8.23', items: ['Fixed: while you flew on your dragon, your tamed beasts below kept vanishing and reappearing — they could not keep up, and were snatched back to you over and over. Now, while you are in the air, they follow out of sight, and the moment you land they are at your side ("your beasts catch up").'] },
     { v: '0.8.22', items: [

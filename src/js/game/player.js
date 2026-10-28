@@ -87,7 +87,7 @@
       // sitting: any step gets you up; until then you stay put
       if (pe.seated) { if (len && ECHO.Home) ECHO.Home.stand(game); else { mx = 0; my = 0; len = 0; } }
       // on a dragon's back: the sky instead of the road
-      if (pl.flying && ECHO.Apex) { ECHO.Apex.flyTick(game, dt, mx, my, len); if (In.hit('v')) ECHO.Apex.vKey(game); PC.sneaking = pe.sneaking = false; pe.blocking = false; pe.hp = pl.hp; return; }
+      if (pl.flying && ECHO.Apex) { ECHO.Apex.flyTick(game, dt, mx, my, len); if (pl.flying) ECHO.Apex.airTick(game, dt); if (ECHO.Arcana && !game.ui.blocksWorld()) ECHO.Arcana.KEYS.forEach((k, i) => { if (In.hit(k)) ECHO.Arcana.use(game, i, aim); }); if (In.hit('v')) ECHO.Apex.vKey(game); PC.sneaking = pe.sneaking = false; pe.blocking = false; pe.hp = pl.hp; return; }
 
       pe.blocking = !pl.mounted && In.key('Shift') && pl.stamina > 4 && PC.dodgeT <= 0 && !PC.drawing && !(pe.attackT > 0);
       if (In.hit('Shift')) { game.blockStart = game.time; if (ECHO.Wits && !pl.mounted) ECHO.Wits.note(game, 'block'); }

@@ -140,7 +140,8 @@
       const pl = game.pl, pe = game.pe, world = game.world, C = ECHO.Combat;
       const id = A.slots(pl)[slot], it = id && world.items[id];
       if (!it || it.kind !== 'relic' || !RELICS[it.relic]) { C.floater(pe.x, pe.y - 1.2, `no relic on ${KEYS[slot].toUpperCase()}`, '#c8c0b0'); if (!pl.tips || !pl.tips.relic0) { pl.tips = pl.tips || {}; pl.tips.relic0 = 1; game.ui.toast('Z, X and C wake magical relics — rods, rings, amulets and the like — worn from your character page (K). Find them on what you kill, or buy them from the arcanist at a market.', 'study', 7); } return false; }
-      if (pl.flying || pe.swimming) return false;
+      if (pe.swimming) return false;
+      if (pl.flying && it.relic === 'blink') return false;   // (no stepping through the air from a dragon's back)
       const D = RELICS[it.relic];
       const left = (A.cd[id] || 0) - game.time;
       if (left > 0) { C.floater(pe.x, pe.y - 1.2, `${D.what}: ${left.toFixed(1)} s`, '#c8c0b0'); return false; }

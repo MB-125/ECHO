@@ -360,7 +360,7 @@ A see-through controls card sits on the left of the screen (folded away at first
 | **2–0** | might, stoneskin, fireward, mending tonic, purging tincture, second-wind cordial, heartroot elixir, bloodwine, phoenix tears |
 | **Z · X · C** | wake the relics you wear (each spends mana and rests a few seconds) |
 | **L** | how you fight what could be tamed: *last breath* (default — what you strike down kneels 12 seconds, warned; press E near it and it is yours, every time; strike again or wait and it dies), *leash* (it kneels 25 seconds and nothing you do hurts it) or *to the kill* |
-| **V** | mount or dismount your horse; from further off, whistle for it. Beside a dragon you have bound: climb on and fly (V again to come down — and once more to drop straight down). Shift flies fast; hold it and the dragon rides the wind |
+| **V** | mount or dismount your horse; from further off, whistle for it. Beside a dragon you have bound: climb on and fly (V again to come down — and once more to drop straight down). Shift flies fast; hold it and the dragon rides the wind. From the air: LMB breath along the ground, RMB rain of its element, Q dive and slam, F its own art (R marks a foe) |
 | **Y** | switch animal: each press calls the next of your animals — your horse, then each of your beasts in turn — and sends the one with you away (a resting beast is skipped) |
 | **O** | call your pack: your strongest rested tamed beasts come to your side (up to five), trading up for weaker ones already with you |
 | **U** | your animals: your beasts, your horse and your dog — where they are, how they are, and buttons to call them, send them away or home (also Journal → Animals) |
