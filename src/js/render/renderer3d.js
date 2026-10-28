@@ -538,7 +538,10 @@
             float dk = smoothstep(0.0, 0.5, vDepth);
             vec3 shallowC = vec3(0.16, 0.42, 0.46), deepC = vec3(0.04, 0.14, 0.26);
             diffuseColor.rgb = mix(shallowC, deepC, dk);
-            float foam = (1.0 - smoothstep(0.0, 0.07, vDepth)) * (0.55 + 0.45 * sin(uTime * 1.7 + vP.x * 2.1 + vP.y * 1.7));
+            // surf: a white lip where water meets land, and thin lines of foam rolling in over the shallows
+            float lip = (1.0 - smoothstep(0.0, 0.13, vDepth)) * (0.6 + 0.4 * sin(uTime * 1.7 + vP.x * 2.1 + vP.y * 1.7));
+            float roll = (1.0 - smoothstep(0.04, 0.22, vDepth)) * smoothstep(0.82, 0.99, sin(vDepth * 36.0 - uTime * 2.3 + sin(vP.x * 0.8 + vP.y * 0.6) * 1.6));
+            float foam = (lip + roll * 0.38) * (1.0 - min(1.0, uIce));
             diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85, 0.92, 0.94), clamp(foam, 0.0, 1.0) * 0.75);
             diffuseColor.a = mix(0.45, 0.92, dk) + foam * 0.3;
             // winter ice: the shallows (or, in a bitter cold, everything) frozen white-blue, with cracks
@@ -2709,7 +2712,8 @@
         // silhouette only when trees stand between the camera and the player
         if (v.ghostMat) {
           let hid = false;
-          if (!ECHO.Interior.cur) for (let dy = 0; dy <= 2 && !hid; dy++) for (let dx = -1; dx <= 1; dx++) if (ECHO.World.tile(game.world, e.x + dx, e.y + dy + 0.3) === TILE.TREE) { hid = true; break; }
+          // (with the see-through circle on, the trees open up around you instead: no wash of ghost-light over you)
+          if (!ECHO.Interior.cur && !(R.cutU && R.cutU.uCutR.value > 0.5)) for (let dy = 0; dy <= 2 && !hid; dy++) for (let dx = -1; dx <= 1; dx++) if (ECHO.World.tile(game.world, e.x + dx, e.y + dy + 0.3) === TILE.TREE) { hid = true; break; }
           const want = hid ? 0.4 : 0;
           v.ghostMat.opacity += (want - v.ghostMat.opacity) * Math.min(1, dt * 10);
           v.ghostMat.visible = v.ghostMat.opacity > 0.02;

@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.31', items: [
+      'Surf: a white lip of foam where water meets the shore, and thin lines of it rolling in over the shallows.',
+      'A small "World kept" note shows in the corner whenever the game saves (every minute, each new day, and when you leave) — and says so plainly if your browser refused to save.',
+      'In the woods you are no longer washed pale blue-white: the trees open up around you instead.',
+      'The journal always lights the page you are on.'
+    ] },
     { v: '0.8.30', items: [
       'Choose your challenge: Esc → Gameplay → Story (foes hit half as hard and fall sooner), Balanced, or Hard. Change it whenever you like; your world and progress are untouched.',
       'Spoils lying in a heap are one tidy list over it — the best thing first, the rest summed up ("and 3 more") — instead of labels written over each other.',

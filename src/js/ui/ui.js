@@ -166,6 +166,13 @@
     // couple of minutes; idle chatter (news, tips) gives way when the screen is
     // busy; never more than three at once, the important ones staying longest.
     TOAST_HIGH: new Set(['warn', 'boss', 'legend', 'mercy', 'crime', 'intel']),
+    savedMark(ok) {
+      const el = document.getElementById('save-mark');
+      if (!el || UI.screenOpen) return;
+      el.textContent = ok ? '✎ World kept' : '⚠ Not saved';
+      el.className = 'show' + (ok ? '' : ' bad');
+      clearTimeout(UI._smT); UI._smT = setTimeout(() => { el.className = ''; }, ok ? 1600 : 5000);
+    },
     // a hint that no longer applies (the cave you are now inside) goes, and so do its queued twins
     dropToasts(re) {
       if (!UI.toastsEl) return;
@@ -1600,6 +1607,7 @@
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
         const tabs = [['guide', 'Guide'], ['nearby', 'Nearby'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['animals', 'Animals'], ['tamed', `Tamed beasts${ECHO.Tame && ECHO.Tame.pack(pl).length ? ' (' + ECHO.Tame.pack(pl).length + ')' : ''}`], ['powers', 'Rising powers'], ['guard', 'The Guard'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
+        if (!tabs.some(t => t[0] === tab)) tab = tab === 'quests' ? 'tasks' : 'guide';   // (an old name for a page: the nearest one, lit)
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'animals') html += ECHO.Apex ? ECHO.Apex.animalsHtml(game) : '';
         else if (tab === 'tamed') html += ECHO.Tame ? ECHO.Tame.page(game) : '';

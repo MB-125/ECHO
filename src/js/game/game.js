@@ -214,7 +214,14 @@
       Game.save();
     },
 
-    save() { if (Game.world) { Game.world.lastSeen = Date.now(); return ECHO.Save.save(Game.world); } },
+    save() {
+      if (!Game.world) return;
+      Game.world.lastSeen = Date.now();
+      const r = ECHO.Save.save(Game.world);
+      // a quiet quill in the corner says it is kept (and says so plainly when it is not)
+      if (r && r.then && ECHO.UI.savedMark) r.then(ok => ECHO.UI.savedMark(ok !== false), () => ECHO.UI.savedMark(false));
+      return r;
+    },
 
     // ------------------------------------------------------------ Fast forward
     // The world keeps living while the player rests, waits or is imprisoned.
