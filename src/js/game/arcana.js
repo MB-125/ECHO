@@ -18,7 +18,7 @@
   const RELICS = {
     storm: { name: 'Stormcaller', icon: '⚡', color: '#9fd8ff', mana: 28, cd: 6, bases: ['rod', 'wand', 'sceptre'], what: 'Chain lightning', desc: p => `Lightning leaps from the foe you aim at to up to three more near it, for ${p} each.` },
     frost: { name: 'Rimeheart', icon: '❄', color: '#bfefff', mana: 24, cd: 9, bases: ['ring', 'band', 'signet'], what: 'Frost nova', desc: p => `A burst of killing cold around you: ${Math.round(p * 0.7)} to everything near, and they freeze where they stand for two seconds.` },
-    aegis: { name: 'Aegis', icon: '🛡', color: '#ffe08a', mana: 30, cd: 18, bases: ['amulet', 'locket', 'talisman'], what: 'Arcane barrier', desc: p => `A shell of light that takes the next ${p * 3} of harm meant for you, for ten seconds.` },
+    aegis: { name: 'Aegis', icon: '🛡', color: '#ffe08a', mana: 30, cd: 18, bases: ['amulet', 'locket', 'talisman'], what: 'Arcane barrier', desc: p => `A shell of light that takes the next ${Math.min(p * 3, Math.round(((ECHO.Game && ECHO.Game.pl) || {}).maxHp * 0.9) || p * 3)} of harm meant for you, for ten seconds.` },
     blink: { name: 'Wayfarer', icon: '➶', color: '#c8a8ff', mana: 16, cd: 3, bases: ['boots', 'sandals', 'greaves'], what: 'Blink', desc: () => 'Step through the air six paces the way you aim — out of a ring of foes, over a gap — and nothing touches you in the step.' },
     bloom: { name: 'Lifebloom', icon: '❀', color: '#9fffb0', mana: 34, cd: 20, bases: ['pendant', 'charm', 'brooch'], what: 'Healing bloom', desc: () => 'Over four seconds, more than a third of your life grows back; fire and poison are washed off you.' },
     blades: { name: 'Spectral', icon: '✦', color: '#d8c8ff', mana: 36, cd: 16, bases: ['orb', 'prism', 'shard'], what: 'Spectral blades', desc: p => `Three ghostly blades circle you for ten seconds and cut whatever comes close, for ${Math.round(p * 0.35)} twice a second.` },
@@ -45,7 +45,9 @@
     slots(pl) { if (!Array.isArray(pl.relics)) pl.relics = [null, null, null]; while (pl.relics.length < 3) pl.relics.push(null); return pl.relics; },
     worn(pl, id) { return !!id && Array.isArray(pl.relics) && pl.relics.includes(id); },
     line(it) { const D = RELICS[it.relic]; return D ? `${D.what} · ${D.mana} mana · rests ${D.cd} s · power ${it.power}` : 'relic'; },
-    descOf(it) { const D = RELICS[it.relic]; return D ? D.desc(it.power) : ''; },
+    // what it does in your hands now (your strength behind it)
+    eff(p) { const pl = ECHO.Game && ECHO.Game.pl; return Math.round(p * (pl && ECHO.Prowess ? ECHO.Prowess.dmgMult(pl) : 1)); },
+    descOf(it) { const D = RELICS[it.relic]; return D ? D.desc(A.eff(it.power)) : ''; },
     value(it) { const R = ECHO.Gear.rarity(it.rarity); return Math.round((it.power || 10) * 2.6 * R.mult * R.mult + 30); },
     // put on in the first free slot (or the given one)
     wear(pl, id, slot) {
@@ -60,7 +62,7 @@
     onTake(pl, it) { if (it.kind === 'relic' && A.slots(pl).indexOf(null) >= 0) { A.wear(pl, it.id); return true; } return false; },
 
     // ------------------------------------------------------------ the well of mana
-    bonus(pl) { const a = pl.arc; if (!a) return 0; return Math.floor(1.6 * Math.sqrt(a.used || 0) + 1.2 * Math.sqrt(a.fight || 0)); },
+    bonus(pl) { const a = pl.arc; if (!a) return 0; return Math.min(300, Math.floor(1.6 * Math.sqrt(a.used || 0) + 1.2 * Math.sqrt(a.fight || 0))); },   // (deep, but not bottomless)
     regenBonus(pl) { return A.bonus(pl) * 0.015; },
     // what was spent since the last look (called before the mana comes back each frame)
     measure(game) {
@@ -146,7 +148,7 @@
       const left = (A.cd[id] || 0) - game.time;
       if (left > 0) { C.floater(pe.x, pe.y - 1.2, `${D.what}: ${left.toFixed(1)} s`, '#c8c0b0'); return false; }
       if (pl.mana < D.mana) { C.floater(pe.x, pe.y - 1.2, `not enough mana (${D.mana})`, '#8fb8ff'); return false; }
-      const P = it.power * (0.85 + (pl.skills.flame || 0) / 120) * (pl.buffs && pl.buffs.might > 0 ? 1.33 : 1);
+      const P = it.power * (0.85 + (pl.skills.flame || 0) / 120) * (pl.buffs && pl.buffs.might > 0 ? 1.33 : 1) * (ECHO.Prowess ? ECHO.Prowess.dmgMult(pl) : 1);   // (your strength behind it, as behind your blade)
       const ok = A[it.relic](game, P, aim, it);
       if (ok === false) return false;
       pl.mana -= D.mana; pe.mana = pl.mana;
@@ -189,7 +191,7 @@
     big(e) { return e.type === 'boss' || e.boss2 || e.lord; },
     aegis(game, P) {
       const pl = game.pl, pe = game.pe;
-      pl._barrier = Math.round(P * 3); pl._barrierT = 10;
+      pl._barrier = Math.round(Math.min(P * 3, pl.maxHp * 0.9)); pl._barrierT = 10;
       ECHO.Combat.ring(pe.x, pe.y, 1.3, 'rgba(255,224,138,0.95)', 0.6); ECHO.Combat.burst(pe.x, pe.y, '#ffe08a', 18, 2, 0.6, 2);
       ECHO.Combat.floater(pe.x, pe.y - 1.4, `barrier · ${pl._barrier}`, '#ffe08a', true);
       if (ECHO.Sfx) ECHO.Sfx.play('heal', { pitch: 0.7 });
@@ -300,7 +302,7 @@
       const got = A.bought(world, pl, s);
       return `<h4 class="ware-h">The arcanist</h4><p class="dim">Relics that wake with your mana — worn three at a time and used with Z, X and C. New pieces every three days.</p><div class="wares">${A.stock(world, s, pl).map((o, i) => {
         const D = RELICS[o.k], R = ECHO.Gear.rarity(o.rarity), p = A.power(o.level, o.rarity), c = A.priceOf(o, am), sold = got.includes(i);
-        return `<div class="ware"><div class="ware-ic" style="color:${D.color}">${D.icon}</div><div class="ware-main"><div class="ware-top"><b style="color:${R.color}">${esc(R.name)} ${esc(D.name.toLowerCase())} ${esc(D.bases[0])}</b><span class="gold">${c} cr</span></div><div class="ware-use"><b style="color:${D.color}">${esc(D.what)}</b> — ${esc(D.desc(p))} <span class="dim">${D.mana} mana · rests ${D.cd} s.</span></div><div class="row"><button class="small" data-relic="${i}" ${sold || pl.gold < c ? 'disabled' : ''}>${sold ? 'Sold' : 'Buy'}</button></div></div></div>`;
+        return `<div class="ware"><div class="ware-ic" style="color:${D.color}">${D.icon}</div><div class="ware-main"><div class="ware-top"><b style="color:${R.color}">${esc(R.name)} ${esc(D.name.toLowerCase())} ${esc(D.bases[0])}</b><span class="gold">${c} cr</span></div><div class="ware-use"><b style="color:${D.color}">${esc(D.what)}</b> — ${esc(D.desc(A.eff(p)))} <span class="dim">${D.mana} mana · rests ${D.cd} s.</span></div><div class="row"><button class="small" data-relic="${i}" ${sold || pl.gold < c ? 'disabled' : ''}>${sold ? 'Sold' : 'Buy'}</button></div></div></div>`;
       }).join('')}</div>`;
     },
 

@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.26', items: [
+      'Smoother big fights: a crowd of monsters with your pack used to spend most of each frame working out routes it could not take; the same fight now runs about six times lighter, and towns and the deep woods are lighter too.',
+      'Clearer fights: your tamed beasts are named only when you look at one or it is hurt (with a small health bar), only the five nearest foes are labelled in a crowd (and whatever you look at or lock on to), your pack no longer shouts "a roar", and the strip of key hints at the foot of the screen steps aside once you reach level 5 (F1 still shows every key). The relics on the HUD are named in words.',
+      'Controls: C no longer makes you sneak (it wakes your third relic; Ctrl sneaks, and lowers your dragon). On a controller, hold LB and press X, Y or B to wake your relics, or A to call your pack; tap LB alone to lock on.',
+      'Balance: relics grow with your strength as your blade does, so one of your level stays worth carrying all the way up; the Aegis barrier is at most nine-tenths of your life; the mana you grow by use is deep but not bottomless (up to +300). A beaten beast rests 45 real seconds whatever the pace of the world.',
+      'Sturdier: a building with no inside can no longer be entered by mistake; tested end to end — towns, every page, taming, fights, relics, potions, every kind of dungeon, a gate\'s world, dragon flight, days passing, saving and loading — with no errors.'
+    ] },
     { v: '0.8.25', items: [
       'Fight from the sky. On your dragon\'s back: hold the left mouse button and it breathes its element in a line along the ground toward your mark; the right button rains it down round the mark; Q sends it diving on the mark — it swoops down, slams the ground and climbs again; F looses its own great art (a wall of fire, a blizzard, chain lightning, a sunbeam… by its kind). Lock on (R) to a foe and all of it goes there. Your relics (Z, X, C) work up there too. The foot of the screen shows what is ready.',
       'Fixed: your own dragon\'s attacks no longer strike your tamed beasts.'
