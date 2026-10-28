@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.27', items: [
+      'New Gameplay settings in the menu (Esc): pause when you switch away from the game (on by default — click elsewhere and the world waits), screen shake (full, gentle or off), damage numbers (on or off), name tags in a fight (the nearest, or all), and the size of the interface (smaller, normal, larger, largest).',
+      'In long sessions, coin and parts left lying far behind you are let go, so they no longer pile up (dropped gear stays in the world and is found again when you come back).',
+      'More of the game is checked automatically each build: tamed beasts\' sizes and the places they fit, the ways of taming, who your pack may fall on, relic strength, the limit to grown mana, and draught prices.'
+    ] },
     { v: '0.8.26', items: [
       'Smoother big fights: a crowd of monsters with your pack used to spend most of each frame working out routes it could not take; the same fight now runs about six times lighter, and towns and the deep woods are lighter too.',
       'Clearer fights: your tamed beasts are named only when you look at one or it is hurt (with a small health bar), only the five nearest foes are labelled in a crowd (and whatever you look at or lock on to), your pack no longer shouts "a roar", and the strip of key hints at the foot of the screen steps aside once you reach level 5 (F1 still shows every key). The relics on the HUD are named in words.',
