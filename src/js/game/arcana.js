@@ -75,8 +75,8 @@
       a.used = (a.used || 0) + used; a.fight = (a.fight || 0) + fight;
       const b1 = A.bonus(pl);
       if (b1 !== b0) ECHO.PlayerCtl.derivedT = 0;
-      if (b1 >= (a.shown || 0) + 5) {
-        a.shown = b1 - (b1 % 5);
+      if (b1 >= (a.shown || 0) + 5 && game.time - (A._growT || -99) > 4) {
+        a.shown = b1 - (b1 % 5); A._growT = game.time;
         const pe = game.pe;
         ECHO.Combat.floater(pe.x, pe.y - 1.9, `✦ your mana deepens · +${b1}`, '#8fb8ff', true);
         ECHO.Combat.burst(pe.x, pe.y, '#8fb8ff', 12, 2, 0.6, 2);
@@ -324,7 +324,7 @@
     hud(game) {
       const pl = game.pl, world = game.world, S = A.slots(pl);
       if (!S.some(Boolean)) return '';
-      return S.map((id, i) => { const it = id && world.items[id], D = it && RELICS[it.relic]; if (!D) return ''; const left = Math.max(0, (A.cd[id] || 0) - game.time); return `<span style="color:${left > 0 || pl.mana < D.mana ? '#7a7a8a' : D.color}">${KEYS[i].toUpperCase()}·${D.icon}${left > 0 ? ' ' + Math.ceil(left) + 's' : ''}</span>`; }).join('') + (pl._barrierT > 0 ? `<span style="color:#ffe08a">▣ ${Math.round(pl._barrier)}</span>` : '');
+      return S.map((id, i) => { const it = id && world.items[id], D = it && RELICS[it.relic]; if (!D) return ''; const left = Math.max(0, (A.cd[id] || 0) - game.time); return `<span style="color:${left > 0 || pl.mana < D.mana ? '#7a7a8a' : D.color}">${KEYS[i].toUpperCase()}·${it.relic}${left > 0 ? ' ' + Math.ceil(left) + 's' : ''}</span>`; }).join('') + (pl._barrierT > 0 ? `<span style="color:#ffe08a">▣ ${Math.round(pl._barrier)}</span>` : '');
     }
   };
 })();

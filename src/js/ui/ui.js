@@ -84,10 +84,13 @@
       const hide = UI.settings.hideHelp !== false;   // folded away unless you open it (F1); the tutorial teaches the basics
       $('#hud-help').classList.toggle('hidden', hide);
       $('#hud-help-tab').classList.toggle('hidden', !hide);
-      $('#hud-keys').classList.toggle('hidden', !hide);
+      // the strip of key hints along the foot is for the first steps; past level 5 it gets out of the way (F1 still shows every key)
+      $('#hud-keys').classList.toggle('hidden', !hide || !!UI._seasoned);
     },
     hud(game, dt) {
       const pl = game.pl, world = game.world;
+      const seasoned = !!(pl && ECHO.Prowess && ECHO.Prowess.level(pl) >= 5);
+      if (UI._seasoned !== seasoned) { UI._seasoned = seasoned; UI.applyHelp(); }
       const set = (sel, v) => { const el = $(sel); if (el && el.textContent !== v) el.textContent = v; };
       if (!UI.helpApplied) { UI.helpApplied = true; UI.applyHelp(); }
       const fighting = game.combatT != null && game.time - game.combatT < 4;

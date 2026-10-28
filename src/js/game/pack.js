@@ -351,7 +351,7 @@
           const col = (e.foe && (e.foe.em || e.foe.col)) || (e.boss && e.boss.belly) || '#ffe08a';
           C().ring(e.x, e.y, R0, 'rgba(255,224,138,0.9)', 0.5); C().burst(e.x, e.y, col, 26, 5, 0.7, 3); game.shake(0.15);
           for (const f of near) P.hit(game, e, f.o, 2, { knock: 0.6, stagger: 0.5, heavy: true });
-          e.say = e.pal && e.pal.lord ? 'Kneel.' : '*a roar*'; e.sayT = 1;
+          if (e.pal && e.pal.lord && Math.random() < 0.3) { e.say = 'Kneel.'; e.sayT = 1; }
           return true;
         }
       }

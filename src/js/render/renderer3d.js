@@ -3928,6 +3928,8 @@
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       const mouse = game.screenToWorld(ECHO.Input.mx, ECHO.Input.my);
       const placed = [];
+      // in a crowd, only the nearest few foes are named (and whatever you look at, lock on to, or must fear)
+      const pe0 = game.pe, nearFoes = new Set(game.ents.filter(o => !o.dead && !o.pal && !o.tamed && o.type !== 'person' && o !== pe0 && U.dist(o.x, o.y, pe0.x, pe0.y) < 9).sort((a, b) => U.dist(a.x, a.y, pe0.x, pe0.y) - U.dist(b.x, b.y, pe0.x, pe0.y)).slice(0, 5));
       // avoid: keep this text clear of the other labels and numbers already drawn this frame
       const text = (t, x, y, col, bg, avoid) => {
         if (!t) return;
@@ -3982,13 +3984,22 @@
           ctx.fillStyle = '#2a2420'; ctx.fillText(e.say, p.x, ty - 5 * R.dpr); }
           continue;
         }
+        // your own beasts: named only when you look at one, or it is hurt — the fight is not buried in labels
+        if (e.pal || (e.tamed && !e.titan)) {
+          const hurt = e.hp < e.maxHp * 0.5;
+          if (hover || hurt || e === ECHO.PlayerCtl.lock) {
+            text(e.pal ? e.pal.name : (e.label || 'yours'), p.x, ty, '#9fe08a', 'rgba(14,10,8,0.55)');
+            const bw = 40 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw, bh); ctx.fillStyle = hurt ? '#e0c060' : '#8fe08a'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw * U.clamp(e.hp / e.maxHp, 0, 1), bh);
+          }
+          continue;
+        }
         if (e.type === 'boss') { const lb = ECHO.Progress ? ECHO.Progress.label(game, e) : { text: e.label, color: '#ffcf8a' }; text(lb.text, p.x, ty, lb.color, 'rgba(14,10,8,0.66)', true); continue; }
         if (e.marvel) { if (e.label && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6) text(e.label, p.x, ty, '#bfe8ff'); continue; }
         if (e.yielded) { text('yields — [E] to spare', p.x, ty, '#9fe0c8'); continue; }
         if (e.sleeping && hover) { text('asleep', p.x, ty, '#9fb7d8'); continue; }
         const foeish = ECHO.Progress && (e.type === 'creature' || e.type === 'person') && e.species !== 'hare' && e.species !== 'gnawer' && e.species !== 'hind' && ECHO.Progress.counts(game, e);
         if (foeish) {
-          if (hover || e === ECHO.PlayerCtl.lock || e.boss2 || e.beast || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 9) {
+          if (hover || e === ECHO.PlayerCtl.lock || e.boss2 || e.beast || nearFoes.has(e) || (e.type === 'person' && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 9)) {
             const lb = ECHO.Progress.label(game, e);
             text(lb.text, p.x, ty, lb.color, 'rgba(14,10,8,0.66)', true);
             if (e.hp < e.maxHp && e.type === 'creature') { const bw = 44 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw, bh); ctx.fillStyle = e.boss2 ? '#ffcf5a' : '#e05a4a'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw * Math.max(0, e.hp / e.maxHp), bh); }
