@@ -137,6 +137,7 @@
       Game.pe.anim += dt * (Game.pe.moving ? 1 : 0.3);
       if (Game.pe.attackT) Game.pe.attackT = Math.max(0, Game.pe.attackT - dt);
       ECHO.Ent.separate(Game.ents, dt);
+      ECHO.Ent.pathBudget = 3;   // (route plans allowed in the next frame)
       for (const e of Game.ents) if (!e.dead || (e.deathT || 0) < 0.5) ECHO.Ent.applyPush(world, e);
       ECHO.Combat.updateProjectiles(dt);
       ECHO.Combat.updateBurning(dt);

@@ -208,7 +208,8 @@
       if (e._onPath) e._bear = 0;
       if (e._bear && d > 0.7) { const a = Math.atan2(dy, dx) + e._bear, L = Math.min(sp, d); mx = Math.cos(a) * L; my = Math.sin(a) * L; }
       // other bodies: it does not walk into them, it slides round them
-      if (e.type !== 'player' && !e.ghost && (e.aggro || e.pal || e.target)) { const v = Ent.slideBodies(e, mx, my); mx = v.x; my = v.y; }
+      e._bodyBlock = false;
+      if (e.type !== 'player' && !e.ghost && (e.aggro || e.pal || e.target)) { const m0 = Math.hypot(mx, my), v = Ent.slideBodies(e, mx, my); mx = v.x; my = v.y; e._bodyBlock = Math.hypot(mx, my) < m0 * 0.5; }
       const before = { x: e.x, y: e.y };
       Ent.move(world, e, mx, my);
       e.moving = true;
@@ -216,7 +217,8 @@
       if (d > arrive + 0.12) e.dir = Math.atan2(dy, dx); // no last-inch spins on arrival
       if (Math.abs(dx) > 0.3 || (Math.abs(dx) > 0.05 && Math.abs(dx) > Math.abs(dy) * 0.5)) e.flip = dx < 0;
       // stuck detection → try a path
-      if (Math.abs(e.x - before.x) + Math.abs(e.y - before.y) < sp * 0.15) {
+      // (held up by other bodies is not stuck: no route round a crowd is needed, it will part)
+      if (Math.abs(e.x - before.x) + Math.abs(e.y - before.y) < sp * 0.15 && !e._bodyBlock) {
         e.stuck = (e.stuck || 0) + dt;
       } else e.stuck = 0;
       return false;
@@ -336,8 +338,10 @@
       const goalKey = (tx | 0) + ',' + (ty | 0);
       if (e.pathGoal !== goalKey) { e._repaths = 0; e._avoid = null; }
       const needPath = !e.path || e.pathGoal !== goalKey || (e.stuck || 0) > 0.6;
+      // routes are dear: only a few are planned each frame, the rest walk straight on and ask again
+      if (needPath && d > 1.2 && (e.pathT || 0) <= 0 && Ent.pathBudget <= 0) { e.pathT = 0.05 + Math.random() * 0.1; e.direct = true; e.noDirectT = 0; return Ent.seek(world, e, tx, ty, speed, dt, 0.35); }
       if (needPath && d > 1.2 && (e.pathT || 0) <= 0) {
-        e.pathT = 0.8;
+        e.pathT = 0.8; Ent.pathBudget--;
         const W = world.W;
         if (e.pathGoal === goalKey && e.path !== undefined) {
           e._repaths = (e._repaths || 0) + 1;
@@ -351,14 +355,19 @@
           }
         }
         const cost = Ent.pathCost(world, e, e._avoid);
-        const p = ECHO.World.findPath(world, e.x, e.y, tx, ty, cost, 14000);
+        const p = ECHO.World.findPath(world, e.x, e.y, tx, ty, cost, Math.min(14000, Math.round(250 + d * d * 30)));   // (a short way needs only a short search)
         // each step goes to the open part of its tile (past a trunk, round a rock)
         const wp = i => { const x = i % W, y = (i / W) | 0; return cost.spot(x, y) || { x: x + 0.5, y: y + 0.5 }; };
         e.path = p ? p.slice(1).map(wp) : null;
         e.pathGoal = goalKey;
         e.stuck = 0;
-        // no way there, or we keep getting stuck on the way: give up on it
-        if (!p || e._repaths > 8) { e.navFail = true; e.path = null; e.moving = false; return false; }
+        // no way there, or we keep getting stuck on the way: give up on it — and do not ask again for a while
+        if (!p || e._repaths > 8) {
+          e.navFail = true; e.path = null; e.pathT = 2.5 + Math.random() * 1.5;
+          // close by, it still presses on straight at its goal (round what it can)
+          if (d < 8) { e.direct = true; e.noDirectT = 0; return Ent.seek(world, e, tx, ty, speed, dt, 0.35); }
+          e.moving = false; return false;
+        }
         e.navFail = false;
         if (e.path.length) e.path[e.path.length - 1] = { x: tx, y: ty };
       }
@@ -422,6 +431,7 @@
       e._bodyR = r; e._bodyRS = e.scale;
       return r;
     },
+    pathBudget: 3,
     separate(ents, dt) {
       // Bodies do not pass through one another: each pushes the other out of the room it takes,
       // the bigger shoving the smaller.
