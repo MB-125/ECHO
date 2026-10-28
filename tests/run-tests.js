@@ -909,6 +909,33 @@ function main() {
   }
 
 
+  console.log('\nTamed beasts, relics, draughts');
+  {
+    const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite, Uint8Array, Int32Array, Float32Array };
+    ctx.globalThis = ctx; vm.createContext(ctx);
+    for (const f of ['core.js', 'sim/gear.js', 'sim/prowess.js', 'game/tame.js', 'game/pack.js', 'game/arcana.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx, { filename: f });
+    const E = ctx.ECHO, T = E.Tame, A = E.Arcana, P = E.Pack, Gr = E.Gear;
+    E.Explore = { small: s => ['cave', 'hideout', 'grot'].includes(s.kind) };
+    // sizes, and who fits where
+    const goblin = { scale: 0.72, cat: 'foe' }, troll = { scale: 1.55, cat: 'foe' }, widow = { scale: 2.4, cat: 'foe' }, drake = { scale: 1, cat: 'boss' }, lord = { scale: 1.1, cat: 'foe', lord: true };
+    check('beasts have sizes: a goblin small, a troll large, a widow and a lair\'s drake huge, a lord at least large', T.sizeOf(goblin) === 'small' && T.sizeOf(troll) === 'large' && T.sizeOf(widow) === 'huge' && T.sizeOf(drake) === 'huge' && T.sizeOf(lord) === 'large');
+    const cave = { carved: true, type: 'delve', site: { kind: 'cave' } }, barrow = { carved: true, type: 'delve', site: { kind: 'barrow' } }, gate = { carved: true, type: 'gate' }, house = { type: 'house' };
+    check('a cave lets in only the small; a barrow keeps out the huge; a gate\'s world takes any; a house none', T.fits(goblin, cave) && !T.fits(troll, cave) && T.fits(troll, barrow) && !T.fits(drake, barrow) && T.fits(drake, gate) && !T.fits(goblin, house) && T.fits(drake, null));
+    check('how you strike down what could be tamed: last breath by default, the leash of old saves kept', T.mode({}) === 'breath' && T.mode({ leash: true }) === 'leash' && T.mode({ tameMode: 'kill' }) === 'kill');
+    // the pack falls only on fair game among people
+    const game = { world: { npcs: { a: { faction: 'ashfang' }, b: { faction: 'crown' } } } };
+    check('the pack spares the watch, soldiers, townsfolk and the yielded, but not outlaws or those who came at you', !P.fairGame(game, { role: 'guard' }) && !P.fairGame(game, { role: 'soldier' }) && !P.fairGame(game, { role: 'villager', npcId: 'b' }) && !P.fairGame(game, { role: 'bandit', yielded: true }) && P.fairGame(game, { role: 'bandit' }) && P.fairGame(game, { npcId: 'a' }) && P.fairGame(game, { role: 'villager', startedFight: true }));
+    // relics and the well of mana
+    check('a relic of a higher level or rarity is stronger', A.power(20, 'rare') > A.power(10, 'rare') && A.power(20, 'epic') > A.power(20, 'rare'));
+    check('mana grown by use is deep but not bottomless', A.bonus({ arc: { used: 400 } }) === 32 && A.bonus({ arc: { used: 1e9, fight: 1e9 } }) === 300 && A.bonus({}) === 0);
+    // draughts
+    const pr = k => Gr.potionPrice(Gr.POTIONS[k], 1);
+    check('healing draughts climb in price with their strength, and a dearer market asks more', pr('minor') < pr('heal') && pr('heal') < pr('greater') && Gr.potionPrice(Gr.POTIONS.heal, 1.3) > pr('heal'));
+    const pl = { gold: 1e6, potions: {} };
+    check('phoenix tears are never sold ready-made', !!Gr.buyPotion(pl, 'phoenix') && !pl.potions.phoenix && !Gr.buyPotion(pl, 'minor') && pl.potions.minor === 1);
+    check('the healing draughts are found in order of strength', Gr.healIds().join(',') === 'minor,heal,greater');
+  }
+
   console.log(`\n${passes} passed, ${failures} failed`);
   process.exit(failures ? 1 : 0);
 }

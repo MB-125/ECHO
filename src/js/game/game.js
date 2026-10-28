@@ -527,6 +527,11 @@
         if (mat && ECHO.Monsters) ECHO.Monsters.tip(Game, 'mats');
       }
       Game.loot = Game.loot.filter(l => !l.taken);
+      // what lies far behind you is let go (dropped gear is still in the world, and is found again when you come back)
+      if ((Game._lootSweepT = (Game._lootSweepT || 0) - 1) <= 0 && Game.loot.length > 40 && !ECHO.Interior.cur) {
+        Game._lootSweepT = 300;
+        Game.loot = Game.loot.filter(l => l.kind === 'key' || U.dist(l.x, l.y, pe.x, pe.y) < 80);
+      }
     },
     takeItem(itemId) {
       const world = Game.world, pl = Game.pl;
