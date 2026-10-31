@@ -386,7 +386,9 @@
       if (target.titan && ECHO.Apex) { dmg = Math.round(ECHO.Apex.preDamage(game, target, dmg, src)); if (dmg <= 0) return 0; }
       const wasStaggered = target.stagger > 0;
       if (ECHO.Aware && from) ECHO.Aware.hurtBy(target, from, dmg);
+      if (target.pal && ECHO.Tame) { dmg = Math.max(1, Math.round(ECHO.Tame.guard(game, target, dmg))); }
       target.hp -= dmg;
+      if (target.pal && ECHO.Tame && target.hp > 0) ECHO.Tame.afterHit(game, target);
       target.hurtT = 0.18;
       target.hurtDir = src.angle != null ? src.angle : target.hurtDir;
       // Stagger interrupts whatever the target was winding up.
@@ -465,7 +467,7 @@
       if (target.escort && ECHO.Jobs && target.escort.status === 'active') ECHO.Jobs.fail(game, target.escort, `${target.escort.giverName} was killed on the road`);
       const byPlayer = from === game.pe || (from && (from.isCompanion || from.pal));
       target._killer = from || null;
-      if (ECHO.Tame && from && from.pal) ECHO.Tame.onKill(game, target, from);
+      if (ECHO.Tame && from && (from.pal || from === game.pe) && !target.pal && !target.tamed) ECHO.Tame.onKill(game, target, from);
       if (ECHO.Growth) ECHO.Growth.onKill(game, target, from);
       // Death has weight: a beat of stillness, then the body is thrown.
       const ka = src.angle != null ? src.angle : Math.atan2(target.y - game.pe.y, target.x - game.pe.x);

@@ -940,6 +940,20 @@ function main() {
       const gob = { species: 'goblin', foe: { name: 'Goblin', look: 'goblin' } }, spi = { species: 'spider', foe: { name: 'Spider', look: 'spider' } }, lordGob = { species: 'goblin', lord: true, foe: { name: 'Goblin', look: 'goblin' } };
       check('two of a kind is the most you keep: a third goblin cannot be tamed, a second spider can, a goblin lord is its own', T.MAX_SAME === 2 && T.sameCount(g2.pl, 'goblin') === 2 && T.full(g2, gob) && !T.can(g2, gob) && !T.full(g2, spi) && !T.full(g2, lordGob) && T.plural(gob) === 'goblins');
     }
+    {
+      // growth: levels up to your own, then mastery of its skills
+      E.UI = E.UI || { toast() {} };
+      const pl = { prowess: { lv: 10 } }, g3 = { pl, ents: [] };
+      const r = { lvl: 9, lvlT: 5, xp: 0, name: 'Test' };
+      const lv = E.Prowess.level(pl);
+      T.grow(g3, r, T.need(r) - 1); const before = r.lvl;
+      T.grow(g3, r, 1);
+      const reached = r.lvl === lv && !r.mastery;
+      T.grow(g3, r, 1e7);
+      check('a beast grows to your level, then its skills grow: mastery ranks raise its harm and life and quicken its arts, with skills learned on the way, up to the most', before === 9 && reached && r.lvl === lv && r.mastery === T.MASTERY_MAX && T.mDmg(r) > 1.8 && T.mHp(r) > 1.5 && T.cdMul(r) < 0.6 && T.has(r, 'hide') && T.has(r, 'apex'), `lv ${r.lvl} ★${r.mastery}`);
+      const old = { lvl: 40, xp: 0 };   // (from an older save, above your level: it keeps its level and grows in skill)
+      check('a beast already above your level keeps its level and grows in skill', T.atCap(g3, old) && (T.grow(g3, old, T.needM(old)), old.lvl === 40 && old.mastery === 1));
+    }
     // the pack falls only on fair game among people
     const game = { world: { npcs: { a: { faction: 'ashfang' }, b: { faction: 'crown' } } } };
     check('the pack spares the watch, soldiers, townsfolk and the yielded, but not outlaws or those who came at you', !P.fairGame(game, { role: 'guard' }) && !P.fairGame(game, { role: 'soldier' }) && !P.fairGame(game, { role: 'villager', npcId: 'b' }) && !P.fairGame(game, { role: 'bandit', yielded: true }) && P.fairGame(game, { role: 'bandit' }) && P.fairGame(game, { npcId: 'a' }) && P.fairGame(game, { role: 'villager', startedFight: true }));

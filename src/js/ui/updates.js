@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.41', items: [
+      'Your beasts grow by fighting: the one that lands a kill learns most, the rest of the pack nearby learn by watching, and they learn from your kills too.',
+      'A beast grows up to your level (or the level it was tamed at, if higher). At that height its skills grow instead — mastery ★1 to ★30: each rank hits harder (+3%), lasts longer (+2% life) and brings its arts back sooner, and it learns new skills on the way: Thick hide (★5, takes less harm), Killer instinct (★10, more harm to the wounded), Second wind (★15, heals once when hard pressed), Swift arts (★20) and Apex (★30).',
+      'The Tamed beasts page shows each beast\'s growth or mastery, the skills it has learned and the next one; the long how-to folds away.'
+    ] },
     { v: '0.8.40', items: [
       'No more than two of any one kind of beast: once two goblins (say) are yours, a third goblin cannot be tamed — it fights and falls like any other, with a small note "you have two goblins". Lords and the great beasts of lairs are each one of a kind and never count. Any you already keep stay yours; release one (U) to make room for another.'
     ] },

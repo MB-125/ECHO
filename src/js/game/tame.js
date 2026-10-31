@@ -243,6 +243,7 @@
       const kindName = e.boss ? e.boss.name : e.foe ? e.foe.name.replace(/^the /i, '') : U.cap(e.species);
       const base = T.isBoss(e) ? (e.label || kindName).replace(/^the /i, '').split(',')[0] : `${NAMES[Math.floor(Math.random() * NAMES.length)]} the ${kindName}`;
       const r = { id: 'pal' + (++pl.palSeq || (pl.palSeq = 1)), cat, kind: cat === 'boss' ? null : e.species, name: U.cap(base), lvl, scale: e.scale || 1, elite: e.elite || null, out: T.out(pl).length < MAX_OUT, hp: 0.6, xp: 0, kills: 0, day: world.day, boss: cat === 'boss' ? { ...e.boss, memory: undefined, lairId: e.lair ? e.lair.id : null } : null, was: e.label || kindName, lord: !!T.isBoss(e) };
+      r.lvlT = lvl;
       pk.push(r);
       pl.tames = (pl.tames || 0) + 1;
       // what it was, out in the world
@@ -306,6 +307,7 @@
       } finally { if (ECHO.Growth) ECHO.Growth._noAdapt = false; }
       if (!e) return null;
       e.pal = r; e.tamed = true; e.faction = 'player'; e.aggro = false; e.label = r.name; e.lvl = r.lvl; e.home = null;
+      if (r.mastery) { e.palDmg = (e.palDmg || 8) * T.mDmg(r); e.maxHp = Math.round(e.maxHp * T.mHp(r)); e.hp = e.maxHp; }
       e.r = Math.min(e.r || 0.4, 0.6);
       void look;
       return e;
@@ -462,17 +464,86 @@
     },
     // what one of yours kills feeds it
     onKill(game, e, from) {
-      if (!from || !from.pal || from.dead) return;
-      const r = from.pal, L = Math.max(1, ECHO.Prowess.foeLevel(e) || e.lvl || 1);
-      r.kills = (r.kills || 0) + 1;
-      r.xp = (r.xp || 0) + Math.max(1, L * (L >= r.lvl ? 1.5 : 0.6));
-      const need = 12 + r.lvl * 4;
-      if (r.xp >= need && r.lvl < ECHO.Prowess.MAX) {
-        r.xp -= need; const L0 = r.lvl; r.lvl0 = r.lvl0 || L0; r.lvl++;
-        const k = ECHO.Prowess.foeMul(r.lvl, r.lord), k0 = ECHO.Prowess.foeMul(L0, r.lord);
-        from.maxHp = Math.round(from.maxHp * k.hp / k0.hp); from.hp = Math.min(from.maxHp, from.hp * k.hp / k0.hp); from.palDmg *= k.dmg / k0.dmg; from.lvl = r.lvl;
-        ECHO.Combat.floater(from.x, from.y - 1.8 * (from.scale || 1), `▲ ${r.name} · level ${r.lvl}`, '#9fe08a', true);
-        ECHO.Combat.ring(from.x, from.y, 1.4, 'rgba(160,240,140,0.9)', 0.5);
+      if (!from || from.dead || !game.pe) return;
+      const L = Math.max(1, ECHO.Prowess.foeLevel(e) || e.lvl || 1);
+      const worth = r => Math.max(1, L * (L >= r.lvl ? 1.5 : 0.6));
+      // the one that made the kill learns most; the rest of the pack nearby learn by watching,
+      // and they learn from your kills too
+      if (from.pal) { from.pal.kills = (from.pal.kills || 0) + 1; T.grow(game, from.pal, worth(from.pal)); }
+      if (!from.pal && from !== game.pe) return;
+      for (const o of game.ents) if (o.pal && !o.dead && o !== from && U.dist(o.x, o.y, e.x, e.y) < 22) T.grow(game, o.pal, worth(o.pal) * (from.pal ? 0.4 : 0.25));
+    },
+
+    // ------------------------------------------------------------ growing: levels, then mastery
+    // A beast grows a level at a time up to its height — your own level (or the level it
+    // had when you tamed it, if that was higher). There, what it learns goes into its
+    // skills instead: each rank of mastery makes it hit harder, last longer and use its
+    // arts sooner, and some ranks teach it something new.
+    PERKS: [
+      { at: 5, k: 'hide', name: 'Thick hide', d: 'takes 12% less harm' },
+      { at: 10, k: 'instinct', name: 'Killer instinct', d: '+15% harm to foes below half their life' },
+      { at: 15, k: 'wind', name: 'Second wind', d: 'once in a fight, when a third of its life is left, it heals a third' },
+      { at: 20, k: 'swift', name: 'Swift arts', d: 'its arts come back a quarter sooner' },
+      { at: 30, k: 'apex', name: 'Apex', d: '+20% harm and life on top of all the rest' }
+    ],
+    MASTERY_MAX: 30,
+    cap(game, r) { return Math.min(ECHO.Prowess.MAX, Math.max(ECHO.Prowess.level(game.pl), r.lvlT || r.lvl0 || 1)); },
+    atCap(game, r) { return r.lvl >= T.cap(game, r); },
+    need(r) { return 12 + r.lvl * 4; },
+    needM(r) { return Math.round(T.need(r) * (1 + (r.mastery || 0) * 0.15)); },
+    has(r, k) { const P = T.PERKS.find(x => x.k === k); return !!(r && P && (r.mastery || 0) >= P.at); },
+    mDmg(r) { const m = r.mastery || 0; return (1 + 0.03 * m) * (T.has(r, 'apex') ? 1.2 : 1); },
+    mHp(r) { const m = r.mastery || 0; return (1 + 0.02 * m) * (T.has(r, 'apex') ? 1.2 : 1); },
+    cdMul(r) { const m = (r && r.mastery) || 0; return Math.max(0.5, 1 - 0.015 * m) * (T.has(r, 'swift') ? 0.75 : 1); },
+    grow(game, r, amount) {
+      if (!r || !(amount > 0)) return;
+      r.xp = (r.xp || 0) + amount;
+      const e = game.ents.find(o => o.pal === r && !o.dead);
+      for (let guard = 0; guard < 64; guard++) {
+        if (!T.atCap(game, r)) {
+          const need = T.need(r);
+          if (r.xp < need) break;
+          r.xp -= need; const L0 = r.lvl; r.lvl0 = r.lvl0 || L0; r.lvl++;
+          if (e) {
+            const k = ECHO.Prowess.foeMul(r.lvl, r.lord), k0 = ECHO.Prowess.foeMul(L0, r.lord);
+            e.maxHp = Math.round(e.maxHp * k.hp / k0.hp); e.hp = Math.min(e.maxHp, e.hp * k.hp / k0.hp); e.palDmg *= k.dmg / k0.dmg; e.lvl = r.lvl;
+            ECHO.Combat.floater(e.x, e.y - 1.8 * (e.scale || 1), `▲ ${r.name} · level ${r.lvl}${T.atCap(game, r) ? ' · its height' : ''}`, '#9fe08a', true);
+            ECHO.Combat.ring(e.x, e.y, 1.4, 'rgba(160,240,140,0.9)', 0.5);
+          }
+          continue;
+        }
+        // at its height: its skills grow instead
+        if ((r.mastery || 0) >= T.MASTERY_MAX) { r.xp = Math.min(r.xp, T.needM(r)); break; }
+        const nm = T.needM(r);
+        if (r.xp < nm) break;
+        r.xp -= nm;
+        const d0 = T.mDmg(r), h0 = T.mHp(r);
+        r.mastery = (r.mastery || 0) + 1;
+        const perk = T.PERKS.find(x => x.at === r.mastery);
+        if (e) {
+          e.palDmg *= T.mDmg(r) / d0; const hk = T.mHp(r) / h0; e.maxHp = Math.round(e.maxHp * hk); e.hp = Math.min(e.maxHp, e.hp * hk);
+          ECHO.Combat.floater(e.x, e.y - 1.8 * (e.scale || 1), `★ ${r.name} · mastery ${r.mastery}`, '#ffd86a', true);
+          ECHO.Combat.ring(e.x, e.y, 1.6, 'rgba(255,216,106,0.9)', 0.6);
+          if (perk) ECHO.Combat.fx.push({ kind: 'pillar', x: e.x, y: e.y, follow: e, t: 0, life: 1.3, color: '#ffd86a', height: 5, radius: 0.6 + 0.3 * Math.min(2, e.scale || 1) });
+        }
+        if (perk) UI().toast(`${r.name} has learned ${perk.name}: it ${perk.d}.`, 'legend', 6);
+      }
+    },
+    // its skills in a fight: harm taken, and a second wind
+    guard(game, e, dmg) {
+      const r = e.pal;
+      if (!r) return dmg;
+      if (T.has(r, 'hide')) dmg *= 0.88;
+      return dmg;
+    },
+    afterHit(game, e) {
+      const r = e.pal;
+      if (!r || e.dead || e.hp <= 0 || !T.has(r, 'wind')) return;
+      if (e._swAt && game.time - e._swAt < 60) return;
+      if (e.hp < e.maxHp / 3) {
+        e._swAt = game.time; e.hp = Math.min(e.maxHp, e.hp + e.maxHp / 3);
+        ECHO.Combat.floater(e.x, e.y - 1.6 * (e.scale || 1), 'second wind!', '#9fe08a', true);
+        ECHO.Combat.burst(e.x, e.y, '#9fe08a', 14, 3, 0.6, 2);
       }
     },
 
@@ -515,7 +586,7 @@
         el.dataset.done = '1';
         const r = T.pack(game.pl).find(x => x.id === el.dataset.palpic);
         const src = r && T.pic(game, r);
-        if (src) el.innerHTML = `<img src="${src}" alt="">`;
+        if (src) { const ph = el.querySelector('.pal-ph'), im = document.createElement('img'); im.src = src; im.alt = ''; if (ph) ph.replaceWith(im); else el.prepend(im); }   // (keeping its level and marks)
         if (imgs.length) setTimeout(next, 16);
       };
       setTimeout(next, 30);
@@ -530,7 +601,7 @@
       const row = r => {
         const rest = T.resting(world, r), hpF = rest ? 0.3 : (r.hp == null ? 1 : r.hp), pic = T._pics[r.id];
         return `<div class="pal-row${rest ? ' rest' : ''}"><div class="pal-thumb" data-palpic="${r.id}"${pic ? ' data-done="1"' : ''}>${pic ? `<img src="${pic}" alt="">` : '<span class="pal-ph">🐾</span>'}</div>
-          <div class="pal-row-main"><b class="gold">${esc(r.name)}</b> <span class="dim">· Lv ${r.lvl}${r.cat === 'boss' || r.lord ? ' ♛' : r.elite ? ' ✦' : ''} · ${esc(T.kindOf(r).toLowerCase())} · ${T.sizeOf(r)} · ${r.kills || 0} kills</span>
+          <div class="pal-row-main"><b class="gold">${esc(r.name)}</b> <span class="dim">· Lv ${r.lvl}${r.mastery ? ` <span class="gold">★${r.mastery}</span>` : ''}${r.cat === 'boss' || r.lord ? ' ♛' : r.elite ? ' ✦' : ''} · ${esc(T.kindOf(r).toLowerCase())} · ${T.sizeOf(r)} · ${r.kills || 0} kills</span>
             <div class="pal-bar"><span>Life</span>${bar(hpF, hpF > 0.5 ? '#9fe08a' : hpF > 0.25 ? '#e0c060' : '#e05a4a')}<span>${rest ? `<span class="ember">resting${T.restLeft(world, r) != null ? ' · ' + T.restLeft(world, r) + ' s' : ''}</span>` : Math.round(hpF * 100) + '%'}</span></div></div>
           <div class="pal-row-btns"><button class="small" data-pal-call="${r.id}" ${rest || (below && !T.fits(r)) ? 'disabled' : ''}>${below && !T.fits(r) ? 'too big here' : weakest ? 'Call (swap)' : 'Call'}</button><button class="small" data-pal-name="${r.id}" title="Rename">✎</button><button class="small" data-pal-free="${r.id}" title="Release">✕</button></div></div>`;
       };
@@ -542,18 +613,21 @@
         const pic = T._pics[r.id];
         const tag = r.cat === 'boss' || r.lord ? '♛' : r.elite ? '✦ elite' : '';
         return `<div class="pal-card${r.out && !rest ? ' out' : ''}${rest ? ' rest' : ''}">
-          <div class="pal-pic" data-palpic="${r.id}"${pic ? ' data-done="1"' : ''}>${pic ? `<img src="${pic}" alt="">` : '<span class="pal-ph">🐾</span>'}<span class="pal-lv">Lv ${r.lvl}</span>${tag ? `<span class="pal-tag gold">${tag}</span>` : ''}</div>
+          <div class="pal-pic" data-palpic="${r.id}"${pic ? ' data-done="1"' : ''}>${pic ? `<img src="${pic}" alt="">` : '<span class="pal-ph">🐾</span>'}<span class="pal-lv">Lv ${r.lvl}${r.mastery ? " ★" + r.mastery : ""}</span>${tag ? `<span class="pal-tag gold">${tag}</span>` : ''}</div>
           <div class="pal-body">
             <div class="pal-head"><h4>${esc(r.name)}</h4></div>
             <div class="pal-sub">${esc(T.kindOf(r))} · ${T.sizeOf(r)}${r.was && r.was !== r.name ? ' · once ' + esc(r.was) : ''} · tamed day ${r.day}</div>
             <div class="pal-bar"><span>Life</span>${bar(hpF, hpF > 0.5 ? '#9fe08a' : hpF > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hpF * 100)}%</span></div>
-            <div class="pal-bar"><span>Growth</span>${bar((r.xp || 0) / need, '#8fb8ff')}<span>${Math.floor(r.xp || 0)}/${need}</span></div>
+            ${T.atCap(game, r) ? `<div class="pal-bar"><span>Mastery</span>${bar((r.mastery || 0) >= T.MASTERY_MAX ? 1 : (r.xp || 0) / T.needM(r), '#ffd86a')}<span>${(r.mastery || 0) >= T.MASTERY_MAX ? 'full' : Math.floor(r.xp || 0) + '/' + T.needM(r)}</span></div>
+            <div class="pal-skill">★ ${r.mastery || 0}/${T.MASTERY_MAX} · at its height (level ${T.cap(game, r)}): its skills grow · +${Math.round((T.mDmg(r) - 1) * 100)}% harm, +${Math.round((T.mHp(r) - 1) * 100)}% life, arts ${Math.round((1 - T.cdMul(r)) * 100)}% sooner</div>` : `<div class="pal-bar"><span>Growth</span>${bar((r.xp || 0) / need, '#8fb8ff')}<span>${Math.floor(r.xp || 0)}/${need}</span></div>
+            <div class="pal-skill dim">grows to level ${T.cap(game, r)} (your level); past that, its skills grow</div>`}
+            <div class="pal-skill">${T.PERKS.map(P0 => (r.mastery || 0) >= P0.at ? `<span class="gold" title="${esc(P0.d)}">${esc(P0.name)}</span>` : '').filter(Boolean).join(' · ') || ''}${(nx => nx ? `<span class="dim">${(r.mastery || 0) >= T.PERKS[0].at ? ' · ' : ''}next: ${esc(nx.name)} at ★${nx.at} — ${esc(nx.d)}</span>` : '')(T.PERKS.find(P0 => (r.mastery || 0) < P0.at))}</div>
             <div class="pal-stats"><span>Life <b>${st.maxHp || '—'}</b></span><span>Strikes <b>${st.dmg || '—'}</b></span><span>Kills <b>${r.kills || 0}</b></span></div>
             <div style="font-size:12px">${status}</div>
             <div class="row">${r.out ? `<button class="small" data-pal-rest="${r.id}">Send to the den</button>` : `<button class="small" data-pal-call="${r.id}" ${rest ? 'disabled' : ''}>${callLbl(r)}</button>`}<button class="small" data-pal-name="${r.id}">Rename</button><button class="small" data-pal-free="${r.id}">Release</button></div>
           </div></div>`;
       };
-      let h = `<p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. <b>You keep at most ${MAX_SAME} of any one kind</b> (lords and great beasts are each one of a kind); a third of a kind you already have fights and falls like any other. Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. <b>O</b> calls your strongest at any time; Call on any one brings it (if your side is full, the weakest with you goes home for it). When one is beaten it goes home to rest for about 45 seconds, and the strongest rested one comes in its place. L changes how you strike things down. <b>Size matters below ground:</b> caves, hideouts and grots let only small beasts in; dungeons, crypts and mines keep out the huge (the great beasts of the lairs, widows, wyrms); the worlds beyond the gates take any. Those too big wait at the way in.</p>`;
+      let h = `<details class="pal-how"${T.pack(pl).length ? '' : ' open'}><summary class="gold">How taming and growing work</summary><p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. <b>You keep at most ${MAX_SAME} of any one kind</b> (lords and great beasts are each one of a kind); a third of a kind you already have fights and falls like any other. They grow by fighting — the one that lands the kill most, the rest of the pack nearby a little, and from your kills too — up to your level; at that height their <b>skills</b> grow instead (mastery ★, up to ${T.MASTERY_MAX}: harder blows, more life, arts sooner, and new skills at ★5, 10, 15, 20 and 30). Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. <b>O</b> calls your strongest at any time; Call on any one brings it (if your side is full, the weakest with you goes home for it). When one is beaten it goes home to rest for about 45 seconds, and the strongest rested one comes in its place. L changes how you strike things down. <b>Size matters below ground:</b> caves, hideouts and grots let only small beasts in; dungeons, crypts and mines keep out the huge (the great beasts of the lairs, widows, wyrms); the worlds beyond the gates take any. Those too big wait at the way in.</p></details>`;
       if (ECHO.Apex && ECHO.Apex.yHtml) h = ECHO.Apex.yHtml(game) + h;
       if (!pk.length) return h + '<div class="card"><p class="dim">No tamed beasts yet.</p></div>';
       const withYou = pk.filter(r => r.out), den = pk.filter(r => !r.out).sort((a, b) => (T.resting(world, a) - T.resting(world, b)) || b.lvl - a.lvl);

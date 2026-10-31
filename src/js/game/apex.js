@@ -1626,7 +1626,7 @@
         el.dataset.done = '1';
         const t = Ti().byId(game.world, el.dataset.tipic);
         const src = t && A.pic(game, t);
-        if (src) el.innerHTML = `<img src="${src}" alt="">` + (el.dataset.lv ? `<span class="pal-lv">Lv ${el.dataset.lv}</span>` : '');
+        if (src) { const ph = el.querySelector('.pal-ph'), im = document.createElement('img'); im.src = src; im.alt = ''; if (ph) ph.replaceWith(im); else el.prepend(im); }
         if (imgs.length) setTimeout(next, 16);
       };
       setTimeout(next, 30);

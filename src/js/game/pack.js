@@ -157,6 +157,7 @@
       const a = Math.atan2(e.y - o.y, e.x - o.x);
       if (o.dir != null && Math.abs(U.angleDiff(a, o.dir)) > 1.9) m *= 1.25;                       // from behind
       if (P.kit(e).frenzy && e.hp < e.maxHp * 0.5) m *= 1.3;
+      if (e.pal && ECHO.Tame && ECHO.Tame.has(e.pal, 'instinct') && o.hp < o.maxHp * 0.5) m *= 1.15;
       return m;
     },
     hit(game, e, o, mul, opt = {}) {
@@ -181,7 +182,7 @@
       e.aggro = true;
       e._ab = e._ab || {};
       for (const k in e._ab) e._ab[k] -= dt;
-      const ready = k => !(e._ab[k] > 0), use = (k, cd) => { e._ab[k] = cd * (0.85 + Math.random() * 0.3); };
+      const ready = k => !(e._ab[k] > 0), use = (k, cd) => { e._ab[k] = cd * (0.85 + Math.random() * 0.3) * (e.pal && ECHO.Tame ? ECHO.Tame.cdMul(e.pal) : 1); };
       if (K.regen && e.hp < e.maxHp) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.01 * dt);
       // a dash under way
       if (e._dash) {
