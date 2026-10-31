@@ -7,6 +7,9 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.36', items: [
+      'Sturdier: each part of a frame (the world, the drawing, the menus, the music) now stands on its own, so a fault in one can never freeze the others; it is reported once, in plain words, and the game carries on.'
+    ] },
     { v: '0.8.35', items: [
       'Conversations are numbered: press 1–9 to pick an answer (0 for the farewell at the end of a long list).',
       'A heap of dropped gear is taken up whole: E on it says "Take all (3)", and one note lists what you got.'

@@ -32,7 +32,7 @@
       UI.closePanel(); UI.mapDirty = true; UI.miniBase = null;
       UI.fadeIn();
     },
-    error(err) { const el = $('#err'); el.classList.remove('hidden'); el.textContent = String(err && err.stack || err).slice(0, 800); setTimeout(() => el.classList.add('hidden'), 8000); },
+    error(err) { const el = $('#err'); if (!el) return; el.classList.remove('hidden'); el.textContent = 'Something went wrong, but the game carries on and your world is safe. If it keeps happening, this is what to report:\n' + String(err && err.stack || err).slice(0, 700); clearTimeout(UI._errT); UI._errT = setTimeout(() => el.classList.add('hidden'), 9000); },
 
     // ------------------------------------------------------------ Per-frame
     frame(game, dt) {

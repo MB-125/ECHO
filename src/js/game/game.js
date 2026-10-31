@@ -61,14 +61,25 @@
       return { skin: skins[h % skins.length], hair: hairs[(h >> 3) % hairs.length], hairStyle: (h >> 6) % 4, beard: false, female: !!Game.pl.female, player: true };
     },
 
+    // a fault, logged with its place; shown on screen once a minute at most per kind
+    fault(where, err) {
+      const key = where + ':' + String(err && err.message || err).slice(0, 80), now = performance.now();
+      Game._faults = Game._faults || new Map();
+      if (now - (Game._faults.get(key) || -1e9) < 60000) return;
+      Game._faults.set(key, now);
+      console.error('ECHO [' + where + ']', err);
+      if (ECHO.UI && ECHO.UI.error) ECHO.UI.error(err);
+    },
     loop(ts) {
       if (!Game.running) return;
       const dt = Math.min(0.05, (ts - Game.lastFrame) / 1000);
       Game.lastFrame = ts;
       const work0 = performance.now();
+      let simDt = dt;
+      // each part of a frame stands on its own: a fault in one (say, drawing) never
+      // stops the others (the menus, the music, the world going on), and is reported once
       try {
         if (In.pollPad) In.pollPad();
-        let simDt = dt;
         if (Game.ff) Game.stepFastForward();
         else if (Game.world && Game.pl && !ECHO.UI.paused()) {
           if (Game.freezeT > 0) {
@@ -85,11 +96,11 @@
           }
           Game.feel(dt);
         }
-        if (Game.world) ECHO.Renderer.draw(Game, simDt);
-        ECHO.UI.frame(Game, dt);
-        if (Game.world && ECHO.Music) ECHO.Music.update(Game, dt);
-        if (ECHO.Post) ECHO.Post.work = performance.now() - work0;   // how long our own part of the frame took
-      } catch (err) { console.error(err); ECHO.UI.error && ECHO.UI.error(err); }
+      } catch (err) { Game.fault('world', err); }
+      try { if (Game.world) ECHO.Renderer.draw(Game, simDt); } catch (err) { Game.fault('draw', err); }
+      try { ECHO.UI.frame(Game, dt); } catch (err) { Game.fault('ui', err); }
+      try { if (Game.world && ECHO.Music) ECHO.Music.update(Game, dt); } catch (err) { Game.fault('music', err); }
+      if (ECHO.Post) ECHO.Post.work = performance.now() - work0;   // how long our own part of the frame took
       In.endFrame();
       requestAnimationFrame(Game.loop);
     },
