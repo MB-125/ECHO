@@ -4068,6 +4068,16 @@
           ctx.fillStyle = game.hostileTo(game.pe, e) ? '#d8463a' : '#c8b46a'; ctx.fillRect(p.x - w / 2, p.y - bh, w * Math.max(0, e.hp / e.maxHp), bh);
         }
         const ty = p.y - 6 * R.dpr;
+        // a foe's suspicion or alarm is a big glyph over its head, not a speech bubble
+        if ((e.say === '?' || e.say === '!') && e.sayT > 0) {
+          const big = Math.round(fs * 2.3), pop = Math.min(1, (1.2 - e.sayT) * 8 + 0.4), gy = ty - 4 * R.dpr - Math.sin(Math.min(1, pop) * Math.PI) * 3 * R.dpr;
+          ctx.save(); ctx.font = `bold ${Math.round(big * Math.min(1.15, 0.6 + pop * 0.55))}px "Pixelify Sans", monospace`;
+          ctx.globalAlpha = Math.min(1, e.sayT * 3);
+          ctx.lineJoin = 'round'; ctx.lineWidth = 5 * R.dpr; ctx.strokeStyle = 'rgba(20,10,6,0.95)'; ctx.strokeText(e.say, p.x, gy);
+          ctx.fillStyle = e.say === '!' ? '#ff5a3a' : '#ffd84a'; ctx.fillText(e.say, p.x, gy);
+          ctx.restore(); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          continue;
+        }
         if (e.say && e.sayT > 0 && ECHO.UI.bubbleOk(game, e)) {
           const w = ctx.measureText(e.say).width;
           // bubbles stack instead of covering each other

@@ -370,7 +370,7 @@ A see-through controls card sits on the left of the screen (folded away at first
 | **N** | where to? — pick what to head for; a golden trail and the top line lead you there by the best way |
 | **Esc** | menu · **F11** fullscreen |
 
-Every key can be changed: Esc → Keys… (if another action has the key you pick, the two swap). A gamepad works too; the mapping is in the Esc menu.
+Every key can be changed: Esc → Keys… (if another action has the key you pick, the two swap). A gamepad works too, menus included (D-pad or stick to move, A to choose, B back, LB / RB to turn pages); the mapping is in the Esc menu.
 
 Esc → Gameplay holds the rest: the challenge (Story, Balanced, Hard — change it any time, nothing in your world resets), screen shake, damage numbers, name tags, interface size, pausing when you switch away, and seeing through whatever stands between you and the camera.
 

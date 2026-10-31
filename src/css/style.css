@@ -475,3 +475,5 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 #save-mark { position: fixed; right: 18px; bottom: 46px; font-family: "Pixelify Sans", monospace; font-size: 12px; color: var(--gold); opacity: 0; transition: opacity .5s; pointer-events: none; z-index: 30; text-shadow: 0 1px 2px #000; zoom: var(--uiz, 1); }
 #save-mark.show { opacity: 0.75; }
 #save-mark.bad { color: #ff8a6a; opacity: 1; }
+/* the controller's place in a menu */
+.pad-focus { outline: 2px solid var(--gold) !important; outline-offset: 2px; box-shadow: 0 0 0 4px rgba(230,192,106,0.25), 0 0 14px rgba(230,192,106,0.45) !important; position: relative; z-index: 1; }

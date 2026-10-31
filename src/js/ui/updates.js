@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.33', items: [
+      'Play every menu with a controller: in the pause menu, the journal, the shops, a conversation or the title screen, the D-pad or left stick moves a gold frame from button to button, A chooses, B goes back, LB / RB turn the journal\'s pages and the right stick scrolls. The mouse works exactly as before.',
+      'A foe that grows suspicious shows a big yellow "?" over its head, and a red "!" when it spots you, instead of a little speech bubble.'
+    ] },
     { v: '0.8.32', items: [
       'The worlds beyond the gates have living pools: lava crawls with bright veins and a cooled crust at its edges, the abyss glimmers cold, the thorn-world ooze slowly churns.',
       'Old worlds stay lean: people long dead keep their names, kin and strongest memories, but no longer carry every grudge and errand into the save. A world played for years saves smaller and faster. Nothing you know about anyone is lost.'

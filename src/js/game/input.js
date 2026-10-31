@@ -66,6 +66,21 @@
       if (!gp) { if (In.padName) { In.padName = null; for (const k of In.padKeys) In.down.delete(k); In.padKeys.clear(); In.padAim = null; } return; }
       if (!In.padName) { In.padName = gp.id.replace(/\(.*\)/, '').trim() || 'Controller'; if (ECHO.UI && ECHO.UI.toast) ECHO.UI.toast(`Controller connected: ${In.padName}. Settings in the menu (Start).`, 'info', 4); }
       const ui = ECHO.UI, panel = ui && ui.panelOpen;
+      // a menu is open: the controller walks its buttons (B and Start still go back)
+      const now = performance.now(), pdt = Math.min(0.1, (now - (In._padT || now)) / 1000); In._padT = now;
+      if (ECHO.PadNav && ECHO.PadNav.active()) {
+        const prev = In.padPrev.slice();
+        gp.buttons.forEach((b, i) => {
+          const on = b.pressed || b.value > 0.5, was = !!In.padPrev[i];
+          In.padPrev[i] = on;
+          if (on && !was && (i === 1 || i === 9)) In.pressed.add('Escape');
+          if (on && !was && i === 8 && ui.panelOpen) In.pressed.add('Escape');
+        });
+        for (const k of [...In.padKeys]) { In.down.delete(k); In.padKeys.delete(k); }
+        In.mdown[0] = In.mdown[2] = false; In._lb = null;
+        ECHO.PadNav.pad(gp, prev, pdt);
+        return;
+      }
       // buttons
       // LB is a shift key too: tapped alone it locks on; held, A/X/Y/B call your pack and wake your relics
       const lbOn = !!(gp.buttons[4] && (gp.buttons[4].pressed || gp.buttons[4].value > 0.5));
