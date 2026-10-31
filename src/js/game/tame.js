@@ -541,6 +541,7 @@
           </div></div>`;
       };
       let h = `<p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. <b>O</b> calls your strongest at any time; Call on any one brings it (if your side is full, the weakest with you goes home for it). When one is beaten it goes home to rest for about 45 seconds, and the strongest rested one comes in its place. L changes how you strike things down. <b>Size matters below ground:</b> caves, hideouts and grots let only small beasts in; dungeons, crypts and mines keep out the huge (the great beasts of the lairs, widows, wyrms); the worlds beyond the gates take any. Those too big wait at the way in.</p>`;
+      if (ECHO.Apex && ECHO.Apex.yHtml) h = ECHO.Apex.yHtml(game) + h;
       if (!pk.length) return h + '<div class="card"><p class="dim">No tamed beasts yet.</p></div>';
       const withYou = pk.filter(r => r.out), den = pk.filter(r => !r.out).sort((a, b) => (T.resting(world, a) - T.resting(world, b)) || b.lvl - a.lvl);
       h += `<div class="row" style="gap:6px;margin:6px 0 10px"><button data-pal-rally="1" ${T.ready_(game).length ? '' : 'disabled'}>Call my strongest (O)</button>${withYou.length ? '<button data-pal-home="1">Send all to the den</button>' : ''}</div>`;
@@ -565,6 +566,7 @@
         setTimeout(() => { const i = document.querySelector('#palname'); if (i) { i.focus(); i.select(); i.addEventListener('keydown', ev => ev.stopPropagation()); } }, 30);
       }));
       T.fillPics(root, game);
+      if (ECHO.Apex && ECHO.Apex.yBind && root.querySelector('[data-tipic], [data-ti-call], [data-ti-away], [data-ti-horse]')) ECHO.Apex.yBind(root, game, again);
     }
   };
 })();

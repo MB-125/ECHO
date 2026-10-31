@@ -7,6 +7,9 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.39', items: [
+      'The beasts you call with Y — your bound dragons and great beasts, and your horse — now appear at the top of the Tamed beasts page (U), with their pictures, life, where they are, and Call / Send away buttons. The Animals page shows their pictures too, and the tab counts them.'
+    ] },
     { v: '0.8.38', items: [
       'The smithy shows how each blade or bow compares to the one you carry: ▲ +6 in green, ▼ −4 in red, or "= yours".'
     ] },

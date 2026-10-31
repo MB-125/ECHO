@@ -1559,7 +1559,7 @@
         const status = flying ? '<span class="gold">carrying you through the sky</span>' : out ? `<span class="gold">with you</span>${e ? ` · ${ECHO.Partner ? ECHO.Partner.doing(e) : 'at your side'}` : ''}` : rest ? 'resting — it answers again tomorrow' : 'in the wild places, waiting for your call';
         const bondTxt = ECHO.Partner ? ` · bond ${Math.round(t.bond || 0)} (${ECHO.Partner.bondWord(t.bond || 0)})${(t.hunger || 0) > 0.7 ? ' · hungry' : ''}` : '';
         const arts = S.arts.filter(a => a.tamed).map(a => esc(a.name));
-        return `<div class="card"><h4>${sp.flies ? '🐉' : '🦬'} ${esc(t.name)} <span class="dim">· ${esc(t.title)}</span></h4>
+        return `<div class="card"><div class="pal-thumb" data-tipic="${t.id}" style="float:right;margin-left:10px;width:120px;height:86px">${A._pics[t.id + ':' + t.lvl] ? `<img src="${A._pics[t.id + ':' + t.lvl]}" alt="">` : `<span class="pal-ph">${sp.flies ? '🐉' : '🦬'}</span>`}</div><h4>${sp.flies ? '🐉' : '🦬'} ${esc(t.name)} <span class="dim">· ${esc(t.title)}</span></h4>
           <div class="dim" style="font-size:13px">${sp.flies ? 'Dragon' : 'Great beast'} of ${esc(ELEM[sp.element] ? ELEM[sp.element].word : sp.element)} · level ${t.lvl}${fights < t.lvl ? ` (fights at ${fights} for you — it grows as you do)` : ''} · yours since day ${t.boundDay || '?'}${bondTxt}</div>
           <div class="row" style="gap:10px;font-size:13px"><span style="width:52px">Life</span>${bar(hp, hp > 0.5 ? '#9fe08a' : hp > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hp * 100)}%</span><span class="dim">· ${status}</span></div>
           <div style="font-size:13px">${arts.length ? `Uses for you: <b>${arts.join(', ')}</b>.` : ''} ${S.passive ? `<span class="dim">${esc(S.passive)}.</span>` : ''}${sp.flies ? ' <span class="gold">It can carry you: stand beside it and press V.</span>' : ''}</div>
@@ -1593,6 +1593,7 @@
       const pl = game.pl, again = () => setTimeout(redraw, 60);
       const on = (sel, fn) => root.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { fn(b); again(); }));
       on('button[data-an-call]', b => A.call(game, b.dataset.anCall));
+      A.fillPics(root, game);
       if (ECHO.Tame) ECHO.Tame.bind(root, game, again);
       on('button[data-an-dismiss]', () => A.dismiss(game));
       on('button[data-an-whistle]', () => ECHO.Life.callHorse(game));
@@ -1603,6 +1604,69 @@
         const t = Ti().byId(game.world, b.dataset.anFree);
         UI().modal({ title: `Set ${t.name} free?`, html: `<p>${esc(t.name)} goes back to its old range, wild again — and as strong as any wild titan. You could beat it down and bind it again.</p>`, choices: [{ label: `Set ${t.name} free`, onPick: () => { if (pl.beastOut === t.id) A.dismiss(game, true); Ti().release(game.world, t, pl); UI().openJournal('animals'); } }, { label: 'Keep it', onPick: () => UI().openJournal('animals') }] });
       }));
+    },
+    // ------------------------------------------------------------ pictures of your beasts
+    _pics: {},
+    pic(game, t) {
+      const key = t.id + ':' + t.lvl;
+      if (A._pics[key]) return A._pics[key];
+      const R = ECHO.Renderer;
+      if (!R || !R.beastPortrait || !game.pe) return null;
+      const e = A.entOf(game, t.id) || A.make(game, t, game.pe.x, game.pe.y, true);
+      const cv = e && R.beastPortrait(game, e, 360, 260);
+      if (!cv) return null;
+      try { A._pics[key] = cv.toDataURL('image/png'); } catch (err) { return null; }
+      return A._pics[key];
+    },
+    fillPics(root, game) {
+      const imgs = [...root.querySelectorAll('[data-tipic]')].filter(el => !el.dataset.done);
+      const next = () => {
+        const el = imgs.shift();
+        if (!el || !el.isConnected) { if (imgs.length) setTimeout(next, 0); return; }
+        el.dataset.done = '1';
+        const t = Ti().byId(game.world, el.dataset.tipic);
+        const src = t && A.pic(game, t);
+        if (src) el.innerHTML = `<img src="${src}" alt="">` + (el.dataset.lv ? `<span class="pal-lv">Lv ${el.dataset.lv}</span>` : '');
+        if (imgs.length) setTimeout(next, 16);
+      };
+      setTimeout(next, 30);
+    },
+    // The beasts that Y calls (dragons and great beasts you have bound, and your horse),
+    // shown at the head of the Tamed beasts page, with their pictures.
+    yHtml(game) {
+      const world = game.world, pl = game.pl, mine = world.titans ? Ti().bound(world) : [];
+      if (!mine.length && !pl.horse) return '';
+      const bar = (f, col) => `<div class="t"><i style="width:${Math.round(U.clamp(f, 0, 1) * 100)}%;background:${col}"></i></div>`;
+      const cards = mine.map(t => {
+        const sp = Ti().sp(t), out = pl.beastOut === t.id, flying = pl.flying === t.id, rest = (t.restUntil || 0) > world.day;
+        const e = out && A.entOf(game, t.id), hp = e ? e.hp / e.maxHp : (t.hp == null ? 1 : t.hp);
+        const key = t.id + ':' + t.lvl, pic = A._pics[key];
+        const status = flying ? '<span class="gold">carrying you through the sky</span>' : out ? '<span class="gold">with you now</span>' : rest ? '<span class="ember">resting — it answers again tomorrow</span>' : 'away on its range — press <b>Y</b> or Call';
+        return `<div class="pal-card${out ? ' out' : ''}${rest ? ' rest' : ''}">
+          <div class="pal-pic" data-tipic="${t.id}" data-lv="${t.lvl}"${pic ? ' data-done="1"' : ''}>${pic ? `<img src="${pic}" alt="">` : `<span class="pal-ph">${sp.flies ? '🐉' : '🦬'}</span>`}<span class="pal-lv">Lv ${t.lvl}</span></div>
+          <div class="pal-body">
+            <div class="pal-head"><h4>${esc(t.name)}</h4></div>
+            <div class="pal-sub">${sp.flies ? 'Dragon' : 'Great beast'} · ${esc(t.title || '')}${sp.flies ? ' · carries you (V)' : ''}</div>
+            <div class="pal-bar"><span>Life</span>${bar(hp, hp > 0.5 ? '#9fe08a' : hp > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hp * 100)}%</span></div>
+            <div style="font-size:12px">${status}</div>
+            <div class="row">${flying ? '' : out ? '<button class="small" data-ti-away="1">Send away</button>' : `<button class="small" data-ti-call="${t.id}" ${rest || ECHO.Interior.cur ? 'disabled' : ''}>${ECHO.Interior.cur ? 'Call outside' : 'Call (Y)'}</button>`}</div>
+          </div></div>`;
+      });
+      if (pl.horse) {
+        const H = pl.horse, B = ECHO.Life.BREEDS[H.breed] || { name: 'horse' };
+        const status = pl.mounted ? '<span class="gold">you are riding it</span>' : pl.horseAway ? 'gone home — press <b>Y</b> or <b>V</b> and it comes' : '<span class="gold">nearby</span>';
+        cards.push(`<div class="pal-card${pl.mounted || !pl.horseAway ? ' out' : ''}"><div class="pal-pic"><span class="pal-ph" style="font-size:64px">🐎</span></div>
+          <div class="pal-body"><div class="pal-head"><h4>${esc(H.name)}</h4></div><div class="pal-sub">Horse · ${esc(B.name.toLowerCase())}</div><div style="font-size:12px">${status}</div>
+          <div class="row">${pl.mounted ? '' : '<button class="small" data-ti-horse="1">Whistle (V)</button>'}</div></div></div>`);
+      }
+      return `<h3 class="gold">Called with Y (${mine.length + (pl.horse ? 1 : 0)})</h3><p class="dim" style="margin-top:-4px">Your bound dragons and great beasts, and your horse. <b>Y</b> brings the next one; one of them is with you at a time. The beasts you tame with <b>E</b> are below.</p><div class="pal-grid">${cards.join('')}</div>`;
+    },
+    yBind(root, game, again) {
+      const on = (sel, fn) => root.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { fn(b); again(); }));
+      on('button[data-ti-call]', b => A.call(game, b.dataset.tiCall));
+      on('button[data-ti-away]', () => A.dismiss(game));
+      on('button[data-ti-horse]', () => ECHO.Life.callHorse(game));
+      A.fillPics(root, game);
     },
     // ------------------------------------------------------------ the character page
     html(game) {
