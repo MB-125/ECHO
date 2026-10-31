@@ -14,12 +14,15 @@
   const { U } = ECHO;
   const UI = () => ECHO.UI;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const MAX_OUT = 5, MAX_KEEP = 30;
+  const MAX_OUT = 5, MAX_KEEP = 30, MAX_SAME = 2;   // (no more than two of any one kind: a pack of many kinds)
   const NAMES = ['Ash', 'Briar', 'Cinder', 'Dusk', 'Ember', 'Fang', 'Gloom', 'Hollow', 'Ink', 'Jinx', 'Knell', 'Lurk', 'Mire', 'Nettle', 'Onyx', 'Pyre', 'Quill', 'Rook', 'Sorrow', 'Thorn', 'Umber', 'Vex', 'Wisp', 'Yew', 'Grim', 'Moth', 'Scar', 'Bramble', 'Hush', 'Soot'];
   const PEOPLE = new Set(['brigand', 'chief']);   // (outlaws are people: they can be beaten, not tamed)
 
   const T = ECHO.Tame = {
-    MAX_OUT, MAX_KEEP, chan: null, t: 0, REACH: 18,
+    MAX_OUT, MAX_KEEP, MAX_SAME, chan: null, t: 0, REACH: 18,
+    // how many of this kind you keep already (lords and great beasts of a lair are each their own, never counted)
+    sameCount(pl, species) { return species ? T.pack(pl).filter(r => r.cat !== 'boss' && !r.lord && r.kind === species).length : 0; },
+    full(game, e) { return !!(e && !T.isBoss(e) && e.species && T.sameCount(game.pl, e.species) >= MAX_SAME); },
     reset() { T.chan = null; T.t = 0; },
     // L: the leash — while it is on, nothing you or yours strike down that can be tamed is killed; it falls beaten
     // How you fight what could be tamed (L cycles):
@@ -112,6 +115,7 @@
     can(game, e) {
       if (!e || e.dead || e.vanish || e.hidden || e.pal || e.tamed || e.titan || e.marvel || e.ghost || e.isCompanion || e.pet || e.mentor || e.ngWard || e.huntB) return false;
       if (e.type === 'person' || e.npcId) return false;
+      if (T.full(game, e)) return false;   // two of its kind are yours already: it fights and falls like any other
       if (e.foe) return !PEOPLE.has(e.foe.look) && !(e.foe.look === 'king' && !ECHO.Monsters.DEFS[e.species]);
       if (e.type === 'boss') return !!e.boss;
       if (e.type === 'creature') return e.species === 'wolf' || !!e.beast;
@@ -137,6 +141,13 @@
         for (const e of game.ents) if (!e._tameTold && !e.dead && T.can(game, e) && e.hp <= e.maxHp * T.threshold(e) && U.dist(e.x, e.y, pe.x, pe.y) < 14) {
           e._tameTold = true; ECHO.Combat.floater(e.x, e.y - 1.6 * (e.scale || 1), 'can be tamed — E', '#ffe08a');
           if (!pl._tameTip) { pl._tameTip = true; UI().toast('A beaten beast can be tamed: press E — from where you stand, no need to come close — and it is yours. Taming never fails. Afraid of killing it by mistake? Press L for the leash: what you strike down falls beaten instead of dying.', 'study', 9); }
+        }
+      }
+      if ((T._fullT = (T._fullT || 0) - dt) <= 0) {
+        T._fullT = 0.5;
+        for (const e of game.ents) if (!e._tameTold && !e.dead && e.hp <= e.maxHp * T.threshold(e) && T.full(game, e) && U.dist(e.x, e.y, pe.x, pe.y) < 14) {
+          e._tameTold = true; ECHO.Combat.floater(e.x, e.y - 1.6 * (e.scale || 1), `you have two ${T.plural(e)}`, '#c8b88a');
+          if (!pl._fullTip) { pl._fullTip = true; UI().toast(`You keep no more than ${MAX_SAME} of any one kind of beast, so this one is not for taming — it fights to the end. Release one of yours (U) if you would rather have this one.`, 'info', 6); }
         }
       }
       // the one E would tame, marked where it lies
@@ -203,8 +214,10 @@
       return out;
     },
     nameOf(e) { return e.label ? e.label.replace(/^(an?|the) /i, 'the ') : e.boss ? `${e.boss.name}` : e.foe ? `the ${e.foe.name.replace(/^the /i, '').toLowerCase()}` : `the ${e.species}`; },
+    plural(e) { const n = (e.foe ? e.foe.name.replace(/^the /i, '') : e.species || 'beast').toLowerCase(); return /s$/.test(n) ? n : /(ch|sh|x)$/.test(n) ? n + 'es' : /[^aeiou]y$/.test(n) ? n.slice(0, -1) + 'ies' : /wolf$/.test(n) ? n.slice(0, -1) + 'ves' : n + 's'; },
     begin(game, e) {
       const pl = game.pl;
+      if (T.full(game, e)) return UI().toast(`You already keep ${MAX_SAME} ${T.plural(e)}. Release one (U) to tame another.`, 'warn', 4);
       if (T.pack(pl).length >= MAX_KEEP) return UI().toast(`You already keep ${MAX_KEEP} tamed beasts. Release one (U → Animals) to make room.`, 'warn', 5);
       const boss = T.isBoss(e);
       T.chan = { e, t: 0, dur: boss ? 1.2 : 0.7, hp: game.pe.hp };
@@ -540,7 +553,7 @@
             <div class="row">${r.out ? `<button class="small" data-pal-rest="${r.id}">Send to the den</button>` : `<button class="small" data-pal-call="${r.id}" ${rest ? 'disabled' : ''}>${callLbl(r)}</button>`}<button class="small" data-pal-name="${r.id}">Rename</button><button class="small" data-pal-free="${r.id}">Release</button></div>
           </div></div>`;
       };
-      let h = `<p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. <b>O</b> calls your strongest at any time; Call on any one brings it (if your side is full, the weakest with you goes home for it). When one is beaten it goes home to rest for about 45 seconds, and the strongest rested one comes in its place. L changes how you strike things down. <b>Size matters below ground:</b> caves, hideouts and grots let only small beasts in; dungeons, crypts and mines keep out the huge (the great beasts of the lairs, widows, wyrms); the worlds beyond the gates take any. Those too big wait at the way in.</p>`;
+      let h = `<p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. <b>You keep at most ${MAX_SAME} of any one kind</b> (lords and great beasts are each one of a kind); a third of a kind you already have fights and falls like any other. Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. <b>O</b> calls your strongest at any time; Call on any one brings it (if your side is full, the weakest with you goes home for it). When one is beaten it goes home to rest for about 45 seconds, and the strongest rested one comes in its place. L changes how you strike things down. <b>Size matters below ground:</b> caves, hideouts and grots let only small beasts in; dungeons, crypts and mines keep out the huge (the great beasts of the lairs, widows, wyrms); the worlds beyond the gates take any. Those too big wait at the way in.</p>`;
       if (ECHO.Apex && ECHO.Apex.yHtml) h = ECHO.Apex.yHtml(game) + h;
       if (!pk.length) return h + '<div class="card"><p class="dim">No tamed beasts yet.</p></div>';
       const withYou = pk.filter(r => r.out), den = pk.filter(r => !r.out).sort((a, b) => (T.resting(world, a) - T.resting(world, b)) || b.lvl - a.lvl);

@@ -7,6 +7,9 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.40', items: [
+      'No more than two of any one kind of beast: once two goblins (say) are yours, a third goblin cannot be tamed — it fights and falls like any other, with a small note "you have two goblins". Lords and the great beasts of lairs are each one of a kind and never count. Any you already keep stay yours; release one (U) to make room for another.'
+    ] },
     { v: '0.8.39', items: [
       'The beasts you call with Y — your bound dragons and great beasts, and your horse — now appear at the top of the Tamed beasts page (U), with their pictures, life, where they are, and Call / Send away buttons. The Animals page shows their pictures too, and the tab counts them.'
     ] },

@@ -934,6 +934,12 @@ function main() {
     const cave = { carved: true, type: 'delve', site: { kind: 'cave' } }, barrow = { carved: true, type: 'delve', site: { kind: 'barrow' } }, gate = { carved: true, type: 'gate' }, house = { type: 'house' };
     check('a cave lets in only the small; a barrow keeps out the huge; a gate\'s world takes any; a house none', T.fits(goblin, cave) && !T.fits(troll, cave) && T.fits(troll, barrow) && !T.fits(drake, barrow) && T.fits(drake, gate) && !T.fits(goblin, house) && T.fits(drake, null));
     check('how you strike down what could be tamed: last breath by default, the leash of old saves kept', T.mode({}) === 'breath' && T.mode({ leash: true }) === 'leash' && T.mode({ tameMode: 'kill' }) === 'kill');
+    {
+      // no more than two of any one kind
+      const g2 = { pl: { pack: [{ kind: 'goblin', cat: 'foe' }, { kind: 'goblin', cat: 'foe' }, { kind: 'spider', cat: 'foe' }, { kind: 'goblin', cat: 'foe', lord: true }] } };
+      const gob = { species: 'goblin', foe: { name: 'Goblin', look: 'goblin' } }, spi = { species: 'spider', foe: { name: 'Spider', look: 'spider' } }, lordGob = { species: 'goblin', lord: true, foe: { name: 'Goblin', look: 'goblin' } };
+      check('two of a kind is the most you keep: a third goblin cannot be tamed, a second spider can, a goblin lord is its own', T.MAX_SAME === 2 && T.sameCount(g2.pl, 'goblin') === 2 && T.full(g2, gob) && !T.can(g2, gob) && !T.full(g2, spi) && !T.full(g2, lordGob) && T.plural(gob) === 'goblins');
+    }
     // the pack falls only on fair game among people
     const game = { world: { npcs: { a: { faction: 'ashfang' }, b: { faction: 'crown' } } } };
     check('the pack spares the watch, soldiers, townsfolk and the yielded, but not outlaws or those who came at you', !P.fairGame(game, { role: 'guard' }) && !P.fairGame(game, { role: 'soldier' }) && !P.fairGame(game, { role: 'villager', npcId: 'b' }) && !P.fairGame(game, { role: 'bandit', yielded: true }) && P.fairGame(game, { role: 'bandit' }) && P.fairGame(game, { npcId: 'a' }) && P.fairGame(game, { role: 'villager', startedFight: true }));
