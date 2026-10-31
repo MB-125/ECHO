@@ -488,6 +488,7 @@
     // ------------------------------------------------------------ while you play
     // Near an edge — or on the old island's last shore with open sea ahead — the land grows.
     tick(game, dt) {
+      if (game.world && game.world.globe) return ECHO.Globe && ECHO.Globe.tick(game, dt);   // (a round world grows another way)
       Fr._t = (Fr._t || 0) + dt;
       if (Fr._t < 0.8 || Fr.busy) return;
       Fr._t = 0;

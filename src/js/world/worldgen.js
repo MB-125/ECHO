@@ -36,15 +36,19 @@
       if (x >= 9000 && ECHO.Interior) return ECHO.Interior.tile(x, y);
       x |= 0; y |= 0;
       const ww = world.W || 200;
+      if ((x < 0 || x >= ww) && world.globe) x = ((x % ww) + ww) % ww;     // (the world is round)
       if (x < 0 || y < 0 || x >= ww || y >= (world.H || 150)) return TILE.DEEP;
       return world.tiles[y * ww + x];
     },
-    setTile(world, x, y, t) { const ww = world.W || 200; if (x >= 0 && y >= 0 && x < ww && y < (world.H || 150)) world.tiles[y * ww + x] = t; },
+    setTile(world, x, y, t) { const ww = world.W || 200; if ((x < 0 || x >= ww) && world.globe) x = ((x % ww) + ww) % ww; if (x >= 0 && y >= 0 && x < ww && y < (world.H || 150)) world.tiles[y * ww + x] = t; },
+    // somewhere by chance, on land that has been made (all of it, on an old flat map)
+    spot(world, rng, lx, hx, ly, hy) { return ECHO.Globe ? ECHO.Globe.spot(world, rng, lx, hx, ly, hy) : { x: rng.int(lx, world.W - hx), y: rng.int(ly, world.H - hy) }; },
     isSolid(world, x, y) {
       if (x >= 9000 && ECHO.Interior) return ECHO.Interior.isSolid(x, y);
       const fx = x, fy = y;
       x = Math.floor(x); y = Math.floor(y);
       const ww = world.W || 200;
+      if ((x < 0 || x >= ww) && world.globe) { const k = Math.floor(x / ww) * ww; x -= k; return World.isSolid(world, fx - k, fy); }
       if (x < 0 || y < 0 || x >= ww || y >= (world.H || 150)) return true;
       const i = y * ww + x;
       if (world.blocked[i] === 1) return true;

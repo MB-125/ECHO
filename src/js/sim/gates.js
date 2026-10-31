@@ -110,7 +110,7 @@
       const pick = (relax) => {
         const cands = [];
         for (let k = 0; k < 2600; k++) {
-          const x = 12 + rng.int(0, W - 25), y = 12 + rng.int(0, H - 25);
+          const { x, y } = ECHO.World.spot(world, rng, 12, 13, 12, 13);
           if (!reach[y * W + x] || !OK.has(Wd.tile(world, x, y))) continue;
           let dTown = Infinity;
           for (const s of world.settlements) dTown = Math.min(dTown, U.dist(s.x, s.y, x, y));
@@ -164,7 +164,7 @@
       const T = ECHO.TILE;
       let best = null, bd = -1;
       for (let k = 0; k < 1500; k++) {
-        const x = 8 + rng.int(0, world.W - 17), y = 8 + rng.int(0, world.H - 17);
+        const { x, y } = ECHO.World.spot(world, rng, 8, 9, 8, 9);
         const t = ECHO.World.tile(world, x, y);
         if (!(t === T.GRASS || t === T.HILL || t === T.SAND || t === T.SNOW)) continue;
         let d = Infinity;

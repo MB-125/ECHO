@@ -480,7 +480,11 @@
       R.towns = {};
       if (R.secretSeen) { for (const s of R.secretSeen.values()) R.secretGroup.remove(s.g); R.secretSeen.clear(); }
       R._camV = null; R._chunkLast = null; R.warmed = false;
-      R.buildHeights(world);
+      // the same world again (new land made on it): only what changed
+      if (R.hc && R._hcOf === world && R._hcWH === world.W + 'x' + world.H && Array.isArray(world._hcDirty) && world._hcDirty.length) { for (const r of world._hcDirty) R.buildHeights(world, r); }
+      else R.buildHeights(world);
+      world._hcDirty = null;
+      R._hcOf = world; R._hcWH = world.W + 'x' + world.H;
       R.buildWater(world);
       R.sitesT = 0;
     },
@@ -489,10 +493,11 @@
     },
 
     // ---------------------------------------------------------------- heights
-    buildHeights(world) {
+    buildHeights(world, rect) {
       const W = world.W, H = world.H;
-      const hc = R.hc = new Float32Array((W + 1) * (H + 1));
-      for (let cy = 0; cy <= H; cy++) for (let cx = 0; cx <= W; cx++) {
+      const hc = rect && R.hc ? R.hc : (R.hc = new Float32Array((W + 1) * (H + 1)));
+      const X0 = rect ? Math.max(0, rect.x0 - 1) : 0, X1 = rect ? Math.min(W, rect.x1 + 1) : W, Y0 = rect ? Math.max(0, rect.y0 - 1) : 0, Y1 = rect ? Math.min(H, rect.y1 + 1) : H;
+      for (let cy = Y0; cy <= Y1; cy++) for (let cx = X0; cx <= X1; cx++) {
         let s = 0, n = 0, flat = false, rocks = 0, wet = false;
         for (const [dx, dy] of [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
           const t = ECHO.World.tile(world, cx + dx, cy + dy);
@@ -510,6 +515,7 @@
     },
     cornerH(cx, cy) {
       const W = R.world.W;
+      if ((cx < 0 || cx > W) && R.world.globe) cx = ((cx % W) + W) % W;      // (round the world)
       cx = U.clamp(cx, 0, W); cy = U.clamp(cy, 0, R.world.H);
       return R.hc[cy * (W + 1) + cx];
     },
@@ -540,13 +546,14 @@
     buildWater(world) {
       if (R.water) { R.scene.remove(R.water); R.water.geometry.dispose(); }
       // depth under every vertex: clear and pale over the shallows, dark over the deeps, foam at the edge
-      const big = (world.W + 60) * (world.H + 60);
+      const PX = world.globe ? 400 : 60;      // (a round world's sea runs on past its east and west edges)
+      const big = (world.W + PX) * (world.H + 60);
       const step = (R.Q && R.Q.map <= 512 ? 2 : 1) * (big > 700000 ? 4 : big > 220000 ? 2 : 1);
-      const g = new THREE.PlaneGeometry(world.W + 60, world.H + 60, Math.round((world.W + 60) / step), Math.round((world.H + 60) / step));
+      const g = new THREE.PlaneGeometry(world.W + PX, world.H + 60, Math.round((world.W + PX) / step), Math.round((world.H + 60) / step));
       const pos = g.attributes.position, depth = new Float32Array(pos.count);
       for (let i = 0; i < pos.count; i++) {
         const wx = pos.getX(i) + world.W / 2, wy = world.H / 2 - pos.getY(i);
-        const inside = wx >= 0 && wy >= 0 && wx <= world.W && wy <= world.H;
+        const inside = (world.globe || (wx >= 0 && wx <= world.W)) && wy >= 0 && wy <= world.H;
         depth[i] = inside ? Math.max(0, -0.2 - R.rawH(wx, wy)) : 0.6;
       }
       g.setAttribute('aDepth', new THREE.BufferAttribute(depth, 1));
@@ -617,7 +624,7 @@
       const addAround = (ox, oy, r) => {
         for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
           const cx = ox + dx, cy = oy + dy;
-          if (cx < 0 || cy < 0 || cx * CH >= world.W || cy * CH >= world.H) continue;
+          if (cy < 0 || cy * CH >= world.H || (!world.globe && (cx < 0 || cx * CH >= world.W))) continue;   // (a round world goes on east and west)
           const k = cx + ',' + cy;
           // nearest the point we are heading for first
           const pd = ((cx + 0.5) * CH - (tg.x + ax) / 2) ** 2 + ((cy + 0.5) * CH - (tg.z + az) / 2) ** 2;
@@ -656,6 +663,19 @@
       delete R.chunks[k];
     },
     buildChunk(world, cx, cy, epoch) {
+      // past the east or west edge of a round world: the chunk from the other side, moved over
+      const NC = world.globe ? Math.ceil(world.W / CH) : 0;
+      if (NC && (cx < 0 || cx >= NC)) {
+        const cw = ((cx % NC) + NC) % NC, sh = (cx - cw) * CH, kw = cw + ',' + cy, prev = R.chunks[kw];
+        R.buildChunk(world, cw, cy, epoch);
+        const c = R.chunks[kw];
+        if (prev) R.chunks[kw] = prev; else delete R.chunks[kw];
+        if (!c) return;
+        for (const o of c.objs) { o.position.x += sh; o.updateMatrixWorld && o.updateMatrixWorld(true); }
+        c.box.min.x += sh; c.box.max.x += sh;
+        R.chunks[cx + ',' + cy] = c;
+        return;
+      }
       const season = T.dateOf(world.day).seasonIdx;
       const objs = [];
       // --- ground
@@ -3820,9 +3840,12 @@
         // (your eyes get used to the dark: what is close by can still be seen)
         if (dk > 0.25 && game.pe) R._fxLights = (R._fxLights || []).concat([{ x: game.pe.x, y: game.pe.y, r: 6.5, a: 0.55 * dk, color: '#a8c8a0' }]);
       }
+      // near the poles of a round world: a white wind off the ice
+      const pk = world.globe && game.pe && !ECHO.Interior.cur ? U.clamp((70 - Math.min(game.pe.y, world.H - game.pe.y)) / 55, 0, 1) : 0;
+      if (pk > 0) { fog = lerpC(fog, C(dl > 0.3 ? '#eef3f8' : '#3a4250'), 0.85 * pk); R.sun.intensity *= 1 - 0.4 * pk; }
       R.scene.fog.color.copy(fog);
       R.scene.background = R.scene.fog.color;
-      const fogK = M.fogK;
+      const fogK = M.fogK * (1 - 0.62 * pk);
       R.scene.fog.near = R.camDistNow * 1.15 * fogK * (1 - 0.18 * dk);
       R.scene.fog.far = R.camDistNow * (season === 3 ? 2.6 : 3.4) * fogK * (1 - 0.45 * dk);
       R.renderer.toneMappingExposure = 1.0 + (1 - dl) * 0.22;

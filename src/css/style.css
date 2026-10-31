@@ -486,3 +486,8 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 .pal-how { margin: 4px 0 8px; } .pal-how summary { cursor: pointer; font-size: 13px; padding: 4px 0; }
 .card.mend.on { border-color: #6aa85a; box-shadow: 0 0 0 1px rgba(143,224,122,.25) inset; }
 .card.mend.locked { opacity: .55; }
+/* the globe: drawn in 3D under the map's own canvas */
+.wmap-main.globe { background: radial-gradient(ellipse at 50% 46%, #18233e 0%, #0b1020 55%, #04060c 100%); }
+.wmap-globe { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+.wmap-main #worldmap { position: relative; z-index: 1; }
+.wmap-main .wmap-ctl, .wmap-main #map-tip, .wmap-main .wmap-hint { z-index: 2; }

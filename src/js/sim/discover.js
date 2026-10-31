@@ -46,7 +46,7 @@
       for (const [kind, n] of want) for (let k = 0; k < n; k++) {
         let best = null, bs = -Infinity;
         for (let i = 0; i < 900; i++) {
-          const x = rng.int(8, world.W - 9), y = rng.int(8, world.H - 9);
+          const { x, y } = ECHO.World.spot(world, rng, 8, 9, 8, 9);
           if (!standable(x, y) || !clear(x, y, 19)) continue;
           let sc = rng.next() * 2;
           const water = near(x, y, 2, [T.WATER, T.DEEP]), high = near(x, y, 3, [T.HILL, T.ROCK, T.SNOW]), wood = near(x, y, 3, [T.FOREST, T.TREE]);
@@ -66,7 +66,7 @@
       // hidden caches
       const caches = world.caches = [];
       for (let i = 0; i < 4000 * sc && caches.length < 20 * sc; i++) {
-        const x = rng.int(8, world.W - 9), y = rng.int(8, world.H - 9);
+        const { x, y } = ECHO.World.spot(world, rng, 8, 9, 8, 9);
         if (!standable(x, y) || !clear(x, y, 9) || caches.some(c => U.dist(c.x, c.y, x, y) < (i < 2000 ? 12 : 8))) continue;
         const t = ECHO.World.tile(world, x, y);
         const kind = t === T.FOREST && rng.chance(0.6) ? 'hollow' : rng.chance(0.5) ? 'cairn' : 'loose';
@@ -78,7 +78,7 @@
       // rare herbs, by the ground they like
       const herbs = world.herbs = [];
       for (let i = 0; i < 1600 * sc && herbs.length < 46 * sc; i++) {
-        const x = rng.int(6, world.W - 7), y = rng.int(6, world.H - 7);
+        const { x, y } = ECHO.World.spot(world, rng, 6, 7, 6, 7);
         if (!standable(x, y) || herbs.some(h => U.dist(h.x, h.y, x, y) < 6) || world.settlements.some(s => U.dist(s.x, s.y, x, y) < 9)) continue;
         const tn = Object.keys(T).find(k => T[k] === ECHO.World.tile(world, x, y));
         const fits = Object.keys(HERBS).filter(k => HERBS[k].tiles.includes(tn) && (!HERBS[k].nearWater || near(x, y, 2, [T.WATER])));
@@ -155,7 +155,7 @@
         // the last camp: somewhere far and quiet
         let best = null, bs = -1;
         for (let k = 0; k < 400; k++) {
-          const x = rng.int(10, world.W - 11), y = rng.int(10, world.H - 11);
+          const { x, y } = ECHO.World.spot(world, rng, 10, 11, 10, 11);
           if (ECHO.World.isSolid(world, x + 0.5, y + 0.5) || ![ECHO.TILE.GRASS, ECHO.TILE.FOREST, ECHO.TILE.HILL, ECHO.TILE.SAND].includes(ECHO.World.tile(world, x, y))) continue;
           const sc = Math.min(...world.settlements.map(s => U.dist(s.x, s.y, x, y)));
           if (sc > bs && U.dist(x, y, cache.x, cache.y) < 80) { bs = sc; best = { x: x + 0.5, y: y + 0.5 }; }

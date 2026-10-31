@@ -81,7 +81,7 @@
       const minTown = (20 + sp.far * 18) * (1 - relax * 0.25);
       let best = null, bs = -Infinity;
       for (let i = 0; i < 2200; i++) {
-        const x = 10 + rng.int(0, W - 21), y = 10 + rng.int(0, H - 21);
+        const { x, y } = Wd.spot(world, rng, 10, 11, 10, 11);
         const tl = Wd.tile(world, x, y);
         if (!ok.has(tl) || Wd.isSolid(world, x + 0.5, y + 0.5)) continue;
         let dT = Infinity; for (const s of world.settlements) dT = Math.min(dT, U.dist(s.x, s.y, x, y));

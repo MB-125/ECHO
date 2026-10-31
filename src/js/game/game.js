@@ -22,6 +22,7 @@
       if (Game.pl.x >= 9000 || !isFinite(Game.pl.x)) { const h = ECHO.Sim.settlement(world, Game.pl.homeId) || world.settlements[0]; Game.pl.x = h.x + 0.5; Game.pl.y = h.y + 2.5; }
       ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset(); if (ECHO.Riders) ECHO.Riders.reset(); if (ECHO.Water) ECHO.Water.ripples = [];
       if (ECHO.Wonders) ECHO.Wonders.state(world);
+      if (ECHO.Globe && !world.globe) { try { ECHO.Globe.ensure(world); } catch (err) { console.error('ECHO: the world could not be made round', err); } }
       if (ECHO.Marvels) ECHO.Marvels.reset();
       if (ECHO.Fest) ECHO.Fest.reset();
       if (ECHO.Quests) ECHO.Quests.reset();

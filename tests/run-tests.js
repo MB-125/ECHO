@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -1094,6 +1094,39 @@ function main() {
     const loot = [{ x: 5, y: 5, kind: 'gold', qty: 9 }, { x: 5.3, y: 5.2, kind: 'bonedust', qty: 2 }, { x: 4.8, y: 5.1, kind: 'gel', qty: 1 }, { x: 5.1, y: 4.9, kind: 'item', itemId: 's' }, { x: 5.2, y: 5.4, kind: 'rattail', qty: 3 }, { x: 9, y: 5, kind: 'gold', qty: 1 }];
     const L = E.Progress.lootLabels({ pe: { x: 5, y: 6 }, world, loot });
     check('spoils lying together make one list: the best thing first, the rest summed up, and a heap apart labelled apart', L.length === 4 && L[0].text.startsWith('Fine sword') && L[0].line === 0 && /and 3 more/.test(L[2].text) && L[3].text === '1 crown');
+  }
+
+  console.log('\nThe round world');
+  {
+    const w = ECHO.generateWorld({ seed: 4242, name: 'Globe' });
+    w.player = { x: w.settlements[0].x + 0.5, y: w.settlements[0].y + 2.5, explored: new Array(Math.ceil(w.W / 4) * Math.ceil(w.H / 4)).fill(0) };
+    w.player.explored[3] = 1;
+    for (const k of ['Explore', 'Gates', 'Titans', 'Discover']) if (ECHO[k]) (ECHO[k].sites || ECHO[k].ensure)(w);
+    const ppl = Object.keys(w.npcs).length, s0 = w.settlements[0], sx = s0.x, tiles0 = w.tiles.slice(), W0 = w.W, nSet = w.settlements.length;
+    const Gl = ECHO.Globe, G = Gl.ensure(w);
+    check('an old world is moved onto the globe: 2880 round, 1440 pole to pole, everything with it', w.W === 2880 && w.H === 1440 && !!G && Object.keys(w.npcs).length === ppl && w.settlements.length === nSet && s0.x === sx + G.old.x0 && w.player.x - s0.x === 0.5,
+      `old land at ${G.old.x0},${G.old.y0}`);
+    let same = true; for (let y = 0; y < 150 && same; y += 7) for (let x = 0; x < W0; x += 5) { const a = tiles0[y * W0 + x], b = w.tiles[(y + G.old.y0) * w.W + x + G.old.x0]; if (a !== b && a !== ECHO.TILE.DEEP && a !== ECHO.TILE.WATER) { same = false; break; } }
+    check('its land is unchanged (only the old open sea may shallow toward new coast)', same);
+    const cw = Math.ceil(w.W / 4);
+    check('what you had walked is still walked, in its new place', w.player.explored.length === cw * 360 && w.player.explored[(G.old.y0 / 4) * cw + G.old.x0 / 4 + 3] === 1);
+    check('moving it twice does nothing', Gl.ensure(w) === G && w.W === 2880);
+    const need = Gl.unmade(w, Math.floor(w.player.x), Math.floor(w.player.y), 120);
+    const info = Gl.make(w, need);
+    check('land near you is made as you come: ground, regions and villages with people', need.length > 0 && need.every(ci => G.made[ci]) && w.settlements.length > nSet && Object.keys(w.npcs).length > ppl, `${need.length} cells, ${info.towns.length} villages`);
+    check('east of the east edge is the west edge', ECHO.World.tile(w, -3, 500) === ECHO.World.tile(w, w.W - 3, 500) && ECHO.World.isSolid(w, -2.5, 500.5) === ECHO.World.isSolid(w, w.W - 2.5, 500.5) && Gl.dx(w, w.W - 5, 5) === 10);
+    Gl.make(w, Gl.unmade(w, 3, 520, 40)); Gl.make(w, Gl.unmade(w, 1400, 20, 20));
+    let strand = 0, ice = 0; for (let y = 505; y < 535; y++) { const a = ECHO.World.tile(w, w.W - 1, y), b = ECHO.World.tile(w, 0, y); if (a === ECHO.TILE.SAND || a === ECHO.TILE.GRASS) strand++; if ((a === ECHO.TILE.SAND || a === ECHO.TILE.GRASS) !== (b === ECHO.TILE.SAND || b === ECHO.TILE.GRASS) && strand) strand = -99; }
+    for (let x = 1380; x < 1420; x++) { const t = ECHO.World.tile(w, x, 5); if (t === ECHO.TILE.SNOW || t === ECHO.TILE.ROCK) ice++; }
+    check('a strand of sand crosses the World-Sea unbroken where the map meets itself', strand > 0, strand + ' tiles');
+    check('the pole is a sheet of ice you can walk on', ice >= 38, ice + '/40');
+    const rng = new ECHO.RNG(5); let onMade = 0; for (let i = 0; i < 200; i++) { const p = ECHO.World.spot(w, rng, 8, 9, 8, 9); if (Gl.made(w, p.x, p.y)) onMade++; }
+    check('things placed by chance land on country that has been made', onMade === 200);
+    check('latitude and longitude: the old land in the north, near the middle meridian', /°N/.test(Gl.fmtLatLon(w, s0.x, s0.y)) && Gl.latLon(w, 0, 0).lat === 90);
+    const json = ECHO.Save.serialize(w), w2 = ECHO.Save.deserialize(json);
+    check('a round world saves small and loads whole', json.length < 3e6 && w2.globe && w2.globe.made.join('') === G.made.join('') && w2.player.explored.length === w.player.explored.length && w2.player.explored[(G.old.y0 / 4) * cw + G.old.x0 / 4 + 3] === 1 && w2.tiles.length === w.tiles.length, (json.length / 1e6).toFixed(2) + ' MB');
+    ECHO.Sim.fastForward(w, 3);
+    check('and it goes on living', w.day > 0 && Object.values(w.npcs).some(n => n.status === 'alive'));
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

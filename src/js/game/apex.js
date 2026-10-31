@@ -1538,7 +1538,7 @@
         grip = 1 - Math.exp(-dt * 7);
       }
       F.vx += (hx - F.vx) * grip; F.vy += (hy - F.vy) * grip;
-      pe.x = U.clamp(pe.x + F.vx * dt, 3, world.W - 3);
+      pe.x = world.globe ? pe.x + F.vx * dt : U.clamp(pe.x + F.vx * dt, 3, world.W - 3);   // (round the world, on a round one)
       pe.y = U.clamp(pe.y + F.vy * dt, 3, world.H - 3);
       // ---- height: hold the chosen height over the highest land just ahead
       const g0 = A.gnd(pe.x, pe.y);

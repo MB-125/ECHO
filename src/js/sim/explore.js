@@ -70,7 +70,7 @@
       for (const [cat, kind, n0] of want) for (let k = 0, n = n0 * scale; k < n; k++) {
         let best = null, bs = -Infinity;
         for (let i = 0; i < 700; i++) {
-          const x = rng.int(8, world.W - 9), y = rng.int(8, world.H - 9);
+          const { x, y } = ECHO.World.spot(world, rng, 8, 9, 8, 9);
           const t = ECHO.World.tile(world, x, y);
           if (![T.GRASS, T.FOREST, T.HILL, T.SAND, T.SNOW, T.SWAMP].includes(t) || ECHO.World.isSolid(world, x + 0.5, y + 0.5)) continue;
           if (!far(x, y, kind === 'wayshrine' ? 10 : 15)) continue;
@@ -109,7 +109,7 @@
         let best = null, bs = -Infinity;
         for (let i = 0; i < 1600 && !(i >= 800 && best); i++) {
           relax = i < 800 ? 0 : 1;
-          const x = rng.int(8, world.W - 9), y = rng.int(8, world.H - 9);
+          const { x, y } = ECHO.World.spot(world, rng, 8, 9, 8, 9);
           const t = ECHO.World.tile(world, x, y);
           if (![T.GRASS, T.FOREST, T.HILL, T.SAND, T.SNOW, T.SWAMP].includes(t) || ECHO.World.isSolid(world, x + 0.5, y + 0.5) || !far(x, y)) continue;
           let sc = rng.next() * 2;

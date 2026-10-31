@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.0', items: [
+      'The world is round: every world is now a globe (2,880 tiles around, 1,440 pole to pole) with no edge. Go far enough east and you come back from the west; walk over the pole and you come down the far side. New country is made as you travel toward it, with its own regions, villages, people, beasts and dungeons. The poles are ice you can walk on, and the World-Sea on the far side has two strands of sand across it. Your save moves onto the globe and keeps everything.',
+      'The map (M) is a 3D globe you can turn and zoom: known lands painted on it, the rest uncharted. Click places as before; the pointer shows latitude and longitude. 🌐 (or scrolling all the way in) opens the flat chart.'
+    ] },
     { v: '0.9.7', items: [
       'Living dungeons: Mawtide and Grimmaw sleep with their jaws open — creep up at night and climb down inside, into living chambers that clench, spit acid and breed parasites. Kill what lives at the heart and the beast itself is left weak.',
       'Ironback, the Walking Keep: a new great beast, a huge placid stag carrying a ruined fortress on its back. Climb its flank into the keep and fight the dead garrison while the whole place lurches with each step. You come out wherever it has walked to.'

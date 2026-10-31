@@ -51,7 +51,7 @@
       const far = (x, y, list, d) => list.every(o => U.dist(o.x, o.y, x, y) > d);
       const cand = [];
       for (let i = 0; i < 4000; i++) {
-        const x = 6 + rng.int(0, world.W - 13), y = 6 + rng.int(0, world.H - 13);
+        const { x, y } = ECHO.World.spot(world, rng, 6, 7, 6, 7);
         if (!ok.has(ECHO.World.tile(world, x, y)) || ECHO.World.isSolid(world, x + 0.5, y + 0.5)) continue;
         if (!far(x, y, world.settlements, 14) || !far(x, y, world.camps, 8) || !far(x, y, world.lairs, 9)) continue;
         // beautiful or strange places: by water, near ruins, deep in woods, on hills

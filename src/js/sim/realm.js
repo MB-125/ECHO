@@ -241,7 +241,7 @@
       const own = R.towns(world, f);
       let best = null, bs = -Infinity;
       for (let i = 0; i < 6000; i++) {
-        const x = rng.int(14, world.W - 15), y = rng.int(12, world.H - 13);
+        const { x, y } = ECHO.World.spot(world, rng, 14, 15, 12, 13);
         const t = ECHO.World.tile(world, x, y);
         if (t !== Tl.GRASS && t !== Tl.FOREST) continue;
         const near = Math.min(...world.settlements.map(s => U.dist(s.x, s.y, x, y)));
