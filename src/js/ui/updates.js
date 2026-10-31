@@ -7,6 +7,9 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.38', items: [
+      'The smithy shows how each blade or bow compares to the one you carry: ▲ +6 in green, ▼ −4 in red, or "= yours".'
+    ] },
     { v: '0.8.37', items: [
       'The land breathes: grass, crops, reeds, bushes and the crowns of trees sway in the wind, each in its own rhythm, in gusts that roll across the country, and harder when rain or a storm comes on.'
     ] },
