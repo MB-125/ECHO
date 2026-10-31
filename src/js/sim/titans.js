@@ -107,7 +107,8 @@
       return true;
     },
     slain(world, t, by) {
-      t.alive = false; t.diedDay = world.day;
+      t.alive = false; t.diedDay = world.day; t.mig = null;
+      if (ECHO.Calamity) ECHO.Calamity.markScar(world, t);
       ECHO.Chronicle.add(world, { text: `${t.name} ${t.title} was slain${by ? ' by ' + by : ''}. Its range lies empty.`, kind: 'beast', importance: 3, x: t.x, y: t.y });
     },
 
@@ -161,6 +162,7 @@
           }
         }
       }
+      if (ECHO.Calamity) ECHO.Calamity.daily(world, rng);
     }
   };
 })();

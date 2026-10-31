@@ -334,7 +334,7 @@
       const last = depth >= L.floors - 1;
       X().level(world, site);
       const lvl = X().floorLevel(site, depth);
-      const roster = (def.roster || [[def.foes, 1]]).concat(depth >= 1 ? def.deep || [] : []);
+      const roster = (site.roster || def.roster || [[def.foes, 1]]).concat(depth >= 1 ? def.deep || [] : []);
       const pick = () => { const tot = roster.reduce((a, r) => a + r[1], 0); let r = Math.random() * tot; for (const [k, w] of roster) { r -= w; if (r <= 0) return k; } return roster[0][0]; };
       const tag = e => { e.delve = site.id; e.indoor = true; e.floor = depth; return e; };
       const wolf = (x, y, boss) => { const e = ECHO.Spawner.makeCreature(game, 'wolf', x, y, null, 'den'); const FM = ECHO.Prowess.foeMul(lvl); e.lvl = lvl; e.hp = e.maxHp = Math.round(e.maxHp * FM.hp * (boss ? 3 : 1)); e.dmgMul = (e.dmgMul || 1) * FM.dmg * (boss ? 1.7 : 1); if (boss) { e.scale = 1.5; e.label = 'the Den-Mother'; e.boss2 = true; } return tag(e); };

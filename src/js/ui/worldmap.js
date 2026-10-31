@@ -159,7 +159,7 @@
       if (world.titans && ECHO.Titans) for (const t of world.titans.list) {
         if (!t.alive || t.bound) continue;
         const sp = ECHO.Titans.sp(t), D = Pw ? Pw.diff(t.lvl, me) : { color: '#ff6a4a', skulls: 0 };
-        out.push({ layer: 'danger', kind: 'lair', x: t.x, y: t.y, name: `${t.name} ${t.title}`, color: D.color, pri: 9, ref: t, sub: `${t.seen ? '' : 'Said to range here · '}${sp.flies ? 'A dragon' : 'A great beast'} · level ${t.lvl}`, diff: D.skulls >= 2 ? 'Far beyond you: keep off its range' : 'Beat it down and bind it' });
+        out.push({ layer: 'danger', kind: 'lair', x: t.x, y: t.y, name: `${t.name} ${t.title}`, color: D.color, pri: 9, ref: t, sub: `${t.mig ? `On the move ${ECHO.Calamity.whither(world, t)} · ` : t.seen ? '' : 'Said to range here · '}${sp.flies ? 'A dragon' : 'A great beast'} · level ${t.lvl}${ECHO.Calamity ? ' · ' + ECHO.Calamity.label(t) : ''}`, diff: D.skulls >= 2 ? 'Far beyond you: keep off its range' : 'Beat it down and bind it' });
       }
       // the deep woods: every woodsman warns you off them
       if (world.wild && ECHO.Wildwood) for (const w of world.wild.woods) {

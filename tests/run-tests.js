@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -966,6 +966,51 @@ function main() {
     const pl = { gold: 1e6, potions: {} };
     check('phoenix tears are never sold ready-made', !!Gr.buyPotion(pl, 'phoenix') && !pl.potions.phoenix && !Gr.buyPotion(pl, 'minor') && pl.potions.minor === 1);
     check('the healing draughts are found in order of strength', Gr.healIds().join(',') === 'minor,heal,greater');
+  }
+
+  console.log('\nCalamities');
+  {
+    const w = ECHO.generateWorld({ seed: 4242, name: 'Calamityworld' });
+    const C = ECHO.Calamity, Ti = ECHO.Titans, rng = new ECHO.RNG(7), U = ECHO.U;
+    Ti.ensure(w);
+    const L = Ti.list(w);
+    check('every titan has a class, from Lesser to Primordial', L.every(t => C.cls(t).n >= 1) && C.cls({ lvl: 26 }).n === 1 && C.cls({ lvl: 165 }).n === 2 && C.cls({ lvl: 330 }).n === 3 && C.cls({ lvl: 720 }).n === 4 && C.cls({ lvl: 1400 }).n === 5, L.map(t => t.name + ' ' + C.cls(t).roman).join(', '));
+    const t = L.find(x => !Ti.sp(x).flies) || L[0];
+    const started = C.start(w, rng, t, 'wander');
+    const x0 = t.x, y0 = t.y;
+    t.movedAt = C.now(w) - 1440; C.move(w);
+    check('a calamity leaves its range and travels the country as the clock runs', started && !!t.mig && U.dist(x0, y0, t.x, t.y) > 5, `${Math.round(U.dist(x0, y0, t.x, t.y))} leagues in a day`);
+    // a town in its way: the stages
+    const s = w.settlements.find(z => z.faction !== 'ashfang');
+    const mob = Ti.list(w).find(x => x !== t && Ti.sp(x).flies) || t;
+    mob.lvl = 150; mob.mig = { to: { x: s.x - 60, y: s.y }, why: 'wander', day: w.day };
+    const p0 = s.prosperity = 60;
+    const at = dx => { mob.x = s.x + dx; mob.y = s.y; C.threats(w, rng, mob); return s.calamity ? s.calamity.stage : 0; };
+    const st1 = at(45), st2 = at(20), st3 = at(5), hit = !!(s.calamity && s.calamity.hit), pr = s.prosperity;
+    at(-45);
+    check('a town in its path sees it coming in stages: the signs, the shut gates, the beast itself, and what is left after', st1 === 1 && st2 === 2 && st3 === 3 && hit && pr < p0 && !s.calamity, `stages ${st1}/${st2}/${st3}, prosperity ${p0}→${pr}`);
+    // stop it before it gets there, and the town pays
+    mob.mig = { to: { x: s.x - 60, y: s.y }, why: 'wander', day: w.day }; mob.x = s.x + 25; mob.y = s.y; s.calamity = null; C.threats(w, rng, mob);
+    const pl = { gold: 0, renown: 0, charId: 'tester', first: 'Test', last: 'Er' };
+    const thanks = C.stoppedBy(w, mob, pl, 'slew');
+    check('stop it before it reaches a town, and the town sends its thanks', thanks.some(x => x.s === s) && pl.gold > 0 && !s.calamity, `${pl.gold} crowns`);
+    // where one dies, a dungeon opens some days later
+    const sites0 = w.sites.length;
+    Ti.slain(w, t, 'the test');
+    const due = t.scar && t.scar.day;
+    w.day = due; C.daily(w, rng);
+    const scar = w.sites.find(x => x.kind === 'scar');
+    check('where a calamity falls, a dungeon opens some days later, with things of its kind inside', !!due && w.sites.length === sites0 + 1 && !!scar && scar.level >= 4 && Array.isArray(scar.roster) && !!ECHO.Explore.DELVES.scar, scar ? `${scar.name}, level ${scar.level}` : 'none');
+    // two that meet will fight
+    const live = Ti.wild(w).filter(x => x !== mob).slice(0, 2);
+    if (live.length === 2) {
+      const [a, b] = live; a.mig = { to: { x: a.x + 50, y: a.y }, why: 'wander', day: w.day }; b.x = a.x + 3; b.y = a.y; w.player = null;
+      const n0 = w.chronicle.length; for (let k = 0; k < 20 && !w.chronicle.slice(n0).some(e => /Two calamities met/.test(e.text)); k++) { w.titans.clash = {}; C.clashes(w, rng); }
+      check('two calamities that meet will fight, and one of them comes off the worse', w.chronicle.slice(n0).some(e => /Two calamities met/.test(e.text)) && (a.hp < 1 || b.hp < 1 || !a.alive || !b.alive), w.chronicle.slice(n0).map(e => e.text).join(' | ').slice(0, 200));
+    }
+    // a whole season of it, headless
+    let threw = null; try { for (let d = 0; d < 40; d++) ECHO.Sim.dailyTick(w, true); } catch (err) { threw = err; }
+    check('a season of roaming calamities runs without a hitch', !threw && Ti.list(w).every(x => isFinite(x.x) && isFinite(x.y) && x.x > 0 && x.y > 0 && x.x < w.W && x.y < w.H), threw ? String(threw.stack).slice(0, 300) : `${C.moving(w).length} on the move`);
   }
 
   console.log('\nChallenge and spoils');

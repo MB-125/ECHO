@@ -592,6 +592,7 @@
       A.t -= dt;
       if (A.t > 0) return;
       A.t = 0.5;
+      if (ECHO.Calamity) ECHO.Calamity.move(world);
       if (ECHO.Interior.cur) return;
       // the wild ones, near you
       for (const t of world.titans.list) {
@@ -603,10 +604,12 @@
           if (Ti().sp(t).flies && !A.night(world)) { ne.state = 'patrol'; ne.alt = ne.altGoal = 5; }
           game.ents.push(ne);
         } else if (d > 78 && e) { e.dead = true; e.vanish = true; t.hp = e.hp / e.maxHp; }
+        // one on the move, passing near: the signs first
+        if (t.mig && d < 48 && t.mig.told !== world.day && !pl.flying) A.signs(game, t, d);
         if (!t.seen && d < 52) {
           t.seen = true;
           const sp = Ti().sp(t), D = ECHO.Prowess.diff(t.lvl, ECHO.Prowess.level(pl));
-          UI().banner(`${t.name} ${t.title}`, `${sp.flies ? 'A dragon' : 'A great beast'} · level ${t.lvl} · this is its range`, false);
+          UI().banner(`${t.name} ${t.title}`, `${sp.flies ? 'A dragon' : 'A great beast'} · level ${t.lvl} · ${ECHO.Calamity ? ECHO.Calamity.label(t) : ''}${t.mig ? ' · on the move' : ' · this is its range'}`, false);
           if (!A.told.first) { A.told.first = true; setTimeout(() => UI().toast(`${sp.desc} ${D.skulls >= 2 ? 'It is far beyond you — stay off its range.' : 'Beat it down and you can bind it: it will fight for you' + (sp.flies ? ', and carry you through the sky.' : '.')}`, D.skulls >= 2 ? 'warn' : 'legend', 8), 900); }
         }
         // its young about the roost, as you come close
@@ -620,6 +623,16 @@
       }
     },
     night(world) { const h = world.minute / 60; return h < 5.5 || h > 21; },
+    // A calamity passing: the birds go quiet, the ground shakes, and you are told where it is going.
+    signs(game, t, d) {
+      const world = game.world, pe = game.pe, Cl = ECHO.Calamity;
+      t.mig.told = world.day;
+      const sp = Ti().sp(t), where = Cl ? Cl.dirWord(t.x - pe.x, t.y - pe.y) : '';
+      game.shake(sp.flies ? 0.25 : 0.45);
+      if (ECHO.Sfx) ECHO.Sfx.play('roar', { pitch: 0.55 / Math.sqrt(sp.scale || 1) });
+      for (let i = 0; i < 14; i++) ECHO.Combat.fx.push({ kind: 'p', x: pe.x + (Math.random() - 0.5) * 6, y: pe.y - 2 + (Math.random() - 0.5) * 3, vx: (Math.random() - 0.5) * 8, vy: -2 - Math.random() * 3, t: 0, life: 1.2, color: '#2a2622', size: 2 });
+      UI().toast(`${sp.flies ? 'A shadow crosses the sun, and the birds go silent.' : 'The birds go silent. The ground shakes under your feet; somewhere a tree goes down.'} ${t.name} ${t.title} — ${Cl ? Cl.label(t) : ''}, level ${t.lvl} — is passing to the ${where}, ${Math.round(d)} leagues off, on its way ${Cl ? Cl.whither(world, t) : ''}. It has business of its own: follow it, fight it, or keep out of its way (crouch, Ctrl, and it may pass you by).`, 'legend', 10);
+    },
     broodNear(game, t) { return game.ents.some(e => e.broodOf === t.id && !e.dead); },
     brood(game, t) {
       const sp = Ti().sp(t);
@@ -695,8 +708,27 @@
         if (!hostile || U.dist(pe.x, pe.y, home.x, home.y) > t.r + 24 || d > 34) { e.aggro = false; e.state = 'return'; if (UI().bossEnt === e) UI().bossBar(null); }
         else return A.fight(game, e, t, dt, d);
       }
+      // on the move: it goes where it is going. The great ones pay you no mind unless you
+      // come right under them (or strike them); the lesser still turn on what crosses them.
+      const Cl = ECHO.Calamity, cls = Cl ? Cl.cls(t).n : 1, sneak = ECHO.PlayerCtl && ECHO.PlayerCtl.sneaking;
+      if (t.mig && !e.aggro) {
+        const notice = (cls >= 3 ? 3.5 : 7) * (sneak ? 0.5 : 1) * (e.alt > 2 ? 0.6 : 1);
+        if (hostile && d < notice) { e.aggro = true; e.phase = e.alt > 2 ? 'air' : 'ground'; e.phaseT = 0; e.airN = 0; e.state = 'roar'; e.t = 0; UI().bossBar(e); game.shake(0.5); if (ECHO.Sfx) ECHO.Sfx.play('roar', { pitch: 1 / Math.sqrt(e.tscale) }); return; }
+        e.altGoal = e.flies ? 6 : 0;
+        const to = Cl.aim(t); A.go(game, e, to.x, to.y, e.flies ? 5.5 : 2.4, dt);
+        t.x = e.x; t.y = e.y; t.liveAt = Cl.now(world);
+        const left = U.dist(e.x, e.y, t.mig.to.x, t.mig.to.y);
+        // a big thing walking through the country
+        if (!e.flies && (e._stepT = (e._stepT || 0) - dt) <= 0) {
+          e._stepT = 0.55 / Math.max(0.6, (e.tscale || 1) * 0.6);
+          if (d < 28) game.shake(Math.min(0.22, 2.2 / Math.max(4, d)));
+          if (Math.random() < 0.6) ECHO.Combat.burst(e.x + (Math.random() - 0.5) * 2, e.y + (Math.random() - 0.5) * 2, '#8a7a5a', 6, 2, 0.6, 3);
+        }
+        if (left < 2) Cl.arrive(world, t);
+        return;
+      }
       // it notices you on its range
-      if (hostile && onRange && d < (e.alt > 2 ? 15 : 10)) {
+      if (hostile && onRange && d < (e.alt > 2 ? 15 : 10) * (sneak ? 0.6 : 1)) {
         e.aggro = true; e.phase = e.alt > 2 ? 'air' : 'ground'; e.phaseT = 0; e.airN = 0; e.state = 'roar'; e.t = 0;
         game.shake(0.5); if (ECHO.Sfx) ECHO.Sfx.play('roar', { pitch: 1 / Math.sqrt(e.tscale) });
         UI().bossBar(e);
@@ -1088,7 +1120,10 @@
         const mine = Ti().bound(world);
         return UI().modal({ title: 'You can keep four', html: `<p>You already keep ${mine.length} beasts. Set one free to make room for ${esc(t.name)} — it goes back to its old range.</p>`, choices: mine.map(b => ({ label: `Set ${b.name} free`, sub: `${Ti().sp(b).flies ? 'Dragon' : 'Great beast'} · level ${b.lvl}`, onPick: () => { if (pl.beastOut === b.id) A.dismiss(game); Ti().release(world, b, pl); A.bind(game, e, t); } })).concat([{ label: 'Leave it', onPick: () => {} }]) });
       }
+      const saved = ECHO.Calamity ? ECHO.Calamity.stoppedBy(world, t, pl, 'bound') : [];
       Ti().bind(world, t, pl);
+      t.mig = null;
+      for (const sv of saved) setTimeout(() => UI().toast(`${sv.s.name} is saved. They send ${sv.gold} crowns, and their thanks.`, 'legend', 7), 1500);
       A.xp(game, e, 1);
       t.hp = 0.6; t.restUntil = world.day;
       e.dead = true; e.vanish = true;
@@ -1108,8 +1143,10 @@
       add('dragonscale', Ti().sp(t).flies ? 3 + Math.floor(r() * 4) : 0); add('greathide', 2 + Math.floor(r() * 2)); add('greatfang', 2); if (r() < 0.6) add('heartstone', 1 + Math.floor(r() * 2));
       add('gold', Math.round(200 + Math.min(L, 150) * 12));
       for (let i = 0; i < 2; i++) ECHO.Monsters.dropGear(game, e.x + (r() - 0.5) * 2, e.y + (r() - 0.5) * 2, L, 30, `in the hoard of ${t.name}`);
+      const saved = ECHO.Calamity ? ECHO.Calamity.stoppedBy(world, t, pl, 'slew') : [];
       Ti().slain(world, t, `${pl.first} ${pl.last}`);
       pl.renown += 40;
+      for (const sv of saved) setTimeout(() => UI().toast(`${sv.s.name} is saved. They send ${sv.gold} crowns, and their thanks.`, 'legend', 7), 1500);
       e.dead = true; e.deathT = 0;
       if (UI().bossEnt === e) UI().bossBar(null);
       ECHO.Combat.burst(e.x, e.y, '#5a1f1f', 50, 6, 1.3, 3); game.shake(0.8);

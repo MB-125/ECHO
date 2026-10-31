@@ -1050,6 +1050,15 @@
             add('candles', 0, 1.2, null, 0, 1); disc(0, 0.2, 1.4, '#3a2a5a', 0.6); hole(0, 0.2, 0.55);
             R.siteLights.push({ x: s.x, y: s.y + 0.4, r: 3.5, a: 0.8, color: '#b48aff', h: 0.6 }); break;
           }
+          // where a calamity fell: a rift in the ground, its bones, and a glow from below in its colour
+          case 'scar': {
+            const T0 = ECHO.Titans && s.of ? ECHO.Titans.byId(world, s.of) : null, col = T0 ? (ECHO.Titans.sp(T0).belly || ECHO.Titans.sp(T0).color || '#ff9a5a') : '#ff9a5a';
+            add('boulder', -1.9, -0.8, { rock: '#3a3230', darkstone: '#2a2220' }, 0, 1.9); add('boulder', 1.8, -1.1, { rock: '#3a3230', darkstone: '#2a2220' }, 2, 1.6); add('boulder', 0.3, -1.9, { rock: '#3a3230', darkstone: '#2a2220' }, 1, 1.3);
+            add('bones', -1.2, 1.1, null, 0.4, 2.2); add('bones', 1.3, 1.3, null, 2.1, 1.8); add('bones', 2.2, 0.1, null, 1.2, 1.5);
+            disc(0, 0.3, 2.3, '#1a1210', 0.85); hole(0, 0.2, 1.05);
+            disc(0, 0.2, 1.25, col, 0.45); disc(0, 0.2, 1.7, col, 0.15);
+            R.siteLights.push({ x: s.x, y: s.y + 0.2, r: 6, a: 1.3, color: col, h: 0.4 }); break;
+          }
           case 'forge': {
             add('boulder', -1.7, -0.9, { rock: '#5a5458', darkstone: '#3a3438' }, 0, 2.2); add('boulder', 1.7, -0.9, { rock: '#5a5458', darkstone: '#3a3438' }, 2, 2.1);
             add('pillar', -0.8, 0.2, { stone: '#3a3438' }, 0, 1.2); add('pillar', 0.8, 0.2, { stone: '#3a3438' }, 0, 1.2); add('anvil', 1.4, 1.2, null, 0.5, 1);

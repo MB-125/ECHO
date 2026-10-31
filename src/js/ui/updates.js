@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.9.0', items: [
+      'Calamities walk the world. Every dragon and great beast now has a class — I Lesser, II Greater, III Catastrophic, IV Extinction, V Primordial (that one sleeps) — and none of them waits for you in an arena: hunger or restlessness sends them off across the country to new ground, in the world\'s own time.',
+      'When one passes near you, the birds go quiet and the ground shakes, and you are told where it is going. Follow it, fight it, or keep out of its way — crouch (Ctrl) and it may pass you by. The great ones ignore you unless you come right under them or strike them.',
+      'A town in its path sees it coming in stages: travellers\' tales, then shut gates, dear bread and a call for help, then the beast itself — and what it costs depends on its class. Slay or bind it first and the town pays you and remembers it.',
+      'Two calamities that meet will fight. Where one dies, a new dungeon opens some days later — the Scar of …, full of things of its kind.',
+      'The world map shows every titan where it is now, its class, and where it is heading.'
+    ] },
     { v: '0.8.41', items: [
       'Your beasts grow by fighting: the one that lands a kill learns most, the rest of the pack nearby learn by watching, and they learn from your kills too.',
       'A beast grows up to your level (or the level it was tamed at, if higher). At that height its skills grow instead — mastery ★1 to ★30: each rank hits harder (+3%), lasts longer (+2% life) and brings its arts back sooner, and it learns new skills on the way: Thick hide (★5, takes less harm), Killer instinct (★10, more harm to the wounded), Second wind (★15, heals once when hard pressed), Swift arts (★20) and Apex (★30).',

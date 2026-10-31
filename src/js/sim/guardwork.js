@@ -132,7 +132,8 @@
         // one of the realm's own if there is one; never into a town at war with theirs
         const F = world.factions[s.faction];
         const ok = free.filter(a => a.faction === s.faction || !(F && F.atWar && F.atWar[a.faction]));
-        const pick = ok.sort((a, b) => (b.faction === s.faction) - (a.faction === s.faction) || U.dist(ECHO.Sim.settlement(world, a.home).x, ECHO.Sim.settlement(world, a.home).y, s.x, s.y) - U.dist(ECHO.Sim.settlement(world, b.home).x, ECHO.Sim.settlement(world, b.home).y, s.x, s.y))[0];
+        const far = a => { const h = ECHO.Sim.settlement(world, a.home); return h ? U.dist(h.x, h.y, s.x, s.y) : 9999; };   // (a home that is gone: as far as can be)
+        const pick = ok.sort((a, b) => (b.faction === s.faction) - (a.faction === s.faction) || far(a) - far(b))[0];
         if (!pick) continue;
         free.splice(free.indexOf(pick), 1);
         GW.post(world, g, pick, s, t >= 200 ? 'asked' : 'danger');
