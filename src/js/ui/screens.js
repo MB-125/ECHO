@@ -301,6 +301,7 @@
           return `<div class="card"><h4>Gameplay</h4>
           <div class="row"><span style="min-width:190px">Challenge</span>${opt('difficulty', 'story', 'Story', 'normal')}${opt('difficulty', 'normal', 'Balanced', 'normal')}${opt('difficulty', 'hard', 'Hard', 'normal')}</div>
           <div class="dim" style="margin:-2px 0 6px">Story: foes hit half as hard and fall sooner. Hard: they hit harder and take more killing. Change it any time; your world is untouched.</div>
+          <div class="row"><span style="min-width:190px">Journal (Tab, J)</span>${opt('journal', 'beasts', 'Beasts only', 'beasts')}${opt('journal', 'all', 'Every page', 'beasts')}</div>
           <div class="row"><span style="min-width:190px">Pause when you switch away</span>${opt('autoPause', 'on', 'On', 'on')}${opt('autoPause', 'off', 'Off', 'on')}</div>
           <div class="row"><span style="min-width:190px">Screen shake</span>${opt('shake', 'full', 'Full', 'full')}${opt('shake', 'gentle', 'Gentle', 'full')}${opt('shake', 'off', 'Off', 'full')}</div>
           <div class="row"><span style="min-width:190px">Damage numbers</span>${opt('dmgNums', 'on', 'On', 'on')}${opt('dmgNums', 'off', 'Off', 'on')}</div>

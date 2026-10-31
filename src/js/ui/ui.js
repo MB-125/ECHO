@@ -1610,11 +1610,13 @@
     openJournal(tab0) {
       const game = ECHO.Game, world = game.world, pl = game.pl;
       let tab = tab0 || (pl.focus !== undefined ? 'ambition' : 'tasks'), kind = 'all';
-      const body = UI.openPanel('Journal', '', 'journal');
+      const body = UI.openPanel(UI.settings.journal !== 'all' ? 'Your beasts' : 'Journal', '', 'journal');
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
         const tabs = [['guide', 'Guide'], ['nearby', 'Nearby'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['animals', 'Animals'], ['tamed', `Tamed beasts${(n => n ? ' (' + n + ')' : '')((ECHO.Tame ? ECHO.Tame.pack(pl).length : 0) + (world.titans && ECHO.Titans ? ECHO.Titans.bound(world).length : 0))}`], ['powers', 'Rising powers'], ['guard', 'The Guard'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
-        if (!tabs.some(t => t[0] === tab)) tab = tab === 'quests' ? 'tasks' : 'guide';   // (an old name for a page: the nearest one, lit)
+        // your choice (Esc → Gameplay → Journal): only your beasts and animals, or every page
+        if (UI.settings.journal !== 'all') { const keep = ['tamed', 'animals']; for (let i = tabs.length - 1; i >= 0; i--) if (!keep.includes(tabs[i][0])) tabs.splice(i, 1); tabs.sort((a, b) => keep.indexOf(a[0]) - keep.indexOf(b[0])); }
+        if (!tabs.some(t => t[0] === tab)) tab = UI.settings.journal !== 'all' ? 'tamed' : tab === 'quests' ? 'tasks' : 'guide';   // (a page not shown: the nearest one, lit)
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'animals') html += ECHO.Apex ? ECHO.Apex.animalsHtml(game) : '';
         else if (tab === 'tamed') html += ECHO.Tame ? ECHO.Tame.page(game) : '';

@@ -7,6 +7,9 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.9.1', items: [
+      'The journal (Tab or J) now holds just your beasts: Tamed beasts and Animals. Want every page back (guide, story, people, letters…)? Esc → Gameplay → Journal → Every page.'
+    ] },
     { v: '0.9.0', items: [
       'Calamities walk the world. Every dragon and great beast now has a class — I Lesser, II Greater, III Catastrophic, IV Extinction, V Primordial (that one sleeps) — and none of them waits for you in an arena: hunger or restlessness sends them off across the country to new ground, in the world\'s own time.',
       'When one passes near you, the birds go quiet and the ground shakes, and you are told where it is going. Follow it, fight it, or keep out of its way — crouch (Ctrl) and it may pass you by. The great ones ignore you unless you come right under them or strike them.',
