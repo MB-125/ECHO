@@ -43,6 +43,7 @@
         maxMana: 60 + pl.skills.flame * 1.2 + ((pl.boons && pl.boons.mana) || 0) + (ECHO.Arcana ? ECHO.Arcana.bonus(pl) : 0),
         wellfed: charm('wellfed')
       };
+      if (ECHO.Lore) PC.derived.maxHp = Math.round(PC.derived.maxHp * ECHO.Lore.lifeMul(pl));
       pl.maxHp = PC.derived.maxHp; pl.maxSta = PC.derived.maxSta; pl.maxMana = PC.derived.maxMana;
       pl.hp = Math.min(pl.hp, pl.maxHp);
     },
@@ -348,6 +349,7 @@
       if (PC.drinkT > 0) PC.drinkT -= dt;
       if (pl.buffs) PC.potionTick(game, dt);
       if (ECHO.Mending) ECHO.Mending.tick(game, dt);
+      if (ECHO.Lore) { ECHO.Lore.tick(game, dt); ECHO.Overgrowth.tick(game, dt); }
 
       // ---- Regeneration
       if (!pe.swimming && !pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (pe.wading ? 0.6 : 1) * (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1) * (pl.buffs && pl.buffs.wind > 0 ? 2 : 1) * (ECHO.Camp ? ECHO.Camp.regenMul(pl) : 1));
@@ -644,6 +646,7 @@
       const pl = game.pl, world = game.world;
       const key = e.type === 'boss' ? 'boss:' + e.boss.id : e.species;
       pl.studied[key] = (pl.studied[key] || 0) + 1;
+      if (ECHO.Lore) ECHO.Lore.onStudy(game, e, pl.studied[key] === 1);
       Ch().train(pl, 'study', 0.7);
       Ch().behave(pl, 'curiosity', 0.15);
       const n = pl.studied[key];

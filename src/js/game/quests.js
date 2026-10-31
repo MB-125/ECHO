@@ -163,6 +163,7 @@
         const left = game.ents.filter(e => e.delve === target.delve && !e.dead && e !== target && (e.floor == null || e.floor === target.floor)).length;
         if (site && !left) {
           site.floorsDone = site.floorsDone || {}; site.floorsDone[target.floor || 0] = world.day;
+          if (ECHO.Lore && from && (from === game.pe || from.pal)) ECHO.Lore.onFloor(game);
           const last = !L || L.depth >= L.floors - 1;
           UI().toast(last ? `${U.cap(site.name)} falls quiet. Whatever was down here is finished — and what it guarded is yours.` : 'This floor is quiet now. The stairs lead deeper — the things below are stronger.', 'legend', 5);
         }
@@ -558,7 +559,7 @@
       pl.discovered = (pl.discovered || 0) + 1;
       ECHO.Music.stinger('discover');
       UI().banner(U.cap(site.name), X().label(site));
-      UI().toast(`${X().desc(site)}${site.cat === 'delve' ? ` Danger ${X().stars((X().level(world, site), site))}${X().floors(site) > 1 ? ', ' + X().floors(site) + ' floors deep' : ''}. (E to enter.)` : ''}${site.unnamed ? ' No one has ever charted this place.' : ' The archives pay for accounts of places like this.'}`, 'legend', 7);
+      UI().toast(`${X().desc(site)}${site.cat === 'delve' ? ` Danger ${X().stars((X().level(world, site), site))}${X().floors(site) > 1 ? ', ' + X().floors(site) + ' floors deep' : ''}. (E to enter.)${(site.grow || 0) >= 12 ? ` Untended for ${site.grow} days, it has grown deeper and worse${site.grow >= 30 ? ' — and things come out of it at night' : ''}.` : ''}` : ''}${site.unnamed ? ' No one has ever charted this place.' : ' The archives pay for accounts of places like this.'}`, 'legend', 7);
       if (site.unnamed) setTimeout(() => Q.nameModal(game, site), 1400);
       ECHO.Chronicle.add(world, { text: `${pl.first} ${pl.last} came upon ${site.name}.`, kind: 'player', importance: 0, x: site.x, y: site.y, char: pl.charId });
       if (site.kind === 'lookout') { site.used[pl.charId] = world.day; Q.lookout(game, site, true); }

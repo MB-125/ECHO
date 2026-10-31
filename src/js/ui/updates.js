@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.9.4', items: [
+      'Lore of the wild, on your character page (K): skills learned only by doing — Hunter (hunt beasts and monsters; from rank 2 the foes near you show on your minimap), Beast-lore (study them with F), Delver (clear dungeon floors), Calamity-hunter (wound dragons and great beasts) and Wayfarer (travel in storm, snow, rain, fog and heat). Five ranks each, each rank a real edge.',
+      'Dungeons that nobody clears grow, day by day: deeper, with stronger things in them — and after a month, things come out of them at night. Clear one and it starts again. You are told how long one has stood untended when you come on it.',
+      'Fixed: a house in another town than the one its owner died in now passes to the heir too.'
+    ] },
     { v: '0.9.3', items: [
       'Healing arts, on your character page (K): Renewal, Victor\'s breath, Lifesteal (level 5), Second wind (level 10) and Mending pulse (level 15, heals your beasts too). Switch up to three on — in a fight they heal you by themselves, no key pressed — and switch them in and out whenever you like. Renewal and Victor\'s breath start switched on.'
     ] },

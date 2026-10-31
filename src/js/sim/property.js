@@ -184,7 +184,7 @@
       const duty = estate * 0.1;
       if (f && f.type !== 'bandits') f.treasury += duty;
       const things = [];
-      if (s) for (const b of s.buildings) if (b.npcOwner === n.id) { b.npcOwner = heir ? heir.id : null; things.push(b.type === 'house' ? 'house' : b.type === 'lumber' ? 'lumber camp' : b.type); if (heir && b.type === 'house' && !heir.house) { heir.house = b.id; heir.lodge = null; } }
+      for (const s2 of world.settlements) for (const b of s2.buildings) if (b.npcOwner === n.id) { /* (a house in another town than the one they died in passes too) */ b.npcOwner = heir ? heir.id : null; things.push(b.type === 'house' ? 'house' : b.type === 'lumber' ? 'lumber camp' : b.type); if (heir && b.type === 'house' && !heir.house) { heir.house = b.id; heir.lodge = null; } }
       // money owed to the dead goes to the heir; the dead's own debts come out of the estate
       for (const o of Object.values(world.npcs)) if (o.debt && o.debt.to === n.id) o.debt.to = heir ? heir.id : null;
       let left = estate - duty;

@@ -1040,6 +1040,29 @@ function main() {
     check('switched off, an art does nothing', pl.hp === h3);
   }
 
+  console.log('\nLore of the wild, and dungeons that grow');
+  {
+    const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite };
+    ctx.globalThis = ctx; vm.createContext(ctx);
+    for (const f of ['core.js', 'game/lore.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx);
+    const E = ctx.ECHO, Lo = E.Lore;
+    E.Combat = { floater() {}, ring() {} }; E.UI = { toast() {} }; E.Interior = { cur: null };
+    const pl = { studied: { wolf: 1 } }, game = { pl, pe: { x: 1, y: 1 }, ents: [] };
+    for (let i = 0; i < 30; i++) Lo.onKill(game, { type: 'creature', species: 'boar', x: 5, y: 5 });
+    check('hunting raises the Hunter: two ranks after thirty kills, and harder blows on beasts', Lo.rank(pl, 'hunt') === 2 && Lo.dealt(game, { type: 'creature', species: 'boar' }) > 1.05 && Lo.dealt(game, { type: 'person' }) === 1);
+    Lo.onStudy(game, { species: 'wolf' }, true);
+    check('studying a kind teaches you to fight that kind better', Lo.rank(pl, 'study') === 1 && Lo.dealt(game, { type: 'creature', species: 'wolf' }) > Lo.dealt(game, { type: 'creature', species: 'boar' }));
+    Lo.onHit(game, { titan: 't1', maxHp: 1000 }, 500);
+    check('standing against a titan hardens you against them', Lo.rank(pl, 'titan') >= 2 && Lo.taken(game, { titan: 't1' }) < 1 && Lo.taken(game, { species: 'goblin' }) === 1);
+    check('the Wayfarer grows your life', Lo.lifeMul(pl) === 1 && (pl.lore.endure = 15, Lo.lifeMul(pl) > 1.05));
+  }
+  {
+    const X = ECHO.Explore, s = { cat: 'delve', kind: 'crypt', level: 20, lv2: 1, grow: 0 };
+    const f0 = X.floors(s), l0 = X.floorLevel(s, 0);
+    s.grow = 60;
+    check('a dungeon left uncleared grows deeper and worse (and only so far)', X.floors(s) > f0 && X.floorLevel(s, 0) > l0 && X.growth({ level: 20, grow: 1000 }) === 6, `${f0}→${X.floors(s)} floors, level ${l0}→${X.floorLevel(s, 0)}`);
+  }
+
   console.log('\nChallenge and spoils');
   {
     const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite, Uint8Array, Int32Array, Float32Array };

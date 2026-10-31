@@ -182,13 +182,16 @@
       const def = DELVES[site.kind] || {};
       if (site.kind === 'riftdeep') return def.floors || 2;
       const L = site.level || 1;
-      return X.small(site) ? Math.min(9, 3 + Math.floor(L / 30)) : Math.min(12, (def.floors || 1) + 2 + Math.floor(L / 25));
+      const more = Math.min(3, Math.floor((site.grow || 0) / 25));   // (grown, untended: more floors)
+      return X.small(site) ? Math.min(9, 3 + Math.floor(L / 30) + more) : Math.min(12, (def.floors || 1) + 2 + Math.floor(L / 25) + more);
     },
     // Each floor down is stronger than the one above.
     floorLevel(site, depth) {
       const L = site.level || 1;
-      return Math.min(150, L + (depth || 0) * (2 + Math.floor(L / 25)) + Math.floor((site.round || 0) / 2));
+      return Math.min(150, L + (depth || 0) * (2 + Math.floor(L / 25)) + Math.floor((site.round || 0) / 2) + X.growth(site));
     },
+    // how much worse it has grown, untended
+    growth(site) { return Math.min(Math.max(3, Math.round((site.level || 1) * 0.3)), Math.floor((site.grow || 0) / 6)); },
     stars(site) {
       const a = X.floorLevel(site, 0), b = X.floorLevel(site, X.floors(site) - 1);
       return a === b ? `Lv ${a}` : `Lv ${a}–${b}`;
@@ -212,6 +215,8 @@
     dailyTick(world, rng) {
       const sites = X.sites(world);
       for (const s of sites) X.refill(world, s);
+      // a dungeon no one clears grows: deeper, and worse, day by day (cleared, it starts again)
+      for (const s of sites) if (s.cat === 'delve' && s.kind !== 'riftdeep') { if (s.cleared) s.grow = 0; else s.grow = Math.min(150, (s.grow || 0) + 1); }
       if (!world.player) return;
       const open = world.plights.filter(p => p.status === 'open');
       for (const t of world.settlements) {

@@ -370,6 +370,8 @@
       if (src.stealth) dmg *= from === game.pe ? ECHO.Tech.stealthMul() : 3;
       if (from === game.pe && target !== game.pe) dmg *= ECHO.Tech.dealt(target, src);
       if (from === game.pe && target !== game.pe && (type === 'melee' || type === 'ranged') && ECHO.Arcana) dmg *= ECHO.Arcana.dealt(game, type);
+      if (from === game.pe && target !== game.pe && ECHO.Lore) dmg *= ECHO.Lore.dealt(game, target);
+      if (target === game.pe && from && from !== game.pe && ECHO.Lore) dmg *= ECHO.Lore.taken(game, from);
       if (target === game.pe && from !== game.pe && game.pl.mounted && ECHO.Life) dmg = ECHO.Life.hitInSaddle(game, from, dmg);
       if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken() * (ECHO.Gear ? ECHO.Gear.taken(world, game.pl, type) : 1) * (ECHO.Companions ? ECHO.Companions.shield(game) : 1);
       if (target === game.pe && from && from !== game.pe && ECHO.Director && ECHO.Director.mercy(game)) dmg *= 0.82;
@@ -390,6 +392,7 @@
       target.hp -= dmg;
       if (target.pal && ECHO.Tame && target.hp > 0) ECHO.Tame.afterHit(game, target);
       if (from === game.pe && target !== game.pe && !target.pal && !target.tamed && ECHO.Mending) ECHO.Mending.onHit(game, dmg);
+      if (from === game.pe && ECHO.Lore) ECHO.Lore.onHit(game, target, dmg);
       target.hurtT = 0.18;
       target.hurtDir = src.angle != null ? src.angle : target.hurtDir;
       // Stagger interrupts whatever the target was winding up.
@@ -477,6 +480,7 @@
       if (byPlayer && target.species !== 'hare' && target.species !== 'gnawer') ECHO.Tech.onKill(game, target, type, src);
       if (byPlayer && ECHO.Progress) ECHO.Progress.onKill(game, target);
       if (from === game.pe && ECHO.Mending) ECHO.Mending.onKill(game, target);
+      if (from === game.pe && ECHO.Lore) ECHO.Lore.onKill(game, target);
       if (byPlayer) {
         if (ECHO.Sfx) ECHO.Sfx.play('kill', { pitch: target.species === 'gnawer' || target.species === 'hare' ? 1.5 : 1 });
         game.hitStop(target.type === 'boss' ? 0.2 : target.species === 'hare' || target.species === 'gnawer' ? 0.06 : 0.1);

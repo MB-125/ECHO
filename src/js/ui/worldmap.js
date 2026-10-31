@@ -585,6 +585,8 @@
         if (!inView(p)) continue;
         WM.icon(g, f.kind, p.x, p.y, f.color, f.layer === 'dungeons' ? 0.62 : 0.55, 0);
       }
+      // Tracker (Hunter rank 2): what hunts near you, as red marks
+      if (ECHO.Lore) for (const e of ECHO.Lore.tracked(game)) { const p = P(e.x, e.y); if (!inView(p)) continue; g.fillStyle = e.titan || e.type === 'boss' ? '#ff4a2a' : '#e05a4a'; g.beginPath(); g.arc(p.x, p.y, e.titan ? 4 : 2.2, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 1; g.stroke(); }
       // the way ahead
       if (ECHO.Nav && !ECHO.Interior.cur) ECHO.Nav.drawOnMap(g, P, 120, 2);
       // where you are headed: on the map, or an arrow at the edge
