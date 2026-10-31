@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.32', items: [
+      'The worlds beyond the gates have living pools: lava crawls with bright veins and a cooled crust at its edges, the abyss glimmers cold, the thorn-world ooze slowly churns.',
+      'Old worlds stay lean: people long dead keep their names, kin and strongest memories, but no longer carry every grudge and errand into the save. A world played for years saves smaller and faster. Nothing you know about anyone is lost.'
+    ] },
     { v: '0.8.31', items: [
       'Surf: a white lip of foam where water meets the shore, and thin lines of it rolling in over the shallows.',
       'A small "World kept" note shows in the corner whenever the game saves (every minute, each new day, and when you leave) — and says so plainly if your browser refused to save.',

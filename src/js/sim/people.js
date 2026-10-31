@@ -334,6 +334,23 @@
         P.considerChange(world, rng, n, s, age);
       }
       P.immigration(world, rng);
+      if (world.day % 30 === 0) P.slimDead(world);
+    },
+
+    // The long dead keep their names, kin, deeds and a few strong memories; who they
+    // were fond of and where they were going is let go, so an old world's save does
+    // not swell with the households of a century of graves.
+    slimDead(world) {
+      const cut = world.day - 120;
+      let n0 = 0;
+      for (const n of Object.values(world.npcs)) {
+        if (n.status !== 'dead' || n.slim || n.diedDay == null || n.diedDay > cut) continue;
+        n.rel = {};
+        if (Array.isArray(n.mem) && n.mem.length > 3) n.mem = n.mem.slice().sort((a, b) => (b.w || 0) - (a.w || 0)).slice(0, 3);
+        for (const k of ['journey', 'delving', 'hurtUntil', 'starve']) delete n[k];
+        n.slim = true; n0++;
+      }
+      return n0;
     },
 
     // New blood: families arrive from beyond the realm where there is food and

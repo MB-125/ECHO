@@ -1130,6 +1130,34 @@
       const m = new THREE.Mesh(g, mat); m.castShadow = true; m.receiveShadow = true; m.userData.own = true;
       return m;
     },
+    // The pools of a world beyond a gate: lava that crawls, with bright veins and a cooled
+    // crust at the edges; dark water with a cold glimmer; a violet ooze that slowly churns.
+    liquidMat(theme, pal) {
+      const m = new THREE.MeshBasicMaterial({ vertexColors: true });
+      R.liqTime = R.liqTime || { value: 0 };
+      const kind = theme === 'ember' ? 0 : theme === 'abyss' ? 1 : 2;
+      const hot = C((pal && pal.liquid2) || '#ffb040');
+      m.onBeforeCompile = (sh) => {
+        sh.uniforms.uT = R.liqTime;
+        sh.uniforms.uHot = { value: new THREE.Vector3(hot.r, hot.g, hot.b) };
+        sh.vertexShader = 'attribute float aEdge;\nvarying float vEdge;\nvarying vec2 vLP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vEdge = aEdge; vLP = position.xz;');
+        sh.fragmentShader = 'uniform float uT;\nuniform vec3 uHot;\nvarying float vEdge;\nvarying vec2 vLP;\n' +
+          'float lH(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\n' +
+          'float lN(vec2 p){ vec2 i = floor(p), f = fract(p); vec2 u = f * f * (3.0 - 2.0 * f); return mix(mix(lH(i), lH(i + vec2(1.0, 0.0)), u.x), mix(lH(i + vec2(0.0, 1.0)), lH(i + vec2(1.0, 1.0)), u.x), u.y); }\n' +
+          sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+            vec2 p = vLP * 0.55;
+            vec2 w = vec2(lN(p + uT * 0.07), lN(p.yx - uT * 0.05));
+            float n = lN(p * 1.3 + w * 2.2 + uT * 0.04) * 0.65 + lN(p * 3.1 - w * 1.4) * 0.35;
+            float vein = pow(1.0 - abs(n - 0.5) * 2.0, ${kind === 0 ? '7.0' : '14.0'});
+            vec3 base = diffuseColor.rgb * (0.6 + 0.45 * n);
+            ${kind === 0 ? 'base = mix(base, uHot * 1.35, vein * 0.85); base = mix(base, vec3(0.13, 0.05, 0.03), smoothstep(0.15, 0.8, vEdge) * (0.75 - 0.3 * n));'
+              : kind === 1 ? 'base += vec3(0.5, 0.9, 0.95) * vein * 0.35 * (0.6 + 0.4 * sin(uT * 1.5 + vLP.x)); base = mix(base, base * 0.35, smoothstep(0.2, 0.9, vEdge));'
+              : 'base = mix(base, uHot * 1.15, vein * 0.5); base = mix(base, base * 0.45, smoothstep(0.2, 0.9, vEdge));'}
+            diffuseColor.rgb = base;`);
+      };
+      m.customProgramCacheKey = () => 'liquid' + kind;
+      return m;
+    },
     // A dungeon floor cut from the rock: floor only where it is open, walls
     // where rock meets air (low on the side facing the camera), and the traps.
     buildCarved(game, L, g, B) {
@@ -1185,9 +1213,15 @@
         if (lq.length) {
           const lp = new Float32Array(lq.length * 18), lc = new Float32Array(lq.length * 18), c1 = C(L.pal.liquid), c2 = C(L.pal.liquid2);
           let k = 0;
-          for (const [x, y] of lq) { const t = R.tileH(x, y + 31, 7) / 7, cc = c1.clone().lerp(c2, t * (L.theme === 'ember' ? 0.6 : 0.25)); for (const [qx, qy] of [[B + x, y], [B + x, y + 1], [B + x + 1, y], [B + x + 1, y], [B + x, y + 1], [B + x + 1, y + 1]]) { lp[k] = qx; lp[k + 1] = 0.02; lp[k + 2] = qy; lc[k] = cc.r; lc[k + 1] = cc.g; lc[k + 2] = cc.b; k += 3; } }
+          // how much of the land touches each corner: a cooled crust (or a dark rim) at the edges
+          const liq = (x, y) => x >= 0 && y >= 0 && x < W && y < H && L.liquid[y * W + x];
+          const edgeAt = (cx, cy) => 1 - ((liq(cx - 1, cy - 1) ? 1 : 0) + (liq(cx, cy - 1) ? 1 : 0) + (liq(cx - 1, cy) ? 1 : 0) + (liq(cx, cy) ? 1 : 0)) / 4;
+          const le = new Float32Array(lq.length * 6);
+          let e = 0;
+          for (const [x, y] of lq) { const t = R.tileH(x, y + 31, 7) / 7, cc = c1.clone().lerp(c2, t * 0.06); for (const [qx, qy] of [[x, y], [x, y + 1], [x + 1, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]]) { lp[k] = B + qx; lp[k + 1] = 0.02; lp[k + 2] = qy; lc[k] = cc.r; lc[k + 1] = cc.g; lc[k + 2] = cc.b; k += 3; le[e++] = edgeAt(qx, qy); } }
           const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(lp, 3)); lg.setAttribute('color', new THREE.BufferAttribute(lc, 3));
-          const lm = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({ vertexColors: true })); lm.userData.own = true; g.add(lm);
+          lg.setAttribute('aEdge', new THREE.BufferAttribute(le, 1));
+          const lm = new THREE.Mesh(lg, R.liquidMat(L.theme, L.pal)); lm.userData.own = true; g.add(lm);
           R.roomLiquid = lm;
         } else R.roomLiquid = null;
       } else R.roomLiquid = null;
@@ -1565,7 +1599,7 @@
         R.sun.position.set(game.pe.x - 6, 16, game.pe.y - 8); R.sun.target.position.set(game.pe.x, 0, game.pe.y);
         R.scene.background = R._gateBg || (R._gateBg = new THREE.Color()); R.scene.background.set(P.fog);
         R.scene.fog.color.set(P.fog); R.scene.fog.near = 26; R.scene.fog.far = 62;
-        if (R.roomLiquid) { const k = 0.85 + Math.sin(R.time * 2) * 0.15; R.roomLiquid.material.color.setScalar(k); }
+        if (R.roomLiquid) { if (R.liqTime) R.liqTime.value = R.time; const k = 0.92 + Math.sin(R.time * 2) * 0.08; R.roomLiquid.material.color.setScalar(k); }
       }
       if (L.floor === 'void') {
         // beyond the Rift: a dim violet light from nowhere, and the dark of the abyss

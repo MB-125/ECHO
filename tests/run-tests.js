@@ -59,6 +59,18 @@ function main() {
   check('world keeps living', world.chronicle.length > before + 10, summarize(ECHO, world) + ` (${Date.now() - t1}ms)`);
   check('people are born', world.stats.births > 0);
   check('people die', world.stats.deaths > 0);
+  {
+    // the long dead are slimmed (kept, named, with a few memories), the newly dead left whole
+    const dead = Object.values(world.npcs).filter(n => n.status === 'dead');
+    const day0 = world.day;
+    const fresh = dead[0];
+    if (fresh) { fresh.slim = false; fresh.rel = { x: 50 }; fresh.mem = [1, 2, 3, 4, 5].map(i => ({ d: 1, t: 'm' + i, w: i })); fresh.diedDay = day0; }
+    ECHO.People.slimDead(world);
+    const keptWhole = fresh && !fresh.slim && fresh.rel.x === 50;
+    if (fresh) fresh.diedDay = day0 - 400;
+    const n = ECHO.People.slimDead(world);
+    check('the long dead are slimmed to name, kin and their strongest memories; the newly dead are left whole', !fresh || (keptWhole && n >= 1 && fresh.slim && !Object.keys(fresh.rel).length && fresh.mem.length === 3 && fresh.mem[0].t === 'm5' && world.npcs[fresh.id] === fresh), dead.length + ' dead');
+  }
   const kinds = {};
   for (const e of world.chronicle) kinds[e.kind] = (kinds[e.kind] || 0) + 1;
   console.log('   chronicle kinds:', JSON.stringify(kinds));
