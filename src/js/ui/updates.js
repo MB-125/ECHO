@@ -7,6 +7,9 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.37', items: [
+      'The land breathes: grass, crops, reeds, bushes and the crowns of trees sway in the wind, each in its own rhythm, in gusts that roll across the country, and harder when rain or a storm comes on.'
+    ] },
     { v: '0.8.36', items: [
       'Sturdier: each part of a frame (the world, the drawing, the menus, the music) now stands on its own, so a fault in one can never freeze the others; it is reported once, in plain words, and the game carries on.'
     ] },

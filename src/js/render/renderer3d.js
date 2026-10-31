@@ -112,6 +112,8 @@
       R.detail(R.mat.terrain, 0.16, 1.3);
       R.groundDetail(R.mat.terrain);
       R.detail(R.mat.prop, 0.12, 2.5, true);
+      // plants: the same, but they move with the wind
+      R.mat.foliage = R.detail(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0 }), 0.12, 2.5, true, true);
       // See-through versions for buildings that stand between the camera and the player.
       R.mat.propFade = R.mat.prop.clone(); R.mat.propFade.transparent = true; R.mat.propFade.opacity = 0.28; R.mat.propFade.depthWrite = false;
       R.mat.windowFade = R.mat.window.clone(); R.mat.windowFade.transparent = true; R.mat.windowFade.opacity = 0.28; R.mat.windowFade.depthWrite = false;
@@ -190,13 +192,34 @@
     // the corner of a house) is stippled away in a soft circle, so you are never lost
     // behind it; the shadows it casts stay whole
     cutU: null,
-    detail(mat, k, scale, seeThrough) {
+    FOLIAGE: new Set(['grass', 'crop', 'reeds', 'bush', 'pine', 'oak', 'willow', 'oakbare']),
+    detail(mat, k, scale, seeThrough, sway) {
       if (!mat || mat.userData.detail) return mat;
       mat.userData.detail = true;
       const cut = seeThrough && (R.cutU = R.cutU || { uCutP: { value: new THREE.Vector3() }, uCutC: { value: new THREE.Vector3() }, uCutR: { value: 0 } });
-      const key = 'detail' + k + ':' + scale + (cut ? ':cut' : '');
+      const wind = sway && (R.windU = R.windU || { uWT: { value: 0 }, uWS: { value: 1 } });
+      const key = 'detail' + k + ':' + scale + (cut ? ':cut' : '') + (wind ? ':sway' : '');
       mat.customProgramCacheKey = () => key;
       mat.onBeforeCompile = (sh) => {
+        if (wind) {
+          // leaves and stalks lean with the wind: the higher up the plant, the further,
+          // each one in its own rhythm, and harder in a storm
+          Object.assign(sh.uniforms, wind);
+          sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uWT; uniform float uWS;')
+            .replace('#include <begin_vertex>', `#include <begin_vertex>
+            {
+              vec2 wp = vec2(0.0);
+              #ifdef USE_INSTANCING
+                wp = instanceMatrix[3].xz;
+              #endif
+              float hh = max(0.0, transformed.y);
+              float bend = min(hh * 0.06 + hh * hh * 0.02, 0.22) * uWS;
+              float ph = uWT * 1.6 + wp.x * 0.37 + wp.y * 0.23;
+              float gust = 0.6 + 0.4 * sin(uWT * 0.45 + wp.x * 0.05 - wp.y * 0.04);
+              transformed.x += (sin(ph) * 0.8 + sin(ph * 2.3 + 1.7) * 0.25) * bend * gust;
+              transformed.z += cos(ph * 0.9 + 0.6) * 0.45 * bend * gust;
+            }`);
+        }
         if (cut) {
           Object.assign(sh.uniforms, cut);
           sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
@@ -770,7 +793,7 @@
         for (const part of ['base', 'glow']) {
           const geo = baked[part];
           if (!geo) continue;
-          const im = new THREE.InstancedMesh(geo, part === 'glow' ? R.mat.glow : R.mat.prop, set.list.length);
+          const im = new THREE.InstancedMesh(geo, part === 'glow' ? R.mat.glow : R.FOLIAGE.has(set.name) && R.mat.foliage ? R.mat.foliage : R.mat.prop, set.list.length);
           set.list.forEach((it, i) => {
             q.setFromAxisAngle(up, it[3]);
             sv.setScalar(it[2]);
@@ -3214,7 +3237,7 @@
       if (key !== R.festKey) {
         R.festKey = key;
         const g = R.festGroup;
-        while (g.children.length) { const m = g.children[0]; g.remove(m); m.traverse && m.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== R.mat.prop && o.material !== R.mat.glow) o.material.dispose(); }); }
+        while (g.children.length) { const m = g.children[0]; g.remove(m); m.traverse && m.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material !== R.mat.prop && o.material !== R.mat.foliage && o.material !== R.mat.glow) o.material.dispose(); }); }
         R.festFlames = [];
         const poleMat = new THREE.MeshStandardMaterial({ color: C('#6a4a2c'), roughness: 0.9 });
         for (const L of near) {
@@ -3738,6 +3761,7 @@
       // the weather as it looks: eased over a quarter of a minute and blended across
       // the edges of regions, so clouds gather, rain sets in and fog rolls in and lifts
       const M = R.weatherMix(world, tgt.x, tgt.z, season, dt);
+      if (R.windU) { R.windU.uWT.value = R.time; R.windU.uWS.value += ((1 + 1.6 * (M.storm || 0) + 0.5 * (M.rain || 0)) - R.windU.uWS.value) * Math.min(1, dt * 0.5); }
       const cloud = M.cloud;
       R.cloud = cloud; R.wx = wx;
       R.sun.intensity = 1.35 * Math.max(0, dl) * cloud;
