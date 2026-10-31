@@ -7,6 +7,9 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.9.6', items: [
+      'Lure a calamity: strike a dragon or great beast and it follows you a long way. Lead it into a bandit camp, an Ashfang town, or another titan\'s range, and it turns on them instead — it falls on the camp, or the two beasts fight it out while you watch. The loser flees to new ground, or dies.'
+    ] },
     { v: '0.9.5', items: [
       'The great lands: every region now belongs to one — the Emerald Expanse, the Ashen Wastes, the Frozen Crown, the Forgotten Kingdom, the Blighted Lands, the Celestial Highlands (with islands of rock floating over the hills), the Abyssal Depths, or the safe Heartlands — worked out from the ground itself, so your world has them too.',
       'Each land has beasts of its own abroad: fire hounds and slag golems in the Ashen Wastes, frost hounds in the Frozen Crown, the risen dead of the Forgotten Kingdom, rot hounds in the Blighted Lands, storm wisps over the Celestial Highlands, things from below at night in the Abyssal Depths. Never close to a town.',

@@ -604,6 +604,7 @@
           if (Ti().sp(t).flies && !A.night(world)) { ne.state = 'patrol'; ne.alt = ne.altGoal = 5; }
           game.ents.push(ne);
         } else if (d > 78 && e) { e.dead = true; e.vanish = true; t.hp = e.hp / e.maxHp; }
+        if (e && e.aggro && e.lured && ECHO.Lure) ECHO.Lure.check(game, e, t);
         // one on the move, passing near: the signs first
         if (t.mig && d < 48 && t.mig.told !== world.day && !pl.flying) A.signs(game, t, d);
         if (!t.seen && d < 52) {
@@ -704,8 +705,13 @@
       const d = U.dist(e.x, e.y, pe.x, pe.y), home = { x: t.x, y: t.y };
       const hostile = !pe.dead && !game.defeating && !pl.capture && !pl.flying;
       const onRange = U.dist(pe.x, pe.y, home.x, home.y) < t.r + 3;
+      // led on, or squaring up to another of its kind
+      if (e.duelWith && !e.duelWith.dead && e.duelWith.lureTo) return;
+      if (e.duelWith) e.duelWith = null;
+      if (e.lureTo && ECHO.Lure) return ECHO.Lure.drive(game, e, t, dt);
       if (e.aggro) {
-        if (!hostile || U.dist(pe.x, pe.y, home.x, home.y) > t.r + 24 || d > 34) { e.aggro = false; e.state = 'return'; if (UI().bossEnt === e) UI().bossBar(null); }
+        // provoked, it follows you a long way (far enough to be led somewhere)
+        if (!hostile || U.dist(pe.x, pe.y, home.x, home.y) > (e.lured ? 75 : t.r + 24) || d > (e.lured ? 44 : 34)) { e.aggro = false; e.lured = false; e.state = 'return'; if (UI().bossEnt === e) UI().bossBar(null); }
         else return A.fight(game, e, t, dt, d);
       }
       // on the move: it goes where it is going. The great ones pay you no mind unless you
@@ -1061,6 +1067,7 @@
         if (e.charging.dmg >= e.charging.need) { e.charging = null; e.castId = (e.castId || 0) + 1; e.busyUntil = 0; e.stunUntil = now + 3.5; e.exposedUntil = now + 3.5; ECHO.Combat.floater(e.x, e.y - 2.6, 'THE SPELL BREAKS', '#ffe08a', true); ECHO.Combat.ring(e.x, e.y, 4, 'rgba(255,240,180,0.9)', 0.6); game.shake(0.6); }
       }
       if (e.alt > 1.4 && src.type === 'melee') { if (!e._reachT || game.time - e._reachT > 0.8) { e._reachT = game.time; ECHO.Combat.floater(e.x, e.y - 1.5, 'out of reach', '#c8c0b0'); } return 0; }
+      if (src.from === game.pe && ECHO.Lure && !e.tamed) ECHO.Lure.start(game, e, Ti().byId(game.world, e.titan));
       if (!e.aggro && src.from === game.pe) { e.aggro = true; e.phase = e.alt > 2 ? 'air' : 'ground'; e.phaseT = 0; e.airN = 0; e.state = 'fight'; UI().bossBar(e); }
       if (e.hp - dmg <= e.maxHp * 0.1) {
         // Solgrim does not stay down the first time
