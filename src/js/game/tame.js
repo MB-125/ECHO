@@ -40,8 +40,11 @@
       ECHO.Combat.floater(game.pe.x, game.pe.y - 1.4, `taming: ${M.name}`, M.col, true);
     },
     // a blow on one kneeling on its last breath finishes it (not in the first moment it falls)
+    // A blow of yours on one kneeling — on its last breath, beaten on the leash, or a lord
+    // brought down — finishes it, if you would rather it died than joined you (not in the
+    // very moment it falls, and not while you are holding it to tame it).
     breathFinish(game, e) {
-      if (!e._lastBreath || game.time - (e._breathAt || 0) < 0.8 || (T.chan && T.chan.e === e)) return false;
+      if (!(e.subdued > 0) || game.time - (e._breathAt || e._kneelAt || 0) < 0.6 || (T.chan && T.chan.e === e)) return false;
       e.subdued = 0; e._finish = true; e._lastBreath = false;
       ECHO.Combat.kill(e, game.pe, 'melee', { angle: Math.atan2(e.y - game.pe.y, e.x - game.pe.x) });
       return true;
@@ -438,7 +441,7 @@
       if (mode === 'breath' && !held && (from === game.pe || (!from && e.burnFrom === game.pe)) && !e._finish && !T.isBoss(e) && T.can(game, e) && T.pack(game.pl).length < MAX_KEEP) {
         e.hp = Math.max(1, Math.round(e.maxHp * T.threshold(e) * 0.5)); e.subdued = 12; e._lastBreath = true; e._breathAt = game.time; e._breathSay = 13;
         e.aggro = false; e.state = 'stagger'; e.burn = 0; e.venomT = 0; e.wcast = null; e._tameCd = 0;
-        ECHO.Combat.floater(e.x, e.y - 1.9 * (e.scale || 1), 'LAST BREATH — TAME IT (E)', '#ffe08a', true);
+        ECHO.Combat.floater(e.x, e.y - 1.9 * (e.scale || 1), 'LAST BREATH — E: TAME · STRIKE: FINISH', '#ffe08a', true);
         ECHO.Combat.ring(e.x, e.y, (e.r || 0.4) + 0.9, 'rgba(255,224,138,0.95)', 0.8);
         if (game.slowMo) game.slowMo(0.45, 0.35);
         if (ECHO.Sfx) ECHO.Sfx.play('growl', { pitch: 0.6 });
@@ -446,17 +449,17 @@
         return true;
       }
       if ((mode === 'leash' || held) && (byYou || !from) && !e._finish && !T.isBoss(e) && T.can(game, e)) {
-        e.hp = Math.max(1, Math.round(e.maxHp * T.threshold(e) * 0.5)); e.subdued = 25; e.aggro = false; e.state = 'stagger'; e.burn = 0; e.venomT = 0; e.wcast = null;
+        e.hp = Math.max(1, Math.round(e.maxHp * T.threshold(e) * 0.5)); e.subdued = 25; e.aggro = false; e.state = 'stagger'; e.burn = 0; e.venomT = 0; e.wcast = null; e._kneelAt = game.time;
         ECHO.Combat.floater(e.x, e.y - 1.8 * (e.scale || 1), 'beaten — tame it (E)', '#ffe08a', true);
         ECHO.Combat.ring(e.x, e.y, (e.r || 0.4) + 0.8, 'rgba(255,224,138,0.9)', 0.6);
-        if (!game.pl._leashTip) { game.pl._leashTip = true; UI().toast(`${U.cap(T.nameOf(e))} falls, beaten, instead of dying — it kneels for a while. Stand by it and tame it (E), or finish it (E). Your blows cannot touch it while it kneels.`, 'study', 7); }
+        if (!game.pl._leashTip) { game.pl._leashTip = true; UI().toast(`${U.cap(T.nameOf(e))} falls, beaten, instead of dying — it kneels for a while. Tame it (E), or strike it again to finish it.`, 'study', 7); }
         return true;
       }
-      if (byYou && !e._finish && T.isBoss(e) && T.can(game, e) && !e.subdued) {
-        e.hp = Math.max(1, Math.round(e.maxHp * 0.08)); e.subdued = 30; e.aggro = false; e.state = 'stagger';
+      if (byYou && mode !== 'kill' && !e._finish && T.isBoss(e) && T.can(game, e) && !e.subdued) {
+        e.hp = Math.max(1, Math.round(e.maxHp * 0.08)); e.subdued = 30; e.aggro = false; e.state = 'stagger'; e._kneelAt = game.time;
         ECHO.Combat.floater(e.x, e.y - 2.4 * (e.scale || 1), 'beaten!', '#ffe08a', true);
         game.shake(0.5); if (game.hitStop) game.hitStop(0.2);
-        UI().toast(`${U.cap(T.nameOf(e))} falls, beaten. Tame it (E) and it is yours — or finish it. It will not stay down long.`, 'legend', 8);
+        UI().toast(`${U.cap(T.nameOf(e))} falls, beaten. Tame it (E) and it is yours — or strike it again to finish it. It will not stay down long.`, 'legend', 8);
         if (ECHO.Music) ECHO.Music.stinger('discover');
         return true;
       }

@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.9.2', items: [
+      'A beast you do not want is yours to kill: when one kneels (on its last breath, beaten on the leash, or a lord brought down), press E to tame it — or simply strike it again and it dies. Before, a kneeling beast on the leash or a beaten lord could not be touched.',
+      'On "to the kill" (L), lords no longer kneel either: everything you strike down dies.'
+    ] },
     { v: '0.9.1', items: [
       'The journal (Tab or J) now holds just your beasts: Tamed beasts and Animals. Want every page back (guide, story, people, letters…)? Esc → Gameplay → Journal → Every page.'
     ] },
