@@ -44,6 +44,13 @@
         else if (UI.pauseOpen) ECHO.Screens.closePause();
         else if (!UI.modalOpen && !game.ff && game.pl) ECHO.Screens.openPause();
       }
+      // in a conversation, the number keys pick the answers
+      if (UI.panelOpen) for (let i = 0; i <= 9; i++) if (In.pressed.has(String(i))) {
+        const bs = [...document.querySelectorAll('#panel .panel-body .opts > button')].filter(b => !b.disabled && b.offsetParent !== null);
+        const b = i === 0 ? (bs.length >= 10 ? bs[bs.length - 1] : null) : bs[i - 1];   // (0: the last answer of a long list, as a rule the farewell)
+        if (b) b.click();
+        break;
+      }
       if (!game.pl) return;
       if (!UI.paused()) {
         if (In.pressed.has('e') && game._interact) game.interact(game._interact);

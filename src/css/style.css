@@ -478,3 +478,7 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 #save-mark.bad { color: #ff8a6a; opacity: 1; }
 /* the controller's place in a menu */
 .pad-focus { outline: 2px solid var(--gold) !important; outline-offset: 2px; box-shadow: 0 0 0 4px rgba(230,192,106,0.25), 0 0 14px rgba(230,192,106,0.45) !important; position: relative; z-index: 1; }
+/* answers are numbered: press 1–9 to pick one */
+#panel .opts { counter-reset: opt; }
+#panel .opts > button:nth-child(-n+9)::before { counter-increment: opt; content: counter(opt); display: inline-block; min-width: 1.4em; margin-right: 8px; padding: 0 4px; border: 1px solid rgba(230,192,106,0.45); border-radius: 3px; color: var(--gold); font-size: 0.85em; text-align: center; opacity: 0.85; }
+#panel .opts > button:last-child:nth-child(n+10)::before { content: '0'; display: inline-block; min-width: 1.4em; margin-right: 8px; padding: 0 4px; border: 1px solid rgba(230,192,106,0.45); border-radius: 3px; color: var(--gold); font-size: 0.85em; text-align: center; opacity: 0.85; }

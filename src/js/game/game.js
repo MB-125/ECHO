@@ -540,7 +540,11 @@
         Game.loot = Game.loot.filter(l => l.kind === 'key' || U.dist(l.x, l.y, pe.x, pe.y) < 80);
       }
     },
-    takeItem(itemId) {
+    heapLabel(l) {
+      const world = Game.world, n = Game.loot.filter(o => o.kind === 'item' && !o.taken && world.items[o.itemId] && U.dist(o.x, o.y, l.x, l.y) < 1.6).length;
+      return n > 1 ? `Take all (${n})` : `Take ${world.items[l.itemId] ? world.items[l.itemId].name : 'item'}`;
+    },
+    takeItem(itemId, quiet) {
       const world = Game.world, pl = Game.pl;
       const it = world.items[itemId];
       if (!it) return;
@@ -555,7 +559,7 @@
       if (it.kind === 'bow' && (!world.items[pl.bow] || it.dmg > (world.items[pl.bow].dmg || 0))) pl.bow = it.id;
       if (it.kind === 'armor' && (!world.items[pl.armor] || (it.def || 0) > (world.items[pl.armor].def || 0))) pl.armor = it.id;
       const worn = it.kind === 'relic' && ECHO.Arcana && ECHO.Arcana.onTake(pl, it);
-      if (it.rarity && ECHO.Gear) ECHO.UI.toast(`${it.name} — ${ECHO.Gear.line(it)}${worn ? ` (worn — wake it with ${ECHO.Arcana.KEYS[ECHO.Arcana.slots(pl).indexOf(it.id)].toUpperCase()})` : [pl.weapon, pl.bow, pl.armor].includes(it.id) ? ' (equipped)' : ' (in your pack; sell it, or equip it from your character page)'}`, it.rarity === 'common' ? 'info' : 'legend', 5);
+      if (it.rarity && ECHO.Gear && !quiet) ECHO.UI.toast(`${it.name} — ${ECHO.Gear.line(it)}${worn ? ` (worn — wake it with ${ECHO.Arcana.KEYS[ECHO.Arcana.slots(pl).indexOf(it.id)].toUpperCase()})` : [pl.weapon, pl.bow, pl.armor].includes(it.id) ? ' (equipped)' : ' (in your pack; sell it, or equip it from your character page)'}`, it.rarity === 'common' ? 'info' : 'legend', 5);
       Game.loot = Game.loot.filter(l => l.itemId !== itemId);
       for (const r of world.ruins) r.relics = r.relics.filter(x => x !== itemId);
       ECHO.PlayerCtl.derivedT = 0;
@@ -565,7 +569,7 @@
           : `${it.name}.`;
         ECHO.UI.toast(msg, 'legend', 10);
         ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} recovered ${it.name}, the sword of ${legend.name}.`, importance: 2, x: Game.pe.x, y: Game.pe.y, rep: 3 });
-      } else ECHO.UI.toast(`You take ${it.name}.`, 'info', 3);
+      } else if (!quiet) ECHO.UI.toast(`You take ${it.name}.`, 'info', 3);
       void prevHolder;
     },
 
@@ -643,7 +647,7 @@
       if (ECHO.Interior.cur) {
         out.push(...ECHO.Interior.interactables(Game));
         if (ECHO.Stealth) out.push(...ECHO.Stealth.interactables(Game));
-        for (const l of Game.loot) if (l.kind === 'item' && near(l.x, l.y, 1.3)) out.push({ kind: 'item', loot: l, label: `Take ${world.items[l.itemId] ? world.items[l.itemId].name : 'item'}`, d: U.dist(l.x, l.y, pe.x, pe.y) });
+        for (const l of Game.loot) if (l.kind === 'item' && near(l.x, l.y, 1.3)) out.push({ kind: 'item', loot: l, label: Game.heapLabel(l), d: U.dist(l.x, l.y, pe.x, pe.y) });
         out.sort((a, b) => a.d - b.d);
         return out;
       }
@@ -677,7 +681,7 @@
         const edge = Math.hypot(ex, ey), dd = U.dist(pt.x, pt.y, pe.x, pe.y);
         if (dd < 1.9 || edge < 1.0) out.push({ kind: 'building', b, s, label: lab, d: Math.min(edge, dd) * 0.6 + 0.05 });
       }
-      for (const l of Game.loot) if (l.kind === 'item' && near(l.x, l.y, 1.3)) out.push({ kind: 'item', loot: l, label: `Take ${world.items[l.itemId] ? world.items[l.itemId].name : 'item'}`, d: U.dist(l.x, l.y, pe.x, pe.y) });
+      for (const l of Game.loot) if (l.kind === 'item' && near(l.x, l.y, 1.3)) out.push({ kind: 'item', loot: l, label: Game.heapLabel(l), d: U.dist(l.x, l.y, pe.x, pe.y) });
       for (const it of Object.values(world.items)) if (!it.holder && it.droppedAt && near(it.droppedAt.x, it.droppedAt.y, 1.3) && !Game.loot.some(l => l.itemId === it.id)) Game.loot.push({ x: it.droppedAt.x, y: it.droppedAt.y, kind: 'item', itemId: it.id, qty: 1 });
       for (const r of world.ruins) {
         if (near(r.x, r.y - 1.5, 1.9)) out.push({ kind: 'tablet', ruin: r, label: 'Study the inscription', d: U.dist(r.x, r.y - 1.5, pe.x, pe.y) });
@@ -714,7 +718,15 @@
         case 'leave': return ECHO.Interior.leave(Game);
         case 'furn': return ECHO.Interior.use(Game, it.furn);
         case 'house': return ECHO.UI.openHouse(it.b, it.s);
-        case 'item': return Game.takeItem(it.loot.itemId);
+        case 'item': {
+          // a heap is taken up whole: one press, one word about it
+          const heap = Game.loot.filter(l => l.kind === 'item' && !l.taken && world.items[l.itemId] && U.dist(l.x, l.y, it.loot.x, it.loot.y) < 1.6);
+          if (heap.length < 2) return Game.takeItem(it.loot.itemId);
+          const names = heap.map(l => world.items[l.itemId].name);
+          for (const l of heap) Game.takeItem(l.itemId, true);
+          ECHO.UI.toast(`You take ${names.length} things: ${names.slice(0, 4).join(', ')}${names.length > 4 ? ` and ${names.length - 4} more` : ''}. (K: your gear)`, 'legend', 6);
+          return;
+        }
         case 'tablet': return ECHO.UI.openTablet(it.ruin);
         case 'relic': {
           const id = it.ruin.relics[0];

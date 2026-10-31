@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.35', items: [
+      'Conversations are numbered: press 1–9 to pick an answer (0 for the farewell at the end of a long list).',
+      'A heap of dropped gear is taken up whole: E on it says "Take all (3)", and one note lists what you got.'
+    ] },
     { v: '0.8.34', items: [
       'Your pack wears a green ring at its feet, so in a crowded fight you can tell your beasts from the wild ones at a glance.',
       'Levelling up raises a column of light where you stand, with a ring rolling out across the ground; a new rank raises a taller one in its colour. A beast you tame goes up in a green column as it joins you.',
