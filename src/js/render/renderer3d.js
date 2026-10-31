@@ -3996,6 +3996,7 @@
       const fastNow = (R.camSpeed || 0) > 4.5 || (game.pe && (game.pe.alt || 0) > 0.5);
       R.renderer.shadowMap.needsUpdate = room ? true : R.sunDark ? ((R.frameNo || 0) % 30) === 0 : (every <= 1 || fastNow || ((R.frameNo || 0) % every) === 0);
       R.updateCut(game, dt);
+      R.updateIslands(game, dt);
       if (ECHO.Post && ECHO.Post.R) ECHO.Post.render(game, dt); else R.renderer.render(R.scene, R.camera);
       R.drawOverlay(game);
     },
@@ -4007,6 +4008,49 @@
       const want = U.clamp(((pe.alt || 0) - 8) * 0.035, 0, 0.5) + Math.min(0.3, (F.v || 0) * 0.011);
       R._fz = (R._fz || 0) + (want - (R._fz || 0)) * 0.03;
       return R._fz;
+    },
+    // The Celestial Highlands: islands of rock that float over the hills, a few to each
+    // region of that land, drifting a little; seen from below as you pass, and thinned to
+    // a ghost when one hangs right over you.
+    updateIslands(game, dt) {
+      const world = game.world;
+      if (!world || !ECHO.Lands || !R.camTarget) return;
+      if (R._islWorld !== world || R._islEpoch !== world._tileEpoch) {
+        R._islWorld = world; R._islEpoch = world._tileEpoch;
+        if (R.islands) for (const o of R.islands) { R.scene.remove(o.g); o.g.traverse(m => { if (m.geometry) m.geometry.dispose(); }); }
+        R.islands = [];
+        const rock0 = new THREE.MeshStandardMaterial({ color: C('#b4a8bc'), emissive: C('#2a2236'), roughness: 0.95, flatShading: true, transparent: true });
+        const grass0 = new THREE.MeshStandardMaterial({ color: C('#8fc27a'), roughness: 0.9, flatShading: true, transparent: true });
+        const crystal0 = new THREE.MeshStandardMaterial({ color: C('#cbb8ff'), emissive: C('#7a5aff'), emissiveIntensity: 0.6, roughness: 0.3, flatShading: true, transparent: true });
+        for (const r of world.regions) {
+          if (ECHO.Lands.of(world, r).short !== 'Celestial Highlands') continue;
+          for (let i = 0; i < 4; i++) {
+            const h1 = ECHO.hash2(Math.floor(r.x0) + i * 17, Math.floor(r.y0) + i * 31, world.seed + 77), h2 = ECHO.hash2(Math.floor(r.x0) + i * 7, Math.floor(r.y0) + i * 3, world.seed + 91);
+            const x = r.x0 + (0.15 + 0.7 * h1) * (r.x1 - r.x0), y = r.y0 + (0.15 + 0.7 * h2) * (r.y1 - r.y0), s = 0.9 + h1 * 1.1;
+            const g = new THREE.Group(), rock = rock0.clone(), grass = grass0.clone(), crystal = crystal0.clone();
+            const base = new THREE.Mesh(new THREE.ConeGeometry(s, s * 2.2, 7), rock); base.rotation.x = Math.PI; base.position.y = -s * 1.1; g.add(base);
+            const cap = new THREE.Mesh(new THREE.CylinderGeometry(s * 1.02, s * 0.98, 0.35, 7), grass); cap.position.y = 0.05; g.add(cap);
+            if (h2 > 0.4) { const cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.45 + h2 * 0.4), crystal); cr.position.set(s * 0.3, 0.7, -s * 0.2); cr.userData.spin = 1; g.add(cr); }
+            if (h1 > 0.35) for (let k = 0; k < 2; k++) { const t = new THREE.Mesh(new THREE.ConeGeometry(0.35, 1.2, 6), grass); t.position.set((k - 0.5) * s * 0.8, 0.75, s * 0.3 * (k ? 1 : -1)); g.add(t); }
+            g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+            g.visible = false; R.scene.add(g);
+            R.islands.push({ g, x, y, hy: 6.5 + h2 * 3, ph: h1 * 6.28, mats: [rock, grass, crystal] });
+          }
+        }
+      }
+      if (!R.islands || !R.islands.length) return;
+      const tgt = R.camTarget, indoors = !!R.indoors;
+      for (const o of R.islands) {
+        const d = Math.hypot(o.x - tgt.x, o.y - tgt.z);
+        o.g.visible = !indoors && d < 75 && d > 9;
+        if (!o.g.visible) continue;
+        o.g.position.set(o.x + Math.sin(R.time * 0.05 + o.ph) * 0.8, R.groundH(o.x, o.y) + o.hy + Math.sin(R.time * 0.35 + o.ph) * 0.35, o.y);
+        o.g.rotation.y = R.time * 0.01 + o.ph;
+        for (const m of o.g.children) if (m.userData.spin) m.rotation.y = R.time * 0.8;
+        // seen out at the edges of the view; thinned to nothing as it comes over you
+        const a = U.clamp((d - 9) / 9, 0, 1);
+        for (const m of o.mats) { m.opacity = a; m.depthWrite = a > 0.95; }
+      }
     },
     updateCut(game, dt) {
       const U2 = R.cutU, pe = game.pe;

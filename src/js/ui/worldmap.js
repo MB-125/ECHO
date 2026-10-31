@@ -130,7 +130,7 @@
           sx += x; sy += y; n++;
           if (ECHO.Game.explored(x, y)) seen++;
         }
-        if (n && (WM.revealed(pl) || seen / n > 0.3)) out.push({ name: r.name, x: sx / n, y: sy / n });
+        if (n && (WM.revealed(pl) || seen / n > 0.3)) out.push({ name: r.name, x: sx / n, y: sy / n, land: ECHO.Lands ? ECHO.Lands.of(world, r) : null });
       }
       return out;
     },
@@ -420,7 +420,7 @@
       g.textAlign = 'center'; g.textBaseline = 'middle';
       if (WM.layers.regions && V.z >= 1.6 && V.z < 9) {
         const font = `italic ${Math.round(U.clamp(V.z * 3.4, 11, 19))}px "Cormorant Garamond", Georgia, serif`;
-        for (const r of WM.regions) { const p = WM.toScreen(c, r.x, r.y); (WM._later = WM._later || []).push({ text: U.cap(r.name).toUpperCase().split('').join(String.fromCharCode(8202)), x: p.x, y: p.y, font, fill: 'rgba(58,42,24,0.66)', stroke: 'rgba(236,226,196,0.5)', pri: 0 }); }
+        for (const r of WM.regions) { const p = WM.toScreen(c, r.x, r.y); if (r.land && r.land.roster) (WM._later = WM._later || []).push({ text: r.land.short, x: p.x, y: p.y + Math.round(U.clamp(V.z * 3.4, 11, 19)) * 0.95, font: `${Math.round(U.clamp(V.z * 2.6, 9, 14))}px "Pixelify Sans", monospace`, fill: r.land.col, stroke: 'rgba(20,14,8,0.7)', pri: 0 }); (WM._later = WM._later || []).push({ text: U.cap(r.name).toUpperCase().split('').join(String.fromCharCode(8202)), x: p.x, y: p.y, font, fill: 'rgba(58,42,24,0.66)', stroke: 'rgba(236,226,196,0.5)', pri: 0 }); }
       }
       // the way there: the planned route, or a straight line if there is none yet
       const goal = ECHO.Purpose && ECHO.Purpose.current(game);

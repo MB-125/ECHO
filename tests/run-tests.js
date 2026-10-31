@@ -1063,6 +1063,19 @@ function main() {
     check('a dungeon left uncleared grows deeper and worse (and only so far)', X.floors(s) > f0 && X.floorLevel(s, 0) > l0 && X.growth({ level: 20, grow: 1000 }) === 6, `${f0}→${X.floors(s)} floors, level ${l0}→${X.floorLevel(s, 0)}`);
   }
 
+  console.log('\nThe great lands');
+  {
+    const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite, Uint8Array, Int32Array, Float32Array, Uint32Array, Float64Array };
+    ctx.globalThis = ctx; vm.createContext(ctx);
+    for (const f of ['core.js', 'world/worldgen.js', 'game/lands.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx);
+    const E = ctx.ECHO, T = E.TILE, La = E.Lands;
+    const mk = fill => { const W = 20, H = 20, tiles = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) tiles[i] = fill(i % W, (i / W) | 0); return { W, H, tiles, regions: [{ id: 0, x0: 0, y0: 0, x1: 20, y1: 20 }], RC: 1, RR: 1, ruins: [], sites: [] }; };
+    const kind = w => La.of(w, w.regions[0]).short;
+    check('every region falls in one of the great lands, by what its ground is made of', kind(mk(() => T.SNOW)) === 'Frozen Crown' && kind(mk(() => T.SAND)) === 'Ashen Wastes' && kind(mk(() => T.SWAMP)) === 'Blighted Lands' && kind(mk(() => T.FOREST)) === 'Emerald Expanse' && kind(mk(() => T.HILL)) === 'Celestial Highlands' && kind(mk((x, y) => (x + y) % 5 ? T.GRASS : T.RUIN)) === 'Forgotten Kingdom' && kind(mk(() => T.FARM)) === 'Heartlands');
+    const ab = mk((x, y) => (x + y) % 3 ? T.HILL : T.ROCK); ab.sites = [{ cat: 'delve', x: 5, y: 5 }];
+    check('rocky hills over a dungeon are the Abyssal Depths; each land but the Heartlands has beasts of its own', kind(ab) === 'Abyssal Depths' && Object.values(La.LANDS).filter(l => l.roster).length === 7);
+  }
+
   console.log('\nChallenge and spoils');
   {
     const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite, Uint8Array, Int32Array, Float32Array };

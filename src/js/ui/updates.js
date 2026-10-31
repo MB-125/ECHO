@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.9.5', items: [
+      'The great lands: every region now belongs to one — the Emerald Expanse, the Ashen Wastes, the Frozen Crown, the Forgotten Kingdom, the Blighted Lands, the Celestial Highlands (with islands of rock floating over the hills), the Abyssal Depths, or the safe Heartlands — worked out from the ground itself, so your world has them too.',
+      'Each land has beasts of its own abroad: fire hounds and slag golems in the Ashen Wastes, frost hounds in the Frozen Crown, the risen dead of the Forgotten Kingdom, rot hounds in the Blighted Lands, storm wisps over the Celestial Highlands, things from below at night in the Abyssal Depths. Never close to a town.',
+      'You are told when you cross into a new land; its name shows by the clock and on the world map. The hard lands train your Wayfarer twice as fast.'
+    ] },
     { v: '0.9.4', items: [
       'Lore of the wild, on your character page (K): skills learned only by doing — Hunter (hunt beasts and monsters; from rank 2 the foes near you show on your minimap), Beast-lore (study them with F), Delver (clear dungeon floors), Calamity-hunter (wound dragons and great beasts) and Wayfarer (travel in storm, snow, rain, fog and heat). Five ranks each, each rank a real edge.',
       'Dungeons that nobody clears grow, day by day: deeper, with stronger things in them — and after a month, things come out of them at night. Clear one and it starts again. You are told how long one has stood untended when you come on it.',

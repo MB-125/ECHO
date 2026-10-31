@@ -350,6 +350,7 @@
       if (pl.buffs) PC.potionTick(game, dt);
       if (ECHO.Mending) ECHO.Mending.tick(game, dt);
       if (ECHO.Lore) { ECHO.Lore.tick(game, dt); ECHO.Overgrowth.tick(game, dt); }
+      if (ECHO.Lands) ECHO.Lands.update(game, dt);
 
       // ---- Regeneration
       if (!pe.swimming && !pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (pe.wading ? 0.6 : 1) * (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1) * (pl.buffs && pl.buffs.wind > 0 ? 2 : 1) * (ECHO.Camp ? ECHO.Camp.regenMul(pl) : 1));
