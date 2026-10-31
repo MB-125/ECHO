@@ -172,7 +172,8 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 .logo h1 span { opacity: 0.35; }
 .logo .sub { font-size: 17px; color: var(--gold); letter-spacing: 6px; margin-top: -6px; }
 .logo .tag { font-family: var(--serif); font-style: italic; font-size: 20px; color: var(--ink-dim); margin-top: 14px; }
-.worlds { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin: 18px 0; }
+.worlds { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin: 18px 0; }
+.worlds .wcard { flex: 0 1 320px; min-width: 260px; }
 .wcard { background: #18130e; border: 2px solid #31271c; padding: 14px 16px; cursor: pointer; }
 .wcard:hover, .wcard.sel { border-color: var(--gold); background: #211910; }
 .wcard h3 { margin: 0 0 4px; font-family: var(--serif); font-size: 26px; font-weight: 600; }

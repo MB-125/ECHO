@@ -3409,7 +3409,7 @@
       }
       // Shapes: telegraphs, slashes, rings
       for (const f of fx) {
-        if (f.kind !== 'tele' && f.kind !== 'slash' && f.kind !== 'ring' && f.kind !== 'zone' && f.kind !== 'wave' && f.kind !== 'beam' && f.kind !== 'rock' && f.kind !== 'arc') continue;
+        if (f.kind !== 'tele' && f.kind !== 'slash' && f.kind !== 'ring' && f.kind !== 'zone' && f.kind !== 'wave' && f.kind !== 'beam' && f.kind !== 'rock' && f.kind !== 'arc' && f.kind !== 'pillar') continue;
         live.add(f);
         let m = R.fxMeshes.get(f);
         if (!m) { m = R.makeFxMesh(f); if (!m) continue; R.fxMeshes.set(f, m); R.groups.fx.add(m); }
@@ -3423,6 +3423,13 @@
           u.prog.value = prog; u.time.value = R.time; u.op.value = Math.min(1, f.t * 7);
           m.userData.f = f;
           if (f.done) m.visible = false;
+        } else if (f.kind === 'pillar') {
+          const fx0 = f.follow && !f.follow.dead ? f.follow.x : f.x, fy0 = f.follow && !f.follow.dead ? f.follow.y : f.y;
+          m.position.set(fx0, R.groundH(fx0, fy0), fy0);
+          const up = Math.min(1, prog * 5), fade = prog < 0.5 ? 1 : 1 - (prog - 0.5) / 0.5;
+          m.scale.set(1 - prog * 0.45, up, 1 - prog * 0.45);
+          m.rotation.y = R.time * 1.4;
+          m.material.uniforms.op.value = fade; m.material.uniforms.time.value = R.time;
         } else if (f.kind === 'zone') {
           m.position.set(f.x, R.groundH(f.x, f.y) + 0.07, f.y);
           const fade = Math.min(1, f.t * 3, (f.life - f.t) * 2);
@@ -3489,6 +3496,25 @@
         R.lockMesh.position.set(lk.x, R.groundH(lk.x, lk.y) + 0.06, lk.y);
         R.lockMesh.rotation.y = R.time * 1.6;
         R.lockMesh.scale.setScalar(sc * (1 + Math.sin(R.time * 6) * 0.04));
+      }
+      // your pack in a melee: a soft green ring at each one's feet, so friend from foe is plain at a glance
+      if (!R.palRings) {
+        const geo = new THREE.RingGeometry(0.78, 0.92, 36).rotateX(-Math.PI / 2);
+        const m = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: '#46c94a', transparent: true, opacity: 0.72, depthWrite: false }), 12);
+        m.frustumCulled = false; m.renderOrder = 2; m.count = 0;
+        R.palRings = m; R.scene.add(m);
+      }
+      {
+        const M = R.palRings, m4 = R._palM4 || (R._palM4 = new THREE.Matrix4());
+        let n = 0;
+        if (!(ECHO.Game.pl && ECHO.Game.pl.flying)) for (const e of game.ents) {
+          if (n >= 12) break;
+          if (e.dead || e.hidden || !(e.pal || (e.tamed && !e.titan))) continue;
+          const r = (ECHO.Ent && ECHO.Ent.bodyR ? ECHO.Ent.bodyR(e) : (e.r || 0.4)) * 1.55 + 0.15;
+          m4.makeScale(r, 1, r); m4.setPosition(e.x, R.groundH(e.x, e.y) + 0.05, e.y);
+          M.setMatrixAt(n++, m4);
+        }
+        M.count = n; M.instanceMatrix.needsUpdate = true; M.visible = n > 0;
       }
       // Projectiles
       const pl = new Set();
@@ -3607,6 +3633,24 @@
         return m;
       };
       if (f.kind === 'tele') return R.makeTele(f);
+      // a column of light from the ground: bright at the foot, thinning to nothing overhead
+      if (f.kind === 'pillar') {
+        const h = f.height || 7, rad = f.radius || 0.8;
+        const geo = new THREE.CylinderGeometry(rad * 0.75, rad, h, 28, 1, true); geo.translate(0, h / 2, 0);
+        const pc = R.parseColor(f.color || '#ffe08a');
+        const mat = new THREE.ShaderMaterial({
+          uniforms: { col: { value: new THREE.Color(pc.c) }, op: { value: 1 }, time: { value: 0 }, H: { value: h } },
+          vertexShader: 'varying vec3 vP; varying vec2 vUv; void main(){ vP = position; vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+          fragmentShader: ['uniform vec3 col; uniform float op; uniform float time; uniform float H; varying vec3 vP; varying vec2 vUv;',
+            'void main(){ float y = clamp(vP.y / H, 0.0, 1.0);',
+            '  float streak = 0.55 + 0.45 * sin(vUv.x * 6.2832 * 7.0 + time * 3.0 + y * 9.0);',
+            '  float a = pow(1.0 - y, 1.6) * (0.35 + 0.65 * streak) * op;',
+            '  gl_FragColor = vec4(col * (0.75 + (1.0 - y) * 0.9), a * 0.75); }'].join('\n'),
+          transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
+        });
+        const m = new THREE.Mesh(geo, mat); m.renderOrder = 4; m.frustumCulled = false;
+        return m;
+      }
       if (f.kind === 'zone') {
         const pc = R.parseColor(f.color);
         const m = flat(new THREE.CircleGeometry(f.radius, 32).rotateX(-Math.PI / 2), pc.c, 0.3);

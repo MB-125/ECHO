@@ -243,6 +243,7 @@
       // and it is yours
       e.dead = true; e.vanish = true;
       ECHO.Combat.ring(e.x, e.y, 2, 'rgba(255,224,138,1)', 0.7); ECHO.Combat.burst(e.x, e.y, '#ffe08a', 30, 5, 0.8, 3);
+      ECHO.Combat.fx.push({ kind: 'pillar', x: e.x, y: e.y, t: 0, life: 1.4, color: '#9fe88a', height: 5 + 2 * Math.min(2, e.scale || 1), radius: 0.6 + 0.35 * Math.min(2.5, e.scale || 1) });
       if (ECHO.Music) ECHO.Music.stinger('discover');
       if (r.out) { const p = T.spawn(game, r, e.x, e.y); if (p) { p.say = '…'; p.sayT = 1.5; } }
       UI().banner(`${r.name} is yours`, r.out ? `Level ${lvl} · it follows you now` : `Level ${lvl} · you have ${MAX_OUT} out already: it waits at your den (U → Animals)`, true);

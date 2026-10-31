@@ -52,6 +52,11 @@
       ECHO.PlayerCtl.computeDerived(game);
       pl.hp = pl.maxHp; pl.stamina = pl.maxSta;
       ECHO.Combat.burst(game.pe.x, game.pe.y, u.rank ? u.rank.color : '#ffe08a', 26, 4, 0.9, 3);
+      // a column of light where you stand, a ring rolling out across the ground, and the land lit around you
+      const col = u.rank ? u.rank.color : '#ffe08a';
+      ECHO.Combat.fx.push({ kind: 'pillar', x: game.pe.x, y: game.pe.y, follow: game.pe, t: 0, life: u.rank ? 2.2 : 1.5, color: col, height: u.rank ? 10 : 7, radius: 0.85 });
+      ECHO.Combat.ring(game.pe.x, game.pe.y, 3.2, col, 0.7);
+      game.light(game.pe.x, game.pe.y, 7, 1.6, col, 1.2);
       ECHO.Combat.floater(game.pe.x, game.pe.y - 1.8, `LEVEL ${u.lv}`, '#ffe08a', true);
       ECHO.Music.stinger(u.rank ? 'echo' : 'discover');
       if (u.rank) {

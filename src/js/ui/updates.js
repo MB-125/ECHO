@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.8.34', items: [
+      'Your pack wears a green ring at its feet, so in a crowded fight you can tell your beasts from the wild ones at a glance.',
+      'Levelling up raises a column of light where you stand, with a ring rolling out across the ground; a new rank raises a taller one in its colour. A beast you tame goes up in a green column as it joins you.',
+      'The title screen centres your worlds.'
+    ] },
     { v: '0.8.33', items: [
       'Play every menu with a controller: in the pause menu, the journal, the shops, a conversation or the title screen, the D-pad or left stick moves a gold frame from button to button, A chooses, B goes back, LB / RB turn the journal\'s pages and the right stick scrolls. The mouse works exactly as before.',
       'A foe that grows suspicious shows a big yellow "?" over its head, and a red "!" when it spots you, instead of a little speech bubble.'

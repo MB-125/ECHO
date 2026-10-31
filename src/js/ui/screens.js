@@ -41,7 +41,7 @@
         </div>`).join('')}</div>
         <div class="actions">${metas.length ? `<button class="primary" data-a="enter">${metas[0].hero ? `Continue as ${esc(metas[0].hero)}` : 'Enter world'}</button>` : ''}<button data-a="new" class="${metas.length ? '' : 'primary'}">Begin a new world</button>${metas.length ? '<button data-a="del">Forget world…</button>' : ''}<button data-a="help">How ECHO works</button>${window.echoNative ? '<button data-a="quit">Quit</button>' : ''}</div>
         ${`<div class="actions" style="margin-top:8px">${metas.length ? '<button class="small" data-a="export">Export world</button>' : ''}<button class="small" data-a="import">Import world</button><input type="file" id="importfile" accept=".json,.echo,application/json" hidden></div>`}
-        <p class="faint" style="text-align:center;margin-top:30px;font-size:12px">Worlds never reset. Each one lives and changes on its own. ${window.echoNative ? 'F11 toggles fullscreen. To carry on a world from the browser version, use Export world there and Import world here.' : 'Worlds are kept in this browser; export one to keep a backup. Best with a keyboard and mouse.'}</p>
+        <p class="faint" style="text-align:center;margin-top:30px;font-size:12px">Worlds never reset. Each one lives and changes on its own. ${window.echoNative ? 'F11 toggles fullscreen. To carry on a world from the browser version, use Export world there and Import world here.' : 'Worlds are kept in this browser; export one to keep a backup. Play with keyboard and mouse, or a controller.'}</p>
         <div id="titlemsg" class="dim" style="text-align:center;margin-top:8px"></div>`);
       Scr.titleFx(el);
       if (ECHO.Updates) ECHO.Updates.mount();
