@@ -31,16 +31,28 @@
       desc: 'Where its hooves strike, lightning strikes with them.', names: ['Thunderhoof', 'Galebrow', 'Stormantler'] },
     mawtide: { kind: 'wyrm', flies: false, element: 'venom', name: 'Mawtide', title: 'the Deep Serpent', lv: 115, scale: 1.7, color: '#2a4a4a', terr: ['SWAMP', 'SAND'], brood: 'gloomeel', far: 0.35,
       desc: 'A serpent long as a street, that lies in wait at the water\'s edge.', names: ['Mawtide', 'Coilgrave', 'the Sunken Jaw'] },
+    ironback: { kind: 'stag', flies: false, element: 'earth', name: 'Ironback', title: 'the Walking Keep', lv: 380, scale: 2.6, color: '#6a6258', belly: '#9a9080', terr: ['HILL', 'GRASS', 'RUIN'], brood: 'golemling', far: 0.55, placid: true, fortress: true,
+      desc: 'A beast the size of a hill, with a ruined keep on its back that someone built there long ago. It walks the country slowly and pays no mind to anything that does not hurt it.', names: ['Ironback', 'Bastionhide', 'the Old Wall'] },
     grimmaw: { kind: 'wyrm', flies: false, element: 'earth', name: 'Grimmaw', title: 'the Mountain Wyrm', lv: 520, scale: 2.3, color: '#5a4a3a', terr: ['HILL', 'SNOW'], brood: 'slaggolem', far: 0.7,
       desc: 'It burrows through hills. The ground heaves where it hunts.', names: ['Grimmaw', 'Stonegullet', 'the Deepbore'] }
   };
-  const ORDER = ['gorehorn', 'emberwing', 'thunderhoof', 'mawtide', 'rimefang', 'mirevenom', 'skyrender', 'grimmaw', 'solgrim', 'nyxathar'];
+  const ORDER = ['gorehorn', 'emberwing', 'thunderhoof', 'mawtide', 'rimefang', 'mirevenom', 'skyrender', 'ironback', 'grimmaw', 'solgrim', 'nyxathar'];
   const MAX_BOUND = 4;
 
   const T = ECHO.Titans = {
     SPECIES, ORDER, MAX_BOUND,
     ensure(world) {
-      if (world.titans && world.titans.v) return world.titans;
+      if (world.titans && world.titans.v) {
+        // kinds that came into the world after it was made: each placed once, in an old world too
+        const S0 = world.titans;
+        S0.known = S0.known || S0.list.map(t => t.sp).filter((k, i, a) => a.indexOf(k) === i);
+        for (const k of ORDER) if (!S0.known.includes(k)) {
+          S0.known.push(k);
+          const t = T.place(world, new ECHO.RNG((world.seed ^ ECHO.hashStr(k)) >>> 0), k, 0);
+          if (t) S0.list.push(t);
+        }
+        return S0;
+      }
       if (!world.settlements || !world.settlements.length || !world.tiles) return null;
       if (ECHO.Explore) ECHO.Explore.sites(world);
       const S = world.titans = { v: 1, list: [], seq: 0 };

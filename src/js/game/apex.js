@@ -719,7 +719,7 @@
       const Cl = ECHO.Calamity, cls = Cl ? Cl.cls(t).n : 1, sneak = ECHO.PlayerCtl && ECHO.PlayerCtl.sneaking;
       if (t.mig && !e.aggro) {
         const notice = (cls >= 3 ? 3.5 : 7) * (sneak ? 0.5 : 1) * (e.alt > 2 ? 0.6 : 1);
-        if (hostile && d < notice) { e.aggro = true; e.phase = e.alt > 2 ? 'air' : 'ground'; e.phaseT = 0; e.airN = 0; e.state = 'roar'; e.t = 0; UI().bossBar(e); game.shake(0.5); if (ECHO.Sfx) ECHO.Sfx.play('roar', { pitch: 1 / Math.sqrt(e.tscale) }); return; }
+        if (hostile && d < notice && !Ti().sp(t).placid) { e.aggro = true; e.phase = e.alt > 2 ? 'air' : 'ground'; e.phaseT = 0; e.airN = 0; e.state = 'roar'; e.t = 0; UI().bossBar(e); game.shake(0.5); if (ECHO.Sfx) ECHO.Sfx.play('roar', { pitch: 1 / Math.sqrt(e.tscale) }); return; }
         e.altGoal = e.flies ? 6 : 0;
         const to = Cl.aim(t); A.go(game, e, to.x, to.y, e.flies ? 5.5 : 2.4, dt);
         t.x = e.x; t.y = e.y; t.liveAt = Cl.now(world);
@@ -734,7 +734,9 @@
         return;
       }
       // it notices you on its range
-      if (hostile && onRange && d < (e.alt > 2 ? 15 : 10) * (sneak ? 0.6 : 1)) {
+      // the Walking Keep minds nothing that does not hurt it; one asleep on its roost wakes only right beside it
+      const asleep = e.state === 'roost' && A.night(world), noticeR = asleep ? 3 * (sneak ? 0.5 : 1) : (e.alt > 2 ? 15 : 10) * (sneak ? 0.6 : 1);
+      if (hostile && onRange && d < noticeR && !Ti().sp(t).placid) {
         e.aggro = true; e.phase = e.alt > 2 ? 'air' : 'ground'; e.phaseT = 0; e.airN = 0; e.state = 'roar'; e.t = 0;
         game.shake(0.5); if (ECHO.Sfx) ECHO.Sfx.play('roar', { pitch: 1 / Math.sqrt(e.tscale) });
         UI().bossBar(e);

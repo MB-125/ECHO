@@ -713,6 +713,7 @@
       if (ECHO.GateWorld) out.push(...ECHO.GateWorld.interactables(Game));
       if (ECHO.Deepwood) out.push(...ECHO.Deepwood.interactables(Game));
       if (ECHO.Apex) out.push(...ECHO.Apex.interactables(Game));
+      if (ECHO.Bodies) out.push(...ECHO.Bodies.interactables(Game));
       out.push(...ECHO.Marvels.interactables(Game), ...ECHO.Fest.interactables(Game), ...ECHO.Quests.interactables(Game), ...ECHO.Patrol.interactables(Game), ...ECHO.Finds.interactables(Game));
       out.sort((a, b) => a.d - b.d);
       return out;

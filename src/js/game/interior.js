@@ -226,6 +226,7 @@
     leave(game, silent) {
       const L = I.cur;
       if (!L) return;
+      if (ECHO.Bodies) ECHO.Bodies.beforeLeave(game, L);
       const finish = () => {
         // Anything dropped inside ends up by the door outside.
         for (const it of Object.values(game.world.items)) if (it.droppedAt && it.droppedAt.x >= 9000) it.droppedAt = { x: L.outside.x + 0.6, y: L.outside.y + 0.3 };

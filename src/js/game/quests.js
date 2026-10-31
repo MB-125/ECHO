@@ -182,13 +182,13 @@
       const small = X().small(site);
       const style = def.style || 'cave';
       const cave = style === 'cave';
-      const rng = new ECHO.RNG(ECHO.hashStr(site.id + world.seed + ':' + depth));
+      const rng = new ECHO.RNG(ECHO.hashStr(site.id + world.seed + ':' + depth + (site.mobileOf ? ':' + (site.shift || 0) : '')));   // (a living or walking place shifts each time)
       // rooms and passages: bigger and more tangled the deeper you go
       const cols = small ? 2 + (depth >= 2 ? 1 : 0) : 3 + (depth >= 5 ? 1 : 0), rows = small ? 2 + (depth >= 4 ? 1 : 0) : 2 + (depth >= 1 ? 1 : 0) + (depth >= 7 ? 1 : 0);
       const G = ECHO.DGen.carve(rng, cols, rows);
       const W = G.W, H = G.H;
-      const voidS = style === 'void';
-      const L = { id: b.id, b, s, type: 'delve', kind: site.kind, site, depth, floors, W, H, floor: cave ? 'cave' : voidS ? 'void' : style === 'stone' ? 'stone' : 'crypt', wall: cave ? 'rock' : voidS ? 'void' : 'stone', cave: true, carved: true, G, rev: 0,
+      const voidS = style === 'void', flesh = style === 'flesh';
+      const L = { id: b.id, b, s, type: 'delve', kind: site.kind, site, depth, floors, W, H, floor: flesh ? 'flesh' : cave ? 'cave' : voidS ? 'void' : style === 'stone' ? 'stone' : 'crypt', wall: flesh ? 'flesh' : cave ? 'rock' : voidS ? 'void' : 'stone', cave: true, carved: true, G, rev: 0,
         furn: [], spots: [], lights: [], webs: [], traps: [], blocked: G.blocked, rock: G.blocked.slice(), seen: new Uint8Array(W * H) };
       L.doorX = G.doorX;
       const f = (model, x, y, o = {}) => {
@@ -213,12 +213,14 @@
           // beyond the Rift: braziers of violet fire at the corners
           f('voidbrazier', r.x0 + 1.2, r.y0 + 1.2, { solid: false, light: { r: 6, a: 1.15, color: '#b48aff', h: 1.2 } });
           if (r.x1 - r.x0 > 7) f('voidbrazier', r.x1 - 1.2, r.y0 + 1.2, { solid: false, light: { r: 6, a: 1.15, color: '#b48aff', h: 1.2 } });
-        } else f('candles', r.x0 + 1.2, r.y0 + 1.2, { solid: false, light: glow, colors: { flame: def.glow || '#ffb060', glow: def.glow || '#ffb060' } });
+        } else if (flesh) L.lights.push({ x: BASE + r.mx, y: r.my, r: 6, a: 0.6, color: '#e0506a', h: 1.4 });   // (a living belly glows from within)
+        else f('candles', r.x0 + 1.2, r.y0 + 1.2, { solid: false, light: glow, colors: { flame: def.glow || '#ffb060', glow: def.glow || '#ffb060' } });
         if (r === far || r === ent) continue;
         const n = 2 + rng.int(0, 2);
         for (let i = 0; i < n && tiles.length > 4; i++) {
           const t = pick();
           if (voidS) f(rng.next() < 0.55 ? 'voidobelisk' : 'voidcrystal', t.x + 0.5, t.y + 0.5, { scale: 0.8 + rng.next() * 0.35, rot: rng.next() * 6, light: rng.next() < 0.3 ? { r: 3, a: 0.7, color: '#8a5aff', h: 1.4 } : null });
+          else if (flesh) f('boulder', t.x + 0.5, t.y + 0.5, { scale: 0.5 + rng.next() * 0.4, rot: rng.next() * 6, colors: { rock: '#9a3a48', darkstone: '#6a2030' } });
           else if (cave) f('boulder', t.x + 0.5, t.y + 0.5, { scale: 0.55 + rng.next() * 0.35, rot: rng.next() * 6 });
           else f('pillar', t.x + 0.5, t.y + 0.5, { scale: 0.85, colors: style === 'stone' ? { stone: '#5a4a40' } : null });
         }
@@ -502,6 +504,7 @@
         if (alive) return UI().toast('Not with them still about.', 'warn', 2);
         if (site.chestTaken) return UI().toast('The chest is empty.', 'info', 2);
         site.chestTaken = true; site.cleared = true; site.clearedDay = world.day;
+        if (site.mobileOf && ECHO.Bodies) ECHO.Bodies.onCleared(game, site);
         if (ECHO.Ambition) { ECHO.Ambition.note(pl, 'delves'); if (X().floors(site) >= 3) ECHO.Ambition.note(pl, 'deep'); }
         it.label = 'An empty chest';
         const got = Q.loot(game, site);

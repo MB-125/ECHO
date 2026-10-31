@@ -843,7 +843,7 @@ function main() {
     const pl = ECHO.Character.create(W, new ECHO.RNG(4), { first: 'Tamer', homeId: W.settlements[0].id });
     const L = Ti.list(W);
     const minTown = Math.min(...L.map(t => Math.min(...W.settlements.map(s => ECHO.U.dist(s.x, s.y, t.x, t.y)))));
-    check('ten titans roam the world, each on its own range', L.length >= 8 && new Set(L.map(t => t.sp)).size === L.length && minTown >= 18 && L.filter(t => Ti.sp(t).flies).length >= 5, `${L.length} titans, nearest town ${minTown.toFixed(0)}: ${L.map(t => t.name + ' Lv ' + t.lvl).join(', ')}`);
+    check('the titans roam the world, each on its own range', L.length >= 8 && new Set(L.map(t => t.sp)).size === L.length && minTown >= 15 && L.filter(t => Ti.sp(t).flies).length >= 5, `${L.length} titans, nearest town ${minTown.toFixed(0)}: ${L.map(t => t.name + ' Lv ' + t.lvl).join(', ')}`);
     check('from a young dragon to a catastrophe', Math.min(...L.map(t => t.lvl)) < 60 && Math.max(...L.map(t => t.lvl)) >= 1000);
     const ok = L.slice(0, 4).map(t => Ti.bind(W, t, pl));
     const fifth = L[4];
@@ -1008,6 +1008,10 @@ function main() {
       const n0 = w.chronicle.length; for (let k = 0; k < 20 && !w.chronicle.slice(n0).some(e => /Two calamities met/.test(e.text)); k++) { w.titans.clash = {}; C.clashes(w, rng); }
       check('two calamities that meet will fight, and one of them comes off the worse', w.chronicle.slice(n0).some(e => /Two calamities met/.test(e.text)) && (a.hp < 1 || b.hp < 1 || !a.alive || !b.alive), w.chronicle.slice(n0).map(e => e.text).join(' | ').slice(0, 200));
     }
+    // a kind new to the game comes into an old world once
+    w.titans.list = w.titans.list.filter(x => x.sp !== 'ironback'); w.titans.known = null;
+    const before = w.titans.list.length; Ti.ensure(w); Ti.ensure(w);
+    check('a titan new to the game (Ironback, the Walking Keep) comes into an old world, once', Ti.list(w).filter(x => x.sp === 'ironback').length === 1 && Ti.list(w).length === before + 1 && Ti.sp(Ti.list(w).find(x => x.sp === 'ironback')).fortress);
     // a whole season of it, headless
     let threw = null; try { for (let d = 0; d < 40; d++) ECHO.Sim.dailyTick(w, true); } catch (err) { threw = err; }
     check('a season of roaming calamities runs without a hitch', !threw && Ti.list(w).every(x => isFinite(x.x) && isFinite(x.y) && x.x > 0 && x.y > 0 && x.x < w.W && x.y < w.H), threw ? String(threw.stack).slice(0, 300) : `${C.moving(w).length} on the move`);

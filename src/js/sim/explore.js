@@ -35,6 +35,8 @@
     sanctum: { label: 'Drowned sanctum', names: ['the Black Sanctum', 'the Drowned Temple', 'the Fane of Whispers'], desc: 'A temple to something without a name, half-swallowed by the earth. Robed figures go in and out at night.', boss: 'necromancer', floors: 3, roster: [['cultist', 3], ['wraith', 1], ['slime', 1]], deep: [['wraith', 2], ['cultist', 2]], style: 'crypt', glow: '#b48aff', lvl: 2 },
     grot: { label: 'Cave', names: [], desc: 'A cave in the rock, going back further than the light does.', foes: 'giantrat', boss: 'spider', floors: 1, roster: [['giantrat', 3], ['slime', 1], ['spider', 1]], style: 'cave', glow: '#9fd3ff' },
     riftdeep: { label: 'The Rift', names: ['Beyond the Rift'], desc: 'On the other side of the tear in the air: a grey hall that goes on for ever, and a throne.', boss: 'hollowking', floors: 2, roster: [['wraith', 3], ['cultist', 2], ['skeleton', 2]], deep: [['wraith', 2], ['golemling', 1]], style: 'void', glow: '#b48aff', lvl: 0 },
+    maw: { label: 'Living belly', names: ['the Belly'], desc: 'The inside of a living beast: warm, wet, breathing, and full of what lives off it.', boss: 'queen', floors: 2, roster: [['slime', 3], ['spider', 2], ['giantrat', 1]], deep: [['slimeling', 2]], style: 'flesh', glow: '#ff6a8a', lvl: 2 },
+    backkeep: { label: 'Walking keep', names: ['the Keep'], desc: 'A ruined fortress on the back of a walking beast, still held by its dead garrison.', boss: 'necromancer', floors: 3, roster: [['skeleton', 3], ['skelarcher', 2], ['ghoul', 1], ['cultist', 1]], deep: [['wraith', 1]], style: 'stone', glow: '#c8b48a', lvl: 3 },
     scar: { label: 'Calamity scar', names: ['the Scar'], desc: 'The ground split open where a calamity died. Heat, or cold, or a wrongness, breathes up out of it; things have gone down to feed on what is left.', boss: 'golem', floors: 2, roster: [['golemling', 3], ['wraith', 1]], deep: [['golemling', 2]], style: 'stone', glow: '#ff9a5a', lvl: 2 },
     forge: { label: 'Deep forge', names: ['the Old Deep Forge', 'the Dwarrow Halls', 'Hammerdeep', 'the Cinder Halls'], desc: 'A door of black iron in the mountainside. The ground is warm. Something inside still keeps the fires.', boss: 'golem', floors: 3, roster: [['golemling', 2], ['slime', 2]], deep: [['golemling', 3]], style: 'stone', glow: '#ff7a2a', lvl: 3 }
   };
@@ -196,7 +198,7 @@
       const a = X.floorLevel(site, 0), b = X.floorLevel(site, X.floors(site) - 1);
       return a === b ? `Lv ${a}` : `Lv ${a}–${b}`;
     },
-    byId(world, id) { return X.sites(world).find(s => s.id === id); },
+    byId(world, id) { return X.sites(world).find(s => s.id === id) || (world.bodySites || []).find(s => s.id === id); },
     def(site) { return site.cat === 'wonder' ? ECHO.Discover.WONDERS[site.kind] : (site.cat === 'landmark' ? LANDMARKS : DELVES)[site.kind]; },
     label(site) { return X.def(site).label; },
     desc(site) { return X.def(site).desc; },

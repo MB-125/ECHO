@@ -1143,12 +1143,13 @@
       cave: (x, y) => ['#4a443c', '#524b42', '#453f37', '#5a5246'][R.tileH(x, y + 977, 4)],
       crypt: (x, y) => ['#55524c', '#5d5a53', '#4e4b45', '#625e56'][R.tileH(x, y, 4)],
       void: (x, y) => ['#2c2438', '#262032', '#302842', '#241e2e'][R.tileH(x, y, 4)],
+      flesh: (x, y) => ['#5e1e28', '#682430', '#561a24', '#722a36'][R.tileH(x, y, 4)],
       // the worlds beyond the gates
       ember: (x, y) => ECHO.GateWorld.PAL.ember.floor[R.tileH(x, y + 977, 4)],
       abyss: (x, y) => ECHO.GateWorld.PAL.abyss.floor[R.tileH(x, y + 977, 4)],
       thorn: (x, y) => ECHO.GateWorld.PAL.thorn.floor[R.tileH(x, y + 977, 4)]
     },
-    WALLS: { plaster: ['#cbb894', '#5a3e26'], stone: ['#7c766c', '#5a554e'], marble: ['#e0d9cc', '#a89e8c'], rock: ['#5a544a', '#3e3a33'], ember: ['#3a2a24', '#ff6a1a'], abyss: ['#2a4448', '#2ad8c8'], thorn: ['#2a1e30', '#9a4aff'], void: ['#1e1826', '#6a3ad0'] },
+    WALLS: { flesh: ['#6e2a34', '#9a4454'], plaster: ['#cbb894', '#5a3e26'], stone: ['#7c766c', '#5a554e'], marble: ['#e0d9cc', '#a89e8c'], rock: ['#5a544a', '#3e3a33'], ember: ['#3a2a24', '#ff6a1a'], abyss: ['#2a4448', '#2ad8c8'], thorn: ['#2a1e30', '#9a4aff'], void: ['#1e1826', '#6a3ad0'] },
     // Many boxes as one mesh: a dungeon's walls in a single draw.
     mergeBoxes(boxes, mat) {
       const n = boxes.length, pos = new Float32Array(n * 108), nor = new Float32Array(n * 108);
@@ -1822,6 +1823,22 @@
           if (e.boss.belly) M.recolor(inst, kd === 'stag' ? 'antler' : kd + 'belly', e.boss.belly);
           const el = ECHO.Apex && ECHO.Apex.ELEM[e.elem];
           if (el) M.recolor(inst, 'eyeglow', el.col);
+          // the Walking Keep: a ruined fortress on its back
+          const tsp = ECHO.Titans && ECHO.Titans.byId(world, e.titan), spx = tsp && ECHO.Titans.sp(tsp);
+          if (spx && spx.fortress && !v._keep) {
+            inst.root.scale.setScalar(1); inst.root.updateMatrixWorld(true);
+            const bx = new THREE.Box3().setFromObject(inst.root), sz = bx.getSize(new THREE.Vector3()), cn = bx.getCenter(new THREE.Vector3());
+            const keep = new THREE.Group(), stone = new THREE.MeshStandardMaterial({ color: C('#a89c88'), roughness: 0.95, flatShading: true }), dark = new THREE.MeshStandardMaterial({ color: C('#6a6050'), roughness: 0.95, flatShading: true });
+            const L0 = Math.max(sz.x, sz.z) * 0.42, h0 = sz.y * 0.22;
+            const box = (w, h, d, x, y, z, m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.castShadow = true; keep.add(o); return o; };
+            box(L0 * 1.1, h0 * 0.35, L0 * 0.75, 0, h0 * 0.17, 0, dark);                    // the platform
+            box(L0 * 0.45, h0 * 1.3, L0 * 0.4, 0, h0 * 0.95, 0, stone);                   // the keep
+            for (const [sx, sz2] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const tw = new THREE.Mesh(new THREE.CylinderGeometry(L0 * 0.1, L0 * 0.12, h0 * 1.1, 6), stone); tw.position.set(sx * L0 * 0.48, h0 * 0.7, sz2 * L0 * 0.3); tw.castShadow = true; keep.add(tw); }
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(L0 * 0.34, h0 * 0.7, 4), dark); roof.position.set(0, h0 * 1.95, 0); roof.rotation.y = Math.PI / 4; keep.add(roof);
+            const fl = new THREE.Mesh(new THREE.PlaneGeometry(L0 * 0.18, L0 * 0.1), new THREE.MeshBasicMaterial({ color: '#8a2a2a', side: THREE.DoubleSide })); fl.position.set(L0 * 0.09, h0 * 2.45, 0); keep.add(fl);
+            keep.position.set(cn.x - inst.root.position.x, bx.min.y - inst.root.position.y + sz.y * 0.55, cn.z - inst.root.position.z);
+            inst.root.add(keep); v._keep = keep;
+          }
           inst.root.scale.setScalar(1.05 * (e.tscale || 1) * (kd === 'drake' ? 1.4 : 1.1));
         }
         return;
