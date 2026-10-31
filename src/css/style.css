@@ -484,3 +484,5 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 #panel .opts > button:last-child:nth-child(n+10)::before { content: '0'; display: inline-block; min-width: 1.4em; margin-right: 8px; padding: 0 4px; border: 1px solid rgba(230,192,106,0.45); border-radius: 3px; color: var(--gold); font-size: 0.85em; text-align: center; opacity: 0.85; }
 .pal-skill { font-size: 11.5px; line-height: 1.35; margin: 2px 0; }
 .pal-how { margin: 4px 0 8px; } .pal-how summary { cursor: pointer; font-size: 13px; padding: 4px 0; }
+.card.mend.on { border-color: #6aa85a; box-shadow: 0 0 0 1px rgba(143,224,122,.25) inset; }
+.card.mend.locked { opacity: .55; }

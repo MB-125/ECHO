@@ -347,6 +347,7 @@
       if (pl.buffs) for (const k in pl.buffs) if (pl.buffs[k] > 0) { pl.buffs[k] -= dt; if (pl.buffs[k] <= 0) { pl.buffs[k] = 0; PC.derivedT = 0; if (k === 'vigor') { PC.computeDerived(game); pe.hp = pl.hp = Math.min(pe.hp, pl.maxHp); } if (ECHO.Gear.POTIONS[k]) ECHO.Combat.floater(pe.x, pe.y - 1.3, `${ECHO.Gear.POTIONS[k].name} wears off`, '#c8c0b0'); } }
       if (PC.drinkT > 0) PC.drinkT -= dt;
       if (pl.buffs) PC.potionTick(game, dt);
+      if (ECHO.Mending) ECHO.Mending.tick(game, dt);
 
       // ---- Regeneration
       if (!pe.swimming && !pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (pe.wading ? 0.6 : 1) * (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1) * (pl.buffs && pl.buffs.wind > 0 ? 2 : 1) * (ECHO.Camp ? ECHO.Camp.regenMul(pl) : 1));

@@ -389,6 +389,7 @@
       if (target.pal && ECHO.Tame) { dmg = Math.max(1, Math.round(ECHO.Tame.guard(game, target, dmg))); }
       target.hp -= dmg;
       if (target.pal && ECHO.Tame && target.hp > 0) ECHO.Tame.afterHit(game, target);
+      if (from === game.pe && target !== game.pe && !target.pal && !target.tamed && ECHO.Mending) ECHO.Mending.onHit(game, dmg);
       target.hurtT = 0.18;
       target.hurtDir = src.angle != null ? src.angle : target.hurtDir;
       // Stagger interrupts whatever the target was winding up.
@@ -475,6 +476,7 @@
       if (target.type !== 'boss') { const kb = (src.knock || 0.12) * 1.8 + 0.15; target.kbx += Math.cos(ka) * kb; target.kby += Math.sin(ka) * kb; }
       if (byPlayer && target.species !== 'hare' && target.species !== 'gnawer') ECHO.Tech.onKill(game, target, type, src);
       if (byPlayer && ECHO.Progress) ECHO.Progress.onKill(game, target);
+      if (from === game.pe && ECHO.Mending) ECHO.Mending.onKill(game, target);
       if (byPlayer) {
         if (ECHO.Sfx) ECHO.Sfx.play('kill', { pitch: target.species === 'gnawer' || target.species === 'hare' ? 1.5 : 1 });
         game.hitStop(target.type === 'boss' ? 0.2 : target.species === 'hare' || target.species === 'gnawer' ? 0.06 : 0.1);

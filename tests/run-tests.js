@@ -1013,6 +1013,33 @@ function main() {
     check('a season of roaming calamities runs without a hitch', !threw && Ti.list(w).every(x => isFinite(x.x) && isFinite(x.y) && x.x > 0 && x.y > 0 && x.x < w.W && x.y < w.H), threw ? String(threw.stack).slice(0, 300) : `${C.moving(w).length} on the move`);
   }
 
+  console.log('\nHealing arts');
+  {
+    const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite };
+    ctx.globalThis = ctx; vm.createContext(ctx);
+    for (const f of ['core.js', 'sim/prowess.js', 'game/mending.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx);
+    const E = ctx.ECHO, M = E.Mending;
+    E.Combat = { floater() {}, ring() {}, burst() {}, fx: [] };
+    const pl = { prowess: { lv: 20 }, hp: 150, maxHp: 200, mana: 100 }, pe = { hp: 150, x: 0, y: 0 };
+    const game = { pl, pe, time: 100, combatT: 99, ents: [], hostileTo: () => true };
+    const fresh = M.st(pl).on.slice().join(',');
+    check('a hero starts with Renewal and Victor\'s breath on', fresh === 'renewal,victor');
+    M.toggle(pl, 'wind'); const full = M.toggle(pl, 'leech');
+    check('no more than three on at once; switching one off makes room', full === 'full' && M.toggle(pl, 'victor') === true && M.toggle(pl, 'leech') === true && M.st(pl).on.length === 3);
+    const lowLv = { prowess: { lv: 1 } };
+    check('the deeper arts open with level', M.toggle(lowLv, 'pulse') === 'locked');
+    const h0 = pl.hp; M.tick(game, 1);
+    check('in a fight the arts that are on heal by themselves (Renewal draws mana)', pl.hp > h0 && pl.mana < 100, `${h0}→${Math.round(pl.hp)} life`);
+    pl.hp = 40; pe.hp = 40; const m0 = pl.mana; M.tick(game, 0.01);
+    check('Second wind lifts you when you fall below a third, then waits', pl.hp >= 40 + 70 - 1 && pl.mana <= m0 - 20 && M.st(pl).cd.wind > game.time);
+    const h1 = pl.hp; M.onHit(game, 100);
+    check('Lifesteal heals from the blows you land', pl.hp > h1);
+    game.combatT = 0; const h2 = pl.hp; M.tick(game, 1);
+    check('out of a fight, Renewal rests', pl.hp === h2);
+    M.toggle(pl, 'leech'); const h3 = pl.hp; M.onHit(game, 100);
+    check('switched off, an art does nothing', pl.hp === h3);
+  }
+
   console.log('\nChallenge and spoils');
   {
     const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite, Uint8Array, Int32Array, Float32Array };
