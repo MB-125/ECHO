@@ -400,15 +400,48 @@
         }
       }
     },
+    // Round the world without stopping it: you (and whoever is with you) are simply moved, the
+    // view with you; nothing is started again. Over the east-west join everything near you
+    // moves the same way, land and all; over a pole, you and yours come down the far side.
+    hop(game, x, y, turn) {
+      const w = game.world, pe = game.pe, pl = game.pl, R3 = ECHO.Renderer3D, A = ECHO.Apex;
+      const dx = x - pe.x, dy = y - pe.y, seam = !turn;
+      const ox = pe.x, oy = pe.y;
+      const near = o => o && typeof o.x === 'number' && o.x < 9000 && Math.abs(o.x - ox) < 160 && Math.abs(o.y - oy) < 160;
+      const mine = e => e === pe || e.tamed || e.pal || e.isCompanion || e.ridden || (pl.flying && e.titan === pl.flying);
+      for (const e of game.ents) {
+        if (!near(e)) continue;
+        if (seam) { e.x += dx; if (e.home && near(e.home)) e.home = { x: e.home.x + dx, y: e.home.y }; if (e.tx != null) e.tx += dx; }
+        else if (mine(e)) { const rx = e.x - ox, ry = e.y - oy; e.x = x - rx; e.y = y - ry; if (e.dir != null) e.dir += Math.PI; }   // (turned about, as you are)
+      }
+      if (seam) {
+        for (const l of game.loot || []) if (near(l)) l.x += dx;
+        for (const L of [ECHO.Combat.proj, ECHO.Combat.fx, ECHO.Combat.floaters]) for (const o of L || []) if (near(o)) o.x += dx;
+      }
+      pe.x = x; pe.y = y; pl.x = x; pl.y = y;
+      if (pl.boat && pe.inBoat === true) { pl.boat.x = x; pl.boat.y = y; }
+      if (turn && A && A.fly && pl.flying) { const F = A.fly; F.dir += Math.PI; F.vx = -F.vx; F.vy = -F.vy; F.landAt = null; }
+      if (ECHO.Nav) ECHO.Nav.route = null;
+      if (ECHO.PlayerCtl) ECHO.PlayerCtl.lock = null;
+      game.cam.x = x; game.cam.y = y;
+      if (R3 && R3.camTarget) {
+        if (seam && R3.shiftChunks) R3.shiftChunks(dx);                // (the land already built round you comes too)
+        R3.camTarget.x += dx; R3.camTarget.z += dy;
+        R3._chunkLast = null; R3._camV = null;
+      }
+      if (game.explore) game.explore(true);
+    },
     cross(game, x, y, msg, north, turn) {
       Gl.busy = true;
       try {
         const w = game.world;
-        const need = Gl.unmade(w, Math.floor(x), Math.floor(y), Gl.NEAR);
-        if (need.length) Gl.make(w, need);
-        const In = ECHO.Input, held = In && In.down ? new Set(In.down) : null;   // (the keys still held carry you on)
-        Gl.restart(game, x, y, turn);
-        if (held && In.down) for (const k of held) In.down.add(k);
+        try { Gl.hop(game, x, y, turn); }
+        catch (err) {
+          console.error('ECHO: round the world, the long way', err);
+          const In = ECHO.Input, held = In && In.down ? new Set(In.down) : null;   // (the keys still held carry you on)
+          Gl.restart(game, x, y, turn);
+          if (held && In.down) for (const k of held) In.down.add(k);
+        }
         if (msg) { game.ui.toast(msg, 'legend', 7); game.ui.banner(north === false ? 'The bottom of the world' : 'The top of the world', Gl.fmtLatLon(w, x, y), true); }
       } catch (err) { console.error('ECHO: could not go round the world', err); }
       finally { Gl.busy = false; }

@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.8', items: [
+      'No more freeze when you fly (or walk, or sail) round the world: crossing the east-west join or a pole used to stop and start the whole game again, and settle all the country round where you came down. Now you are simply carried over — your dragon, your beasts and the land already in sight come with you — in a fraction of a frame.',
+      'In the sky the currents of the rivers below are left alone, one less thing for the game to work out as you fly.'
+    ] },
     { v: '0.10.7', items: [
       'Much less lag and freezing in the world. New country is now made one stretch at a time and only on the ground (not while you fly over it), and making it no longer scans the whole globe: the deep woods, the rivers\' currents and the sea\'s depth are worked out only where the land changed.',
       'Midnight no longer stops the game: a day\'s work for the whole world is spread over the next few frames. Merchants trade with the towns within reach and pilgrims go to the nearest temple, instead of walking half round the world, so the world runs lighter and saves smaller.'

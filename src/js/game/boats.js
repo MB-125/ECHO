@@ -27,6 +27,7 @@
         const g = 64, R = 200, cx = Math.floor(px / g) * g, cy = Math.floor(py / g) * g;
         x0 = Math.max(0, cx - R); y0 = Math.max(0, cy - R); x1 = Math.min(W, cx + g + R); y1 = Math.min(H, cy + g + R);
       }
+      if (B.F && G && G.pl && G.pl.flying) return;      // (in the sky the currents below can wait)
       const key = world.seed + '|' + W + 'x' + H + '|' + x0 + ',' + y0, ep = world._tileEpoch || 0, now = Date.now();
       if (B._key === key && (B._ep === ep || now - (B._at || 0) < 4000)) return;
       B._key = key; B._ep = ep; B._at = now;

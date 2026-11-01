@@ -595,6 +595,20 @@
       R.scene.add(w);
     },
 
+    // Everything built of the land moved by dx tiles (dx a whole number of chunks): going round
+    // a round world, the chunks already built where you are come with you instead of being built again.
+    shiftChunks(dx) {
+      const n = Math.round(dx / CH);
+      if (!n) return;
+      const sh = n * CH, out = {};
+      for (const [k, c] of Object.entries(R.chunks)) {
+        const [cx, cy] = k.split(',').map(Number);
+        for (const o of c.objs) { o.position.x += sh; o.updateMatrixWorld && o.updateMatrixWorld(true); }
+        if (c.box) { c.box.min.x += sh; c.box.max.x += sh; }
+        out[(cx + n) + ',' + cy] = c;
+      }
+      R.chunks = out;
+    },
     // the water's depth again over just the tiles that changed (new land made on a round world)
     waterPatch(world, rects) {
       const w = R.water, Wg = R._waterG;
