@@ -183,6 +183,7 @@
       cells = cells.filter(ci => !G.made[ci]);
       if (!cells.length) return null;
       const dirty = world._hcDirty || [], mdirty = world._mapDirty || [];
+      delete world._landCells;
       for (const k of Object.keys(world)) if (k[0] === '_' && world[k] && typeof world[k] === 'object') delete world[k];
       const W = world.W, rects = cells.map(ci => ({ ci, R: Gl.rect(world, ci) }));
       // 1. the ground of all of them first, so each sees its neighbours
@@ -271,9 +272,12 @@
       if (now - (Gl._poleAt || 0) > 5000 && (pe.y < lim || pe.y > w.H - lim)) {
         Gl._poleAt = now;
         const north = pe.y < lim;
-        return Gl.cross(game, Gl.wrapX(w, pe.x + w.W / 2), north ? lim + 2.2 : w.H - lim - 2.2, north
-          ? 'You have walked over the top of the world. Every way from here is south.'
-          : 'You have crossed the bottom of the world. Every way from here is north.');
+        Gl.cross(game, Gl.wrapX(w, pe.x + w.W / 2), north ? lim + 2.2 : w.H - lim - 2.2, north
+          ? 'You have walked over the top of the world, and are coming down its far side: every way from here is south.'
+          : 'You have crossed the bottom of the world, and are coming up its far side: every way from here is north.', north);
+        // keep going the way you were going: while you hold the keys, they carry you on, not back
+        Gl.flip = true; Gl.flipIdle = 0;
+        return;
       }
       if (Gl._t < 0.8 || (ECHO.UI && ECHO.UI.screenOpen)) return;
       Gl._t = 0;
@@ -282,7 +286,11 @@
       if (b) game.ui.toast(`The tide has fallen far out: a sandbar runs from here across the water to the ${{ e: 'east', w: 'west', n: 'north', s: 'south' }[b.side]}.`, 'legend', 7);
       // land not yet made, coming within sight
       const need = Gl.unmade(w, Math.floor(pe.x), Math.floor(pe.y), Gl.NEAR);
-      if (need.length) Gl.go(game, need.slice(0, 8));
+      if (need.length) {
+        // the nearest first, two at a time, so the world never stops for long
+        const px = pe.x, py = pe.y, d = ci => { const R = Gl.rect(w, ci); return Math.hypot(Gl.dx(w, px, (R.x0 + R.x1) / 2), (R.y0 + R.y1) / 2 - py); };
+        Gl.go(game, need.sort((a, b) => d(a) - d(b)).slice(0, 2));
+      }
     },
     go(game, cells) {
       Gl.busy = true;
@@ -293,14 +301,27 @@
           const t0 = performance.now();
           const info = Gl.make(w, cells);
           if (!info) return;
-          Gl.restart(game, pe.x, pe.y);
-          if (ECHO.Save) ECHO.Save.save(w);
+          Gl.refresh(game);
+          void pe;
           if (info.towns.length) game.ui.toast(`New country ahead: ${info.regions.slice(0, 3).join(', ')}. Villages: ${info.towns.join(', ')}.`, 'legend', 8);
           Gl.lastMs = Math.round(performance.now() - t0);
           void pl;
         } catch (err) { console.error('ECHO: the land could not be made', err); for (const ci of cells) if (game.world.globe) game.world.globe.made[ci] = 1; }
         finally { Gl.busy = false; }
       }, 30);
+    },
+    // new land made while you play: the game takes it in where it stands, without starting over
+    refresh(game) {
+      const w = game.world, R3 = ECHO.Renderer3D;
+      if (ECHO.Wildwood) ECHO.Wildwood.ensure(w);
+      if (R3 && R3.world === w && R3.hc) {
+        for (const r of w._hcDirty || []) R3.buildHeights(w, r);
+        w._hcDirty = null;
+        R3.buildWater(w); R3.sitesT = 0;
+      }
+      if (ECHO.Explore) ECHO.Explore.sites(w);
+      if (ECHO.UI) ECHO.UI.mapDirty = true;
+      if (ECHO.WorldMap) ECHO.WorldMap._mf = null;
     },
     // start the world again with you at (x, y), in your boat or on your dragon if you were
     restart(game, x, y) {
@@ -319,14 +340,16 @@
         }
       }
     },
-    cross(game, x, y, msg) {
+    cross(game, x, y, msg, north) {
       Gl.busy = true;
       try {
         const w = game.world;
         const need = Gl.unmade(w, Math.floor(x), Math.floor(y), Gl.NEAR);
         if (need.length) Gl.make(w, need);
+        const In = ECHO.Input, held = In && In.down ? new Set(In.down) : null;   // (the keys still held carry you on)
         Gl.restart(game, x, y);
-        if (msg) { game.ui.toast(msg, 'legend', 7); game.ui.banner('The roof of the world', Gl.fmtLatLon(w, x, y), true); }
+        if (held && In.down) for (const k of held) In.down.add(k);
+        if (msg) { game.ui.toast(msg, 'legend', 7); game.ui.banner(north === false ? 'The bottom of the world' : 'The top of the world', Gl.fmtLatLon(w, x, y), true); }
       } catch (err) { console.error('ECHO: could not go round the world', err); }
       finally { Gl.busy = false; }
     }

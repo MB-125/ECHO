@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.1', items: [
+      'New country is now made around you while you keep playing, a little at a time, instead of the game reloading: no more pause on the edge of new land.',
+      'Over the poles: hold your direction and you carry straight on down the far side of the world, instead of turning back.',
+      'The guiding arrow and distances take the short way round the world.',
+      'The globe map shows day and night: the sun stands where it is noon, further north in Bloom and south in Frost.'
+    ] },
     { v: '0.10.0', items: [
       'The world is round: every world is now a globe (2,880 tiles around, 1,440 pole to pole) with no edge. Go far enough east and you come back from the west; walk over the pole and you come down the far side. New country is made as you travel toward it, with its own regions, villages, people, beasts and dungeons. The poles are ice you can walk on, and the World-Sea on the far side has two strands of sand across it. Your save moves onto the globe and keeps everything.',
       'The map (M) is a 3D globe you can turn and zoom: known lands painted on it, the rest uncharted. Click places as before; the pointer shows latitude and longitude. 🌐 (or scrolling all the way in) opens the flat chart.'

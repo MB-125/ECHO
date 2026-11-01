@@ -85,6 +85,8 @@
       pe.sneaking = PC.sneaking;
       let len = Math.hypot(mx, my);
       if (len) { mx /= len; my /= len; }
+      // just over a pole of the round world: the keys you are holding carry you on down the far side
+      if (ECHO.Globe && ECHO.Globe.flip) { if (!len) { if ((ECHO.Globe.flipIdle = (ECHO.Globe.flipIdle || 0) + dt) > 0.35) ECHO.Globe.flip = false; } else { ECHO.Globe.flipIdle = 0; mx = -mx; my = -my; } }
       // sitting: any step gets you up; until then you stay put
       if (pe.seated) { if (len && ECHO.Home) ECHO.Home.stand(game); else { mx = 0; my = 0; len = 0; } }
       // on a dragon's back: the sky instead of the road

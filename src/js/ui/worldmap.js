@@ -571,8 +571,8 @@
         const r = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         r.outputEncoding = THREE.sRGBEncoding;
         const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(32, 1, 0.01, 300);
-        sc.add(new THREE.AmbientLight('#ffffff', 0.68));
-        const sun = new THREE.DirectionalLight('#fff4e4', 0.62); sun.position.set(-3, 2.4, 4); sc.add(sun);
+        sc.add(new THREE.AmbientLight('#c8d4ff', 0.5));
+        const sun = new THREE.DirectionalLight('#fff4e4', 0.95); sun.position.set(-3, 2.4, 4); sc.add(sun);
         const tilt = new THREE.Group(), spin = new THREE.Group(); tilt.add(spin); sc.add(tilt);
         const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, metalness: 0 });
         const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 192, 96), mat); spin.add(ball);
@@ -586,7 +586,7 @@
         for (let i = 0; i < N; i++) { const a = Math.random() * Math.PI * 2, z = Math.random() * 2 - 1, rr = Math.sqrt(1 - z * z), d = 90 + Math.random() * 60; sp[i * 3] = Math.cos(a) * rr * d; sp[i * 3 + 1] = z * d; sp[i * 3 + 2] = Math.sin(a) * rr * d; }
         const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
         sc.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: '#d8e0ff', size: 0.35, sizeAttenuation: true, transparent: true, opacity: 0.8 })));
-        G = WM.G = { r, sc, cam, tilt, spin, ball, mat, yaw: 0, pitch: 0, dist: 3.9, min: 1.12, max: 7, ray: new THREE.Raycaster(), anim: null };
+        G = WM.G = { r, sc, cam, tilt, spin, ball, mat, sun, yaw: 0, pitch: 0, dist: 3.9, min: 1.12, max: 7, ray: new THREE.Raycaster(), anim: null };
       }
       G.r.domElement.className = 'wmap-globe';
       main.insertBefore(G.r.domElement, c);
@@ -644,6 +644,14 @@
       G.spin.rotation.y = G.yaw; G.tilt.rotation.x = G.pitch;
       G.cam.position.set(0, 0, G.dist); G.cam.lookAt(0, 0, 0);
       G.sc.updateMatrixWorld(true);
+      // the sun stands over the place where it is noon (by the hour where you are), north of the middle in summer
+      const game = ECHO.Game, world = game && game.world;
+      if (world && world.globe && game.pl) {
+        const hr = world.minute / 60, si = ECHO.TIME.dateOf(world.day).seasonIdx;
+        const sx = game.pl.x - (hr - 12) / 24 * world.W, lat = [0, 23, 0, -23][si] || 0;
+        const d = WM.gPoint(world, ((sx % world.W) + world.W) % world.W, world.H / 2 - lat / 180 * world.H).transformDirection(G.spin.matrixWorld);
+        G.sun.position.copy(d.multiplyScalar(10));
+      }
     },
     gScreen(c, x, y) {
       const G = WM.G, p = WM.gPoint(ECHO.Game.world, x, y).applyMatrix4(G.spin.matrixWorld);

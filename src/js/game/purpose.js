@@ -103,7 +103,7 @@
       }
       let dirTxt = '', ang = null;
       if (g.where && !ECHO.Interior.cur) {
-        const dx = g.where.x - pe.x, dy = g.where.y - pe.y, d = Math.hypot(dx, dy);
+        const dx = ECHO.Globe ? ECHO.Globe.dx(game.world, pe.x, g.where.x) : g.where.x - pe.x, dy = g.where.y - pe.y, d = Math.hypot(dx, dy);   // (round the world, the short way)
         ang = Math.atan2(dy, dx);
         const R = ECHO.Nav && ECHO.Nav.route;
         if (d < 4) dirTxt = 'here';
@@ -162,6 +162,6 @@
       }
       return html;
     },
-    dirTo(world, pl, w) { const a = Math.atan2(w.y - pl.y, w.x - pl.x); return 'to the ' + DIRS[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8]; }
+    dirTo(world, pl, w) { const a = Math.atan2(w.y - pl.y, ECHO.Globe ? ECHO.Globe.dx(world, pl.x, w.x) : w.x - pl.x); return 'to the ' + DIRS[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8]; }
   };
 })();
