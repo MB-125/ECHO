@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.3', items: [
+      'Zooming in on the globe map now leans the view forward, so the curved edge of the world and the sky above it stay in sight however close you come: it never flattens into a flat chart.',
+      'Lands you have not walked show through on the globe (paler) even when the map is set to show only what you have walked, so the whole globe is always covered.',
+      'The game\'s version is shown in the corner of the globe map.'
+    ] },
     { v: '0.10.2', items: [
       'The whole globe is land and sea now, drawn from the start: continents, lakes, ice caps and the World-Sea are all there to see on the map, not just the lands you have reached. Villages, people and dungeons still appear as you travel to them.',
       'The globe map stays a globe however close you zoom, and close in it paints the ground beneath you sharply: trees, roads and rivers. (🌐 still switches to the flat chart if you want it.)'
@@ -253,6 +258,7 @@
 
   const Up = ECHO.Updates = {
     CHANGES, cmp,
+    build: CHANGES[0].v,   // (the version this build is, for the web version too)
     state: 'idle', // idle | checking | current | available | error
     current: null, info: null, news: null, toasted: false,
 

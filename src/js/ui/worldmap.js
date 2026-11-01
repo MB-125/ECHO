@@ -612,7 +612,7 @@
         for (let i = 0; i < r.path.length; i += 2) { const t = r.path[i], x = t % world.W + 0.5, y = ((t / world.W) | 0) + 0.5; if (!seenAt(x, y) || (on && Math.abs(x - lx) > 40)) { on = false; continue; } if (!on) { g.moveTo(x * k, y * ky); on = true; } else g.lineTo(x * k, y * ky); lx = x; }
         g.stroke();
       }
-      if (!all) g.drawImage(WM.fogC, -4 * k, -4 * ky, WM.fogC.width * 4 * k, WM.fogC.height * 4 * ky);
+      if (!all) { g.globalAlpha = 0.55; g.drawImage(WM.fogC, -4 * k, -4 * ky, WM.fogC.width * 4 * k, WM.fogC.height * 4 * ky); g.globalAlpha = 1; }   // (on the globe the unwalked land shows through, paler)
       // the lines of the globe: every fifteen degrees, the equator and the old island's meridian a little stronger
       g.lineWidth = 1;
       for (let i = 0; i <= 24; i++) { g.strokeStyle = 'rgba(90,62,30,0.2)'; g.beginPath(); g.moveTo(i * TW / 24, 0); g.lineTo(i * TW / 24, TH); g.stroke(); }
@@ -629,7 +629,7 @@
       if (!world.globe || a > 0.8) { if (G.patch) G.patch.visible = false; return; }
       const ctr = WM.gWorld(c, c.width / 2, c.height / 2);
       if (ctr.x < 0) return;
-      const Wp = Math.round(U.clamp(a * 560, 120, 460)), P = G.patchAt;
+      const Wp = Math.round(U.clamp(a * 560 + 80, 200, 520)), P = G.patchAt;
       if (G.patch && G.patch.visible && P && Math.abs(Globe().dx(world, P.cx, ctr.x)) < P.Wp * 0.18 && Math.abs(P.cy - ctr.y) < P.Hp * 0.18 && Math.abs(P.Wp - Wp) / Wp < 0.3) return;
       if (G._patchQ) clearTimeout(G._patchQ);
       G._patchQ = setTimeout(() => {
@@ -638,8 +638,8 @@
         if (!cc || !WM.isGlobe(world)) return;
         const p = WM.gWorld(cc, cc.width / 2, cc.height / 2), a2 = G.dist - 1;
         if (p.x < 0 || a2 > 0.8) return;
-        const w2 = Math.round(U.clamp(a2 * 560, 120, 460));
-        try { WM.globePatch(game, p.x, p.y, w2, Math.round(w2 * 0.62)); } catch (err) { console.error('ECHO: map detail', err); }
+        const w2 = Math.round(U.clamp(a2 * 560 + 80, 200, 520));
+        try { WM.globePatch(game, p.x, p.y, w2, Math.round(w2 * 0.8)); } catch (err) { console.error('ECHO: map detail', err); }
         WM.draw(game, cc);
       }, 160);
     },
@@ -662,7 +662,7 @@
           g.stroke();
         }
       }
-      if (!all) { g.imageSmoothingEnabled = true; g.drawImage(WM.fogC, (-4 - x0) * S, (-4 - y0) * S, WM.fogC.width * 4 * S, WM.fogC.height * 4 * S); }
+      if (!all) { g.imageSmoothingEnabled = true; g.globalAlpha = 0.55; g.drawImage(WM.fogC, (-4 - x0) * S, (-4 - y0) * S, WM.fogC.width * 4 * S, WM.fogC.height * 4 * S); g.globalAlpha = 1; }
       if (G.ptex) G.ptex.dispose();
       G.ptex = new THREE.CanvasTexture(cv); G.ptex.encoding = THREE.sRGBEncoding; G.ptex.anisotropy = G.r.capabilities.getMaxAnisotropy ? G.r.capabilities.getMaxAnisotropy() : 1;
       const geo = new THREE.SphereGeometry(1.0005, 72, 44, x0 / W * Math.PI * 2, Wp / W * Math.PI * 2, y0 / H * Math.PI, Hp / H * Math.PI);
@@ -694,8 +694,15 @@
         if (t >= 1) G.anim = null;
       }
       if (ECHO.Game && ECHO.Game.world) { WM.base(ECHO.Game.world); if (G.texKey !== WM._baseKey) WM.globeTex(ECHO.Game); }
-      G.spin.rotation.y = G.yaw; G.tilt.rotation.x = G.pitch;
-      G.cam.position.set(0, 0, G.dist); G.cam.lookAt(0, 0, 0);
+      // Coming down toward the ground the view leans forward, as a bird's would, so the round
+      // edge of the world and the sky beyond it stay in sight above the land you are looking at
+      // (which is kept in the middle of the view: the globe turns to keep it there).
+      const d = G.dist, hz = Math.asin(Math.min(1, 1 / d)), half = G.cam.fov * Math.PI / 360;
+      const lean = U.clamp((1.35 - (d - 1)) / 0.6, 0, 1) * Math.max(0, hz - half + 0.07);
+      const beta = Math.asin(Math.min(1, d * Math.sin(lean))) - lean;
+      G.lean = lean;
+      G.spin.rotation.y = G.yaw; G.tilt.rotation.x = G.pitch - beta;
+      G.cam.position.set(0, 0, d); G.cam.lookAt(0, 0, 0); G.cam.rotateX(lean); G.cam.updateMatrixWorld(true);
       G.sc.updateMatrixWorld(true);
       // the sun stands over the place where it is noon (by the hour where you are), north of the middle in summer
       const game = ECHO.Game, world = game && game.world;
@@ -740,6 +747,7 @@
       const bw = Math.max(...lines.map(t => g.measureText(t).width)) + 16;
       g.fillStyle = 'rgba(20,14,8,0.62)'; g.fillRect(c.width - bw - 10, 10, bw, 38);
       g.fillStyle = '#efe3c8'; lines.forEach((t, i) => g.fillText(t, c.width - bw - 2, 21 + i * 16));
+      if (ECHO.Updates && ECHO.Updates.build) { g.font = '11px "Pixelify Sans", monospace'; g.fillStyle = 'rgba(239,227,200,0.55)'; g.fillText('ECHO ' + ECHO.Updates.build, 14, c.height - 14); }
       g.textAlign = 'center';
       void G;
     },
