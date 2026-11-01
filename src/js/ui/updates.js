@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.4', items: [
+      'Flying over a pole on your dragon now carries you on down the far side of the world instead of holding you against the top of it like a wall.',
+      'The globe map is sharp at every distance: the part you are looking at is painted again, piece by piece, as finely as you are zoomed (tile by tile close in, with trees, roads and rivers).',
+      'Lands on the globe are no longer drawn stretched: from the equator to the middle latitudes every tile is square on the globe, and only the far north and south are drawn out toward the poles.'
+    ] },
     { v: '0.10.3', items: [
       'Zooming in on the globe map now leans the view forward, so the curved edge of the world and the sky above it stay in sight however close you come: it never flattens into a flat chart.',
       'Lands you have not walked show through on the globe (paler) even when the map is set to show only what you have walked, so the whole globe is always covered.',

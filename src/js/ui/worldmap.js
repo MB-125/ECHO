@@ -92,15 +92,17 @@
         else land[i] = 1;
         if (tr && tr[i]) { r = r * 0.35 + 168 * 0.65; g = g * 0.35 + 140 * 0.65; b = b * 0.35 + 96 * 0.65; }
         if (wd && wd[i]) { const f = 0.62 - wd[i] * 0.08; r = r * f + 22 * (1 - f); g = g * f + 34 * (1 - f); b = b * f + 30 * (1 - f); }
-        const j = 0.975 + hsh(x, y, 31) * 0.05;
+        const j = S >= 3 ? 0.99 + hsh(x, y, 31) * 0.02 : 0.975 + hsh(x, y, 31) * 0.05;   // (painted close: the grain is per pixel instead, below)
         col[i * 3] = r * j; col[i * 3 + 1] = g * j; col[i * 3 + 2] = b * j;
       }
       const img = new ImageData(W * S, H * S), D = img.data;
       const at = (a, x, y) => a[U.clamp(y, 0, H - 1) * W + U.clamp(x, 0, W - 1)];
       for (let py = 0; py < H * S; py++) {
-        const fy = (py + 0.5) / S - 0.5, y0 = Math.floor(fy), ty = fy - y0;
+        const fy = (py + 0.5) / S - 0.5, y0 = Math.floor(fy), ty0 = fy - y0;
+        // painted large, each tile keeps its own colour, blended with its neighbour only along a thin edge
+        const sharp = S >= 4 ? t => U.clamp((t - 0.5) / 0.16 + 0.5, 0, 1) : t => t, ty = sharp(ty0);
         for (let px = 0; px < W * S; px++) {
-          const fx = (px + 0.5) / S - 0.5, x0 = Math.floor(fx), tx = fx - x0;
+          const fx = (px + 0.5) / S - 0.5, x0 = Math.floor(fx), tx = sharp(fx - x0);
           const w00 = (1 - tx) * (1 - ty), w10 = tx * (1 - ty), w01 = (1 - tx) * ty, w11 = tx * ty;
           const i00 = U.clamp(y0, 0, H - 1) * W + U.clamp(x0, 0, W - 1), i10 = U.clamp(y0, 0, H - 1) * W + U.clamp(x0 + 1, 0, W - 1), i01 = U.clamp(y0 + 1, 0, H - 1) * W + U.clamp(x0, 0, W - 1), i11 = U.clamp(y0 + 1, 0, H - 1) * W + U.clamp(x0 + 1, 0, W - 1);
           const o = (py * W * S + px) * 4;
@@ -120,6 +122,11 @@
             f *= U.clamp(1 - (hx + hy) * 0.11, 0.62, 1.32);
             if (Math.abs(L - 0.5) < 0.09) f *= 0.72;                // the shoreline, inked
           } else if (L > 0.36 && !(mist && (mist[i00] || mist[i11]))) { r = r * 0.6 + 214 * 0.4; gg = gg * 0.6 + 226 * 0.4; b = b * 0.6 + 222 * 0.4; }   // surf on the shallows
+          if (S >= 3) {
+            // close up, the ground has a grain to it — grass and stone and sand — not a smooth smear
+            const gx = px + X0 * S, gy = py + Y0 * S, n1 = hsh(gx, gy, 91), n2 = hsh(gx >> 1, gy >> 1, 92);
+            f *= isLand ? 0.9 + n1 * 0.1 + n2 * 0.08 : 0.97 + n1 * 0.04 + n2 * 0.03;
+          }
           D[o] = Math.min(255, r * f); D[o + 1] = Math.min(255, gg * f); D[o + 2] = Math.min(255, b * f); D[o + 3] = 255;
         }
       }
@@ -262,7 +269,7 @@
           // keeping the place under the pointer under it
           const G = WM.G, before = WM.gWorld(c, mx, my);
           G.dist = 1 + U.clamp((G.dist - 1) * (ev.deltaY < 0 ? 0.84 : 1.19), G.min - 1, G.max - 1); G.anim = null;
-          if (before.x >= 0) { WM.globeStep(); const after = WM.gWorld(c, mx, my); if (after.x >= 0) { G.yaw += (Globe().dx(world, after.x, before.x)) / world.W * Math.PI * 2 * -1; G.pitch = U.clamp(G.pitch - (before.y - after.y) / world.H * Math.PI, -1.45, 1.45); } }
+          if (before.x >= 0) { WM.globeStep(); const after = WM.gWorld(c, mx, my); if (after.x >= 0) { G.yaw += (Globe().dx(world, after.x, before.x)) / world.W * Math.PI * 2 * -1; G.pitch = U.clamp(G.pitch - (Globe().lat(world, after.y) - Globe().lat(world, before.y)), -1.45, 1.45); } }
           WM.draw(game, c); return;
         }
         const before = WM.toWorld(c, mx, my);
@@ -325,6 +332,7 @@
         pl.mapReveal = !WM.revealed(pl);
         ev.currentTarget.classList.toggle('on', WM.revealed(pl)); ev.currentTarget.textContent = WM.revealed(pl) ? 'Whole map shown' : 'Only what you have walked';
         WM.regions = WM.regionCentres(world, pl); WM.feats = WM.features(game); WM._mf = null;
+        if (world.globe && WM.G) { WM.fogC = WM.fog(world, pl); WM.globeTex(game); }
         WM.side(game, c); WM.draw(game, c);
       });
       // find a place by name
@@ -577,7 +585,7 @@
         const sun = new THREE.DirectionalLight('#fff4e4', 0.95); sun.position.set(-3, 2.4, 4); sc.add(sun);
         const tilt = new THREE.Group(), spin = new THREE.Group(); tilt.add(spin); sc.add(tilt);
         const mat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.92, metalness: 0 });
-        const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 192, 96), mat); spin.add(ball);
+        const wd = ECHO.Game.world, ball = new THREE.Mesh(WM.ballGeo(wd, 1, 0, wd.W, 0, wd.H, 192, 120), mat); spin.add(ball);
         // the sky round its rim
         const halo = new THREE.Mesh(new THREE.SphereGeometry(1.12, 96, 48), new THREE.ShaderMaterial({ transparent: true, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending,
           vertexShader: 'varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
@@ -620,65 +628,119 @@
       if (world.globe) { const mx = (world.globe.old.x0 + world.globe.old.x1) / 2 * k; g.strokeStyle = 'rgba(255,232,180,0.26)'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(mx, 0); g.lineTo(mx, TH); g.stroke(); }
       if (!G.tex) { G.tex = new THREE.CanvasTexture(cv); G.tex.encoding = THREE.sRGBEncoding; G.tex.anisotropy = G.r.capabilities.getMaxAnisotropy ? G.r.capabilities.getMaxAnisotropy() : 1; G.mat.map = G.tex; G.mat.needsUpdate = true; }
       else G.tex.needsUpdate = true;
-      G.texKey = WM._baseKey; G.patchAt = null;
+      G.texKey = WM._baseKey; WM.globeSegsClear();
     },
-    // Close in: a sharper painting of the ground below, laid over the ball, painted again
-    // a moment after you stop turning or zooming if you have moved far from it.
+    // The globe, sharp wherever you look. The ball is cut into pieces 90 tiles a side; each
+    // piece facing you is painted again, sharper, as you come closer (two, four or eight
+    // pixels to a tile), nearest the middle of the view first, a piece at a time between
+    // frames, so the globe is as crisp as the chart however close you come. Pieces you have
+    // turned away from are let go when there are too many.
+    SEG: 90,
     globeDetail(game, c) {
-      const G = WM.G, world = game.world, a = G.dist - 1;
-      if (!world.globe || a > 0.8) { if (G.patch) G.patch.visible = false; return; }
-      const ctr = WM.gWorld(c, c.width / 2, c.height / 2);
-      if (ctr.x < 0) return;
-      const Wp = Math.round(U.clamp(a * 560 + 80, 200, 520)), P = G.patchAt;
-      if (G.patch && G.patch.visible && P && Math.abs(Globe().dx(world, P.cx, ctr.x)) < P.Wp * 0.18 && Math.abs(P.cy - ctr.y) < P.Hp * 0.18 && Math.abs(P.Wp - Wp) / Wp < 0.3) return;
-      if (G._patchQ) clearTimeout(G._patchQ);
-      G._patchQ = setTimeout(() => {
-        G._patchQ = null;
-        const cc = document.getElementById('worldmap');
-        if (!cc || !WM.isGlobe(world)) return;
-        const p = WM.gWorld(cc, cc.width / 2, cc.height / 2), a2 = G.dist - 1;
-        if (p.x < 0 || a2 > 0.8) return;
-        const w2 = Math.round(U.clamp(a2 * 560 + 80, 200, 520));
-        try { WM.globePatch(game, p.x, p.y, w2, Math.round(w2 * 0.8)); } catch (err) { console.error('ECHO: map detail', err); }
-        WM.draw(game, cc);
-      }, 160);
+      const G = WM.G, world = game.world, SEG = WM.SEG;
+      if (!world.globe) return;
+      const nx = Math.ceil(world.W / SEG), ny = Math.ceil(world.H / SEG), w = c.width, h = c.height;
+      const segs = G.segs || (G.segs = new Map());
+      G.frame = (G.frame || 0) + 1;
+      const on = p => !p.hidden && p.x > -w * 0.25 && p.x < w * 1.25 && p.y > -h * 0.25 && p.y < h * 1.25;
+      const want = [];
+      // close in, a piece can be bigger than the view: look where the screen itself falls on the ground
+      const under = new Map();
+      for (let iy = 0; iy <= 8; iy++) for (let ix = 0; ix <= 10; ix++) {
+        const p = WM.gWorld(c, ix / 10 * w, iy / 8 * h); if (p.x < 0) continue;
+        const s0 = WM.gScreen(c, p.x, p.y), q = WM.gScreen(c, p.x + 2, p.y), r = WM.gScreen(c, p.x, Math.min(world.H - 0.01, p.y + 2));
+        let pp = 0; if (!s0.hidden) { if (!q.hidden) pp = Math.max(pp, Math.hypot(q.x - s0.x, q.y - s0.y) / 2); if (!r.hidden) pp = Math.max(pp, Math.hypot(r.x - s0.x, r.y - s0.y) / 2); }
+        const k = Math.floor(p.x / SEG) + ',' + Math.floor(p.y / SEG), d = Math.hypot(ix / 10 * w - w / 2, iy / 8 * h - h / 2);
+        const u = under.get(k); if (!u) under.set(k, { pp, d }); else { u.pp = Math.max(u.pp, pp); u.d = Math.min(u.d, d); }
+      }
+      for (let sy = 0; sy < ny; sy++) for (let sx = 0; sx < nx; sx++) {
+        const x0 = sx * SEG, y0 = sy * SEG, x1 = Math.min(world.W, x0 + SEG), y1 = Math.min(world.H, y0 + SEG);
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, key = sx + ',' + sy, cur = segs.get(key);
+        const p = WM.gScreen(c, cx, cy), un = under.get(key);
+        const seen = !!un || on(p) || [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].some(([a, b]) => on(WM.gScreen(c, a, b)));
+        if (!seen) { if (cur) cur.mesh.visible = false; continue; }
+        // how many pixels of the screen a tile takes here
+        let ppt = un ? un.pp : 0;
+        if (!p.hidden) { const q = WM.gScreen(c, cx + 3, cy), r = WM.gScreen(c, cx, cy + 3); if (!q.hidden) ppt = Math.max(ppt, Math.hypot(q.x - p.x, q.y - p.y) / 3); if (!r.hidden) ppt = Math.max(ppt, Math.hypot(r.x - p.x, r.y - p.y) / 3); }
+        const S = ppt < 1.1 ? 0 : ppt < 2.2 ? 2 : ppt < 4.5 ? 4 : 8;
+        if (cur) { cur.mesh.visible = S > 0 || cur.S <= 2; cur.used = G.frame; }
+        if (S > 0 && (!cur || cur.S < S)) want.push({ key, sx, sy, x0, y0, x1, y1, S, d: un ? un.d : p.hidden ? 1e9 : Math.hypot(p.x - w / 2, p.y - h / 2) });
+      }
+      want.sort((a, b) => a.d - b.d);
+      G.segQ = want;
+      if (want.length && !G.segRun) {
+        G.segRun = setTimeout(function work() {
+          G.segRun = null;
+          const cc = document.getElementById('worldmap');
+          if (!cc || !WM.isGlobe() || !G.segQ || !G.segQ.length) return;
+          const t0 = performance.now();
+          while (G.segQ.length && performance.now() - t0 < 30) { const job = G.segQ.shift(); try { WM.globeSeg(game, job); } catch (err) { console.error('ECHO: map detail', err); G.segQ = []; } }
+          WM.draw(game, cc);
+        }, 20);
+      }
     },
-    globePatch(game, cx, cy, Wp, Hp) {
-      const world = game.world, pl = game.pl, G = WM.G, W = world.W, H = world.H;
-      const x0 = U.clamp(Math.round(cx - Wp / 2), 0, W - Wp), y0 = U.clamp(Math.round(cy - Hp / 2), 0, H - Hp);
-      const S = U.clamp(Math.round(1700 / Wp), 3, 8);
-      const cv = G.pcv || (G.pcv = document.createElement('canvas')); cv.width = Wp * S; cv.height = Hp * S;
+    globeSeg(game, j) {
+      const world = game.world, pl = game.pl, G = WM.G, W = world.W, H = world.H, S = j.S;
+      const M = 4, px0 = Math.max(0, j.x0 - M), py0 = Math.max(0, j.y0 - M), px1 = Math.min(W, j.x1 + M), py1 = Math.min(H, j.y1 + M);
+      const cv = document.createElement('canvas'); cv.width = (j.x1 - j.x0) * S; cv.height = (j.y1 - j.y0) * S;
       const g = cv.getContext('2d');
-      g.putImageData(WM.paint(world, x0, y0, x0 + Wp, y0 + Hp, S), 0, 0);
-      // the roads you know, and (unless the whole map is shown) what you have not walked
+      g.putImageData(WM.paint(world, px0, py0, px1, py1, S), (px0 - j.x0) * S, (py0 - j.y0) * S, (j.x0 - px0) * S, (j.y0 - py0) * S, cv.width, cv.height);
+      // the roads you know, and (unless the whole map is shown) the unwalked, paler
       const all = WM.revealed(pl), seenAt = (x, y) => all || ECHO.Game.explored(x, y);
+      if (!G.roadBox || G.roadBoxN !== world.roads.length) { G.roadBoxN = world.roads.length; G.roadBox = world.roads.map(r => { let a = 1e9, b = 1e9, c2 = -1, d = -1; if (Array.isArray(r.path)) for (const t of r.path) { const x = t % W, y = (t / W) | 0; if (x < a) a = x; if (x > c2) c2 = x; if (y < b) b = y; if (y > d) d = y; } return [a, b, c2, d]; }); }
       g.lineCap = 'round'; g.lineJoin = 'round';
       for (const pass of [0, 1]) {
         g.strokeStyle = pass ? 'rgba(122,88,50,0.95)' : 'rgba(236,222,186,0.55)'; g.lineWidth = Math.max(1, S * (pass ? 0.42 : 0.75));
-        for (const r of world.roads) {
-          if (!Array.isArray(r.path) || r.path.length < 2) continue;
-          g.beginPath(); let on = false;
-          for (const t of r.path) { const x = t % W + 0.5, y = ((t / W) | 0) + 0.5; if (x < x0 - 2 || x > x0 + Wp + 2 || y < y0 - 2 || y > y0 + Hp + 2 || !seenAt(x, y)) { on = false; continue; } const px = (x - x0) * S, py = (y - y0) * S; if (!on) { g.moveTo(px, py); on = true; } else g.lineTo(px, py); }
+        world.roads.forEach((r, i) => {
+          const bb = G.roadBox[i]; if (!bb || bb[2] < j.x0 - 2 || bb[0] > j.x1 + 2 || bb[3] < j.y0 - 2 || bb[1] > j.y1 + 2 || r.path.length < 2) return;
+          g.beginPath(); let onr = false;
+          for (const t of r.path) { const x = t % W + 0.5, y = ((t / W) | 0) + 0.5; if (x < j.x0 - 2 || x > j.x1 + 2 || y < j.y0 - 2 || y > j.y1 + 2 || !seenAt(x, y)) { onr = false; continue; } const qx = (x - j.x0) * S, qy = (y - j.y0) * S; if (!onr) { g.moveTo(qx, qy); onr = true; } else g.lineTo(qx, qy); }
           g.stroke();
-        }
+        });
       }
-      if (!all) { g.imageSmoothingEnabled = true; g.globalAlpha = 0.55; g.drawImage(WM.fogC, (-4 - x0) * S, (-4 - y0) * S, WM.fogC.width * 4 * S, WM.fogC.height * 4 * S); g.globalAlpha = 1; }
-      if (G.ptex) G.ptex.dispose();
-      G.ptex = new THREE.CanvasTexture(cv); G.ptex.encoding = THREE.sRGBEncoding; G.ptex.anisotropy = G.r.capabilities.getMaxAnisotropy ? G.r.capabilities.getMaxAnisotropy() : 1;
-      const geo = new THREE.SphereGeometry(1.0005, 72, 44, x0 / W * Math.PI * 2, Wp / W * Math.PI * 2, y0 / H * Math.PI, Hp / H * Math.PI);
-      if (!G.patch) {
-        G.patch = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
-        G.spin.add(G.patch);
-      } else { G.patch.geometry.dispose(); G.patch.geometry = geo; }
-      G.patch.material.map = G.ptex; G.patch.material.needsUpdate = true; G.patch.visible = true;
-      G.patchAt = { cx, cy, Wp, Hp };
+      if (!all) { g.imageSmoothingEnabled = true; g.globalAlpha = 0.55; g.drawImage(WM.fogC, (-4 - j.x0) * S, (-4 - j.y0) * S, WM.fogC.width * 4 * S, WM.fogC.height * 4 * S); g.globalAlpha = 1; }
+      const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = G.r.capabilities.getMaxAnisotropy ? G.r.capabilities.getMaxAnisotropy() : 1;
+      let cur = G.segs.get(j.key);
+      if (!cur) {
+        const geo = WM.ballGeo(world, 1.0004, j.x0, j.x1, j.y0, j.y1, 20, 20);
+        const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+        G.spin.add(mesh);
+        cur = { mesh, S: 0, px: 0 }; G.segs.set(j.key, cur);
+      }
+      if (cur.mesh.material.map) cur.mesh.material.map.dispose();
+      cur.mesh.material.map = tex; cur.mesh.material.needsUpdate = true; cur.mesh.visible = true;
+      cur.S = S; cur.px = cv.width * cv.height; cur.used = G.frame;
+      // let go of the least lately seen when the pieces hold too much
+      let tot = 0; for (const v of G.segs.values()) tot += v.px;
+      if (tot > 42e6) {
+        const old = [...G.segs.entries()].filter(([, v]) => v !== cur).sort((a, b) => a[1].used - b[1].used);
+        for (const [k, v] of old) { if (tot <= 32e6) break; tot -= v.px; v.mesh.material.map.dispose(); v.mesh.material.dispose(); v.mesh.geometry.dispose(); G.spin.remove(v.mesh); G.segs.delete(k); }
+      }
+    },
+    globeSegsClear() {
+      const G = WM.G; if (!G || !G.segs) return;
+      for (const v of G.segs.values()) { if (v.mesh.material.map) v.mesh.material.map.dispose(); v.mesh.material.dispose(); v.mesh.geometry.dispose(); G.spin.remove(v.mesh); }
+      G.segs.clear(); G.segQ = [];
     },
     // a place on the ball (unturned), from a place in the world
-    gPoint(world, x, y) { const ph = x / world.W * Math.PI * 2, th = y / world.H * Math.PI; return new THREE.Vector3(-Math.cos(ph) * Math.sin(th), Math.cos(th), Math.sin(ph) * Math.sin(th)); },
+    gPoint(world, x, y) { const ph = x / world.W * Math.PI * 2, th = Math.PI / 2 - ECHO.Globe.lat(world, y); return new THREE.Vector3(-Math.cos(ph) * Math.sin(th), Math.cos(th), Math.sin(ph) * Math.sin(th)); },
+    // a piece of the ball for the tiles (x0..x1, y0..y1), its rows at their latitudes (Globe.lat)
+    ballGeo(world, r, x0, x1, y0, y1, nx, ny) {
+      const pos = [], nor = [], uv = [], idx = [];
+      for (let j = 0; j <= ny; j++) for (let i = 0; i <= nx; i++) {
+        const x = x0 + (x1 - x0) * i / nx, y = y0 + (y1 - y0) * j / ny, p = WM.gPoint(world, x, y);
+        pos.push(p.x * r, p.y * r, p.z * r); nor.push(p.x, p.y, p.z); uv.push(i / nx, 1 - j / ny);
+      }
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b = a + 1, c = a + nx + 1, d = c + 1; idx.push(a, c, b, b, c, d); }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+      g.setIndex(idx); g.computeBoundingSphere();
+      return g;
+    },
     // turn the globe to bring (x, y) to face you, slowly or at once
     globeFocus(x, y, dist, now) {
       const G = WM.G, world = ECHO.Game.world;
-      const yaw = Math.PI / 2 - x / world.W * Math.PI * 2, pitch = U.clamp(Math.PI / 2 - y / world.H * Math.PI, -1.45, 1.45);
+      const yaw = Math.PI / 2 - x / world.W * Math.PI * 2, pitch = U.clamp(ECHO.Globe.lat(world, y), -1.45, 1.45);
       let dy = ((yaw - G.yaw) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
       const to = { yaw: G.yaw + dy, pitch, dist: dist != null ? U.clamp(dist, G.min, G.max) : G.dist };
       if (now) { G.yaw = to.yaw; G.pitch = to.pitch; G.dist = to.dist; G.anim = null; return; }

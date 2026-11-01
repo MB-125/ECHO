@@ -32,9 +32,20 @@
     dx(world, a, b) { let d = b - a; if (!world.globe) return d; const P = world.W; d = ((d % P) + P) % P; return d > P / 2 ? d - P : d; },
     dist(world, ax, ay, bx, by) { return Math.hypot(Gl.dx(world, ax, bx), by - ay); },
     // latitude and longitude, for the map (the old island near 25°N, 0°)
+    // The latitude of a row, in radians. The rows are spread over the globe so that from the
+    // equator to 38° every tile is square on it (as on a Mercator chart), and the rest are
+    // spread smoothly up to the poles; so the lands people live in are not drawn stretched.
+    lat(world, y) {
+      const H = world.H, u = U.clamp((H / 2 - y) / (H / 2), -1, 1), a = Math.abs(u), s = Math.sign(u);
+      const gd = v => Math.atan(Math.sinh(v)), u1 = 0.5, f1 = gd(Math.PI * u1 / 2);
+      if (a <= u1) return s * gd(Math.PI * a / 2);
+      const t = (a - u1) / (1 - u1), m0 = (Math.PI / 2) * Math.cos(f1) * (1 - u1) / (Math.PI / 2 - f1), m1 = 1.5;
+      const h = (t * t * t - 2 * t * t + t) * m0 + (-2 * t * t * t + 3 * t * t) + (t * t * t - t * t) * m1;
+      return s * (f1 + (Math.PI / 2 - f1) * h);
+    },
     latLon(world, x, y) {
       const G = world.globe; if (!G) return null;
-      const lat = 90 - (y / G.HG) * 180, cx = (G.old.x0 + G.old.x1) / 2;
+      const lat = Gl.lat(world, y) * 180 / Math.PI, cx = (G.old.x0 + G.old.x1) / 2;
       const lon = Gl.dx(world, cx, x) / G.P * 360;
       return { lat, lon };
     },
@@ -291,12 +302,12 @@
       if (pe.x < 0 || pe.x >= w.W) return Gl.cross(game, Gl.wrapX(w, pe.x), pe.y, null);
       // over the pole and down its far side
       const lim = flying ? 3.4 : 0.9, now = performance.now();
-      if (now - (Gl._poleAt || 0) > 5000 && (pe.y < lim || pe.y > w.H - lim)) {
+      if (now - (Gl._poleAt || 0) > 2500 && (pe.y < lim || pe.y > w.H - lim)) {
         Gl._poleAt = now;
         const north = pe.y < lim;
         Gl.cross(game, Gl.wrapX(w, pe.x + w.W / 2), north ? lim + 2.2 : w.H - lim - 2.2, north
           ? 'You have walked over the top of the world, and are coming down its far side: every way from here is south.'
-          : 'You have crossed the bottom of the world, and are coming up its far side: every way from here is north.', north);
+          : 'You have crossed the bottom of the world, and are coming up its far side: every way from here is north.', north, true);
         // keep going the way you were going: while you hold the keys, they carry you on, not back
         Gl.flip = true; Gl.flipIdle = 0;
         return;
@@ -346,7 +357,7 @@
       if (ECHO.WorldMap) ECHO.WorldMap._mf = null;
     },
     // start the world again with you at (x, y), in your boat or on your dragon if you were
-    restart(game, x, y) {
+    restart(game, x, y, turn) {
       const w = game.world, pl = game.pl, pe = game.pe, A = ECHO.Apex;
       const boat = pe.inBoat === true && pl.boat;
       const F = pl.flying && A && A.fly ? { id: pl.flying, dir: A.fly.dir, v: A.fly.v, h: A.fly.h, z: A.fly.z, alt: pe.alt } : null;
@@ -358,18 +369,19 @@
         const t = ECHO.Titans.byId(w, F.id), e = t && A.spawnTamed(game, t, true);
         if (e) {
           e.x = game.pe.x; e.y = game.pe.y; A.mount(game, e);
+          if (turn) F.dir += Math.PI;                 // (over the pole, north turns to south: on a dragon too)
           if (A.fly) { A.fly.phase = 'fly'; A.fly.t = 2; A.fly.dir = F.dir; A.fly.v = F.v; A.fly.vx = Math.cos(F.dir) * F.v; A.fly.vy = Math.sin(F.dir) * F.v; A.fly.h = F.h; A.fly.z = F.z; game.pe.alt = F.alt; }
         }
       }
     },
-    cross(game, x, y, msg, north) {
+    cross(game, x, y, msg, north, turn) {
       Gl.busy = true;
       try {
         const w = game.world;
         const need = Gl.unmade(w, Math.floor(x), Math.floor(y), Gl.NEAR);
         if (need.length) Gl.make(w, need);
         const In = ECHO.Input, held = In && In.down ? new Set(In.down) : null;   // (the keys still held carry you on)
-        Gl.restart(game, x, y);
+        Gl.restart(game, x, y, turn);
         if (held && In.down) for (const k of held) In.down.add(k);
         if (msg) { game.ui.toast(msg, 'legend', 7); game.ui.banner(north === false ? 'The bottom of the world' : 'The top of the world', Gl.fmtLatLon(w, x, y), true); }
       } catch (err) { console.error('ECHO: could not go round the world', err); }
