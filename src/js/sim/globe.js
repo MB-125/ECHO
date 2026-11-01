@@ -101,7 +101,7 @@
     // Move the whole map to (dx, dy) on a bigger one (as the old land growth did).
     relocate(world, dx, dy, W1, H1) {
       const F = Fr().state(world), W0 = world.W, H0 = world.H;
-      for (const k of Object.keys(world)) if (k[0] === '_' && world[k] && typeof world[k] === 'object') delete world[k];
+      for (const k of Object.keys(world)) if (k[0] === '_' && k !== '_dayQ' && world[k] && typeof world[k] === 'object') delete world[k];
       const remap = i => { const x = i % W0, y = (i / W0) | 0; return (y + dy) * W1 + x + dx; };
       for (const r of world.roads) if (Array.isArray(r.path)) r.path = r.path.map(remap);
       for (const j of world.journeys || []) if (Array.isArray(j.path) && typeof j.path[0] === 'number') j.path = j.path.map(remap);
@@ -217,7 +217,7 @@
       if (!cells.length) return null;
       const dirty = world._hcDirty || [], mdirty = world._mapDirty || [];
       delete world._landCells;
-      for (const k of Object.keys(world)) if (k[0] === '_' && world[k] && typeof world[k] === 'object') delete world[k];
+      for (const k of Object.keys(world)) if (k[0] === '_' && k !== '_dayQ' && world[k] && typeof world[k] === 'object') delete world[k];
       const W = world.W, rects = cells.map(ci => ({ ci, R: Gl.rect(world, ci) }));
       // 1. the ground of all of them first, so each sees its neighbours
       if (!world._filled) for (const { R } of rects) for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) world.tiles[y * W + x] = Gl.tileAt(world, x, y);
@@ -344,7 +344,9 @@
       if (need.length) {
         // the nearest first, two at a time, so the world never stops for long
         const px = pe.x, py = pe.y, d = ci => { const R = Gl.rect(w, ci); return Math.hypot(Gl.dx(w, px, (R.x0 + R.x1) / 2), (R.y0 + R.y1) / 2 - py); };
-        Gl.go(game, need.sort((a, b) => d(a) - d(b)).slice(0, 2));
+        // (one at a time — and not from the sky: from a dragon's back the land is seen, not visited;
+        //  its people and places are made when you come down to it)
+        if (!pl.flying) Gl.go(game, need.sort((a, b) => d(a) - d(b)).slice(0, 1));
       }
     },
     go(game, cells) {
@@ -370,9 +372,11 @@
       const w = game.world, R3 = ECHO.Renderer3D;
       if (ECHO.Wildwood) ECHO.Wildwood.ensure(w);
       if (R3 && R3.world === w && R3.hc) {
-        for (const r of w._hcDirty || []) R3.buildHeights(w, r);
+        const rs = w._hcDirty || [];
+        for (const r of rs) R3.buildHeights(w, r);
         w._hcDirty = null;
-        R3.buildWater(w); R3.sitesT = 0;
+        if (R3.waterPatch) R3.waterPatch(w, rs); else R3.buildWater(w);
+        R3.sitesT = 0;
       }
       if (ECHO.Explore) ECHO.Explore.sites(w);
       if (ECHO.UI) ECHO.UI.mapDirty = true;

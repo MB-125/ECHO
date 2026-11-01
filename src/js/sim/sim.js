@@ -34,7 +34,7 @@
       if (fromId === toId) return null;
       world._routes = world._routes || {};
       const key = fromId + '>' + toId;
-      if (world._routes[key]) return world._routes[key];
+      if (world._routes[key] !== undefined) return world._routes[key] || null;   // (no way there is remembered too)
       const g = Sim.roadGraph(world);
       const dist = {}, prev = {}, q = new Set(Object.keys(g));
       for (const k of q) dist[k] = Infinity;
@@ -50,7 +50,7 @@
           if (d < dist[e.to]) { dist[e.to] = d; prev[e.to] = { from: u, e }; }
         }
       }
-      if (!prev[toId]) return null;
+      if (!prev[toId]) { world._routes[key] = false; return null; }
       const legs = [];
       for (let c = toId; c !== fromId; c = prev[c].from) legs.unshift(prev[c].e);
       let path = [];
@@ -74,6 +74,7 @@
     startJourney(world, o) {
       const route = Sim.route(world, o.from, o.to);
       if (!route) return null;
+      if (route.len > 1100 && o.kind !== 'army') return null;     // (no one sets out to walk half round a round world)
       const j = {
         id: U.uid('j'), kind: o.kind, npcs: o.npcs || [], from: o.from, to: o.to, path: route.path, roads: route.roads,
         pos: 0, speed: o.speed || 3.2, cargo: o.cargo || null, army: o.army || null, startDay: world.day, meta: o.meta || {}
@@ -171,47 +172,63 @@
       const rng = Sim.rngFor(world);
       Sim.updateJourneys(world, hours, rng);
     },
-    dailyTick(world, background) {
+    // A day's work for the whole world, as a list of steps (so that, while you play, it can be
+    // spread over a few frames instead of stopping the game at midnight)
+    dailySteps(world, background) {
       const rng = Sim.rngFor(world);
-      world.day++;
-      ECHO.Ecology.dailyTick(world, rng);
-      if (ECHO.Production) ECHO.Production.ensure(world);
-      if (ECHO.Weather) ECHO.Weather.dailyTick(world, rng);
-      ECHO.Economy.dailyTick(world, rng);
-      if (ECHO.Production) ECHO.Production.dailyTick(world, rng);
-      if (ECHO.Property) ECHO.Property.dailyTick(world, rng);
-      ECHO.People.dailyTick(world, rng);
-      ECHO.Minds.dailyTick(world, rng);
-      if (ECHO.Disease) ECHO.Disease.dailyTick(world, rng);
-      if (ECHO.Law) ECHO.Law.dailyTick(world, rng);
-      if (ECHO.Watch) ECHO.Watch.dailyTick(world, rng);
-      ECHO.Politics.dailyTick(world, rng);
-      if (ECHO.Realm) ECHO.Realm.dailyTick(world, rng);
-      if (ECHO.Holding) ECHO.Holding.dailyTick(world, rng);
-      if (ECHO.Explore) ECHO.Explore.dailyTick(world, rng);
-      if (ECHO.Rivals) ECHO.Rivals.dailyTick(world, rng);
-      if (ECHO.Delvers) ECHO.Delvers.dailyTick(world);
-      if (ECHO.Powers) ECHO.Powers.dailyTick(world);
-      if (ECHO.Gates) ECHO.Gates.dailyTick(world, rng);
-      if (ECHO.Wildwood) ECHO.Wildwood.dailyTick(world, rng);
-      if (ECHO.Titans) ECHO.Titans.dailyTick(world, rng);
-      ECHO.Intel.dailyTick(world, rng);
-      ECHO.Plights.dailyTick(world, rng);
-      ECHO.Civ.dailyTick(world, rng);
-      ECHO.Chronicle.dailyTick(world, rng);
-      ECHO.Legacy.dailyTick(world, rng);
-      if (ECHO.Festivals) ECHO.Festivals.dailyTick(world, rng);
-      if (ECHO.Letters) ECHO.Letters.dailyTick(world, rng);
-      if (ECHO.Wonders && world.player) ECHO.Wonders.dailyTick(world, rng);
-      if (ECHO.Ambition) ECHO.Ambition.seasonal(world);
-      if (background) Sim.hourlyTick(world, 24);
-      world.rngState = rng.state;
-      ECHO.emit('day', { world, background });
+      return [
+        () => { world.day++; },
+        () => { ECHO.Ecology.dailyTick(world, rng); },
+        () => { if (ECHO.Production) ECHO.Production.ensure(world); },
+        () => { if (ECHO.Weather) ECHO.Weather.dailyTick(world, rng); },
+        () => { ECHO.Economy.dailyTick(world, rng); },
+        () => { if (ECHO.Production) ECHO.Production.dailyTick(world, rng); },
+        () => { if (ECHO.Property) ECHO.Property.dailyTick(world, rng); },
+        () => { ECHO.People.dailyTick(world, rng); },
+        () => { ECHO.Minds.dailyTick(world, rng); },
+        () => { if (ECHO.Disease) ECHO.Disease.dailyTick(world, rng); },
+        () => { if (ECHO.Law) ECHO.Law.dailyTick(world, rng); },
+        () => { if (ECHO.Watch) ECHO.Watch.dailyTick(world, rng); },
+        () => { ECHO.Politics.dailyTick(world, rng); },
+        () => { if (ECHO.Realm) ECHO.Realm.dailyTick(world, rng); },
+        () => { if (ECHO.Holding) ECHO.Holding.dailyTick(world, rng); },
+        () => { if (ECHO.Explore) ECHO.Explore.dailyTick(world, rng); },
+        () => { if (ECHO.Rivals) ECHO.Rivals.dailyTick(world, rng); },
+        () => { if (ECHO.Delvers) ECHO.Delvers.dailyTick(world); },
+        () => { if (ECHO.Powers) ECHO.Powers.dailyTick(world); },
+        () => { if (ECHO.Gates) ECHO.Gates.dailyTick(world, rng); },
+        () => { if (ECHO.Wildwood) ECHO.Wildwood.dailyTick(world, rng); },
+        () => { if (ECHO.Titans) ECHO.Titans.dailyTick(world, rng); },
+        () => { ECHO.Intel.dailyTick(world, rng); },
+        () => { ECHO.Plights.dailyTick(world, rng); },
+        () => { ECHO.Civ.dailyTick(world, rng); },
+        () => { ECHO.Chronicle.dailyTick(world, rng); },
+        () => { ECHO.Legacy.dailyTick(world, rng); },
+        () => { if (ECHO.Festivals) ECHO.Festivals.dailyTick(world, rng); },
+        () => { if (ECHO.Letters) ECHO.Letters.dailyTick(world, rng); },
+        () => { if (ECHO.Wonders && world.player) ECHO.Wonders.dailyTick(world, rng); },
+        () => { if (ECHO.Ambition) ECHO.Ambition.seasonal(world); },
+        () => { if (background) Sim.hourlyTick(world, 24); world.rngState = rng.state; ECHO.emit('day', { world, background }); }
+      ];
+    },
+    dailyTick(world, background) {
+      Sim.flushDay(world);
+      for (const f of Sim.dailySteps(world, background)) f();
+    },
+    // the rest of a day's work still waiting, done now
+    flushDay(world) { const q = world._dayQ; world._dayQ = null; if (q) for (const f of q) f(); },
+    // some of it, for as long as the frame can spare
+    workDay(world, ms) {
+      const q = world._dayQ; if (!q || !q.length) return;
+      const t0 = (typeof performance !== 'undefined' ? performance : Date).now();
+      do { q.shift()(); } while (q.length && (typeof performance !== 'undefined' ? performance : Date).now() - t0 < ms);
+      if (!q.length) world._dayQ = null;
     },
     // Fast-forward: the world keeps living (imprisonment, waiting, resting).
     fastForward(world, days, onProgress) {
       const startDay = world.day;
       const startChron = world.chronicle.length;
+      Sim.flushDay(world);
       for (let i = 0; i < days; i++) {
         Sim.dailyTick(world, true);
         if (onProgress) onProgress(i + 1, days);
@@ -229,9 +246,13 @@
       let rolled = false;
       while (world.minute >= T.DAY_MIN) {
         world.minute -= T.DAY_MIN;
-        Sim.dailyTick(world, false);
+        Sim.flushDay(world);
+        const q = Sim.dailySteps(world, false);
+        q.shift()();                   // (the new day begins at once; the rest of its work follows over the next frames)
+        world._dayQ = q;
         rolled = true;
       }
+      Sim.workDay(world, 6);
       return rolled;
     }
   };

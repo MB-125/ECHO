@@ -1134,6 +1134,15 @@ function main() {
       check('the far ground of a round world is not saved, and is drawn again after a load', w3.tiles[i] === 0 && !w3._filled && w3.tiles.length === w.tiles.length);
       w._filled = false; w.tiles[i] = 0;
     }
+    {
+      // midnight while you play: the new day starts at once, its work follows over the next frames
+      const d0 = w.day; w.minute = ECHO.TIME.DAY_MIN - 1;
+      ECHO.Sim.advance(w, 2);
+      const queued = !!(w._dayQ && w._dayQ.length);
+      let frames = 0; while (w._dayQ && frames < 200) { ECHO.Sim.workDay(w, 1); frames++; }
+      check('a day\'s work is spread over frames, not done all at once at midnight', w.day === d0 + 1 && !w._dayQ && frames >= 1, `${frames} frames`);
+      void queued;
+    }
     ECHO.Sim.fastForward(w, 3);
     check('and it goes on living', w.day > 0 && Object.values(w.npcs).some(n => n.status === 'alive'));
   }

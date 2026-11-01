@@ -75,6 +75,8 @@
         out[k] = world[k];
       }
       // grown worlds get big: long runs of the same ground pack small
+      // a journey along a road keeps only where it goes, not the road's every tile (made again on load)
+      if (Array.isArray(world.journeys)) out.journeys = world.journeys.map(j => { const r = j && world._routes && world._routes[j.from + '>' + j.to]; return r && r.path === j.path ? Object.assign({}, j, { path: null, pathR: 1 }) : j; });
       out.tiles = world.frontier ? 'rle:' + toB64(rle(ECHO.Globe ? ECHO.Globe.tilesToSave(world) : world.tiles)) : toB64(world.tiles);
       // and what you have walked of a round world, packed the same way
       return JSON.stringify(out, (k, v) => k === 'explored' && Array.isArray(v) && v.length > 4096 ? 'rle:' + v.length + ':' + toB64(rle(Uint8Array.from(v, x => x ? 1 : 0))) : v);
@@ -84,6 +86,12 @@
       w.tiles = typeof w.tiles === 'string' && w.tiles.startsWith('rle:') ? unrle(fromB64(w.tiles.slice(4)), w.W * w.H) : fromB64(w.tiles);
       delete w._filled;
       w.journeys = w.journeys || [];
+      for (const j of w.journeys) if (j && j.pathR && !j.path) {
+        delete j.pathR;
+        const r = ECHO.Sim && ECHO.Sim.route(w, j.from, j.to);
+        if (r && r.path) j.path = r.path;
+        else { const a = (w.settlements || []).find(s => s.id === j.from), b = (w.settlements || []).find(s => s.id === j.to); j.path = [a, b].filter(Boolean).map(s => Math.floor(s.y) * w.W + Math.floor(s.x)); if (j.path.length < 2) j.path = j.path.concat(j.path).slice(0, 2); j.pos = Math.min(j.pos || 0, j.path.length - 1); }
+      }
       w.news = w.news || [];
       // saves made before the flags were kept: don't place the wild a second time
       if (w.caches && !w._wild) w._wild = 1;

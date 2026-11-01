@@ -237,7 +237,7 @@
       faith: {
         weight: (w, n) => (P().has(n, 'pious') ? 2.4 : 0) + (n.prof === 'priest' ? 1 : 0),
         make: (w, n, s) => {
-          const temples = w.settlements.filter(t => t.kind === 'temple' && t !== s);
+          const temples = w.settlements.filter(t => t.kind === 'temple' && t !== s && Math.abs(t.x - s.x) + Math.abs(t.y - s.y) < 500);   // (a pilgrimage, not a walk round the world)
           const t = temples.sort((a, b) => U.dist(a.x, a.y, s.x, s.y) - U.dist(b.x, b.y, s.x, s.y))[0];
           return { temple: t ? t.id : null, save: 12, stage: t ? 'saving' : 'serve', days: 20 };
         },

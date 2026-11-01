@@ -86,7 +86,10 @@
       const big = [...(world.sites || []).filter(s => s.cat === 'delve'), ...((world.gates && world.gates.list) || []), ...(world.lairs || []), ...((world.titans && world.titans.list) || []), ...(world.camps || [])].filter(p => p && typeof p.x === 'number');
       const nearBig = (x, y, r) => big.some(p => Math.abs(p.x - x) < r && Math.abs(p.y - y) < r) || (pl && pl.x != null && Math.abs(pl.x - x) < 8 && Math.abs(pl.y - y) < 8);
       // ---- 1. the forests as they are
-      let { comp, sizes, edge } = WW.components(world, inArea);
+      let { comp, sizes, edge } = WW.components(world, inArea, area);
+      // each forest's own tiles, in order (so nothing below need look at the whole world for each one)
+      let byComp = sizes.map(() => []);
+      WW.scan(world, area, i => { if (comp[i] >= 0) byComp[comp[i]].push(i); });
       // ---- 2. the deep woods: the greatest forests, far from any town
       const want = area ? (rng.chance(0.5) ? 1 : 0) : (world.size === 'vast' ? 3 : 2);
       const R0 = world.size === 'vast' ? 30 : 23;   // (how far a deep wood reaches from its heart)
@@ -111,7 +114,7 @@
       for (let c = 0; c < sizes.length; c++) {
         if (sizes[c] < 120) continue;
         let best = -1, bd = -1;
-        for (let i = 0; i < N; i++) if (comp[i] === c && (edge[i] > bd || (edge[i] === bd && hash2(i % W, (i / W) | 0, world.seed + 71) > 0.5))) { bd = edge[i]; best = i; }
+        for (const i of byComp[c]) if (edge[i] > bd || (edge[i] === bd && hash2(i % W, (i / W) | 0, world.seed + 71) > 0.5)) { bd = edge[i]; best = i; }
         consider(best % W + 0.5, ((best / W) | 0) + 0.5, 40 + bd * 6);
       }
       const ax0 = area ? area.x0 : 0, ay0 = area ? area.y0 : 0, ax1 = area ? area.x1 : W, ay1 = area ? area.y1 : H;
@@ -138,7 +141,7 @@
           tiles[i] = hash2(x, y, world.seed + 78) < 0.44 ? X.TREE : X.FOREST;
         }
       }
-      if (hubs.length) ({ comp, sizes, edge } = WW.components(world, inArea));
+      if (hubs.length) { ({ comp, sizes, edge } = WW.components(world, inArea, area)); byComp = sizes.map(() => []); WW.scan(world, area, i => { if (comp[i] >= 0) byComp[comp[i]].push(i); }); }
       const woods = [];
       for (const h of hubs) {
         const hi = Math.floor(h.y) * W + Math.floor(h.x), c = comp[hi];
@@ -179,12 +182,12 @@
         // its deepest point (or its heart)
         let hub = -1, bd = -1;
         if (wood) hub = Math.floor(wood.y) * W + Math.floor(wood.x);
-        else for (let i = 0; i < N; i++) if (comp[i] === c && edge[i] > bd) { bd = edge[i]; hub = i; }
+        else for (const i of byComp[c]) if (edge[i] > bd) { bd = edge[i]; hub = i; }
         if (hub < 0) continue;
         // ways in: tiles at its edge beside open land (by a road first), well spread
         const doors = [];
-        for (let i = 0; i < N; i++) {
-          if (comp[i] !== c || edge[i] !== 1) continue;
+        for (const i of byComp[c]) {
+          if (edge[i] !== 1) continue;
           const x = i % W, y = (i / W) | 0; let open = 0, road = 0;
           for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const t = Wd().tile(world, x + ax, y + ay); if (t === X.ROAD || t === X.BRIDGE) road++; else if (t === X.GRASS || t === X.FARM || t === X.SAND || t === X.HILL || t === X.SNOW || t === X.PLAZA || t === X.RUIN) open++; }
           if (open || road) doors.push({ i, x, y, road });
@@ -240,11 +243,23 @@
       return S;
     },
     // the forests: their pieces, sizes and how far each tile is from the edge
-    components(world, inArea) {
+    // every index of the map, or (new land) just those inside the area
+    scan(world, area, f) {
+      const W = world.W, H = world.H;
+      if (!area) { for (let i = 0, N = W * H; i < N; i++) f(i); return; }
+      const x0 = Math.max(0, Math.floor(area.x0)), x1 = Math.min(W, Math.ceil(area.x1)), y0 = Math.max(0, Math.floor(area.y0)), y1 = Math.min(H, Math.ceil(area.y1));
+      for (let y = y0; y < y1; y++) for (let x = x0, i = y * W + x0; x < x1; x++, i++) f(i);
+    },
+    components(world, inArea, area) {
       const W = world.W, H = world.H, N = W * H, tiles = world.tiles;
-      const comp = new Int32Array(N).fill(-1), sizes = [], edge = new Int16Array(N);
-      for (let i = 0; i < N; i++) {
-        if (comp[i] >= 0 || !WW.isForest(tiles[i]) || !inArea(i)) continue;
+      // (the working arrays are kept and only the area cleared: a round world is millions of tiles)
+      let B = WW._buf;
+      if (!B || B.N !== N) B = WW._buf = { N, comp: new Int32Array(N), edge: new Int16Array(N) };
+      const comp = B.comp, edge = B.edge, sizes = [];
+      if (area) { const x0 = Math.max(0, Math.floor(area.x0) - 48), x1 = Math.min(W, Math.ceil(area.x1) + 48), y0 = Math.max(0, Math.floor(area.y0) - 48), y1 = Math.min(H, Math.ceil(area.y1) + 48); for (let y = y0; y < y1; y++) { comp.fill(-1, y * W + x0, y * W + x1); edge.fill(0, y * W + x0, y * W + x1); } }
+      else { comp.fill(-1); edge.fill(0); }
+      WW.scan(world, area, i => {
+        if (comp[i] >= 0 || !WW.isForest(tiles[i]) || !inArea(i)) return;
         const id = sizes.length; let n = 0; const q = [i]; comp[i] = id;
         while (q.length) {
           const j = q.pop(); n++;
@@ -256,16 +271,15 @@
           }
         }
         sizes.push(n);
-      }
+      });
       // distance in from the edge (1 = an edge tile)
       let q = [];
-      for (let i = 0; i < N; i++) {
-        if (comp[i] < 0) continue;
+      WW.scan(world, area, i => {
+        if (comp[i] < 0) return;
         const x = i % W, y = (i / W) | 0;
-        let e = false;
-        for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + ax, yy = y + ay; if (xx < 0 || yy < 0 || xx >= W || yy >= H || comp[yy * W + xx] < 0) { e = true; break; } }
+        const e = x === 0 || y === 0 || x === W - 1 || y === H - 1 || comp[i - 1] < 0 || comp[i + 1] < 0 || comp[i - W] < 0 || comp[i + W] < 0;
         if (e) { edge[i] = 1; q.push(i); }
-      }
+      });
       for (let h = 0; h < q.length; h++) {
         const i = q[h], x = i % W, y = (i / W) | 0;
         for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {

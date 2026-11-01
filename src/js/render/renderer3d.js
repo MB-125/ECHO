@@ -557,6 +557,7 @@
         depth[i] = inside ? Math.max(0, -0.2 - R.rawH(wx, wy)) : 0.6;
       }
       g.setAttribute('aDepth', new THREE.BufferAttribute(depth, 1));
+      R._waterG = { PX, nx: Math.round((world.W + PX) / step), ny: Math.round((world.H + 60) / step), wd: world.W + PX, ht: world.H + 60 };
       const m = new THREE.MeshStandardMaterial({ color: C('#2e6a96'), roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.86, flatShading: true });
       R.waterTime = { value: 0 }; R.waterIce = { value: 0 };
       m.onBeforeCompile = (sh) => {
@@ -592,6 +593,22 @@
       w.position.set(world.W / 2, -0.2, world.H / 2);
       w.receiveShadow = true;
       R.scene.add(w);
+    },
+
+    // the water's depth again over just the tiles that changed (new land made on a round world)
+    waterPatch(world, rects) {
+      const w = R.water, Wg = R._waterG;
+      if (!w || !Wg || !rects || !rects.length) return;
+      const a = w.geometry.getAttribute('aDepth'), pos = w.geometry.attributes.position, cols = Wg.nx + 1;
+      for (const r of rects) {
+        const i0 = Math.max(0, Math.floor((r.x0 - 1 - world.W / 2 + Wg.wd / 2) / Wg.wd * Wg.nx)), i1 = Math.min(Wg.nx, Math.ceil((r.x1 + 1 - world.W / 2 + Wg.wd / 2) / Wg.wd * Wg.nx));
+        const j0 = Math.max(0, Math.floor((r.y0 - 1 - world.H / 2 + Wg.ht / 2) / Wg.ht * Wg.ny)), j1 = Math.min(Wg.ny, Math.ceil((r.y1 + 1 - world.H / 2 + Wg.ht / 2) / Wg.ht * Wg.ny));
+        for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+          const k = j * cols + i, wx = pos.getX(k) + world.W / 2, wy = world.H / 2 - pos.getY(k);
+          a.array[k] = (wy >= 0 && wy <= world.H) ? Math.max(0, -0.2 - R.rawH(wx, wy)) : 0.6;
+        }
+      }
+      a.needsUpdate = true;
     },
 
     // ---------------------------------------------------------------- chunks

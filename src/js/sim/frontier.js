@@ -41,7 +41,7 @@
       const W0 = world.W, H0 = world.H;
       const W1 = W0 + (side === 'e' || side === 'w' ? BAND.h : 0), H1 = H0 + (side === 'n' || side === 's' ? BAND.v : 0);
       // 1. derived caches go: everything is rebuilt as after a load
-      for (const k of Object.keys(world)) if (k[0] === '_' && world[k] && typeof world[k] === 'object') delete world[k];
+      for (const k of Object.keys(world)) if (k[0] === '_' && k !== '_dayQ' && world[k] && typeof world[k] === 'object') delete world[k];
       // 2. what is indexed by tile
       const remap = i => { const x = i % W0, y = (i / W0) | 0; return (y + dy) * W1 + x + dx; };
       for (const r of world.roads) if (Array.isArray(r.path)) r.path = r.path.map(remap);
@@ -334,7 +334,7 @@
       const joined = old.filter(s => s.faction !== 'ashfang');
       for (const s of made) {
         const to = joined.slice().sort((a, b) => U.dist(a.x, a.y, s.x, s.y) - U.dist(b.x, b.y, s.x, s.y))[0];
-        if (to) Wd().connectRoad(world, to, s, 900000);
+        if (to) Wd().connectRoad(world, to, s, world.globe ? 160000 : 900000);
         joined.push(s);
       }
       world._graph = null; world._routes = {};
@@ -349,7 +349,11 @@
       const STAND = [T.GRASS, T.FOREST, T.HILL, T.SAND, T.SNOW, T.SWAMP];
       const sites = world.sites || (world.sites = []);
       const near = (x, y, r, set) => { let c = 0; for (let ddy = -r; ddy <= r; ddy++) for (let ddx = -r; ddx <= r; ddx++) if (set.includes(Wo.tile(world, x + ddx, y + ddy))) c++; return c; };
-      const clear = (x, y, d) => world.settlements.every(s => U.dist(s.x, s.y, x, y) > d) && world.lairs.every(l => U.dist(l.x, l.y, x, y) > 12) && world.ruins.every(r => U.dist(r.x, r.y, x, y) > 10) && sites.every(o => U.dist(o.x, o.y, x, y) > 13) && world.camps.every(c => U.dist(c.x, c.y, x, y) > 9);
+      // (only what lies near this land is checked — on a big world the lists run to thousands)
+      const box = o => o.x > R.x0 - 48 && o.x < R.x1 + 48 && o.y > R.y0 - 48 && o.y < R.y1 + 48;
+      const mk = arr => { const base = arr.length, near = arr.filter(box); return f => { for (const o of near) if (!f(o)) return false; for (let i = base; i < arr.length; i++) if (!f(arr[i])) return false; return true; }; };
+      const eS = mk(world.settlements), eL = mk(world.lairs), eR = mk(world.ruins), eSi = mk(sites), eC = mk(world.camps);
+      const clear = (x, y, d) => eS(s => U.dist(s.x, s.y, x, y) > d) && eL(l => U.dist(l.x, l.y, x, y) > 12) && eR(r => U.dist(r.x, r.y, x, y) > 10) && eSi(o => U.dist(o.x, o.y, x, y) > 13) && eC(c => U.dist(c.x, c.y, x, y) > 9);
       const spot = (d, score, tries = 700, margin = 8) => {
         let best = null, bs = -Infinity;
         for (let i = 0; i < tries; i++) {

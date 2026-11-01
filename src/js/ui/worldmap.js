@@ -189,55 +189,56 @@
     },
 
     // ------------------------------------------------------------ what is on the map
-    features(game) {
-      const world = game.world, pl = game.pl, out = [], all = WM.revealed(pl), seen = (x, y) => all || game.explored(x, y);
+    features(game, box) {
+      // (box: only what lies within it — the little map needs only what is around you)
+      const world = game.world, pl = game.pl, out = [], add = f => { if (!box || (f.x > box.x0 && f.x < box.x1 && f.y > box.y0 && f.y < box.y1)) out.push(f); }, all = WM.revealed(pl), seen = (x, y) => all || game.explored(x, y);
       const Pw = ECHO.Prowess, me = Pw ? Pw.level(pl) : 1;
-      for (const s of world.settlements) if (seen(s.x, s.y)) out.push({ layer: 'towns', kind: s.kind === 'capital' ? 'capital' : 'town', x: s.x, y: s.y, name: s.name, color: world.factions[s.faction] ? world.factions[s.faction].color : '#ccc', pri: s.kind === 'capital' ? 9 : 7, ref: s,
+      for (const s of world.settlements) if (seen(s.x, s.y)) add({ layer: 'towns', kind: s.kind === 'capital' ? 'capital' : 'town', x: s.x, y: s.y, name: s.name, color: world.factions[s.faction] ? world.factions[s.faction].color : '#ccc', pri: s.kind === 'capital' ? 9 : 7, ref: s,
         sub: `${s.kind === 'capital' ? 'Capital' : s.kind === 'village' ? 'Village' : 'Town'} of ${world.factions[s.faction] ? world.factions[s.faction].name : 'no one'}${s.warden === pl.charId ? ' · yours' : ''}` });
       for (const site of ECHO.Explore.sites(world)) {
         if (!site.found && !site.seen && !all) continue;
         if (site.cat === 'delve') {
           const told = site.found || site.starter || all, L = ECHO.Explore.level(world, site), fl = ECHO.Explore.floors(site), done = Math.min(fl, Object.keys(site.floorsDone || {}).length);
           const D = Pw ? Pw.diff(L, me) : { color: '#e0a070', word: '' };
-          out.push({ layer: 'dungeons', kind: site.cleared ? 'dungeon-cleared' : told ? 'dungeon' : 'dungeon-unknown', x: site.x, y: site.y, name: told ? site.name : 'An uncharted dungeon', color: site.cleared ? '#9a9080' : told ? D.color : '#a89c88', pri: 10, ref: site,
+          add({ layer: 'dungeons', kind: site.cleared ? 'dungeon-cleared' : told ? 'dungeon' : 'dungeon-unknown', x: site.x, y: site.y, name: told ? site.name : 'An uncharted dungeon', color: site.cleared ? '#9a9080' : told ? D.color : '#a89c88', pri: 10, ref: site,
             stars: told ? ECHO.Explore.stars(site) : '?', sub: !told ? 'A way down, glimpsed from afar' : `${ECHO.Explore.label(site)} · ${ECHO.Explore.stars(site)} · ${fl} floor${fl > 1 ? 's' : ''}${site.cleared ? ' · cleared' : done ? ` · ${done}/${fl} floors cleared` : ''}`, diff: site.cleared ? 'Cleared — it will fill again in time' : site.found || all ? `${D.word} for you (monsters about level ${L}–${L + Math.floor((fl - 1) / 2) + 1})` : 'Seen from afar. Go closer to learn more.' });
-        } else if (site.cat === 'wonder') out.push({ layer: 'wonders', kind: 'wonder', x: site.x, y: site.y, name: site.found || all ? site.name : 'Something strange', color: '#ffd38a', pri: 5, ref: site, sub: site.found ? 'A wonder of the wild' : all ? 'A wonder of the wild · not yet visited' : 'Seen from afar' });
-        else out.push({ layer: 'places', kind: 'landmark', x: site.x, y: site.y, name: site.found || all ? site.name : 'A landmark', color: '#a8e0c0', pri: 4, ref: site, sub: site.found || all ? ECHO.Explore.label(site) + (site.found ? '' : ' · not yet visited') : 'Seen from afar' });
+        } else if (site.cat === 'wonder') add({ layer: 'wonders', kind: 'wonder', x: site.x, y: site.y, name: site.found || all ? site.name : 'Something strange', color: '#ffd38a', pri: 5, ref: site, sub: site.found ? 'A wonder of the wild' : all ? 'A wonder of the wild · not yet visited' : 'Seen from afar' });
+        else add({ layer: 'places', kind: 'landmark', x: site.x, y: site.y, name: site.found || all ? site.name : 'A landmark', color: '#a8e0c0', pri: 4, ref: site, sub: site.found || all ? ECHO.Explore.label(site) + (site.found ? '' : ' · not yet visited') : 'Seen from afar' });
       }
-      for (const cp of world.camps) if ((cp.seen || all) && cp.alive) out.push({ layer: 'danger', kind: 'camp', x: cp.x, y: cp.y, name: cp.name || 'Outlaw camp', color: '#e0563c', pri: 6, ref: cp, sub: 'Outlaws camp here' });
-      for (const l of world.lairs) if (l.seen || all) out.push({ layer: 'danger', kind: l.boss.alive ? 'lair' : 'lair-dead', x: l.x, y: l.y, name: `The lair of ${l.boss.name}`, color: l.boss.alive ? '#ff6a4a' : '#9a9080', pri: 8, ref: l, sub: l.boss.alive ? 'A great beast sleeps here' : 'Its master is dead' });
-      for (const r of world.ruins) if (r.visited || seen(r.x, r.y)) out.push({ layer: 'wonders', kind: 'ruin', x: r.x + 0.5, y: r.y + 0.5, name: r.name || 'Ruins', color: '#c8c0b0', pri: 3, ref: r, sub: r.visited ? 'Ruins you have read' : 'Old ruins' });
-      if (world.lang && world.lang.vault && world.lang.vault.revealed && !world.lang.vault.opened) out.push({ layer: 'wonders', kind: 'vault', x: world.lang.vault.x, y: world.lang.vault.y, name: 'The sealed vault', color: '#9fd3ff', pri: 8, sub: 'Its door waits for the words' });
+      for (const cp of world.camps) if ((cp.seen || all) && cp.alive) add({ layer: 'danger', kind: 'camp', x: cp.x, y: cp.y, name: cp.name || 'Outlaw camp', color: '#e0563c', pri: 6, ref: cp, sub: 'Outlaws camp here' });
+      for (const l of world.lairs) if (l.seen || all) add({ layer: 'danger', kind: l.boss.alive ? 'lair' : 'lair-dead', x: l.x, y: l.y, name: `The lair of ${l.boss.name}`, color: l.boss.alive ? '#ff6a4a' : '#9a9080', pri: 8, ref: l, sub: l.boss.alive ? 'A great beast sleeps here' : 'Its master is dead' });
+      for (const r of world.ruins) if (r.visited || seen(r.x, r.y)) add({ layer: 'wonders', kind: 'ruin', x: r.x + 0.5, y: r.y + 0.5, name: r.name || 'Ruins', color: '#c8c0b0', pri: 3, ref: r, sub: r.visited ? 'Ruins you have read' : 'Old ruins' });
+      if (world.lang && world.lang.vault && world.lang.vault.revealed && !world.lang.vault.opened) add({ layer: 'wonders', kind: 'vault', x: world.lang.vault.x, y: world.lang.vault.y, name: 'The sealed vault', color: '#9fd3ff', pri: 8, sub: 'Its door waits for the words' });
       // the titans: every hunter in the realm knows where the dragons nest, and talks of the great beasts
       if (world.titans && ECHO.Titans) for (const t of world.titans.list) {
         if (!t.alive || t.bound) continue;
         const sp = ECHO.Titans.sp(t), D = Pw ? Pw.diff(t.lvl, me) : { color: '#ff6a4a', skulls: 0 };
-        out.push({ layer: 'danger', kind: 'lair', x: t.x, y: t.y, name: `${t.name} ${t.title}`, color: D.color, pri: 9, ref: t, sub: `${t.mig ? `On the move ${ECHO.Calamity.whither(world, t)} · ` : t.seen ? '' : 'Said to range here · '}${sp.flies ? 'A dragon' : 'A great beast'} · level ${t.lvl}${ECHO.Calamity ? ' · ' + ECHO.Calamity.label(t) : ''}`, diff: D.skulls >= 2 ? 'Far beyond you: keep off its range' : 'Beat it down and bind it' });
+        add({ layer: 'danger', kind: 'lair', x: t.x, y: t.y, name: `${t.name} ${t.title}`, color: D.color, pri: 9, ref: t, sub: `${t.mig ? `On the move ${ECHO.Calamity.whither(world, t)} · ` : t.seen ? '' : 'Said to range here · '}${sp.flies ? 'A dragon' : 'A great beast'} · level ${t.lvl}${ECHO.Calamity ? ' · ' + ECHO.Calamity.label(t) : ''}`, diff: D.skulls >= 2 ? 'Far beyond you: keep off its range' : 'Beat it down and bind it' });
       }
       // the deep woods: every woodsman warns you off them
       if (world.wild && ECHO.Wildwood) for (const w of world.wild.woods) {
         const L1 = ECHO.Wildwood.level(world, 1), L4 = ECHO.Wildwood.level(world, 4), D = Pw ? Pw.diff(L1, me) : { color: '#8aff6a', skulls: 3 };
-        out.push({ layer: 'danger', kind: 'lair', x: w.x, y: w.y, name: U.cap(w.name), color: '#9ac86a', pri: 10, ref: w, sub: `A deep wood · beasts of level ${L1} at its edge, worse further in · ${ECHO.Wildwood.lordAlive(world, w) ? `${U.cap(w.lord.name)} (level ${L4}) at its heart` : `its lord is dead, for now`}`, diff: D.skulls >= 2 ? 'Deadly for you: keep out from under its trees' : 'Its trails lead to the heart' });
+        add({ layer: 'danger', kind: 'lair', x: w.x, y: w.y, name: U.cap(w.name), color: '#9ac86a', pri: 10, ref: w, sub: `A deep wood · beasts of level ${L1} at its edge, worse further in · ${ECHO.Wildwood.lordAlive(world, w) ? `${U.cap(w.lord.name)} (level ${L4}) at its heart` : `its lord is dead, for now`}`, diff: D.skulls >= 2 ? 'Deadly for you: keep out from under its trees' : 'Its trails lead to the heart' });
       }
       // the gates: everyone knows where they are
       if (world.gates) for (const g of world.gates.list) {
         const th = ECHO.Gates.THEMES[g.theme], weak = me < ECHO.Gates.MIN;
-        out.push({ layer: 'gates', kind: 'gate', x: g.x, y: g.y, name: U.cap(g.name), color: th.color, pri: 11, ref: g, sub: `A gate to ${th.world} · held by the National Guard`, diff: weak ? `Deadly: below level ${ECHO.Gates.MIN} its menace kills (within ${ECHO.Gates.R_HURT} leagues)` : `Beasts of level ${ECHO.Gates.MIN}–${ECHO.Gates.TOP} beyond it` });
+        add({ layer: 'gates', kind: 'gate', x: g.x, y: g.y, name: U.cap(g.name), color: th.color, pri: 11, ref: g, sub: `A gate to ${th.world} · held by the National Guard`, diff: weak ? `Deadly: below level ${ECHO.Gates.MIN} its menace kills (within ${ECHO.Gates.R_HURT} leagues)` : `Beasts of level ${ECHO.Gates.MIN}–${ECHO.Gates.TOP} beyond it` });
       }
       // what has got out of them, while the Guard runs it down
-      if (ECHO.GuardWork && world.gates) for (const b of ECHO.GuardWork.openBreaches(world)) out.push({ layer: 'gates', kind: 'lair', x: b.x, y: b.y, name: `${ECHO.GuardWork.aBeast(b.kind, true)} out of ${b.gateName}`, color: '#ff4a3a', pri: 10, ref: b, sub: `Level ${b.lv} · loose since day ${b.day} · the National Guard is hunting it`, diff: me < ECHO.Gates.MIN ? 'Far beyond you: keep clear' : 'Run it down' });
+      if (ECHO.GuardWork && world.gates) for (const b of ECHO.GuardWork.openBreaches(world)) add({ layer: 'gates', kind: 'lair', x: b.x, y: b.y, name: `${ECHO.GuardWork.aBeast(b.kind, true)} out of ${b.gateName}`, color: '#ff4a3a', pri: 10, ref: b, sub: `Level ${b.lv} · loose since day ${b.day} · the National Guard is hunting it`, diff: me < ECHO.Gates.MIN ? 'Far beyond you: keep clear' : 'Run it down' });
       const wst = world.wonders;
       if (wst) {
-        for (const e of wst.echoes || []) if ((e.revealed || all) && !e.found) out.push({ layer: 'wonders', kind: 'echo', x: e.x, y: e.y, name: 'An echo of the old world', color: '#bfe8ff', pri: 5, sub: 'Shown to you by the wisps' });
-        for (const st of wst.stars || []) if (!st.taken) out.push({ layer: 'wonders', kind: 'star', x: st.x, y: st.y, name: 'A fallen star', color: '#ffffff', pri: 6, sub: 'Star-iron lies here' });
+        for (const e of wst.echoes || []) if ((e.revealed || all) && !e.found) add({ layer: 'wonders', kind: 'echo', x: e.x, y: e.y, name: 'An echo of the old world', color: '#bfe8ff', pri: 5, sub: 'Shown to you by the wisps' });
+        for (const st of wst.stars || []) if (!st.taken) add({ layer: 'wonders', kind: 'star', x: st.x, y: st.y, name: 'A fallen star', color: '#ffffff', pri: 6, sub: 'Star-iron lies here' });
       }
       // with the whole map shown: the hidden places too
       if (all && world.secrets && world.secrets.list) {
         const NM = { cave: 'A hidden cave', shrine: 'A forgotten shrine', wreck: 'A wreck', circle: 'A ring of standing stones', hut: 'A hermit\'s hut' };
-        for (const s of world.secrets.list) if (!s.done) out.push({ layer: 'places', kind: 'landmark', x: s.x, y: s.y, name: s.name || NM[s.kind] || 'Something hidden', color: s.found ? '#a8e0c0' : '#8ac8b0', pri: 3, ref: s, sub: s.found ? 'You have found it' : 'Not yet found' });
+        for (const s of world.secrets.list) if (!s.done) add({ layer: 'places', kind: 'landmark', x: s.x, y: s.y, name: s.name || NM[s.kind] || 'Something hidden', color: s.found ? '#a8e0c0' : '#8ac8b0', pri: 3, ref: s, sub: s.found ? 'You have found it' : 'Not yet found' });
       }
-      if (all) for (const ch of world.caches || []) if (!ch.found) out.push({ layer: 'wonders', kind: 'star', x: ch.x, y: ch.y, name: 'A buried cache', color: '#e8c86a', pri: 2, ref: ch, sub: 'Something is hidden here' });
-      if (all && world.lang && world.lang.vault && !world.lang.vault.revealed && !world.lang.vault.opened) out.push({ layer: 'wonders', kind: 'vault', x: world.lang.vault.x, y: world.lang.vault.y, name: 'The sealed vault', color: '#9fd3ff', pri: 8, sub: 'Its door waits for words no one remembers' });
+      if (all) for (const ch of world.caches || []) if (!ch.found) add({ layer: 'wonders', kind: 'star', x: ch.x, y: ch.y, name: 'A buried cache', color: '#e8c86a', pri: 2, ref: ch, sub: 'Something is hidden here' });
+      if (all && world.lang && world.lang.vault && !world.lang.vault.revealed && !world.lang.vault.opened) add({ layer: 'wonders', kind: 'vault', x: world.lang.vault.x, y: world.lang.vault.y, name: 'The sealed vault', color: '#9fd3ff', pri: 8, sub: 'Its door waits for words no one remembers' });
       return out;
     },
 
@@ -940,7 +941,7 @@
         if (x < 0 || y < 0 || x >= cw || !pl.explored[y * cw + x]) g.fillRect((x * 4 - sx) * scale, (y * 4 - sy) * scale, 4 * scale + 1, 4 * scale + 1);
       }
       const inView = p => p.x > -8 && p.y > -8 && p.x < c.width + 8 && p.y < c.height + 8;
-      if (!WM._mf || game.time - WM._mfT > 1 || game.time < WM._mfT) { WM._mf = WM.features(game); WM._mfT = game.time; }
+      if (!WM._mf || game.time - WM._mfT > 1 || game.time < WM._mfT) { WM._mf = WM.features(game, { x0: pe.x - 90, x1: pe.x + 90, y0: pe.y - 90, y1: pe.y + 90 }); WM._mfT = game.time; }
       for (const f of WM._mf) {
         if (f.layer !== 'towns' && f.layer !== 'dungeons' && f.layer !== 'danger' && f.layer !== 'gates') continue;
         const p = P(f.x, f.y);

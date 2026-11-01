@@ -139,6 +139,7 @@
           let best = null, bestProfit = 25;
           for (const t of world.settlements) {
             if (t === s || t.faction === 'ashfang' || t.quarantine) continue;
+            if (Math.abs(t.x - s.x) > 240 || Math.abs(t.y - s.y) > 240) continue;   // (a caravan goes to the towns within reach, not across the world)
             const ft = world.factions[t.faction], fs = world.factions[s.faction];
             if (fs.atWar[t.faction] || ft.atWar[s.faction]) continue;
             const route = ECHO.Sim.route(world, s.id, t.id);
@@ -169,7 +170,7 @@
       // In a wide realm, any town with full granaries helps its hungry neighbours.
       if (world.size === 'vast') for (const s of world.settlements) {
         if (s.hunger < 0.2 || s.faction === 'ashfang' || (world.journeys || []).some(j => j.kind === 'aid' && j.to === s.id)) continue;
-        const giver = world.settlements.filter(t => t !== s && t.faction === s.faction && t.stock.food > Eco.need(world, t) * 22 && ECHO.Sim.route(world, t.id, s.id)).sort((a, b) => b.stock.food - a.stock.food)[0];
+        const giver = world.settlements.filter(t => t !== s && t.faction === s.faction && Math.abs(t.x - s.x) < 240 && Math.abs(t.y - s.y) < 240 && t.stock.food > Eco.need(world, t) * 22 && ECHO.Sim.route(world, t.id, s.id)).sort((a, b) => b.stock.food - a.stock.food)[0];
         if (!giver || !rng.chance(0.5)) continue;
         const qty = Math.min(giver.stock.food - Eco.need(world, giver) * 14, Eco.need(world, s) * 10);
         if (qty < 10) continue;

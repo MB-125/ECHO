@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.7', items: [
+      'Much less lag and freezing in the world. New country is now made one stretch at a time and only on the ground (not while you fly over it), and making it no longer scans the whole globe: the deep woods, the rivers\' currents and the sea\'s depth are worked out only where the land changed.',
+      'Midnight no longer stops the game: a day\'s work for the whole world is spread over the next few frames. Merchants trade with the towns within reach and pilgrims go to the nearest temple, instead of walking half round the world, so the world runs lighter and saves smaller.'
+    ] },
     { v: '0.10.6', items: [
       'The globe map no longer lags when you zoom or turn it: finding the place under the pointer is now worked out directly instead of searched for, the map draws at most once a frame, and the sharper painting of the land waits until you stop moving (and paints faster when it does).'
     ] },
