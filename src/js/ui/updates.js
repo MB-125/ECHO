@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.13', items: [
+      'Riding a horse over a pole works: before, the horse kept galloping the old way after you crossed, which threw you straight back over the pole, and back again, every frame — the view flickering, you spinning on its back, the horse facing every which way. Now the horse (and your own feet, a roll, a lunge, a slide on the ice, a boat you are rowing) turns with you over the top and carries straight on down the far side.',
+      'Creatures carried over a pole with you turn every way they were heading and every push they were under, so a charge or a knock-back goes on the way it was going.'
+    ] },
     { v: '0.10.12', items: [
       'Nothing appears or disappears any more as you cross the edge of the world (the east-west join or a pole). Everything drawn — camps, ruins, towns, hidden places, the plants you gather, birds, footprints, lights, lamps, beacons — is now shown at its place nearest you, round the world or past the pole (turned about, like the land), so what you see the moment before you cross is what you see the moment after.',
       'Over a pole, everything round you comes with you, not just your own animals: other creatures, what lies on the ground, arrows and spells in the air.',
