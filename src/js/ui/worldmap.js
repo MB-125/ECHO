@@ -77,7 +77,14 @@
       // how far out to sea each water tile is (for the shallows)
       const sea = new Uint8Array(N).fill(255), q = [];
       for (let i = 0; i < N; i++) if (!wet(tiles[i])) { sea[i] = 0; q.push(i); }
-      for (let k = 0; k < q.length; k++) { const i = q[k], x = i % W, y = (i / W) | 0, d = sea[i] + 1; if (d > 8) continue; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue; const j = yy * W + xx; if (sea[j] > d) { sea[j] = d; q.push(j); } } }
+      const qa = new Int32Array(N); let qn = 0; for (const i of q) qa[qn++] = i;
+      for (let k = 0; k < qn; k++) {
+        const i = qa[k], x = i % W, y = (i / W) | 0, d = sea[i] + 1; if (d > 8) continue;
+        if (x + 1 < W && sea[i + 1] > d) { sea[i + 1] = d; qa[qn++] = i + 1; }
+        if (x > 0 && sea[i - 1] > d) { sea[i - 1] = d; qa[qn++] = i - 1; }
+        if (y + 1 < H && sea[i + W] > d) { sea[i + W] = d; qa[qn++] = i + W; }
+        if (y > 0 && sea[i - W] > d) { sea[i - W] = d; qa[qn++] = i - W; }
+      }
       // the colour of each tile, with what lies on it
       const col = new Float32Array(N * 3), land = new Float32Array(N);
       for (let i = 0; i < N; i++) {
@@ -112,7 +119,11 @@
           const isLand = L > 0.5;
           // blend only among tiles of the same side of the shore
           let r = 0, gg = 0, b = 0, ws = 0;
-          for (const [ii, ww] of [[i00, w00], [i10, w10], [i01, w01], [i11, w11]]) { if ((land[ii] > 0.5) !== isLand && !(mist && mist[ii])) continue; r += col[ii * 3] * ww; gg += col[ii * 3 + 1] * ww; b += col[ii * 3 + 2] * ww; ws += ww; }
+          // (four neighbours, written out: this runs for every pixel, and must make no garbage)
+          if ((land[i00] > 0.5) === isLand || (mist && mist[i00])) { r += col[i00 * 3] * w00; gg += col[i00 * 3 + 1] * w00; b += col[i00 * 3 + 2] * w00; ws += w00; }
+          if ((land[i10] > 0.5) === isLand || (mist && mist[i10])) { r += col[i10 * 3] * w10; gg += col[i10 * 3 + 1] * w10; b += col[i10 * 3 + 2] * w10; ws += w10; }
+          if ((land[i01] > 0.5) === isLand || (mist && mist[i01])) { r += col[i01 * 3] * w01; gg += col[i01 * 3 + 1] * w01; b += col[i01 * 3 + 2] * w01; ws += w01; }
+          if ((land[i11] > 0.5) === isLand || (mist && mist[i11])) { r += col[i11 * 3] * w11; gg += col[i11 * 3 + 1] * w11; b += col[i11 * 3 + 2] * w11; ws += w11; }
           if (ws > 0) { r /= ws; gg /= ws; b /= ws; } else { const ii = U.clamp(Math.round(fy), 0, H - 1) * W + U.clamp(Math.round(fx), 0, W - 1); r = col[ii * 3]; gg = col[ii * 3 + 1]; b = col[ii * 3 + 2]; }
           let f = 1;
           if (isLand) {
@@ -270,13 +281,13 @@
           const G = WM.G, before = WM.gWorld(c, mx, my);
           G.dist = 1 + U.clamp((G.dist - 1) * (ev.deltaY < 0 ? 0.84 : 1.19), G.min - 1, G.max - 1); G.anim = null;
           if (before.x >= 0) { WM.globeStep(); const after = WM.gWorld(c, mx, my); if (after.x >= 0) { G.yaw += (Globe().dx(world, after.x, before.x)) / world.W * Math.PI * 2 * -1; G.pitch = U.clamp(G.pitch - (Globe().lat(world, after.y) - Globe().lat(world, before.y)), -1.45, 1.45); } }
-          WM.draw(game, c); return;
+          G.lastInput = performance.now(); WM.drawSoon(game, c); return;
         }
         const before = WM.toWorld(c, mx, my);
         V.z = U.clamp(V.z * (ev.deltaY < 0 ? 1.25 : 0.8), V.min, V.max);
         const after = WM.toWorld(c, mx, my);
         V.cx += before.x - after.x; V.cy += before.y - after.y;
-        WM.draw(game, c);
+        WM.drawSoon(game, c);
       }, { passive: false });
       c.addEventListener('mousedown', ev => { if (ev.button !== 0) return; drag = { x: ev.clientX, y: ev.clientY, cx: V.cx, cy: V.cy, moved: false, yaw: WM.G && WM.G.yaw, pitch: WM.G && WM.G.pitch }; if (WM.G) WM.G.anim = null; });
       const move = ev => {
@@ -287,18 +298,18 @@
           if (drag.moved && WM.isGlobe(world)) {
             const G = WM.G, k = 0.0042 * (G.dist - 1) * 0.95;
             G.yaw = drag.yaw + dx * k; G.pitch = U.clamp(drag.pitch + dy * k, -1.45, 1.45);
-            WM.draw(game, c); c.style.cursor = 'grabbing'; return;
+            G.lastInput = performance.now(); WM.drawSoon(game, c); c.style.cursor = 'grabbing'; return;
           }
-          if (drag.moved) { V.cx = drag.cx - dx / V.z; V.cy = drag.cy - dy / V.z; WM.draw(game, c); c.style.cursor = 'grabbing'; return; }
+          if (drag.moved) { V.cx = drag.cx - dx / V.z; V.cy = drag.cy - dy / V.z; WM.drawSoon(game, c); c.style.cursor = 'grabbing'; return; }
         }
         const f = WM.hit(c, mx, my);
         if (WM.isGlobe(world)) {
           // the reading under the pointer: where on the globe, and what land
           const p = WM.gWorld(c, mx, my), was = WM._hoverLL;
           WM._hoverLL = p.x < 0 ? null : `${ECHO.Globe.fmtLatLon(world, p.x, p.y)}${ECHO.Globe.made(world, p.x, p.y) ? ' · ' + U.cap(((ECHO.World.regionAt(world, p.x, p.y) || {}).name) || '') : ' · uncharted'}`;
-          if (WM._hoverLL !== was && f === WM.hover) WM.draw(game, c);
+          if (WM._hoverLL !== was && f === WM.hover) WM.drawSoon(game, c);
         }
-        if (f !== WM.hover) { WM.hover = f; WM.draw(game, c); }
+        if (f !== WM.hover) { WM.hover = f; WM.drawSoon(game, c); }
         WM.tip(game, f, mx, my);
         c.style.cursor = f ? 'pointer' : 'grab';
       };
@@ -313,7 +324,7 @@
         WM.draw(game, c);
       };
       c.addEventListener('mousemove', move);
-      c.addEventListener('mouseleave', () => { WM.hover = null; WM.tip(game, null); WM.draw(game, c); });
+      c.addEventListener('mouseleave', () => { WM.hover = null; WM.tip(game, null); WM.drawSoon(game, c); });
       window.addEventListener('mouseup', up);
       const stop = () => { if (!UI.panelOpen || UI.panelKind !== 'map') { window.removeEventListener('mouseup', up); window.removeEventListener('resize', rs); clearInterval(tick); } };
       const rs = () => { if (UI.panelKind === 'map') { fit(); WM.draw(game, c); } };
@@ -463,7 +474,11 @@
       if (globe) {
         // the globe, drawn in 3D underneath; everything else on top of it
         const G = WM.G;
-        WM.globeStep(); WM.globeDetail(game, c); G.r.render(G.sc, G.cam);
+        WM.globeStep();
+        // the sharper painting is worked out only once the view is still (turning and zooming stay smooth)
+        if (performance.now() - (G.lastInput || 0) > 180) WM.globeDetail(game, c);
+        else if (!G._settle) G._settle = setTimeout(() => { G._settle = null; const cc = document.getElementById('worldmap'); if (cc) WM.drawSoon(game, cc); }, 200);
+        G.r.render(G.sc, G.cam);
         g.clearRect(0, 0, c.width, c.height);
         const Rpx = (c.height / 2) / Math.tan(G.cam.fov * Math.PI / 360) / Math.sqrt(Math.max(0.02, G.dist * G.dist - 1));
         V.z = Rpx * Math.PI * 2 / world.W;
@@ -662,7 +677,7 @@
         // how many pixels of the screen a tile takes here
         let ppt = un ? un.pp : 0;
         if (!p.hidden) { const q = WM.gScreen(c, cx + 3, cy), r = WM.gScreen(c, cx, cy + 3); if (!q.hidden) ppt = Math.max(ppt, Math.hypot(q.x - p.x, q.y - p.y) / 3); if (!r.hidden) ppt = Math.max(ppt, Math.hypot(r.x - p.x, r.y - p.y) / 3); }
-        const S = ppt < 1.1 ? 0 : ppt < 2.2 ? 2 : ppt < 4.5 ? 4 : 8;
+        const S = ppt < 1.1 ? 0 : ppt < 2.2 ? 2 : 4;            // (closer than four pixels a tile, the card's tiles are simply drawn larger, crisp)
         if (cur) { cur.mesh.visible = S > 0 || cur.S <= 2; cur.used = G.frame; }
         if (S > 0 && (!cur || cur.S < S)) want.push({ key, sx, sy, x0, y0, x1, y1, S, d: un ? un.d : p.hidden ? 1e9 : Math.hypot(p.x - w / 2, p.y - h / 2) });
       }
@@ -673,8 +688,10 @@
           G.segRun = null;
           const cc = document.getElementById('worldmap');
           if (!cc || !WM.isGlobe() || !G.segQ || !G.segQ.length) return;
+          // (not while you are turning or zooming: then wait, and go on after)
+          if (performance.now() - (G.lastInput || 0) < 180) { G.segRun = setTimeout(work, 120); return; }
           const t0 = performance.now();
-          while (G.segQ.length && performance.now() - t0 < 30) { const job = G.segQ.shift(); try { WM.globeSeg(game, job); } catch (err) { console.error('ECHO: map detail', err); G.segQ = []; } }
+          while (G.segQ.length && performance.now() - t0 < 24) { const job = G.segQ.shift(); try { WM.globeSeg(game, job); } catch (err) { console.error('ECHO: map detail', err); G.segQ = []; } }
           WM.draw(game, cc);
         }, 20);
       }
@@ -699,7 +716,8 @@
         });
       }
       if (!all) { g.imageSmoothingEnabled = true; g.globalAlpha = 0.55; g.drawImage(WM.fogC, (-4 - j.x0) * S, (-4 - j.y0) * S, WM.fogC.width * 4 * S, WM.fogC.height * 4 * S); g.globalAlpha = 1; }
-      const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = G.r.capabilities.getMaxAnisotropy ? G.r.capabilities.getMaxAnisotropy() : 1;
+      const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding;
+      if (S >= 4) tex.magFilter = THREE.NearestFilter;      // (seen close, each painted pixel stays sharp) tex.anisotropy = G.r.capabilities.getMaxAnisotropy ? G.r.capabilities.getMaxAnisotropy() : 1;
       let cur = G.segs.get(j.key);
       if (!cur) {
         const geo = WM.ballGeo(world, 1.0004, j.x0, j.x1, j.y0, j.y1, 20, 20);
@@ -766,6 +784,7 @@
       G.spin.rotation.y = G.yaw; G.tilt.rotation.x = G.pitch - beta;
       G.cam.position.set(0, 0, d); G.cam.lookAt(0, 0, 0); G.cam.rotateX(lean); G.cam.updateMatrixWorld(true);
       G.sc.updateMatrixWorld(true);
+      (G.invSpin = G.invSpin || new THREE.Matrix4()).copy(G.spin.matrixWorld).invert();
       // the sun stands over the place where it is noon (by the hour where you are), north of the middle in summer
       const game = ECHO.Game, world = game && game.world;
       if (world && world.globe && game.pl) {
@@ -782,12 +801,24 @@
       const q = p.project(G.cam);
       return { x: (q.x + 1) / 2 * c.width, y: (1 - q.y) / 2 * c.height };
     },
+    // the place in the world under a point of the screen: the ray meets the ball (worked out,
+    // not searched for among its triangles), turned back into the ball's own latitude and longitude
     gWorld(c, sx, sy) {
       const G = WM.G, world = ECHO.Game.world;
-      G.ray.setFromCamera(new THREE.Vector2(sx / c.width * 2 - 1, -(sy / c.height * 2 - 1)), G.cam);
-      const hit = G.ray.intersectObject(G.ball, false)[0];
-      if (!hit || !hit.uv) return { x: -1, y: -1 };
-      return { x: U.clamp(hit.uv.x * world.W, 0, world.W - 0.01), y: U.clamp((1 - hit.uv.y) * world.H, 0, world.H - 0.01) };
+      G.ray.setFromCamera(G._v2 = (G._v2 || new THREE.Vector2()).set(sx / c.width * 2 - 1, -(sy / c.height * 2 - 1)), G.cam);
+      const o = G.ray.ray.origin, d = G.ray.ray.direction, b = o.dot(d), disc = b * b - (o.lengthSq() - 1);
+      if (disc < 0) return { x: -1, y: -1 };
+      const t = -b - Math.sqrt(disc);
+      if (t < 0) return { x: -1, y: -1 };
+      const p = (G._v3 = G._v3 || new THREE.Vector3()).copy(o).addScaledVector(d, t).applyMatrix4(G.invSpin || G.spin.matrixWorld.clone().invert());
+      const th = Math.acos(U.clamp(p.y, -1, 1)), ph = Math.atan2(p.z, -p.x);
+      const x = ((ph / (Math.PI * 2)) % 1 + 1) % 1 * world.W;
+      return { x: U.clamp(x, 0, world.W - 0.01), y: U.clamp(ECHO.Globe.rowOf(world, Math.PI / 2 - th), 0, world.H - 0.01) };
+    },
+    // one drawing a frame, however many things ask for it
+    drawSoon(game, c) {
+      if (WM._raf) return;
+      WM._raf = requestAnimationFrame(() => { WM._raf = 0; WM.draw(game, c); });
     },
     // what goes round the globe on the screen: its name, a compass rose of the poles, the reading under the pointer
     globeFrame(game, c, g) {

@@ -43,6 +43,16 @@
       const h = (t * t * t - 2 * t * t + t) * m0 + (-2 * t * t * t + 3 * t * t) + (t * t * t - t * t) * m1;
       return s * (f1 + (Math.PI / 2 - f1) * h);
     },
+    // and back: the row at a latitude (a table of every row's latitude, searched)
+    rowOf(world, lat) {
+      const H = world.H;
+      let T = Gl._latT;
+      if (!T || T.H !== H) { T = Gl._latT = { H, a: new Float64Array(H + 1) }; for (let y = 0; y <= H; y++) T.a[y] = Gl.lat(world, y); }
+      const a = T.a; if (lat >= a[0]) return 0; if (lat <= a[H]) return H;
+      let lo = 0, hi = H;
+      while (hi - lo > 1) { const m = (lo + hi) >> 1; if (a[m] > lat) lo = m; else hi = m; }
+      return lo + (a[lo] - lat) / (a[lo] - a[hi] || 1);
+    },
     latLon(world, x, y) {
       const G = world.globe; if (!G) return null;
       const lat = Gl.lat(world, y) * 180 / Math.PI, cx = (G.old.x0 + G.old.x1) / 2;

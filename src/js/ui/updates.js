@@ -7,6 +7,9 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.6', items: [
+      'The globe map no longer lags when you zoom or turn it: finding the place under the pointer is now worked out directly instead of searched for, the map draws at most once a frame, and the sharper painting of the land waits until you stop moving (and paints faster when it does).'
+    ] },
     { v: '0.10.5', items: [
       'Walk all the way round the world, like Earth: going over a pole no longer turns you back or stops you — you walk straight on down the far side, and the view turns with you so what was ahead stays ahead (the little map turns too). On a dragon the same.',
       'No more sea at the world\'s join: the land runs on east and west all the way round with no seam, so you can walk 360° without a boat.'
