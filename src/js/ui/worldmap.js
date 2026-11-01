@@ -889,6 +889,11 @@
     mini(game, c) {
       if (ECHO.Interior.cur && ECHO.Interior.cur.type === 'gate') return WM.miniGate(game, c);
       if (ECHO.Interior.cur && ECHO.Interior.cur.carved) return WM.miniDungeon(game, c);
+      // the view turned about (over a pole): the little map turns with it
+      if (game.pl && game.pl.viewTurn && !ECHO.Interior.cur) { const g = c.getContext('2d'); g.save(); g.translate(c.width, c.height); g.rotate(Math.PI); try { WM.miniOut(game, c); } finally { g.restore(); } return; }
+      return WM.miniOut(game, c);
+    },
+    miniOut(game, c) {
       const world = game.world, pl = game.pl, g = c.getContext('2d');
       const pe = ECHO.Interior.cur ? { x: pl.x, y: pl.y, dir: game.pe ? game.pe.dir : 0 } : game.pe;
       const scale = 2.2, sx = pe.x - c.width / scale / 2, sy = pe.y - c.height / scale / 2;

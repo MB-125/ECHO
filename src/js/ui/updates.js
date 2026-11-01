@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.5', items: [
+      'Walk all the way round the world, like Earth: going over a pole no longer turns you back or stops you — you walk straight on down the far side, and the view turns with you so what was ahead stays ahead (the little map turns too). On a dragon the same.',
+      'No more sea at the world\'s join: the land runs on east and west all the way round with no seam, so you can walk 360° without a boat.'
+    ] },
     { v: '0.10.4', items: [
       'Flying over a pole on your dragon now carries you on down the far side of the world instead of holding you against the top of it like a wall.',
       'The globe map is sharp at every distance: the part you are looking at is painted again, piece by piece, as finely as you are zoomed (tile by tile close in, with trees, roads and rivers).',

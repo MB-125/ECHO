@@ -13,8 +13,8 @@
 // were drawn from. North of the old island the cold comes on fast and it is the
 // Frozen Crown to the pole; to the south the land dries; past the middle of the
 // world it cools again toward the southern ice. Both poles are sheets of ice you
-// can walk across. Opposite the old island, on the far side of the globe, lies the
-// World-Sea, with two long strands of sand running across it.
+// can walk straight over, and the land runs on all the way round, east and west,
+// with no join anywhere.
 //
 // An old save is moved onto the globe once (everything on it shifts together, as
 // when the land used to grow west or north) and keeps everything it had.
@@ -24,7 +24,7 @@
   const DIRS = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'];
 
   const Gl = ECHO.Globe = {
-    P: 2880, HG: 1440, C: 96, NEAR: 120, SEAM: 110,
+    P: 2880, HG: 1440, C: 96, NEAR: 120, BLEND: 240,
 
     on(world) { return !!(world && world.globe); },
     wrapX(world, x) { const P = world.W; return ((x % P) + P) % P; },
@@ -156,33 +156,45 @@
     tileAt(world, x, y) {
       const T = TT(), G = world.globe, F = world.frontier, nz = Fr().noise(world);
       const xo = x - F.ox, yo = y - F.oy;
-      let e = Fr().elevInf(world, xo, yo);
-      // the World-Sea, opposite the old island
-      const ds = Math.min(x, G.P - x), S = Gl.SEAM;
-      if (ds < S) { const k = U.clamp(1 - (ds - 30) / (S - 30), 0, 1); e -= 0.75 * k * k * (3 - 2 * k); }
-      let t = Fr().classify(world, e, xo, yo);
+      // The world closes on itself with no seam: across the last stretch before its east edge,
+      // the land turns smoothly into the land that lies past it (the west edge), so walking
+      // east you never meet a join — or a sea put there to hide one.
+      const B = Gl.BLEND, k = x >= G.P - B ? (x - (G.P - B)) / B : 0, s = k * k * (3 - 2 * k);
+      let e, t;
+      if (!s) { e = Fr().elevInf(world, xo, yo); t = Fr().classify(world, e, xo, yo); }
+      else {
+        const mix = f => f(xo) * (1 - s) + f(xo - G.P) * s, Gw = Wd().gen(world);
+        e = mix(v => Fr().elevInf(world, v, yo));
+        const m = mix(v => nz.mo(v / 38 + 50, yo / 38 + 50));
+        if (e < 0.25) t = T.DEEP;
+        else if (e < 0.31) t = T.WATER;
+        else if (e < 0.335) t = T.SAND;
+        else if (e > Gw.rock) t = T.ROCK;
+        else if (e > Gw.hill) t = yo < F.H0 * 0.24 ? T.SNOW : T.HILL;
+        else if (m > 0.6 && e < 0.42) t = T.SWAMP;
+        else if (m > 0.52) t = hash2(xo, yo, world.seed) < 0.42 ? T.TREE : T.FOREST;
+        else t = T.GRASS;
+        const north = -yo / F.H0, south = yo / F.H0 - 1;
+        if (north > 0.08 && t !== T.DEEP && t !== T.WATER && t !== T.ROCK) {
+          const kk = U.clamp((north - 0.08) * 1.6, 0, 0.85);
+          if (t === T.HILL || (t !== T.TREE && mix(v => nz.cl(v / 17, yo / 17)) < 0.2 + kk * 0.6)) t = T.SNOW;
+        }
+        if (south > 0.1 && t === T.GRASS && m < 0.47 && mix(v => nz.cl(v / 21 + 40, yo / 21 + 40)) < 0.2 + U.clamp((south - 0.1) * 2, 0, 0.75) * 0.6) t = T.SAND;
+      }
+      const mixX = f => s ? f(x) * (1 - s) + f(x - G.P) * s : f(x), mixO = f => s ? f(xo) * (1 - s) + f(xo - G.P) * s : f(xo);
       // the far south cools toward its own ice
       const sp = (y - G.HG * 0.7) / (G.HG * 0.2);
       if (sp > 0 && t !== T.DEEP && t !== T.WATER && t !== T.ROCK) {
         if (t === T.SAND && e > 0.34) t = T.GRASS;
         const kk = U.clamp(sp, 0, 0.85);
-        if (t === T.HILL || (t !== T.TREE && nz.cl(xo / 17 + 9, yo / 17 + 9) < 0.2 + kk * 0.6)) t = T.SNOW;
+        if (t === T.HILL || (t !== T.TREE && mixO(v => nz.cl(v / 17 + 9, yo / 17 + 9)) < 0.2 + kk * 0.6)) t = T.SNOW;
       }
       // the poles: sheets of ice over land and sea alike, broken pack ice round them
       const dp = Math.min(y, G.HG - 1 - y);
-      if (dp < 44) { if (t !== T.ROCK) t = T.SNOW; }
+      if (dp < 44) t = T.SNOW;          // (smooth ice right over the top: nothing to stop you crossing)
       else if (dp < 90) {
-        if ((t === T.DEEP || t === T.WATER) && nz.cl(x / 9 + 3, y / 9 + 3) < (90 - dp) / 46 * 0.75) t = T.SNOW;
+        if ((t === T.DEEP || t === T.WATER) && mixX(v => nz.cl(v / 9 + 3, y / 9 + 3)) < (90 - dp) / 46 * 0.75) t = T.SNOW;
         else if ((t === T.TREE || t === T.FOREST || t === T.GRASS) && dp < 66) t = T.SNOW;
-      }
-      // two strands of sand run across the World-Sea
-      if (ds < S + 12 && (t === T.DEEP || t === T.WATER)) {
-        for (const row of [0.36, 0.6]) {
-          const a = x / G.P * Math.PI * 2, yc = G.HG * row + Math.sin(a * 20) * 6 + Math.sin(a * 62) * 1.6;   // (whole waves round the world, so they meet themselves)
-          const w = 1.3 + (hash2(x, 7, world.seed) - 0.5) * 0.8;
-          if (Math.abs(y - yc) < w) { t = hash2(x, y, world.seed + 5) < 0.12 ? T.GRASS : T.SAND; break; }
-          if (Math.abs(y - yc) < w + 1.6 && t === T.DEEP) { t = T.WATER; break; }
-        }
       }
       return t;
     },
@@ -305,11 +317,11 @@
       if (now - (Gl._poleAt || 0) > 2500 && (pe.y < lim || pe.y > w.H - lim)) {
         Gl._poleAt = now;
         const north = pe.y < lim;
-        Gl.cross(game, Gl.wrapX(w, pe.x + w.W / 2), north ? lim + 2.2 : w.H - lim - 2.2, north
-          ? 'You have walked over the top of the world, and are coming down its far side: every way from here is south.'
-          : 'You have crossed the bottom of the world, and are coming up its far side: every way from here is north.', north, true);
-        // keep going the way you were going: while you hold the keys, they carry you on, not back
-        Gl.flip = true; Gl.flipIdle = 0;
+        // Over the pole you go on as you were: you come down the far side, and the view turns with
+        // you, so what was ahead is still ahead and the keys you hold still carry you forward.
+        pl.viewTurn = pl.viewTurn ? 0 : 1;
+        Gl.cross(game, Gl.wrapX(w, pe.x + w.W / 2), north ? lim + 0.7 : w.H - lim - 0.7, null, north, true);
+        if (game.pe && ECHO.Combat) ECHO.Combat.floater(game.pe.x, game.pe.y - 1.7, north ? 'the North Pole' : 'the South Pole', '#e8f4ff', true);
         return;
       }
       if (Gl._t < 0.8 || (ECHO.UI && ECHO.UI.screenOpen)) return;

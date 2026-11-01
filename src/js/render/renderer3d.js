@@ -2713,7 +2713,7 @@
           const pe = game.pe, sc = (e.tscale || 1) * 1.47;
           const pp = R.project(pe.x, pe.y, 0.9), bc = R.project(e.x, e.y, 1.1 * sc + (e.alt || 0)), br = R.project(e.x + 1.9 * sc, e.y, 1.1 * sc + (e.alt || 0));
           const rad = Math.abs(br.x - bc.x), dxy = Math.hypot(pp.x - bc.x, (pp.y - bc.y) * 1.25);
-          const over = e.y > pe.y - 0.6 * sc && dxy < rad * 1.05;   // nearer the camera than you, and over you on the screen
+          const over = (e.y - pe.y) * (R.viewS || 1) > -0.6 * sc && dxy < rad * 1.05;   // nearer the camera than you, and over you on the screen
           v.occA = (v.occA == null ? 1 : v.occA) + ((over ? 0.3 : 1) - (v.occA == null ? 1 : v.occA)) * Math.min(1, dt * 6);
           shown = Math.min(shown, v.occA);
         }
@@ -2816,7 +2816,7 @@
         if (v.ghostMat) {
           let hid = false;
           // (with the see-through circle on, the trees open up around you instead: no wash of ghost-light over you)
-          if (!ECHO.Interior.cur && !(R.cutU && R.cutU.uCutR.value > 0.5)) for (let dy = 0; dy <= 2 && !hid; dy++) for (let dx = -1; dx <= 1; dx++) if (ECHO.World.tile(game.world, e.x + dx, e.y + dy + 0.3) === TILE.TREE) { hid = true; break; }
+          if (!ECHO.Interior.cur && !(R.cutU && R.cutU.uCutR.value > 0.5)) for (let dy = 0; dy <= 2 && !hid; dy++) for (let dx = -1; dx <= 1; dx++) if (ECHO.World.tile(game.world, e.x + dx, e.y + (dy + 0.3) * (R.viewS || 1)) === TILE.TREE) { hid = true; break; }
           const want = hid ? 0.4 : 0;
           v.ghostMat.opacity += (want - v.ghostMat.opacity) * Math.min(1, dt * 10);
           v.ghostMat.visible = v.ghostMat.opacity > 0.02;
@@ -3997,7 +3997,9 @@
       if (game.shakeT > 0) { sx = (Math.random() - 0.5) * game.shakeA * 0.4; sy = (Math.random() - 0.5) * game.shakeA * 0.4; }
       const kk = game.camKick || { x: 0, y: 0 };
       sx += kk.x; sy += kk.y;
-      R.camera.position.set(R.camTarget.x + sx, R.camTarget.y + D * 0.86, R.camTarget.z + D * 0.6 + sy);
+      // over a pole of a round world the view turns about with you (you look the way you are going)
+      const S = R.viewS = !room && game.pl && game.pl.viewTurn ? -1 : 1;
+      R.camera.position.set(R.camTarget.x + sx, R.camTarget.y + D * 0.86, R.camTarget.z + D * 0.6 * S + sy);
       R.camera.lookAt(R.camTarget.x + sx, R.camTarget.y + 0.5, R.camTarget.z + sy);
       R.camera.updateMatrixWorld();
       if (!room) {
@@ -4109,7 +4111,8 @@
       for (const t of Object.values(R.towns)) for (const m of t.group.children) {
         const o = m.userData.occ;
         if (!o || o.part === 'glow') continue;
-        const hides = pe.y < o.y + o.h / 2 + 0.5 && pe.y > o.y - o.h / 2 - o.tall && Math.abs(pe.x - o.x) < o.w / 2 + 0.8;
+        const S = R.viewS || 1, py = o.y + (pe.y - o.y) * S;      // (the side toward the camera, whichever way the view faces)
+        const hides = py < o.y + o.h / 2 + 0.5 && py > o.y - o.h / 2 - o.tall && Math.abs(pe.x - o.x) < o.w / 2 + 0.8;
         const want = hides ? (o.part === 'window' ? R.mat.windowFade : R.mat.propFade) : (o.part === 'window' ? R.mat.window : R.mat.prop);
         if (m.material !== want) { m.material = want; m.castShadow = !hides && o.part === 'base'; }
       }

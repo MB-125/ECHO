@@ -1116,9 +1116,10 @@ function main() {
     check('land near you is made as you come: ground, regions and villages with people', need.length > 0 && need.every(ci => G.made[ci]) && w.settlements.length > nSet && Object.keys(w.npcs).length > ppl, `${need.length} cells, ${info.towns.length} villages`);
     check('east of the east edge is the west edge', ECHO.World.tile(w, -3, 500) === ECHO.World.tile(w, w.W - 3, 500) && ECHO.World.isSolid(w, -2.5, 500.5) === ECHO.World.isSolid(w, w.W - 2.5, 500.5) && Gl.dx(w, w.W - 5, 5) === 10);
     Gl.make(w, Gl.unmade(w, 3, 520, 40)); Gl.make(w, Gl.unmade(w, 1400, 20, 20));
-    let strand = 0, ice = 0; for (let y = 505; y < 535; y++) { const a = ECHO.World.tile(w, w.W - 1, y), b = ECHO.World.tile(w, 0, y); if (a === ECHO.TILE.SAND || a === ECHO.TILE.GRASS) strand++; if ((a === ECHO.TILE.SAND || a === ECHO.TILE.GRASS) !== (b === ECHO.TILE.SAND || b === ECHO.TILE.GRASS) && strand) strand = -99; }
-    for (let x = 1380; x < 1420; x++) { const t = ECHO.World.tile(w, x, 5); if (t === ECHO.TILE.SNOW || t === ECHO.TILE.ROCK) ice++; }
-    check('a strand of sand crosses the World-Sea unbroken where the map meets itself', strand > 0, strand + ' tiles');
+    let sameJ = 0, ice = 0, seamN = 0, inN = 0, inSame = 0; for (let y = 400; y < 700; y++) { if (ECHO.World.tile(w, w.W - 1, y) === ECHO.World.tile(w, 0, y)) sameJ++; seamN++; }
+    Gl.make(w, Gl.unmade(w, 1400, 520, 30)); for (let y = 400; y < 700; y++) { if (ECHO.World.tile(w, 1400, y) === ECHO.World.tile(w, 1401, y)) inSame++; inN++; }
+    for (let x = 1380; x < 1420; x++) { const t = ECHO.World.tile(w, x, 5); if (t === ECHO.TILE.SNOW) ice++; }
+    check('the land runs on where the map meets itself, as it does anywhere else (no sea, no join)', sameJ / seamN > inSame / inN - 0.15, `${sameJ}/${seamN} alike across the join, ${inSame}/${inN} inland`);
     check('the pole is a sheet of ice you can walk on', ice >= 38, ice + '/40');
     const rng = new ECHO.RNG(5); let onMade = 0; for (let i = 0; i < 200; i++) { const p = ECHO.World.spot(w, rng, 8, 9, 8, 9); if (Gl.made(w, p.x, p.y)) onMade++; }
     check('things placed by chance land on country that has been made', onMade === 200);
