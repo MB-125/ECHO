@@ -27,6 +27,15 @@
     P: 2880, HG: 1440, C: 96, NEAR: 120, BLEND: 240,
 
     on(world) { return !!(world && world.globe); },
+    // Over each pole, the far side lies turned about a fixed line: a point past the pole at x is
+    // the ground at T - x on the far side. T is fixed when you come near the pole and kept while
+    // you are there, so the land past it holds still as you walk along beside it, and what is
+    // drawn there, what you bump into there and where you come out are all one and the same.
+    pole: { n: null, s: null },
+    poleT(world, north, x) {
+      const t = north ? Gl.pole.n : Gl.pole.s, W = world.W;
+      return t != null ? t : (((2 * Math.floor(x) + W / 2) % W) + W) % W;
+    },
     wrapX(world, x) { const P = world.W; return ((x % P) + P) % P; },
     // the short way round from a to b, east positive
     dx(world, a, b) { let d = b - a; if (!world.globe) return d; const P = world.W; d = ((d % P) + P) % P; return d > P / 2 ? d - P : d; },
@@ -336,10 +345,13 @@
       // You walk on over it as over any other ground (what is past it is drawn, the far side turned
       // about); the moment you are past it you are on the far side, and the view turns with you,
       // so the frame after looks just as the frame before.
+      // the line the far side turns about, fixed as you come near a pole and let go well away from it
+      if (pe.y < 90 && Gl.pole.n == null) Gl.pole.n = Gl.wrapX(w, 2 * Math.round(pe.x) + w.W / 2); else if (pe.y > 160) Gl.pole.n = null;
+      if (pe.y > w.H - 90 && Gl.pole.s == null) Gl.pole.s = Gl.wrapX(w, 2 * Math.round(pe.x) + w.W / 2); else if (pe.y < w.H - 160) Gl.pole.s = null;
       if (pe.y < 0 || pe.y >= w.H) {
-        const north = pe.y < 0;
+        const north = pe.y < 0, T = Gl.poleT(w, north, pe.x);
         pl.viewTurn = pl.viewTurn ? 0 : 1;
-        Gl.cross(game, Gl.wrapX(w, pe.x + w.W / 2), north ? -pe.y : 2 * w.H - pe.y, null, north, true);
+        Gl.cross(game, Gl.wrapX(w, T - pe.x), north ? -pe.y : 2 * w.H - pe.y, null, north, true);
         return;
       }
       if (Gl._t < 0.8 || (ECHO.UI && ECHO.UI.screenOpen)) return;

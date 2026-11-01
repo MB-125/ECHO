@@ -616,7 +616,11 @@
       delete R.mchunks[k];
     },
     // where the far side is drawn: X = T - x', Z = Zc - z' (a half turn about the pole under you)
-    mirrorFrame(world, px, north) { return { T: 2 * px + world.W / 2, Zc: north ? 0 : 2 * world.H, Q: px + world.W / 2 }; },
+    // Q: the far side's x under where you stand (0..W); T = px + Q: fixed while the pole's line is
+    mirrorFrame(world, px, north) {
+      const W = world.W, Tm = ECHO.Globe ? ECHO.Globe.poleT(world, north, px) : 2 * px + W / 2, Q = (((Tm - px) % W) + W) % W;
+      return { T: px + Q, Zc: north ? 0 : 2 * world.H, Q };
+    },
     updateMirror(game) {
       const world = game.world, pe = game.pe;
       R.mchunks = R.mchunks || {};
@@ -662,8 +666,8 @@
       const G = R.mirrorGroup;
       if (!G) return;
       const oldReal = R.chunks, oldMirror = R.mchunks || {}, Wc = Math.round(world.W / CH);
-      // the far side's chunks were built about Q = oldX + W/2 (unwrapped); as land under you they belong at newX
-      const sA = Math.round((newX - (oldX + world.W / 2)) / CH);
+      // the far side's chunks were built about Q (the far side's x under you); as land under you they belong at newX
+      const sA = Math.round((newX - (R._mQ != null ? R._mQ : newX)) / CH);
       const realNew = {};
       for (const [k, c] of Object.entries(oldMirror)) {
         const [cx, cy] = k.split(',').map(Number);
@@ -672,8 +676,9 @@
         c.mirror = false; c.shown = null; c.near = null;
         realNew[(cx + sA) + ',' + cy] = c;
       }
-      // and the land round you goes past the pole, about the new Q = newX + W/2
-      const sB = Math.round((newX + world.W / 2 - oldX) / world.W) * Wc, mirNew = {};
+      // and the land round you goes past the pole, about the new Q (which is where you were)
+      const north = R._mNorth, Qn = R.mirrorFrame(world, newX, north).Q;
+      const sB = Math.round((Qn - oldX) / world.W) * Wc, mirNew = {};
       for (const [k, c] of Object.entries(oldReal)) {
         const [cx, cy] = k.split(',').map(Number);
         for (const o of c.objs) { o.userData._home = o.parent; G.add(o); if (sB) o.position.x += sB * CH; o.visible = true; o.updateMatrixWorld && o.updateMatrixWorld(true); }
@@ -682,7 +687,7 @@
         c.mirror = true; mirNew[(cx + sB) + ',' + cy] = c;
       }
       R.chunks = realNew; R.mchunks = mirNew;
-      R._mQ = newX + world.W / 2;
+      R._mQ = Qn;
     },
 
     // Everything built of the land moved by dx tiles (dx a whole number of chunks): going round
@@ -906,7 +911,7 @@
         } else if (t === TILE.SWAMP) {
           if (h1 < 0.55) add('reeds', null, px, py, 0.9 + h2 * 0.5, h1 * 6.28);
         } else if (t === TILE.HILL || t === TILE.SNOW) {
-          if (h1 < 0.18) add('rock', season === 3 ? { rock: '#b8bec0' } : null, px, py, 0.8 + h2, h1 * 6.28);
+          if (h1 < (ECHO.Solids ? ECHO.Solids.rockOn(world, t, y) : 0.18)) add('rock', season === 3 ? { rock: '#b8bec0' } : null, px, py, 0.8 + h2, h1 * 6.28);
           else if (h1 < 0.32 && t === TILE.HILL) add('grass', { grass: '#8a8a5a' }, px, py, 1, h1 * 6.28);
         } else if (t === TILE.ROCK) {
           if (h1 < 0.25) add('boulder', season === 3 ? { rock: '#c8cdd0' } : null, px, py, 0.9 + h2, h1 * 6.28);

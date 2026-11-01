@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.10', items: [
+      'Walking up to a pole is now seamless: the land beyond the pole no longer slides about as you walk along it. The line you cross over is fixed as you come near, so the far side holds still, and when you go over it the ground under your feet is the ground you saw.',
+      'The snowfields round the poles are no longer walled in by boulders: the polar ice is clear, and the snow elsewhere on the globe has far fewer rocks, so you can always walk on through.'
+    ] },
     { v: '0.10.9', items: [
       'Going over a pole is now seamless: the land past the pole (the far side of the world, turned about, as it really lies) is drawn as you come up to it, and as you cross the two simply change places — the view the moment after is the view the moment before, with nothing rebuilt and no sudden switch. The weather and the land\'s name stay the same over the top.',
       'Your dragon no longer flickers when flying fast or over the world\'s edges: the beast you ride is drawn exactly under you every frame, and fast-moving creatures ease smoothly instead of jumping one frame and lagging the next.',

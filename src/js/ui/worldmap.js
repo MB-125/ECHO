@@ -938,7 +938,7 @@
       // past a pole: the far side of the world, turned about (as the land itself is drawn)
       const vw = c.width / scale, vh = c.height / scale;
       if (world.globe && (sy < 0 || sy + vh > world.H)) {
-        const north = sy < 0, T = 2 * pe.x + world.W / 2, Zc = north ? 0 : 2 * world.H;
+        const north = sy < 0, Tm = ECHO.Globe ? ECHO.Globe.poleT(world, north, pe.x) : 2 * pe.x + world.W / 2, T = pe.x + ((((Tm - pe.x) % world.W) + world.W) % world.W), Zc = north ? 0 : 2 * world.H;
         g.save();
         g.beginPath();
         if (north) g.rect(0, 0, c.width, -sy * scale); else g.rect(0, (world.H - sy) * scale, c.width, c.height);

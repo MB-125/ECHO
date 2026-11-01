@@ -13,6 +13,15 @@
 
   const So = ECHO.Solids = {
     RAD,
+    // how often a boulder stands on hill or snow: on a round world the snowfields are wide, so
+    // the snow is kept clearer (and round the poles, clear), that you can walk across them
+    rockOn(world, t, y) {
+      const T = TT();
+      if (t === T.HILL) return 0.18;
+      if (!world.globe) return 0.18;
+      if (y < 50 || y >= world.H - 50) return 0;
+      return 0.07;
+    },
     // What stands on a tile by nature (the same hashes the 3D renderer plants with).
     // (the same, written into o instead of a new object — the collision test runs
     // this nine times for every step of everything that moves, and garbage made at
@@ -26,7 +35,7 @@
       if (t === T.TREE) r = 0.17;   // (the trunk as drawn)
       else if (t === T.FOREST) { if (!(a < 0.22)) return false; r = 0.15; }
       else if (t === T.GRASS) { if (!(a >= 0.32 && a < 0.335)) return false; r = RAD.rock * (0.5 + h2(x, y, s + 32) * 0.4); }
-      else if (t === T.HILL || t === T.SNOW) { if (!(a < 0.18)) return false; r = RAD.rock * (0.8 + h2(x, y, s + 32)); }
+      else if (t === T.HILL || t === T.SNOW) { if (!(a < So.rockOn(world, t, y))) return false; r = RAD.rock * (0.8 + h2(x, y, s + 32)); }
       else if (t === T.RUIN) { if (!(a < 0.06 && world.ruins.some(q => Math.abs(q.x - x) <= 6 && Math.abs(q.y - y) <= 5))) return false; r = 0.25; }
       else return false;
       o.x = x + 0.5 + (h2(x, y, s + 32) - 0.5) * 0.5; o.y = y + 0.5 + (h2(x, y, s + 33) - 0.5) * 0.5; o.r = r;
@@ -42,7 +51,7 @@
       if (t === T.TREE) return { x: px, y: py, r: world._wd && world._wd[y * world.W + x] ? 0.22 : 0.17, k: 'trunk' };
       if (t === T.FOREST) return a < 0.22 && !(world._trail && world._trail[y * world.W + x]) ? { x: px, y: py, r: 0.15, k: 'oak', s: 0.6 + b * 0.25 } : null;
       if (t === T.GRASS) return a >= 0.32 && a < 0.335 ? { x: px, y: py, r: RAD.rock * (0.5 + b * 0.4), k: 'rock', s: 0.5 + b * 0.4 } : null;
-      if (t === T.HILL || t === T.SNOW) return a < 0.18 ? { x: px, y: py, r: RAD.rock * (0.8 + b), k: 'rock', s: 0.8 + b } : null;
+      if (t === T.HILL || t === T.SNOW) return a < So.rockOn(world, t, y) ? { x: px, y: py, r: RAD.rock * (0.8 + b), k: 'rock', s: 0.8 + b } : null;
       if (t === T.RUIN && a < 0.06 && world.ruins.some(r => Math.abs(r.x - x) <= 6 && Math.abs(r.y - y) <= 5)) return { x: px, y: py, r: 0.25, k: 'pillar', s: 0.9 };
       return null;
     },
