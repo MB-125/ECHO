@@ -146,14 +146,24 @@
     rect(world, ci) { const G = world.globe, nx = G.xs.length - 1, cx = ci % nx, cy = (ci / nx) | 0; return { x0: G.xs[cx], x1: G.xs[cx + 1], y0: G.ys[cy], y1: G.ys[cy + 1] }; },
     made(world, x, y) { const G = world.globe; return !G || !!G.made[Gl.cellAt(world, x, y)]; },
     // the cells within r of (x, y) that have not been made yet
+    // (near a pole this looks on over it, at the far side as it lies past the pole: the land you
+    //  are about to walk onto is made before you get there, not the moment you arrive.)
+    // Sorted nearest first, by the distance from (x, y) as you would walk it.
     unmade(world, x, y, r) {
-      const G = world.globe, out = new Set();
+      const G = world.globe, best = new Map();
       if (!G) return [];
-      for (let yy = Math.max(0, y - r); yy <= Math.min(G.HG - 1, y + r); yy += 16) for (let xx = x - r; xx <= x + r; xx += 16) {
-        const ci = Gl.cellAt(world, xx, yy); if (!G.made[ci]) out.add(ci);
-      }
-      for (const [xx, yy] of [[x - r, y - r], [x + r, y - r], [x - r, y + r], [x + r, y + r], [x, Math.max(0, y - r)], [x, Math.min(G.HG - 1, y + r)]]) { const ci = Gl.cellAt(world, xx, U.clamp(yy, 0, G.HG - 1)); if (!G.made[ci]) out.add(ci); }
-      return [...out];
+      const H = G.HG, at = (xx, yy) => {
+        let X = xx, Y = yy;
+        if (Y < 0) { X = Gl.poleT(world, true, x) - 1 - X; Y = -1 - Y; }
+        else if (Y >= H) { X = Gl.poleT(world, false, x) - 1 - X; Y = 2 * H - 1 - Y; }
+        const ci = Gl.cellAt(world, X, U.clamp(Y, 0, H - 1));
+        if (G.made[ci]) return;
+        const d = Math.hypot(xx - x, yy - y);
+        if (!best.has(ci) || best.get(ci) > d) best.set(ci, d);
+      };
+      for (let yy = y - r; yy <= y + r; yy += 16) for (let xx = x - r; xx <= x + r; xx += 16) at(xx, yy);
+      for (const [xx, yy] of [[x - r, y - r], [x + r, y - r], [x - r, y + r], [x + r, y + r], [x, y - r], [x, y + r], [x + r, y], [x - r, y]]) at(xx, yy);
+      return [...best.keys()].sort((a, b) => best.get(a) - best.get(b));
     },
     // somewhere at random on land that has been made (for things placed by chance)
     spot(world, rng, lx, hx, ly, hy) {
@@ -362,11 +372,10 @@
       // land not yet made, coming within sight
       const need = Gl.unmade(w, Math.floor(pe.x), Math.floor(pe.y), Gl.NEAR);
       if (need.length) {
-        // the nearest first, two at a time, so the world never stops for long
-        const px = pe.x, py = pe.y, d = ci => { const R = Gl.rect(w, ci); return Math.hypot(Gl.dx(w, px, (R.x0 + R.x1) / 2), (R.y0 + R.y1) / 2 - py); };
+        // the nearest first (as unmade gives them), one at a time, so the world never stops for long
         // (one at a time — and not from the sky: from a dragon's back the land is seen, not visited;
         //  its people and places are made when you come down to it)
-        if (!pl.flying) Gl.go(game, need.sort((a, b) => d(a) - d(b)).slice(0, 1));
+        if (!pl.flying) Gl.go(game, need.slice(0, 1));
       }
     },
     go(game, cells) {
@@ -434,7 +443,16 @@
       for (const e of game.ents) {
         if (!near(e)) continue;
         if (seam) { e.x += dx; if (e.home && near(e.home)) e.home = { x: e.home.x + dx, y: e.home.y }; if (e.tx != null) e.tx += dx; }
-        else if (mine(e)) { const rx = e.x - ox, ry = e.y - oy; e.x = x - rx; e.y = y - ry; if (e.dir != null) e.dir += Math.PI; }   // (turned about, as you are)
+        else if (mine(e)) {
+          const rx = e.x - ox, ry = e.y - oy; e.x = x - rx; e.y = y - ry; if (e.dir != null) e.dir += Math.PI;   // (turned about, as you are)
+          // and as drawn: its heading on screen is the same the frame after (the view turned with it),
+          // so the drawn body turns at once with it rather than swinging round to catch up
+          const v = R3 && R3.views && R3.views.get(e);
+          if (v) { if (v.dir != null) v.dir += Math.PI; if (v.px != null) { v.px = e.x; v.py = e.y; } }
+        }
+      }
+      if (!seam && R3 && R3.horses) for (const H of R3.horses.values()) {
+        if (H && H.syaw != null && H.root && Math.abs(H.root.position.x - ox) < 40 && Math.abs(H.root.position.z - oy) < 40) H.syaw += Math.PI;
       }
       if (seam) {
         for (const l of game.loot || []) if (near(l)) l.x += dx;

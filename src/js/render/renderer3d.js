@@ -549,9 +549,10 @@
       if (R.water) { R.scene.remove(R.water); R.water.geometry.dispose(); }
       // depth under every vertex: clear and pale over the shallows, dark over the deeps, foam at the edge
       const PX = world.globe ? 400 : 60;      // (a round world's sea runs on past its east and west edges)
-      const big = (world.W + PX) * (world.H + 60);
+      const PY = world.globe ? 0 : 60;        // (and stops at its poles: past one, the far side's own water is drawn, turned about with its land)
+      const big = (world.W + PX) * (world.H + PY);
       const step = (R.Q && R.Q.map <= 512 ? 2 : 1) * (big > 700000 ? 4 : big > 220000 ? 2 : 1);
-      const g = new THREE.PlaneGeometry(world.W + PX, world.H + 60, Math.round((world.W + PX) / step), Math.round((world.H + 60) / step));
+      const g = new THREE.PlaneGeometry(world.W + PX, world.H + PY, Math.round((world.W + PX) / step), Math.round((world.H + PY) / step));
       const pos = g.attributes.position, depth = new Float32Array(pos.count);
       for (let i = 0; i < pos.count; i++) {
         const wx = pos.getX(i) + world.W / 2, wy = world.H / 2 - pos.getY(i);
@@ -559,7 +560,8 @@
         depth[i] = inside ? Math.max(0, -0.2 - R.rawH(wx, wy)) : 0.6;
       }
       g.setAttribute('aDepth', new THREE.BufferAttribute(depth, 1));
-      R._waterG = { PX, nx: Math.round((world.W + PX) / step), ny: Math.round((world.H + 60) / step), wd: world.W + PX, ht: world.H + 60 };
+      R._waterG = { PX, nx: Math.round((world.W + PX) / step), ny: Math.round((world.H + PY) / step), wd: world.W + PX, ht: world.H + PY };
+      R._mwKey = null;
       const m = new THREE.MeshStandardMaterial({ color: C('#2e6a96'), roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.86, flatShading: true });
       R.waterTime = { value: 0 }; R.waterIce = { value: 0 };
       m.onBeforeCompile = (sh) => {
@@ -606,7 +608,7 @@
     MIRROR_NEAR: 60,
     mirrorDropAll() {
       for (const k of Object.keys(R.mchunks || {})) R.mirrorDrop(k);
-      R.mchunks = {};
+      R.mchunks = {}; R._mwKey = null;
       if (R.mirrorGroup) R.mirrorGroup.visible = false;
     },
     mirrorDrop(k) {
@@ -640,6 +642,7 @@
       const cys = []; for (let i = 0; i <= Math.ceil(deep / CH); i++) cys.push(north ? i : NCy - 1 - i);
       const want = new Set(), epoch = R.chunkKey(world);
       for (const cy of cys) for (let cx = cx0; cx <= cx1; cx++) want.add(cx + ',' + cy);
+      R.mirrorWater(world, M, north, (rad + 2) * CH, deep + CH);
       for (const k of Object.keys(R.mchunks)) if (!want.has(k)) R.mirrorDrop(k);
       const t0 = performance.now();
       const order = [...want].sort((a, b) => Math.abs(+a.split(',')[0] * CH + 8 - M.Q) - Math.abs(+b.split(',')[0] * CH + 8 - M.Q));
@@ -659,6 +662,35 @@
         for (const o of nc.lo || []) o.visible = false;
         nc.mirror = true; R.mchunks[k] = nc;
       }
+    },
+    // The far side's water past the pole, turned about with its land (the same water, in the same
+    // light and ice, as you will find it when you get there). Built in the far side's own
+    // coordinates inside the turned group; again when you have walked a few tiles along the pole,
+    // or the land under it changed.
+    mirrorWater(world, M, north, half, deep) {
+      if (!R.water) return;
+      const Qc = Math.round(M.Q / 8) * 8, key = [north, Qc, half, deep, R.chunkKey(world)].join('|');
+      if (R._mwKey === key && R._mWater) return;
+      R._mwKey = key;
+      const wd = 2 * half, ht = deep, step = 2, nx = Math.round(wd / step), ny = Math.round(ht / step);
+      let m = R._mWater;
+      if (!m || m.userData.nx !== nx || m.userData.ny !== ny) {
+        if (m) { m.parent && m.parent.remove(m); m.geometry.dispose(); }
+        const g = new THREE.PlaneGeometry(wd, ht, nx, ny);
+        g.setAttribute('aDepth', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count), 1));
+        m = R._mWater = new THREE.Mesh(g, R.water.material);
+        m.rotation.x = -Math.PI / 2; m.receiveShadow = true; m.userData.nx = nx; m.userData.ny = ny;
+      }
+      if (m.parent !== R.mirrorGroup) R.mirrorGroup.add(m);
+      const zc = north ? ht / 2 : world.H - ht / 2, W = world.W;
+      m.position.set(Qc, -0.2, zc); m.updateMatrixWorld(true);
+      const pos = m.geometry.attributes.position, a = m.geometry.getAttribute('aDepth');
+      for (let i = 0; i < pos.count; i++) {
+        const lx = Qc + pos.getX(i), lz = zc - pos.getY(i);
+        const inside = lz >= 0 && lz <= world.H;
+        a.array[i] = inside ? Math.max(0, -0.2 - R.rawH((((lx % W) + W) % W), lz)) : 0.6;
+      }
+      a.needsUpdate = true;
     },
     // You have gone over the pole: what was past it is where you now are, and what was around
     // you is past it. Each set of chunks is handed to the other; dx re-bases the far side's x.

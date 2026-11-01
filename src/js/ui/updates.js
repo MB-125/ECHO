@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.11', items: [
+      'No more glitch going over a pole: your dragon (and you, your horse and your beasts) no longer spin round the moment you cross. The view turns with you over the top, and now the way they are drawn turns with it at once, so they fly or walk straight on.',
+      'The land just past a pole is settled before you get there, not the moment you arrive: lakes, shores and places over the top are already there as you come up to them, instead of appearing all at once as you cross.',
+      'Water past a pole is drawn as it really is (frozen or open, deep or shallow), so it looks the same before and after you cross.'
+    ] },
     { v: '0.10.10', items: [
       'Walking up to a pole is now seamless: the land beyond the pole no longer slides about as you walk along it. The line you cross over is fixed as you come near, so the far side holds still, and when you go over it the ground under your feet is the ground you saw.',
       'The snowfields round the poles are no longer walled in by boulders: the polar ice is clear, and the snow elsewhere on the globe has far fewer rocks, so you can always walk on through.'
