@@ -1125,6 +1125,14 @@ function main() {
     check('latitude and longitude: the old land in the north, near the middle meridian', /°N/.test(Gl.fmtLatLon(w, s0.x, s0.y)) && Gl.latLon(w, 0, 0).lat === 90);
     const json = ECHO.Save.serialize(w), w2 = ECHO.Save.deserialize(json);
     check('a round world saves small and loads whole', json.length < 3e6 && w2.globe && w2.globe.made.join('') === G.made.join('') && w2.player.explored.length === w.player.explored.length && w2.player.explored[(G.old.y0 / 4) * cw + G.old.x0 / 4 + 3] === 1 && w2.tiles.length === w.tiles.length, (json.length / 1e6).toFixed(2) + ' MB');
+    {
+      // the far ground is drawn again on each load, so a save leaves it out
+      const ci = G.made.indexOf(0), R = Gl.rect(w, ci), i = (R.y0 + 3) * w.W + R.x0 + 3;
+      w._filled = true; w.tiles[i] = ECHO.TILE.HILL;
+      const w3 = ECHO.Save.deserialize(ECHO.Save.serialize(w));
+      check('the far ground of a round world is not saved, and is drawn again after a load', w3.tiles[i] === 0 && !w3._filled && w3.tiles.length === w.tiles.length);
+      w._filled = false; w.tiles[i] = 0;
+    }
     ECHO.Sim.fastForward(w, 3);
     check('and it goes on living', w.day > 0 && Object.values(w.npcs).some(n => n.status === 'alive'));
   }

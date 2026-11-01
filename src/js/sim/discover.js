@@ -228,7 +228,7 @@
       if (world._landCells) return world._landCells;
       const cw = Math.ceil(world.W / 4), ch = Math.ceil(world.H / 4);
       let n = 0;
-      for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) { const t = ECHO.World.tile(world, x * 4 + 2, y * 4 + 2); if (t !== ECHO.TILE.DEEP) n++; }
+      for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) { if (world.globe && !ECHO.Globe.made(world, x * 4 + 2, y * 4 + 2)) continue; const t = ECHO.World.tile(world, x * 4 + 2, y * 4 + 2); if (t !== ECHO.TILE.DEEP) n++; }   // (on a round world: of the country known so far)
       return (world._landCells = n);
     },
     explored(world, pl) {

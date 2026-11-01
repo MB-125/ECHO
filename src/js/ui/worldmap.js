@@ -5,6 +5,7 @@
 // the screen will follow.
 (function () {
   const { U } = ECHO;
+  const Globe = () => ECHO.Globe;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const T = () => ECHO.TILE;
   const PARCH = '#d8c7a0', INK = '#3a2a18';
@@ -55,7 +56,7 @@
       const tiles = new Uint8Array(N), wd0 = world._wd, tr0 = world._trail, wd = wd0 ? new Uint8Array(N) : null, tr = tr0 ? new Uint8Array(N) : null;
       for (let y = 0; y < H; y++) { const o = (y + Y0) * WW + X0; tiles.set(world.tiles.subarray(o, o + W), y * W); if (wd) wd.set(wd0.subarray(o, o + W), y * W); if (tr) tr.set(tr0.subarray(o, o + W), y * W); }
       // which tiles are uncharted (not yet made)
-      const G = world.globe, mist = G ? new Uint8Array(N) : null;
+      const G = world.globe && !world._filled ? world.globe : null, mist = G ? new Uint8Array(N) : null;   // (once the whole globe is drawn, there is nothing uncharted to paint)
       if (G) {
         const nx = G.xs.length - 1, cxs = new Int32Array(W), Gl = ECHO.Globe;
         for (let x = 0; x < W; x++) cxs[x] = Gl.find(G.xs, x + X0);
@@ -257,10 +258,11 @@
         ev.preventDefault();
         const r = c.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
         if (WM.isGlobe(world)) {
-          const G = WM.G;
-          // in close as the globe goes: on to the flat chart, at the place under the pointer
-          if (ev.deltaY < 0 && G.dist <= G.min + 0.01) { const p = WM.gWorld(c, mx, my); if (p.x >= 0) { WM.mode = 'chart'; WM.globeShow(main); V.cx = p.x; V.cy = p.y; V.z = 4; WM.draw(game, c); } return; }
-          G.dist = U.clamp(G.dist * (ev.deltaY < 0 ? 0.88 : 1.14), G.min, G.max); G.anim = null;
+          // in toward the ground (by height above it, so the last of the way is as smooth as the first),
+          // keeping the place under the pointer under it
+          const G = WM.G, before = WM.gWorld(c, mx, my);
+          G.dist = 1 + U.clamp((G.dist - 1) * (ev.deltaY < 0 ? 0.84 : 1.19), G.min - 1, G.max - 1); G.anim = null;
+          if (before.x >= 0) { WM.globeStep(); const after = WM.gWorld(c, mx, my); if (after.x >= 0) { G.yaw += (Globe().dx(world, after.x, before.x)) / world.W * Math.PI * 2 * -1; G.pitch = U.clamp(G.pitch - (before.y - after.y) / world.H * Math.PI, -1.45, 1.45); } }
           WM.draw(game, c); return;
         }
         const before = WM.toWorld(c, mx, my);
@@ -276,7 +278,7 @@
           const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
           if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
           if (drag.moved && WM.isGlobe(world)) {
-            const G = WM.G, k = 0.0042 * (G.dist - 0.95);
+            const G = WM.G, k = 0.0042 * (G.dist - 1) * 0.95;
             G.yaw = drag.yaw + dx * k; G.pitch = U.clamp(drag.pitch + dy * k, -1.45, 1.45);
             WM.draw(game, c); c.style.cursor = 'grabbing'; return;
           }
@@ -453,7 +455,7 @@
       if (globe) {
         // the globe, drawn in 3D underneath; everything else on top of it
         const G = WM.G;
-        WM.globeStep(); G.r.render(G.sc, G.cam);
+        WM.globeStep(); WM.globeDetail(game, c); G.r.render(G.sc, G.cam);
         g.clearRect(0, 0, c.width, c.height);
         const Rpx = (c.height / 2) / Math.tan(G.cam.fov * Math.PI / 360) / Math.sqrt(Math.max(0.02, G.dist * G.dist - 1));
         V.z = Rpx * Math.PI * 2 / world.W;
@@ -586,7 +588,7 @@
         for (let i = 0; i < N; i++) { const a = Math.random() * Math.PI * 2, z = Math.random() * 2 - 1, rr = Math.sqrt(1 - z * z), d = 90 + Math.random() * 60; sp[i * 3] = Math.cos(a) * rr * d; sp[i * 3 + 1] = z * d; sp[i * 3 + 2] = Math.sin(a) * rr * d; }
         const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
         sc.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: '#d8e0ff', size: 0.35, sizeAttenuation: true, transparent: true, opacity: 0.8 })));
-        G = WM.G = { r, sc, cam, tilt, spin, ball, mat, sun, yaw: 0, pitch: 0, dist: 3.9, min: 1.12, max: 7, ray: new THREE.Raycaster(), anim: null };
+        G = WM.G = { r, sc, cam, tilt, spin, ball, mat, sun, yaw: 0, pitch: 0, dist: 3.9, min: 1.09, max: 7, ray: new THREE.Raycaster(), anim: null };
       }
       G.r.domElement.className = 'wmap-globe';
       main.insertBefore(G.r.domElement, c);
@@ -618,7 +620,58 @@
       if (world.globe) { const mx = (world.globe.old.x0 + world.globe.old.x1) / 2 * k; g.strokeStyle = 'rgba(255,232,180,0.26)'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(mx, 0); g.lineTo(mx, TH); g.stroke(); }
       if (!G.tex) { G.tex = new THREE.CanvasTexture(cv); G.tex.encoding = THREE.sRGBEncoding; G.tex.anisotropy = G.r.capabilities.getMaxAnisotropy ? G.r.capabilities.getMaxAnisotropy() : 1; G.mat.map = G.tex; G.mat.needsUpdate = true; }
       else G.tex.needsUpdate = true;
-      G.texKey = WM._baseKey;
+      G.texKey = WM._baseKey; G.patchAt = null;
+    },
+    // Close in: a sharper painting of the ground below, laid over the ball, painted again
+    // a moment after you stop turning or zooming if you have moved far from it.
+    globeDetail(game, c) {
+      const G = WM.G, world = game.world, a = G.dist - 1;
+      if (!world.globe || a > 0.8) { if (G.patch) G.patch.visible = false; return; }
+      const ctr = WM.gWorld(c, c.width / 2, c.height / 2);
+      if (ctr.x < 0) return;
+      const Wp = Math.round(U.clamp(a * 560, 120, 460)), P = G.patchAt;
+      if (G.patch && G.patch.visible && P && Math.abs(Globe().dx(world, P.cx, ctr.x)) < P.Wp * 0.18 && Math.abs(P.cy - ctr.y) < P.Hp * 0.18 && Math.abs(P.Wp - Wp) / Wp < 0.3) return;
+      if (G._patchQ) clearTimeout(G._patchQ);
+      G._patchQ = setTimeout(() => {
+        G._patchQ = null;
+        const cc = document.getElementById('worldmap');
+        if (!cc || !WM.isGlobe(world)) return;
+        const p = WM.gWorld(cc, cc.width / 2, cc.height / 2), a2 = G.dist - 1;
+        if (p.x < 0 || a2 > 0.8) return;
+        const w2 = Math.round(U.clamp(a2 * 560, 120, 460));
+        try { WM.globePatch(game, p.x, p.y, w2, Math.round(w2 * 0.62)); } catch (err) { console.error('ECHO: map detail', err); }
+        WM.draw(game, cc);
+      }, 160);
+    },
+    globePatch(game, cx, cy, Wp, Hp) {
+      const world = game.world, pl = game.pl, G = WM.G, W = world.W, H = world.H;
+      const x0 = U.clamp(Math.round(cx - Wp / 2), 0, W - Wp), y0 = U.clamp(Math.round(cy - Hp / 2), 0, H - Hp);
+      const S = U.clamp(Math.round(1700 / Wp), 3, 8);
+      const cv = G.pcv || (G.pcv = document.createElement('canvas')); cv.width = Wp * S; cv.height = Hp * S;
+      const g = cv.getContext('2d');
+      g.putImageData(WM.paint(world, x0, y0, x0 + Wp, y0 + Hp, S), 0, 0);
+      // the roads you know, and (unless the whole map is shown) what you have not walked
+      const all = WM.revealed(pl), seenAt = (x, y) => all || ECHO.Game.explored(x, y);
+      g.lineCap = 'round'; g.lineJoin = 'round';
+      for (const pass of [0, 1]) {
+        g.strokeStyle = pass ? 'rgba(122,88,50,0.95)' : 'rgba(236,222,186,0.55)'; g.lineWidth = Math.max(1, S * (pass ? 0.42 : 0.75));
+        for (const r of world.roads) {
+          if (!Array.isArray(r.path) || r.path.length < 2) continue;
+          g.beginPath(); let on = false;
+          for (const t of r.path) { const x = t % W + 0.5, y = ((t / W) | 0) + 0.5; if (x < x0 - 2 || x > x0 + Wp + 2 || y < y0 - 2 || y > y0 + Hp + 2 || !seenAt(x, y)) { on = false; continue; } const px = (x - x0) * S, py = (y - y0) * S; if (!on) { g.moveTo(px, py); on = true; } else g.lineTo(px, py); }
+          g.stroke();
+        }
+      }
+      if (!all) { g.imageSmoothingEnabled = true; g.drawImage(WM.fogC, (-4 - x0) * S, (-4 - y0) * S, WM.fogC.width * 4 * S, WM.fogC.height * 4 * S); }
+      if (G.ptex) G.ptex.dispose();
+      G.ptex = new THREE.CanvasTexture(cv); G.ptex.encoding = THREE.sRGBEncoding; G.ptex.anisotropy = G.r.capabilities.getMaxAnisotropy ? G.r.capabilities.getMaxAnisotropy() : 1;
+      const geo = new THREE.SphereGeometry(1.0005, 72, 44, x0 / W * Math.PI * 2, Wp / W * Math.PI * 2, y0 / H * Math.PI, Hp / H * Math.PI);
+      if (!G.patch) {
+        G.patch = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+        G.spin.add(G.patch);
+      } else { G.patch.geometry.dispose(); G.patch.geometry = geo; }
+      G.patch.material.map = G.ptex; G.patch.material.needsUpdate = true; G.patch.visible = true;
+      G.patchAt = { cx, cy, Wp, Hp };
     },
     // a place on the ball (unturned), from a place in the world
     gPoint(world, x, y) { const ph = x / world.W * Math.PI * 2, th = y / world.H * Math.PI; return new THREE.Vector3(-Math.cos(ph) * Math.sin(th), Math.cos(th), Math.sin(ph) * Math.sin(th)); },
@@ -683,7 +736,7 @@
       const Gd = world.globe, made = Gd ? Gd.made.reduce((a, b) => a + b, 0) : 0, tot = Gd ? Gd.made.length : 1;
       const a = WM._hoverLL;
       g.font = '12px "Pixelify Sans", monospace'; g.textAlign = 'left';
-      const lines = [`${Math.max(1, Math.round(made / tot * 100))}% of the world charted`, a ? a : 'Drag to turn the world · scroll to come closer'];
+      const lines = [`${Math.max(1, Math.round(made / tot * 100))}% of the world's country known`, a ? a : 'Drag to turn the world · scroll to come closer'];
       const bw = Math.max(...lines.map(t => g.measureText(t).width)) + 16;
       g.fillStyle = 'rgba(20,14,8,0.62)'; g.fillRect(c.width - bw - 10, 10, bw, 38);
       g.fillStyle = '#efe3c8'; lines.forEach((t, i) => g.fillText(t, c.width - bw - 2, 21 + i * 16));

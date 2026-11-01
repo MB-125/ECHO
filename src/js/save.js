@@ -71,17 +71,18 @@
       for (const k of Object.keys(world)) {
         // derived caches are rebuilt on load; plain flags and counters are kept
         if (k[0] === '_' && (typeof world[k] === 'object' || k === '_tileEpoch' || k === '_hourAcc')) continue;
-        if (k === 'blocked') continue;
+        if (k === 'blocked' || k === '_filled') continue;      // (the far ground of a round world is drawn again on load, not saved)
         out[k] = world[k];
       }
       // grown worlds get big: long runs of the same ground pack small
-      out.tiles = world.frontier ? 'rle:' + toB64(rle(world.tiles)) : toB64(world.tiles);
+      out.tiles = world.frontier ? 'rle:' + toB64(rle(ECHO.Globe ? ECHO.Globe.tilesToSave(world) : world.tiles)) : toB64(world.tiles);
       // and what you have walked of a round world, packed the same way
       return JSON.stringify(out, (k, v) => k === 'explored' && Array.isArray(v) && v.length > 4096 ? 'rle:' + v.length + ':' + toB64(rle(Uint8Array.from(v, x => x ? 1 : 0))) : v);
     },
     deserialize(json) {
       const w = JSON.parse(json, (k, v) => { if (k === 'explored' && typeof v === 'string' && v.startsWith('rle:')) { const p = v.indexOf(':', 4), n = +v.slice(4, p); return Array.from(unrle(fromB64(v.slice(p + 1)), n)); } return v; });
       w.tiles = typeof w.tiles === 'string' && w.tiles.startsWith('rle:') ? unrle(fromB64(w.tiles.slice(4)), w.W * w.H) : fromB64(w.tiles);
+      delete w._filled;
       w.journeys = w.journeys || [];
       w.news = w.news || [];
       // saves made before the flags were kept: don't place the wild a second time

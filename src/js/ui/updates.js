@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.2', items: [
+      'The whole globe is land and sea now, drawn from the start: continents, lakes, ice caps and the World-Sea are all there to see on the map, not just the lands you have reached. Villages, people and dungeons still appear as you travel to them.',
+      'The globe map stays a globe however close you zoom, and close in it paints the ground beneath you sharply: trees, roads and rivers. (🌐 still switches to the flat chart if you want it.)'
+    ] },
     { v: '0.10.1', items: [
       'New country is now made around you while you keep playing, a little at a time, instead of the game reloading: no more pause on the edge of new land.',
       'Over the poles: hold your direction and you carry straight on down the far side of the world, instead of turning back.',

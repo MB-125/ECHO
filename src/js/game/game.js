@@ -23,6 +23,7 @@
       ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset(); if (ECHO.Riders) ECHO.Riders.reset(); if (ECHO.Water) ECHO.Water.ripples = [];
       if (ECHO.Wonders) ECHO.Wonders.state(world);
       if (ECHO.Globe && !world.globe) { try { ECHO.Globe.ensure(world); } catch (err) { console.error('ECHO: the world could not be made round', err); } }
+      if (ECHO.Globe && world.globe && !world._filled) { try { ECHO.Globe.fill(world); } catch (err) { console.error('ECHO: the far lands could not be drawn', err); } }
       if (ECHO.Marvels) ECHO.Marvels.reset();
       if (ECHO.Fest) ECHO.Fest.reset();
       if (ECHO.Quests) ECHO.Quests.reset();

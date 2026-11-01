@@ -187,7 +187,7 @@
       for (const k of Object.keys(world)) if (k[0] === '_' && world[k] && typeof world[k] === 'object') delete world[k];
       const W = world.W, rects = cells.map(ci => ({ ci, R: Gl.rect(world, ci) }));
       // 1. the ground of all of them first, so each sees its neighbours
-      for (const { R } of rects) for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) world.tiles[y * W + x] = Gl.tileAt(world, x, y);
+      if (!world._filled) for (const { R } of rects) for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) world.tiles[y * W + x] = Gl.tileAt(world, x, y);
       for (const { ci } of rects) G.made[ci] = 1;
       for (const { ci, R } of rects) Fr().rivers(world, R, new RNG(ECHO.hashStr('globe-r:' + world.seed + ':' + ci)));
       Wd().rebuildBlocked(world);
@@ -223,6 +223,28 @@
       }
       if (ECHO.Realm && ECHO.Realm.reshaped) ECHO.Realm.reshaped(world);
       return { regions: allRegions.map(r => r.name), towns: allTowns.map(t => t.name) };
+    },
+    // The ground of the whole globe, everywhere no one has yet come near, so the world is
+    // all there to see from the start (its people and places still come as you travel).
+    // It is the same every time, so it is not saved: it is drawn again on each load.
+    fill(world) {
+      const G = world.globe;
+      if (!G || world._filled) return 0;
+      const W = world.W, t0 = Date.now();
+      G.made.forEach((m, ci) => { if (m) return; const R = Gl.rect(world, ci); for (let y = R.y0; y < R.y1; y++) for (let x = R.x0; x < R.x1; x++) world.tiles[y * W + x] = Gl.tileAt(world, x, y); });
+      world._filled = true;
+      world._tileEpoch = (world._tileEpoch || 0) + 1;
+      delete world._landCells;
+      Wd().rebuildBlocked(world);
+      return Date.now() - t0;
+    },
+    // what a save keeps of the ground: the drawn-again part left out (it packs to nothing)
+    tilesToSave(world) {
+      const G = world.globe;
+      if (!G || !world._filled) return world.tiles;
+      const out = world.tiles.slice(), W = world.W;
+      G.made.forEach((m, ci) => { if (m) return; const R = Gl.rect(world, ci); for (let y = R.y0; y < R.y1; y++) out.fill(0, y * W + R.x0, y * W + R.x1); });
+      return out;
     },
     // the old island's last shore, the sea before you, and land past it: a sandbar across
     bridge(world, pe) {
