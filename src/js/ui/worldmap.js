@@ -191,7 +191,8 @@
     // ------------------------------------------------------------ what is on the map
     features(game, box) {
       // (box: only what lies within it — the little map needs only what is around you)
-      const world = game.world, pl = game.pl, out = [], add = f => { if (!box || (f.x > box.x0 && f.x < box.x1 && f.y > box.y0 && f.y < box.y1)) out.push(f); }, all = WM.revealed(pl), seen = (x, y) => all || game.explored(x, y);
+      const world = game.world, R3 = ECHO.Renderer3D, im = box && world.globe && R3 && R3._imF ? R3.img : null;   // (round the world, and over a pole: the copy nearest you)
+      const pl = game.pl, out = [], add = f => { if (!box) return out.push(f); const I = im ? im(f.x, f.y) : f; if (I.x > box.x0 && I.x < box.x1 && I.y > box.y0 && I.y < box.y1) out.push(f); }, all = WM.revealed(pl), seen = (x, y) => all || game.explored(x, y);
       const Pw = ECHO.Prowess, me = Pw ? Pw.level(pl) : 1;
       for (const s of world.settlements) if (seen(s.x, s.y)) add({ layer: 'towns', kind: s.kind === 'capital' ? 'capital' : 'town', x: s.x, y: s.y, name: s.name, color: world.factions[s.faction] ? world.factions[s.faction].color : '#ccc', pri: s.kind === 'capital' ? 9 : 7, ref: s,
         sub: `${s.kind === 'capital' ? 'Capital' : s.kind === 'village' ? 'Village' : 'Town'} of ${world.factions[s.faction] ? world.factions[s.faction].name : 'no one'}${s.warden === pl.charId ? ' · yours' : ''}` });
@@ -929,7 +930,9 @@
       const world = game.world, pl = game.pl, g = c.getContext('2d');
       const pe = ECHO.Interior.cur ? { x: pl.x, y: pl.y, dir: game.pe ? game.pe.dir : 0 } : game.pe;
       const scale = 2.2, sx = pe.x - c.width / scale / 2, sy = pe.y - c.height / scale / 2;
-      const P = (x, y) => ({ x: (x - sx) * scale, y: (y - sy) * scale });
+      // where a thing is marked: its copy nearest you (round the world, or past a pole, turned about), as it is drawn
+      const R3 = ECHO.Renderer3D, im = world.globe && !ECHO.Interior.cur && R3 && R3._imF ? R3.img : null;
+      const P = (x, y) => { const I = im ? im(x, y) : { x, y }; return { x: (I.x - sx) * scale, y: (I.y - sy) * scale }; };
       g.imageSmoothingEnabled = false;
       g.fillStyle = PARCH; g.fillRect(0, 0, c.width, c.height);
       const bs = WM.base(world), S = WM.baseScale || 1;
@@ -951,8 +954,13 @@
       }
       const cw = Math.ceil(world.W / 4);
       g.fillStyle = PARCH;
+      const chH = Math.ceil(world.H / 4);
       if (!WM.revealed(pl)) for (let y = Math.floor(sy / 4); y <= Math.ceil((sy + c.height / scale) / 4); y++) for (let x = Math.floor(sx / 4); x <= Math.ceil((sx + c.width / scale) / 4); x++) {
-        if (x < 0 || y < 0 || x >= cw || !pl.explored[y * cw + x]) g.fillRect((x * 4 - sx) * scale, (y * 4 - sy) * scale, 4 * scale + 1, 4 * scale + 1);
+        // (round the world, and past a pole: the cell of the world that is drawn there)
+        let X = x, Y = y;
+        if (world.globe && (Y < 0 || Y >= chH) && ECHO.Globe) { const north = Y < 0, T = ECHO.Globe.poleT(world, north, pe.x), wx = T - (x * 4 + 2), wy = north ? -(y * 4 + 2) : 2 * world.H - (y * 4 + 2); X = Math.floor(wx / 4); Y = Math.floor(wy / 4); }
+        if (world.globe) X = ((X % cw) + cw) % cw;
+        if (X < 0 || Y < 0 || X >= cw || Y >= chH || !pl.explored[Y * cw + X]) g.fillRect((x * 4 - sx) * scale, (y * 4 - sy) * scale, 4 * scale + 1, 4 * scale + 1);
       }
       const inView = p => p.x > -8 && p.y > -8 && p.x < c.width + 8 && p.y < c.height + 8;
       if (!WM._mf || game.time - WM._mfT > 1 || game.time < WM._mfT) { WM._mf = WM.features(game, { x0: pe.x - 90, x1: pe.x + 90, y0: pe.y - 90, y1: pe.y + 90 }); WM._mfT = game.time; }

@@ -85,7 +85,10 @@
     // ------------------------------------------------------------ foraging
     nodeAt(world, x, y) {
       const t = ECHO.World.tile(world, x, y);
-      const h = ECHO.hash2(x, y, world.seed + 77), h2 = ECHO.hash2(x, y, world.seed + 78);
+      // (on a round world the tile as the world keeps it — round the join, or past a pole — so the
+      //  same patch grows in the same spot whichever way you come to it)
+      const c = world.globe && ECHO.Globe && ECHO.Globe.canon ? ECHO.Globe.canon(world, x, y) : null, cx = c ? c[0] : x, cy = c ? c[1] : y, fl = c ? c[2] : 0;
+      const h = ECHO.hash2(cx, cy, world.seed + 77), h2 = ECHO.hash2(cx, cy, world.seed + 78);
       const season = ECHO.TIME.dateOf(world.day).seasonIdx;
       let acc = 0;
       for (const k in NODES) {
@@ -95,7 +98,8 @@
         if (h < acc) {
           if (!N.seasons.includes(season)) return null;
           if (k === 'honey') { let tree = false; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (ECHO.World.tile(world, x + dx, y + dy) === T.TREE) tree = true; if (!tree) return null; }
-          return { k, x: x + 0.3 + h2 * 0.4, y: y + 0.3 + ((h * 997) % 1) * 0.4, key: x + ',' + y };
+          const ox = 0.3 + h2 * 0.4, oy = 0.3 + ((h * 997) % 1) * 0.4;
+          return { k, x: fl ? x + 1 - ox : x + ox, y: fl ? y + 1 - oy : y + oy, key: cx + ',' + cy };
         }
       }
       return null;

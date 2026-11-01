@@ -668,29 +668,118 @@
     // coordinates inside the turned group; again when you have walked a few tiles along the pole,
     // or the land under it changed.
     mirrorWater(world, M, north, half, deep) {
-      if (!R.water) return;
-      const Qc = Math.round(M.Q / 8) * 8, key = [north, Qc, half, deep, R.chunkKey(world)].join('|');
+      if (!R.water || !R._waterG) return;
+      // on the sea sheet's own grid and in its own coordinates, so it is the very same surface
+      // (the same depths, ice, foam and glints) as you will find it when you have crossed
+      const Wg = R._waterG, step = Wg.wd / Wg.nx, W = world.W, H = world.H;
+      const sn = v => Math.round(v / step) * step;
+      const Qc = sn(M.Q), hw = sn(half) + step, ht = sn(deep) + step;
+      const key = [north, Qc, hw, ht, R.chunkKey(world)].join('|');
       if (R._mwKey === key && R._mWater) return;
       R._mwKey = key;
-      const wd = 2 * half, ht = deep, step = 2, nx = Math.round(wd / step), ny = Math.round(ht / step);
-      let m = R._mWater;
-      if (!m || m.userData.nx !== nx || m.userData.ny !== ny) {
-        if (m) { m.parent && m.parent.remove(m); m.geometry.dispose(); }
-        const g = new THREE.PlaneGeometry(wd, ht, nx, ny);
-        g.setAttribute('aDepth', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count), 1));
-        m = R._mWater = new THREE.Mesh(g, R.water.material);
-        m.rotation.x = -Math.PI / 2; m.receiveShadow = true; m.userData.nx = nx; m.userData.ny = ny;
-      }
-      if (m.parent !== R.mirrorGroup) R.mirrorGroup.add(m);
-      const zc = north ? ht / 2 : world.H - ht / 2, W = world.W;
-      m.position.set(Qc, -0.2, zc); m.updateMatrixWorld(true);
-      const pos = m.geometry.attributes.position, a = m.geometry.getAttribute('aDepth');
+      const nx = Math.round(2 * hw / step), ny = Math.round(ht / step), zc = north ? ht / 2 : H - ht / 2;
+      const g = new THREE.PlaneGeometry(2 * hw, ht, nx, ny).translate(Qc - W / 2, H / 2 - zc, 0);
+      const pos = g.attributes.position, a = new Float32Array(pos.count);
       for (let i = 0; i < pos.count; i++) {
-        const lx = Qc + pos.getX(i), lz = zc - pos.getY(i);
-        const inside = lz >= 0 && lz <= world.H;
-        a.array[i] = inside ? Math.max(0, -0.2 - R.rawH((((lx % W) + W) % W), lz)) : 0.6;
+        const lx = pos.getX(i) + W / 2, lz = H / 2 - pos.getY(i);
+        a[i] = lz >= 0 && lz <= H ? Math.max(0, -0.2 - R.rawH((((lx % W) + W) % W), lz)) : 0.6;
       }
-      a.needsUpdate = true;
+      g.setAttribute('aDepth', new THREE.BufferAttribute(a, 1));
+      let m = R._mWater;
+      if (m) { m.geometry.dispose(); m.geometry = g; }
+      else { m = R._mWater = new THREE.Mesh(g, R.water.material); m.rotation.x = -Math.PI / 2; m.receiveShadow = true; }
+      if (m.parent !== R.mirrorGroup) R.mirrorGroup.add(m);
+      m.position.set(W / 2, -0.2, H / 2); m.updateMatrixWorld(true);
+    },
+    // ---------------------------------------------------------------- round the world: where things are drawn
+    // The view keeps to your own coordinates; everything is drawn at its copy nearest the view —
+    // a whole turn east or west of where the world keeps it, or, near a pole, past it on the far
+    // side, turned about (as the land past the pole is drawn). So nothing is left behind or pops
+    // in at the east-west join or over a pole: what was in sight before you cross is in sight after.
+    imgSet(game) {
+      const world = game.world, tg = R.camTarget;
+      R._imF = null;
+      if (!world || !world.globe || !tg || (ECHO.Interior && ECHO.Interior.cur)) return;
+      const F = R._imF = R._imFrame || (R._imFrame = { W: 0, cx: 0, cz: 0, m: null, mm: { T: 0, Zc: 0 } });
+      F.W = world.W; F.cx = tg.x; F.cz = tg.z; F.m = null;
+      if (tg.z < 110 || tg.z > world.H - 110) {
+        const north = tg.z < world.H / 2, M = R.mirrorFrame(world, tg.x, north);
+        F.mm.T = M.T; F.mm.Zc = M.Zc; F.m = F.mm;
+      }
+    },
+    // the copy of (x, y) nearest the view: R._im = { x, y, f } (f: seen past a pole, turned about)
+    img(x, y) {
+      const I = R._im || (R._im = { x: 0, y: 0, f: 0 }), F = R._imF;
+      I.x = x; I.y = y; I.f = 0;
+      if (!F) return I;
+      const W = F.W;
+      I.x = x + Math.round((F.cx - x) / W) * W;
+      if (F.m) {
+        const m0 = F.m.T - x, mx = m0 + Math.round((F.cx - m0) / W) * W, mz = F.m.Zc - y;
+        if ((mx - F.cx) ** 2 + (mz - F.cz) ** 2 < (I.x - F.cx) ** 2 + (y - F.cz) ** 2) { I.x = mx; I.y = mz; I.f = 1; }
+      }
+      return I;
+    },
+    // how far (x, y) is from the view, the short way (round the world or over a pole)
+    imgDist(x, y, ox, oz) {
+      const I = R.img(x, y);
+      return Math.hypot(I.x - (ox != null ? ox : R.camTarget.x), I.y - (oz != null ? oz : R.camTarget.z));
+    },
+    imgNear(x, y, r) { const I = R.img(x, y); return Math.abs(I.x - R.camTarget.x) < r && Math.abs(I.y - R.camTarget.z) < r; },
+    // Last thing before the picture is drawn: every thing in the world's own coordinates is moved
+    // to its nearest copy. The code that places a thing goes on placing it where the world keeps
+    // it; the true place is remembered, and taken afresh whenever that code sets it again.
+    imgPass() {
+      const F = R._imF;
+      if (!F) return;
+      const skip = R._imSkip || (R._imSkip = new Set());
+      skip.clear();
+      for (const o of [R.groups.terrain, R.groups.props, R.groups.room, R.mirrorGroup, R.water, R.rain, R.snow, R.sun, R.moon, R.hemi]) if (o) skip.add(o);
+      for (const o of R.scene.children) R.imgWalk(o, 0, skip);
+    },
+    imgWalk(o, depth, skip) {
+      if (!o.visible || skip.has(o) || o.isCamera || o.isDirectionalLight || o.isAmbientLight || o.isHemisphereLight) return;
+      const u = o.userData;
+      // a group at the world's origin only holds things: look at what it holds
+      if (u._imK == null) u._imK = !o.isMesh && !o.isPoints && !o.isLine && !o.isLight && !o.isSprite && o.position.x === 0 && o.position.z === 0 && o.rotation.y === 0 ? 1 : 0;
+      if (u._imK === 1 && depth < 3) { for (const c of o.children) R.imgWalk(c, depth + 1, skip); return; }
+      R.imgObj(o);
+    },
+    imgObj(o) {
+      const u = o.userData, p = o.position;
+      if (u._ix === undefined || p.x !== u._ix || p.z !== u._iz) { u._tx = p.x; u._tz = p.z; }
+      // drawn at the origin, its shape laid out in the world's own coordinates (a ring of stakes,
+      // a merged mesh): it is moved whole, about where it stands
+      let ax = u._tx, az = u._tz, rigid = false;
+      if (ax === 0 && az === 0) {
+        if (o.isPoints || o.isLine || o.isLight) { u._ix = p.x; u._iz = p.z; return; }
+        const a = R.imgAnchor(o);
+        if (!a) { u._ix = p.x; u._iz = p.z; return; }
+        ax = a.x; az = a.z; rigid = true;
+      }
+      const I = R.img(ax, az);
+      if (rigid) { if (I.f) { p.x = I.x + ax; p.z = I.y + az; } else { p.x = I.x - ax; p.z = I.y - az; } }
+      else { p.x = I.x; p.z = I.y; }
+      u._ix = p.x; u._iz = p.z;
+      // past a pole, turned about (a half turn about the world's up, whatever else it is turned by)
+      if (I.f || u._fl) {
+        const q = o.quaternion;
+        if (!u._tq) { u._tq = q.clone(); u._iq = q.clone(); }
+        else if (!(u._fl && q.x === u._iq.x && q.y === u._iq.y && q.z === u._iq.z && q.w === u._iq.w)) u._tq.copy(q);
+        if (I.f) q.copy(u._tq).premultiply(R._qPi || (R._qPi = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI)));
+        else q.copy(u._tq);
+        u._iq.copy(q); u._fl = I.f;
+      }
+      if (u._ix !== u._tx || u._iz !== u._tz || u._fl) o.updateMatrixWorld && (o.matrixWorldNeedsUpdate = true);
+    },
+    imgAnchor(o) {
+      if (o.userData._anc) return o.userData._anc;
+      let a = null;
+      if (o.isInstancedMesh) { if (!(o.count > 0)) return null; const e = o.instanceMatrix.array; return { x: e[12], z: e[14] }; }   // (its instances move: where the first one is now)
+      else if (o.geometry) { if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); const c = o.geometry.boundingSphere && o.geometry.boundingSphere.center; if (c && (c.x || c.z)) a = { x: c.x, z: c.z }; }
+      else if (o.children && o.children.length) { const c = o.children[0].position; if (c.x || c.z) a = { x: c.x, z: c.z }; }
+      if (a) o.userData._anc = a;
+      return a;
     },
     // You have gone over the pole: what was past it is where you now are, and what was around
     // you is past it. Each set of chunks is handed to the other; dx re-bases the far side's x.
@@ -1058,11 +1147,11 @@
       const sp = R.camSpeed || 0, ahead = Math.min(30, sp * 1.2);
       const vx = R._camV ? R._camV.x : 0, vz = R._camV ? R._camV.z : 0, vl = Math.hypot(vx, vz) || 1;
       for (const s of world.settlements) {
-        const d = U.dist(s.x, s.y, R.camTarget.x, R.camTarget.z);
+        const d = R.imgDist(s.x, s.y);      // (the short way: round the world, or over a pole)
         const cur0 = R.towns[s.id];
         if (cur0 ? d > 64 : d > 48) {
           // heading this way fast: start on it early
-          const da = U.dist(s.x, s.y, R.camTarget.x + vx / vl * ahead, R.camTarget.z + vz / vl * ahead);
+          const da = R.imgDist(s.x, s.y, R.camTarget.x + vx / vl * ahead, R.camTarget.z + vz / vl * ahead);
           if (cur0 ? d > 64 : da > 48) { if (cur0) { R.groups.towns.remove(cur0.group); delete R.towns[s.id]; } continue; }
         }
         if (cur0 && R.frameNo % 15 !== (s.id.length + s.x | 0) % 15 && cur0.key) continue;   // look for changes now and then, not every frame
@@ -1166,7 +1255,7 @@
       R.clear(g);
       R.flames = [];
       R.siteLights = [];
-      const near = (x, y, r = 40) => Math.abs(x - R.camTarget.x) < r && Math.abs(y - R.camTarget.z) < r;
+      const near = (x, y, r = 40) => R.imgNear(x, y, r);
       for (const c of world.camps) {
         if (!near(c.x, c.y)) continue;
         if (!c.alive && !c.captives.length) { R.addStatic(g, 'campfire', c.x, c.y, { flame: '#2a2a2a', glow: '#3a3a3a' }); continue; }
@@ -1843,7 +1932,7 @@
       if (R.roomDoorGlow) R.roomDoorGlow.material.opacity = 0.12 + 0.2 * dl;
       const cand = [];
       const tgt = R.camTarget;
-      const push = (x, y, r, a, color, h = 1.1) => cand.push({ x, y, r, a, color, h, d: (x - tgt.x) ** 2 + (y - tgt.z) ** 2 });
+      const push = (x, y, r, a, color, h = 1.1) => { const I = R.img(x, y); cand.push({ x: I.x, y: I.y, gx: x, gy: y, r, a, color, h, d: (I.x - tgt.x) ** 2 + (I.y - tgt.z) ** 2 }); };
       for (const l of L.lights) push(l.x, l.y, l.r, l.a, l.color, l.h);
       // underground you carry a little light of your own: a warm glow at your shoulder, so
       // you, your pack and the stones at your feet are never lost in the dark
@@ -2315,8 +2404,9 @@
       for (const p of P) {
         if (n >= 260) break;
         const fade = Math.min(1, (p.life - p.t) / 8);
-        o.position.set(p.x, R.groundH(p.x, p.y) + 0.012, p.y);
-        o.rotation.set(0, -p.a, 0);
+        const I = R.img(p.x, p.y);
+        o.position.set(I.x, R.groundH(p.x, p.y) + 0.012, I.y);
+        o.rotation.set(0, -p.a + (I.f ? Math.PI : 0), 0);
         o.scale.set(p.hoof ? 1.2 : 1.5, 1, p.hoof ? 1.2 : 0.8);
         o.scale.multiplyScalar(0.3 + 0.7 * fade);
         o.updateMatrix(); M.setMatrixAt(n, o.matrix);
@@ -3127,7 +3217,7 @@
       // gutted houses: a soot shell and blackened beams through the roof
       if (!R.ruinGroup) { R.ruinGroup = new THREE.Group(); R.scene.add(R.ruinGroup); R.ruinKey = ''; R.sootMat = new THREE.MeshStandardMaterial({ color: '#0e0a08', roughness: 1, transparent: true, opacity: 0.8, depthWrite: false }); R.beamMat = new THREE.MeshStandardMaterial({ color: '#0f0a07', roughness: 1 }); R.emberMat = new THREE.MeshBasicMaterial({ color: '#ff5a1a', transparent: true, opacity: 0.7 }); }
       const pe = game.pe, ruins = [];
-      if (!room && pe) for (const s of game.world.settlements) { if (Math.abs(s.x - pe.x) > 70 || Math.abs(s.y - pe.y) > 70) continue; for (const b of s.buildings) if (b.gutted != null) ruins.push(b); }
+      if (!room && pe) for (const s of game.world.settlements) { if (!R.imgNear(s.x, s.y, 70)) continue; for (const b of s.buildings) if (b.gutted != null) ruins.push(b); }
       const rk = ruins.map(b => b.x + ',' + b.y).join('|');
       if (rk !== R.ruinKey) {
         R.ruinKey = rk;
@@ -3167,7 +3257,7 @@
         R.stM = { log: m('#7a5634'), roof: m('#5a4028'), dark: m('#1a1410'), canvas: m('#d8ccb0'), soil: m('#5a4028'), stone: m('#8a847a'), red: m('#8a3a2a'), white: m('#f0ece0'), comb: m('#c83a2a'), grey: m('#8a8070'), awn: m('#c85a3a'), awn2: m('#f0e8d8'), pole: m('#9a7a50') };
         R.stCrop = {}; for (const k in H.CROPS) R.stCrop[k] = m(H.CROPS[k].color);
       }
-      const show = s && !room && Math.abs(s.x - game.pe.x) < 70 && Math.abs(s.y - game.pe.y) < 70;
+      const show = s && !room && R.imgNear(s.x, s.y, 70);
       R.steadGroup.visible = R.henGroup.visible = !!show;
       if (!show) return;
       const key = JSON.stringify([Object.keys(s.builds).sort(), s.work.map(w => w.k), s.plots.map(p => p.crop ? p.crop + Math.floor(p.growth * 4) : '-'), s.animals.goats, s.animals.sheep]);
@@ -3346,7 +3436,7 @@
       if (room) return;
       const pe = game.pe;
       for (const f of R.gateFx) {
-        const near = Math.abs(f.g.x - pe.x) < 70 && Math.abs(f.g.y - pe.y) < 70;
+        const near = R.imgNear(f.g.x, f.g.y, 70); void pe;
         f.d1.material.map.rotation += dt * 0.9; f.d2.material.map.rotation -= dt * 1.4;
         f.d2.material.opacity = 0.45 + Math.sin(R.time * 2.3) * 0.15;
         f.beam.material.opacity = 0.16 + Math.sin(R.time * 1.3 + f.g.x) * 0.06;
@@ -3375,7 +3465,7 @@
       const live = new Set();
       let built = 0;
       if (!room) for (const o of world.secrets.list) {
-        const dx = Math.abs(o.x - pe.x), dy = Math.abs(o.y - pe.y), have = S.get(o.id);
+        const I = R.img(o.x, o.y), dx = Math.abs(I.x - R.camTarget.x), dy = Math.abs(I.y - R.camTarget.z), have = S.get(o.id);
         if (have ? dx > 75 || dy > 75 : dx > 60 || dy > 60) continue;
         const sig = o.kind === 'circle' && o.done ? 'D' : '';
         if (have && have.sig === sig) { live.add(o.id); continue; }
@@ -3442,7 +3532,8 @@
       let k = 0;
       if (!room) for (let i = 0; i < n; i++) {
         const g = list[i];
-        ga.position.setXYZ(k, g.x, R.groundH(g.x, g.y) + g.h, g.y);
+        const I = R.img(g.x, g.y);
+        ga.position.setXYZ(k, I.x, R.groundH(g.x, g.y) + g.h, I.y);
         tmp.set(g.c); ga.color.setXYZ(k, tmp.r, tmp.g, tmp.b);
         ga.size.setX(k, g.s); ga.alpha.setX(k, Math.min(1, g.a));
         k++;
@@ -3974,6 +4065,9 @@
       // and the faster you go the worse it looks.
       const off = R._sunOff || (R._sunOff = new THREE.Vector3());
       off.set(-Math.cos(ang) * 30, 8 + Math.sin(Math.max(0.15, ang)) * 34, 18);
+      // (with the view turned about over a pole, the sky turns with it: the sun stays where it was on
+      //  the screen, so no shadow or sunlit face flips round the moment you cross)
+      if ((R.viewS || 1) < 0) { off.x = -off.x; off.z = -off.z; }
       const st = R._sunSnap || (R._sunSnap = { d: new THREE.Vector3(), r: new THREE.Vector3(), u: new THREE.Vector3(), p: new THREE.Vector3() });
       st.d.copy(off).normalize();
       st.r.set(0, 1, 0).cross(st.d).normalize();
@@ -3996,7 +4090,7 @@
       // world twice a day — a long stall at dusk; instead the map just stops updating)
       R.sun.castShadow = R.renderer.shadowMap.enabled;
       R.sunDark = dl <= 0.05;
-      R.moon.position.set(tgt.x + 20, 40, tgt.z + 10); R.moon.target.position.copy(tgt);
+      { const s = R.viewS || 1; R.moon.position.set(tgt.x + 20 * s, 40, tgt.z + 10 * s); } R.moon.target.position.copy(tgt);
       R.moon.intensity = 0.27 * (1 - dl);
       R.hemi.intensity = (0.2 + 0.5 * dl) * (0.75 + 0.25 * cloud);
       // lightning
@@ -4053,7 +4147,7 @@
       for (let i = 0; i < MAX_LIGHTS; i++) {
         const L = R.points[i], c = cand[i];
         if (!c || c.d > 900 || i >= R.lightN) { L.intensity = 0; continue; }
-        L.position.set(c.x, R.groundH(c.x, c.y) + c.h, c.y);
+        L.position.set(c.x, R.groundH(c.gx, c.gy) + c.h, c.y);
         L.color.copy(C(c.color));
         L.distance = c.r * 1.9;
         L.intensity = c.a * 1.6 * flick * (night ? 1 : 0.5);
@@ -4182,6 +4276,7 @@
       R.camera.position.set(R.camTarget.x + sx, R.camTarget.y + D * 0.86, R.camTarget.z + D * 0.6 * S + sy);
       R.camera.lookAt(R.camTarget.x + sx, R.camTarget.y + 0.5, R.camTarget.z + sy);
       R.camera.updateMatrixWorld();
+      R.imgSet(game);
       if (!room) {
         R.updateChunks(game);
         R.updateTowns(game);
@@ -4219,6 +4314,7 @@
       R.renderer.shadowMap.needsUpdate = room ? true : R.sunDark ? ((R.frameNo || 0) % 30) === 0 : (every <= 1 || fastNow || ((R.frameNo || 0) % every) === 0);
       R.updateCut(game, dt);
       R.updateIslands(game, dt);
+      R.imgPass();
       if (ECHO.Post && ECHO.Post.R) ECHO.Post.render(game, dt); else R.renderer.render(R.scene, R.camera);
       R.drawOverlay(game);
     },
@@ -4263,7 +4359,7 @@
       if (!R.islands || !R.islands.length) return;
       const tgt = R.camTarget, indoors = !!R.indoors;
       for (const o of R.islands) {
-        const d = Math.hypot(o.x - tgt.x, o.y - tgt.z);
+        const d = R.imgDist(o.x, o.y);
         o.g.visible = !indoors && d < 75 && d > 9;
         if (!o.g.visible) continue;
         o.g.position.set(o.x + Math.sin(R.time * 0.05 + o.ph) * 0.8, R.groundH(o.x, o.y) + o.hy + Math.sin(R.time * 0.35 + o.ph) * 0.35, o.y);
@@ -4291,8 +4387,9 @@
       for (const t of Object.values(R.towns)) for (const m of t.group.children) {
         const o = m.userData.occ;
         if (!o || o.part === 'glow') continue;
-        const S = R.viewS || 1, py = o.y + (pe.y - o.y) * S;      // (the side toward the camera, whichever way the view faces)
-        const hides = py < o.y + o.h / 2 + 0.5 && py > o.y - o.h / 2 - o.tall && Math.abs(pe.x - o.x) < o.w / 2 + 0.8;
+        const I = R.img(o.x, o.y), ox = I.x, oy = I.y;            // (where it is drawn: round the world, or past a pole)
+        const S = R.viewS || 1, py = oy + (pe.y - oy) * S;        // (the side toward the camera, whichever way the view faces)
+        const hides = py < oy + o.h / 2 + 0.5 && py > oy - o.h / 2 - o.tall && Math.abs(pe.x - ox) < o.w / 2 + 0.8;
         const want = hides ? (o.part === 'window' ? R.mat.windowFade : R.mat.propFade) : (o.part === 'window' ? R.mat.window : R.mat.prop);
         if (m.material !== want) { m.material = want; m.castShadow = !hides && o.part === 'base'; }
       }
@@ -4300,7 +4397,8 @@
 
     // ---------------------------------------------------------------- projection helpers
     project(x, y, h) {
-      R.v3.set(x, R.groundH(x, y) + (h || 0), y).project(R.camera);
+      const I = R.img(x, y);
+      R.v3.set(I.x, R.groundH(x, y) + (h || 0), I.y).project(R.camera);
       return { x: (R.v3.x * 0.5 + 0.5) * R.cw, y: (-R.v3.y * 0.5 + 0.5) * R.ch, z: R.v3.z };
     },
     toScreen(game, x, y, h) { return R.project(x, y, h); },

@@ -25,6 +25,7 @@
     tileCost(world, x, y) {
       const W = world.W || 200;
       if (x < 0 || y < 0 || x >= W || y >= (world.H || 150)) return Infinity;
+      if (N._xo) x = (x + W - N._xo) % W;   // (planning in a frame turned half the world round: see plan)
       const i = y * W + x;
       if (world.blocked && world.blocked[i] === 1) return Infinity;
       // something standing here (a cart, a well, a boulder, a trunk) or no room to pass: go round
@@ -32,7 +33,7 @@
       if (M[i] === 0) M[i] = ECHO.Ent.fits(world, x + 0.5, y + 0.5, 0.32) ? 1 : 2;
       const extra = M[i] === 2 ? 5 : 0;
       // below level 150, the menace of a gate is a wall: go round it
-      if (world.gates && N._weak) for (const g of world.gates.list) { const dx = x + 0.5 - g.x, dy = y + 0.5 - g.y; if (dx * dx + dy * dy < N._weakR2) return Infinity; }
+      if (world.gates && N._weak) for (const g of world.gates.list) { const dx = ECHO.Globe && world.globe ? ECHO.Globe.dx(world, g.x, x + 0.5) : x + 0.5 - g.x, dy = y + 0.5 - g.y; if (dx * dx + dy * dy < N._weakR2) return Infinity; }
       return N.baseCost(world, world.tiles[i]) + extra;
     },
     // room-to-pass memo for the whole world, rebuilt when the land changes
@@ -61,6 +62,18 @@
     // Plan the way from (sx,sy) to (tx,ty). Long journeys are planned on a coarser
     // grid first and the near stretch refined, so it stays quick on a grown world.
     plan(world, sx, sy, tx, ty) {
+      // Round the world the short way may cross the east-west join: then the way is planned in a
+      // frame turned half the world round (the join out of the way), and given back in yours.
+      if (world.globe && N._xo == null && ECHO.Globe) {
+        const W0 = world.W, tx2 = sx + ECHO.Globe.dx(world, sx, tx);
+        if (tx2 < 0 || tx2 >= W0) {
+          const o = W0 / 2, su = (((sx + o) % W0) + W0) % W0, tu = (((tx2 + o) % W0) + W0) % W0;
+          let p = null;
+          N._xo = o;
+          try { p = N.plan(world, su, sy, tu, ty); } finally { N._xo = null; }
+          return p && p.map(q => ({ x: q.x - su + sx, y: q.y }));
+        }
+      }
       const pl = ECHO.Game && ECHO.Game.pl, G = ECHO.Gates;
       N._weak = !!(G && pl && ECHO.Prowess.level(pl) < G.MIN && !G.list(world).some(g => U.dist(g.x, g.y, tx, ty) < G.R_HURT + 3));
       N._weakR2 = G ? (G.R_HURT + 1.5) ** 2 : 0;
@@ -71,7 +84,7 @@
       if (k === 1) cost = (x, y) => N.tileCost(world, x, y);
       else {
         // the coarse costs are kept between plans (they only change when the land does)
-        const mk = k + ':' + W + 'x' + H + ':' + (world._tileEpoch || 0) + ':' + (N._weak ? 1 : 0);
+        const mk = k + ':' + W + 'x' + H + ':' + (world._tileEpoch || 0) + ':' + (N._weak ? 1 : 0) + ':' + (N._xo || 0);
         if (!N._coarse || N._coarse.key !== mk || N._coarse.world !== world) N._coarse = { key: mk, world, memo: new Float32Array(cw * ch).fill(-1) };
         const memo = N._coarse.memo;
         cost = (cx, cy, i) => {
@@ -112,7 +125,9 @@
     update(game, dt) {
       const world = game.world, pe = game.pe, g = ECHO.Purpose && ECHO.Purpose.goal;
       if (!world || !pe || ECHO.Interior.cur || !g || !g.where || g.where.x == null) { N.route = null; return; }
-      const w = g.where, key = Math.round(w.x) + ',' + Math.round(w.y);
+      const w0 = g.where, key = Math.round(w0.x) + ',' + Math.round(w0.y);
+      // (round the world: the copy of the place nearest you, so every distance and heading is the short way)
+      const w = world.globe && ECHO.Globe ? { x: pe.x + ECHO.Globe.dx(world, pe.x, w0.x), y: w0.y, vague: w0.vague, name: w0.name } : w0;
       const R = N.route;
       N.t -= dt;
       const strayed = R && R.key === key && N.offRoute(pe, R) > 7;

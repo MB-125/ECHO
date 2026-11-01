@@ -32,6 +32,14 @@
     // you are there, so the land past it holds still as you walk along beside it, and what is
     // drawn there, what you bump into there and where you come out are all one and the same.
     pole: { n: null, s: null },
+    // the tile (x, y) as the world keeps it: [x, y, turned] (round the join; past a pole, the far side)
+    canon(world, x, y) {
+      const W = world.W, H = world.H;
+      let X = x, Y = y, f = 0;
+      if (Y < 0) { X = Gl.poleT(world, true, x) - 1 - X; Y = -1 - Y; f = 1; }
+      else if (Y >= H) { X = Gl.poleT(world, false, x) - 1 - X; Y = 2 * H - 1 - Y; f = 1; }
+      return [((X % W) + W) % W, Y, f];
+    },
     poleT(world, north, x) {
       const t = north ? Gl.pole.n : Gl.pole.s, W = world.W;
       return t != null ? t : (((2 * Math.floor(x) + W / 2) % W) + W) % W;
@@ -366,6 +374,17 @@
       }
       if (Gl._t < 0.8 || (ECHO.UI && ECHO.UI.screenOpen)) return;
       Gl._t = 0;
+      // things carried over a pole with you are in your coordinates, past the pole behind you; once
+      // well away from you they are put back where the world keeps them (before the pole's line is let go)
+      const back = o => {
+        if (!o || o === pe || typeof o.y !== 'number' || o.x >= 9000 || (o.y >= 0 && o.y < w.H)) return;
+        if (Math.hypot(Gl.dx(w, pe.x, o.x), o.y - pe.y) < 50 && Math.min(pe.y, w.H - pe.y) < 120) return;
+        const north = o.y < 0, T = Gl.poleT(w, north, o.x);
+        o.x = Gl.wrapX(w, T - o.x); o.y = north ? -o.y : 2 * w.H - o.y;
+        if (o.dir != null) o.dir += Math.PI;
+      };
+      for (const e of game.ents) back(e);
+      for (const l of game.loot || []) back(l);
       // the old island's shore: a sandbar out to the new land
       const b = Gl.bridge(w, pe);
       if (b) game.ui.toast(`The tide has fallen far out: a sandbar runs from here across the water to the ${{ e: 'east', w: 'west', n: 'north', s: 'south' }[b.side]}.`, 'legend', 7);
@@ -434,34 +453,60 @@
     // Round the world without stopping it: you (and whoever is with you) are simply moved, the
     // view with you; nothing is started again. Over the east-west join everything near you
     // moves the same way, land and all; over a pole, you and yours come down the far side.
+    // A creature moved into other coordinates (round the world, or over a pole), with the places it
+    // has in mind (home, where it is going, where it last saw you); a path it was following is found again.
+    carry(e, map, near) {
+      [e.x, e.y] = map(e.x, e.y);
+      for (const k of ['home', 'goal', 'wander', 'lastSeen', 'post', 'from', 'to', 'route', 'at']) {
+        const v = e[k];
+        if (v && typeof v === 'object' && !Array.isArray(v) && typeof v.x === 'number' && typeof v.y === 'number' && v.type == null && v.hp == null && (!near || near(v))) { const [X, Y] = map(v.x, v.y); e[k] = Object.assign({}, v, { x: X, y: Y }); }
+      }
+      if (e.tx != null && e.ty != null) [e.tx, e.ty] = map(e.tx, e.ty);
+      if (Array.isArray(e.path)) e.path = null;
+    },
     hop(game, x, y, turn) {
       const w = game.world, pe = game.pe, pl = game.pl, R3 = ECHO.Renderer3D, A = ECHO.Apex;
       const dx = x - pe.x, dy = y - pe.y, seam = !turn;
       const ox = pe.x, oy = pe.y;
       const near = o => o && typeof o.x === 'number' && o.x < 9000 && Math.abs(o.x - ox) < 160 && Math.abs(o.y - oy) < 160;
-      const mine = e => e === pe || e.tamed || e.pal || e.isCompanion || e.ridden || (pl.flying && e.titan === pl.flying);
+      // Everything round you comes with you, into your new coordinates: round the world it moves a
+      // whole turn; over a pole it is turned about with you (what was behind you is past the pole
+      // behind you). So nothing round you is left behind or disappears as you cross.
+      const map = seam ? (px, py) => [px + dx, py] : (px, py) => [x - (px - ox), y - (py - oy)];
       for (const e of game.ents) {
         if (!near(e)) continue;
-        if (seam) { e.x += dx; if (e.home && near(e.home)) e.home = { x: e.home.x + dx, y: e.home.y }; if (e.tx != null) e.tx += dx; }
-        else if (mine(e)) {
-          const rx = e.x - ox, ry = e.y - oy; e.x = x - rx; e.y = y - ry; if (e.dir != null) e.dir += Math.PI;   // (turned about, as you are)
-          // and as drawn: its heading on screen is the same the frame after (the view turned with it),
-          // so the drawn body turns at once with it rather than swinging round to catch up
-          const v = R3 && R3.views && R3.views.get(e);
-          if (v) { if (v.dir != null) v.dir += Math.PI; if (v.px != null) { v.px = e.x; v.py = e.y; } }
+        Gl.carry(e, map, near);
+        if (!seam && e.dir != null) e.dir += Math.PI;   // (turned about, as you are)
+        // and as drawn: the same place on screen, facing the same way on screen (over a pole the view
+        // turned with it), so nothing snaps, swings round or races its legs for a frame
+        const v = R3 && R3.views && R3.views.get(e);
+        if (v) {
+          if (!seam && v.dir != null) v.dir += Math.PI;
+          if (v.px != null) { v.px = e.x; v.py = e.y; }
+          if (v.lx != null) { v.lx = e.x; v.ly = e.y; }
+          if (!seam && v.vdir != null) v.vdir += Math.PI;
         }
       }
       if (!seam && R3 && R3.horses) for (const H of R3.horses.values()) {
         if (H && H.syaw != null && H.root && Math.abs(H.root.position.x - ox) < 40 && Math.abs(H.root.position.z - oy) < 40) H.syaw += Math.PI;
       }
-      if (seam) {
-        for (const l of game.loot || []) if (near(l)) l.x += dx;
-        for (const L of [ECHO.Combat.proj, ECHO.Combat.fx, ECHO.Combat.floaters]) for (const o of L || []) if (near(o)) o.x += dx;
-      }
+      // and the little things about you: what lies on the ground, what is in the air, the marks you left
+      const move = o => {
+        if (!near(o)) return;
+        [o.x, o.y] = map(o.x, o.y);
+        if (!seam) { if (o.vx != null) o.vx = -o.vx; if (o.vy != null) o.vy = -o.vy; if (o.a != null) o.a += Math.PI; if (o.dir != null) o.dir += Math.PI; if (o.ang != null) o.ang += Math.PI; }
+      };
+      for (const L of [game.loot, ECHO.Combat.proj, ECHO.Combat.fx, ECHO.Combat.floaters, ECHO.Combat.decals, ECHO.Climate && ECHO.Climate.prints]) for (const o of L || []) move(o);
+      for (const f of (ECHO.Fauna && ECHO.Fauna.flocks) || []) { if (!near(f)) continue; for (const b of f.birds || []) { const n0 = near; void n0; [b.x, b.y] = map(b.x, b.y); if (!seam) { if (b.dir != null) b.dir += Math.PI; if (b.vx != null) { b.vx = -b.vx; b.vy = -b.vy; } } } move(f); }
       pe.x = x; pe.y = y; pl.x = x; pl.y = y;
       if (pl.boat && pe.inBoat === true) { pl.boat.x = x; pl.boat.y = y; }
       if (turn && A && A.fly && pl.flying) { const F = A.fly; F.dir += Math.PI; F.vx = -F.vx; F.vy = -F.vy; F.landAt = null; }
-      if (ECHO.Nav) ECHO.Nav.route = null;
+      if (ECHO.Nav) {
+        const Rt = ECHO.Nav.route;
+        if (seam && Rt && Rt.pts) { for (const p of Rt.pts) p.x += dx; if (Rt.steer && !Rt.pts.includes(Rt.steer)) Rt.steer.x += dx; }
+        else ECHO.Nav.route = null;
+      }
+      if (ECHO.Pastimes && ECHO.Pastimes.scan) try { ECHO.Pastimes.scan(game); } catch (err) { /* (found again next time) */ }
       if (ECHO.PlayerCtl) ECHO.PlayerCtl.lock = null;
       game.cam.x = x; game.cam.y = y;
       if (R3 && R3.camTarget) {

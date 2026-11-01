@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.12', items: [
+      'Nothing appears or disappears any more as you cross the edge of the world (the east-west join or a pole). Everything drawn — camps, ruins, towns, hidden places, the plants you gather, birds, footprints, lights, lamps, beacons — is now shown at its place nearest you, round the world or past the pole (turned about, like the land), so what you see the moment before you cross is what you see the moment after.',
+      'Over a pole, everything round you comes with you, not just your own animals: other creatures, what lies on the ground, arrows and spells in the air.',
+      'The sun and moon turn with the view over a pole, so shadows and sunlit sides no longer flip round as you cross.',
+      'The way to your goal is planned the short way across the east-west join (the trail, the minimap line and the leagues stay right as you cross), and the minimap shows camps, lairs and towns over the join and past a pole.',
+      'Water past a pole is drawn on the very same surface you find when you get there.'
+    ] },
     { v: '0.10.11', items: [
       'No more glitch going over a pole: your dragon (and you, your horse and your beasts) no longer spin round the moment you cross. The view turns with you over the top, and now the way they are drawn turns with it at once, so they fly or walk straight on.',
       'The land just past a pole is settled before you get there, not the moment you arrive: lakes, shores and places over the top are already there as you come up to them, instead of appearing all at once as you cross.',

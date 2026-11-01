@@ -87,7 +87,7 @@
       // a beacon over the place, once it is close enough to see
       const g = Pu.goal;
       if (g && g.where && !g.where.vague && !ECHO.Interior.cur) {
-        const d = U.dist(g.where.x, g.where.y, pe.x, pe.y);
+        const d = game.world.globe && ECHO.Globe ? Math.hypot(ECHO.Globe.dx(game.world, pe.x, g.where.x), g.where.y - pe.y) : U.dist(g.where.x, g.where.y, pe.x, pe.y);
         if (d < 46 && d > 3) for (let i = 0; i < 6; i++) Pu.glows.push({ x: g.where.x, y: g.where.y, h: 0.6 + i * 1.1, s: 1.3 - i * 0.12, c: '#ffe08a', a: 0.22 - i * 0.025 + 0.06 * Math.sin(game.time * 2.4 + i) });
       }
     },

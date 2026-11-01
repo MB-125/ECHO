@@ -10,6 +10,8 @@
   const DENSITY = { gnawer: 0.07, hare: 0.09, wolf: 0.32 };
   const CAP = { gnawer: 14, hare: 6, wolf: 6 };
 
+  // how far, the short way round a round world
+  const gd = (x1, y1, x2, y2) => { const w = ECHO.Game && ECHO.Game.world; return w && w.globe && ECHO.Globe ? Math.hypot(ECHO.Globe.dx(w, x1, x2), y2 - y1) : U.dist(x1, y1, x2, y2); };
   const S = ECHO.Spawner = {
     timer: 0,
     unitsPerKill(sp) { return 1 / (DENSITY[sp] * 2.2); },
@@ -21,6 +23,17 @@
       S.timer = 0.5;
       const world = game.world, pe = game.pe;
       if (!pe) return;
+      // ---- round the world: everything about you is kept in your own coordinates (the copy of it
+      // nearest you), so a village just over the east-west join is peopled, and its people stay, as
+      // any other (and nothing appears or vanishes as you cross)
+      if (world.globe && ECHO.Globe && !ECHO.Interior.cur) {
+        const W = world.W;
+        for (const e of game.ents) {
+          if (e === pe || e.x >= 9000) continue;
+          const k = Math.round((pe.x - e.x) / W) * W;
+          if (k) ECHO.Globe.carry(e, (x, y) => [x + k, y], null);
+        }
+      }
       // ---- Despawn far things
       for (const e of game.ents) {
         if (e === pe || e.isCompanion || e.dead) continue;
@@ -111,7 +124,7 @@
     people(game) {
       const world = game.world, pe = game.pe;
       for (const s of world.settlements) {
-        const d = U.dist(s.x, s.y, pe.x, pe.y);
+        const d = gd(s.x, s.y, pe.x, pe.y);
         if (d > 36) continue;
         const present = ECHO.People.residents(world, s);
         const spawned = new Set(game.ents.filter(e => e.npcId && !e.dead).map(e => e.npcId));
@@ -138,7 +151,7 @@
           while (!ECHO.Ent.fits(world, x, y) && tries++ < 20) { x = s.x + (Math.random() - 0.5) * 6; y = s.y + (Math.random() - 0.5) * 6; }
           // Someone new turning up in plain view comes out of a door rather than out of thin air.
           let fromDoor = false;
-          if (S.popd[s.id] && !(goal && goal.inside) && U.dist(x, y, pe.x, pe.y) < 26) {
+          if (S.popd[s.id] && !(goal && goal.inside) && gd(x, y, pe.x, pe.y) < 26) {
             let best = null, bd = 16;
             for (const b of s.buildings) {
               if (b.type !== 'house' && b.type !== 'inn' && b.type !== 'smithy' && b.type !== 'shrine' && b.type !== 'temple' && b.type !== 'archive') continue;
@@ -157,7 +170,7 @@
         S.popd[s.id] = true;
       }
       // a town you've left behind will be peopled afresh next time
-      for (const k in S.popd) { const t = world.settlements.find(x => x.id === k); if (!t || U.dist(t.x, t.y, pe.x, pe.y) > 46) delete S.popd[k]; }
+      for (const k in S.popd) { const t = world.settlements.find(x => x.id === k); if (!t || gd(t.x, t.y, pe.x, pe.y) > 46) delete S.popd[k]; }
     },
     popd: {},
     priority(n) {
@@ -218,7 +231,7 @@
       const world = game.world, pe = game.pe;
       for (const camp of world.camps) {
         if (!camp.alive && !camp.captives.length) continue;
-        const d = U.dist(camp.x, camp.y, pe.x, pe.y);
+        const d = gd(camp.x, camp.y, pe.x, pe.y);
         if (d > 32) continue;
         const spawned = new Set(game.ents.filter(e => e.npcId && !e.dead).map(e => e.npcId));
         const members = camp.members.map(id => world.npcs[id]).filter(n => n && n.status === 'alive');
@@ -258,7 +271,7 @@
       const world = game.world, pe = game.pe;
       for (const j of world.journeys || []) {
         const p = ECHO.Sim.journeyPos(world, j);
-        if (U.dist(p.x, p.y, pe.x, pe.y) > 34) continue;
+        if (gd(p.x, p.y, pe.x, pe.y) > 34) continue;
         const spawned = new Set(game.ents.filter(e => e.journeyId === j.id && !e.dead).map(e => e.npcId));
         j.npcs.forEach((id, slot) => {
           if (spawned.has(id)) return;
@@ -281,7 +294,7 @@
       for (const lair of world.lairs) {
         const b = lair.boss;
         if (!b.alive || b.absentUntil > world.day) continue;
-        if (U.dist(lair.x, lair.y, pe.x, pe.y) > 22) continue;
+        if (gd(lair.x, lair.y, pe.x, pe.y) > 22) continue;
         if (game.ents.some(e => e.type === 'boss' && e.boss === b && !e.dead)) continue;
         if (b.absentUntil > 0 && b.absentUntil <= world.day && !b.returned) {
           b.returned = true;
