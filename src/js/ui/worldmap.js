@@ -935,6 +935,20 @@
       const bs = WM.base(world), S = WM.baseScale || 1;
       g.imageSmoothingEnabled = true;
       for (const k of world.globe ? [0, world.W, -world.W] : [0]) g.drawImage(bs, (sx + k) * S, sy * S, c.width / scale * S, c.height / scale * S, 0, 0, c.width, c.height);   // (round the world: the other side, past the edge)
+      // past a pole: the far side of the world, turned about (as the land itself is drawn)
+      const vw = c.width / scale, vh = c.height / scale;
+      if (world.globe && (sy < 0 || sy + vh > world.H)) {
+        const north = sy < 0, T = 2 * pe.x + world.W / 2, Zc = north ? 0 : 2 * world.H;
+        g.save();
+        g.beginPath();
+        if (north) g.rect(0, 0, c.width, -sy * scale); else g.rect(0, (world.H - sy) * scale, c.width, c.height);
+        g.clip();
+        // a base pixel (u, v) lands at X = T - u/S, Y = Zc - v/S
+        g.transform(-scale / S, 0, 0, -scale / S, (T - sx) * scale, (Zc - sy) * scale);
+        const u0 = T - (sx + vw), v0 = north ? 0 : Zc - (sy + vh);
+        for (const k of [0, world.W, -world.W, 2 * world.W]) g.drawImage(bs, (u0 - k) * S, v0 * S, vw * S, vh * S, (u0 - k) * S + k * S, v0 * S, vw * S, vh * S);
+        g.restore();
+      }
       const cw = Math.ceil(world.W / 4);
       g.fillStyle = PARCH;
       if (!WM.revealed(pl)) for (let y = Math.floor(sy / 4); y <= Math.ceil((sy + c.height / scale) / 4); y++) for (let x = Math.floor(sx / 4); x <= Math.ceil((sx + c.width / scale) / 4); x++) {

@@ -214,8 +214,9 @@
       const G = world.globe, F = Fr().state(world);
       if (!G || !cells.length) return null;
       cells = cells.filter(ci => !G.made[ci]);
+      const eStart = world._tileEpoch || 0;
       if (!cells.length) return null;
-      const dirty = world._hcDirty || [], mdirty = world._mapDirty || [];
+      const dirty = world._hcDirty || [], mdirty = world._mapDirty || [], tlog = world._tileLog || [], nRoads = world.roads.length;
       delete world._landCells;
       for (const k of Object.keys(world)) if (k[0] === '_' && k !== '_dayQ' && world[k] && typeof world[k] === 'object') delete world[k];
       const W = world.W, rects = cells.map(ci => ({ ci, R: Gl.rect(world, ci) }));
@@ -246,6 +247,10 @@
       }
       Wd().rebuildBlocked(world);
       world._tileEpoch = (world._tileEpoch || 0) + 1;
+      // where the ground changed (the new land, and the new roads out of it), so the renderer
+      // rebuilds only the chunks there, not every chunk in sight
+      const changed = rects.map(r => r.R);
+      for (const r of world.roads.slice(nRoads)) if (Array.isArray(r.path) && r.path.length) { let a = 1e9, b = 1e9, c = -1, d = -1; for (const t of r.path) { const x = t % W, y = (t / W) | 0; if (x < a) a = x; if (x > c) c = x; if (y < b) b = y; if (y > d) d = y; } changed.push({ x0: a - 2, y0: b - 2, x1: c + 3, y1: d + 3 }); }
       world._hcDirty = dirty.concat(rects.map(r => r.R));          // (the renderer redraws the heights of only these,
       world._mapDirty = mdirty.concat(rects.map(r => r.R));        //  and the chart repaints only these)
       G.n = (G.n || 0) + cells.length;
@@ -255,6 +260,10 @@
         ECHO.Chronicle.add(world, { text: `Travellers brought word of country far to the ${dir}: ${allRegions.slice(0, 3).map(r => r.name).join(', ')}${allTowns.length ? `, and the villages of ${allTowns.map(t => t.name).join(', ')}` : ''}.`, kind: 'era', importance: 2, x: c.x != null ? c.x : (c.x0 + c.x1) / 2, y: c.y != null ? c.y : (c.y0 + c.y1) / 2 });
       }
       if (ECHO.Realm && ECHO.Realm.reshaped) ECHO.Realm.reshaped(world);
+      // (every change of the land's epoch made here, noted with where it happened)
+      const notes = []; for (let e = eStart + 1; e <= (world._tileEpoch || 0); e++) notes.push({ e, rects: changed });
+      world._tileLog = tlog.concat(notes).slice(-64);
+      Gl._lastChanged = changed;
       return { regions: allRegions.map(r => r.name), towns: allTowns.map(t => t.name) };
     },
     // The ground of the whole globe, everywhere no one has yet come near, so the world is
@@ -304,6 +313,7 @@
         G.bridged[side] = 1;
         if (n) {
           Wd().rebuildBlocked(world); world._tileEpoch = (world._tileEpoch || 0) + 1;
+          world._tileLog = (world._tileLog || []).concat([{ e: world._tileEpoch, rects: [{ x0: Math.min(px, R.x0) - 4, x1: Math.max(px, R.x1) + 4, y0: Math.min(py, R.y0) - 4, y1: Math.max(py, R.y1) + 4 }] }]).slice(-64);
           (world._mapDirty = world._mapDirty || []).push({ x0: Math.min(px, R.x0) - 4, x1: Math.max(px, R.x1) + 4, y0: Math.min(py, R.y0) - 4, y1: Math.max(py, R.y1) + 4 });
           const R3 = ECHO.Renderer3D;
           if (R3 && R3.world === world && R3.hc) { R3.buildHeights(world, { x0: Math.min(px, R.x0) - 4, x1: Math.max(px, R.x1) + 4, y0: Math.min(py, R.y0) - 4, y1: Math.max(py, R.y1) + 4 }); R3.buildWater(world); }
@@ -323,15 +333,13 @@
       const flying = !!pl.flying;
       if (pe.x < 0 || pe.x >= w.W) return Gl.cross(game, Gl.wrapX(w, pe.x), pe.y, null);
       // over the pole and down its far side
-      const lim = flying ? 3.4 : 0.9, now = performance.now();
-      if (now - (Gl._poleAt || 0) > 2500 && (pe.y < lim || pe.y > w.H - lim)) {
-        Gl._poleAt = now;
-        const north = pe.y < lim;
-        // Over the pole you go on as you were: you come down the far side, and the view turns with
-        // you, so what was ahead is still ahead and the keys you hold still carry you forward.
+      // You walk on over it as over any other ground (what is past it is drawn, the far side turned
+      // about); the moment you are past it you are on the far side, and the view turns with you,
+      // so the frame after looks just as the frame before.
+      if (pe.y < 0 || pe.y >= w.H) {
+        const north = pe.y < 0;
         pl.viewTurn = pl.viewTurn ? 0 : 1;
-        Gl.cross(game, Gl.wrapX(w, pe.x + w.W / 2), north ? lim + 0.7 : w.H - lim - 0.7, null, north, true);
-        if (game.pe && ECHO.Combat) ECHO.Combat.floater(game.pe.x, game.pe.y - 1.7, north ? 'the North Pole' : 'the South Pole', '#e8f4ff', true);
+        Gl.cross(game, Gl.wrapX(w, pe.x + w.W / 2), north ? -pe.y : 2 * w.H - pe.y, null, north, true);
         return;
       }
       if (Gl._t < 0.8 || (ECHO.UI && ECHO.UI.screenOpen)) return;
@@ -369,7 +377,7 @@
     },
     // new land made while you play: the game takes it in where it stands, without starting over
     refresh(game) {
-      const w = game.world, R3 = ECHO.Renderer3D;
+      const w = game.world, R3 = ECHO.Renderer3D, e0 = w._tileEpoch || 0;
       if (ECHO.Wildwood) ECHO.Wildwood.ensure(w);
       if (R3 && R3.world === w && R3.hc) {
         const rs = w._hcDirty || [];
@@ -379,6 +387,8 @@
         R3.sitesT = 0;
       }
       if (ECHO.Explore) ECHO.Explore.sites(w);
+      // (anything placed just now goes in the same new land: noted with it)
+      for (let e = e0 + 1; e <= (w._tileEpoch || 0); e++) (w._tileLog = w._tileLog || []).push({ e, rects: Gl._lastChanged || [{ x0: 0, y0: 0, x1: w.W, y1: w.H }] });
       if (ECHO.UI) ECHO.UI.mapDirty = true;
       if (ECHO.WorldMap) ECHO.WorldMap._mf = null;
     },
@@ -425,8 +435,15 @@
       if (ECHO.PlayerCtl) ECHO.PlayerCtl.lock = null;
       game.cam.x = x; game.cam.y = y;
       if (R3 && R3.camTarget) {
-        if (seam && R3.shiftChunks) R3.shiftChunks(dx);                // (the land already built round you comes too)
-        R3.camTarget.x += dx; R3.camTarget.z += dy;
+        if (seam) {
+          if (R3.shiftChunks) R3.shiftChunks(dx);                      // (the land already built round you comes too)
+          R3.camTarget.x += dx; R3.camTarget.z += dy;
+        } else {
+          // over a pole: the view turns about you, and the far side drawn past the pole becomes the land underfoot
+          R3.camTarget.x = x - (R3.camTarget.x - ox); R3.camTarget.z = y - (R3.camTarget.z - oy);
+          if (R3._lead) { R3._lead.x = -R3._lead.x; R3._lead.y = -R3._lead.y; }
+          if (R3.mirrorSwap) R3.mirrorSwap(w, ox, x);
+        }
         R3._chunkLast = null; R3._camV = null;
       }
       if (game.explore) game.explore(true);

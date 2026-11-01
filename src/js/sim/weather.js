@@ -7,7 +7,11 @@
   const T = ECHO.TIME;
 
   const W = ECHO.Weather = {
-    regionOf(world, x, y) { return ECHO.World.regionAt(world, x, y); },
+    regionOf(world, x, y) {
+      // (round the poles one sky: going over the top you don't step from one weather into another)
+      if (world.globe && (y < 44 || y > world.H - 44)) return ECHO.World.regionAt(world, world.globe.old.x0 + 4, y < 44 ? 4 : world.H - 4);
+      return ECHO.World.regionAt(world, x, y);
+    },
     state(world, region) {
       world.weather = world.weather || {};
       let w = world.weather[region.id];

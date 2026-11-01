@@ -472,6 +472,7 @@
 
     setWorld(world) {
       R.world = world;
+      R.mirrorDropAll();
       for (const k of Object.keys(R.chunks)) R.dropChunk(k);
       R.chunks = {};
       for (const g of ['towns', 'sites', 'ents', 'fx', 'room']) R.clear(R.groups[g]);
@@ -510,6 +511,7 @@
         if (rocks === 4) h = 1.7 + hash(cx, cy, world.seed + 9) * 0.9;
         if (!flat && !wet) h += (hash(cx, cy, world.seed + 4) - 0.5) * (h > 0.3 ? 0.25 : 0.08);
         if (flat && !wet) h = Math.max(h, -0.03) * 0.5;
+        if (world.globe && (cy === 0 || cy === H)) h = BASE_H[TILE.SNOW] != null ? BASE_H[TILE.SNOW] : 0.2;   // (the very pole: one level, so the far side drawn past it meets it with no seam)
         hc[cy * (W + 1) + cx] = h;
       }
     },
@@ -595,6 +597,94 @@
       R.scene.add(w);
     },
 
+    // ---------------------------------------------------------------- over the poles
+    // Near a pole of a round world the land past it is the far side of the globe, turned about
+    // (what lies straight ahead over the North Pole is the meridian half the world round, coming
+    // toward you). So past the pole the chunks of the far side are drawn, turned 180° about the
+    // pole under you — and when you cross, the two sets simply trade places: nothing is built
+    // again, and the view is the same the frame after as the frame before.
+    MIRROR_NEAR: 60,
+    mirrorDropAll() {
+      for (const k of Object.keys(R.mchunks || {})) R.mirrorDrop(k);
+      R.mchunks = {};
+      if (R.mirrorGroup) R.mirrorGroup.visible = false;
+    },
+    mirrorDrop(k) {
+      const c = R.mchunks && R.mchunks[k];
+      if (!c) return;
+      for (const o of c.objs) { o.parent && o.parent.remove(o); if (o.geometry && o.userData.ownGeo) o.geometry.dispose(); if (o.dispose) o.dispose(); }
+      delete R.mchunks[k];
+    },
+    // where the far side is drawn: X = T - x', Z = Zc - z' (a half turn about the pole under you)
+    mirrorFrame(world, px, north) { return { T: 2 * px + world.W / 2, Zc: north ? 0 : 2 * world.H, Q: px + world.W / 2 }; },
+    updateMirror(game) {
+      const world = game.world, pe = game.pe;
+      R.mchunks = R.mchunks || {};
+      if (!R.mirrorGroup) { R.mirrorGroup = new THREE.Group(); R.mirrorGroup.rotation.y = Math.PI; R.scene.add(R.mirrorGroup); }
+      const G = R.mirrorGroup;
+      const near = world.globe && pe && !ECHO.Interior.cur && (pe.y < R.MIRROR_NEAR || pe.y > world.H - R.MIRROR_NEAR);
+      if (!near) { if (Object.keys(R.mchunks).length) R.mirrorDropAll(); G.visible = false; return; }
+      const north = pe.y < world.H / 2, M = R.mirrorFrame(world, pe.x, north);
+      if (R._mNorth !== north || (R._mQ != null && Math.abs(M.Q - R._mQ) > world.W / 2)) { R.mirrorDropAll(); }
+      R._mNorth = north; R._mQ = M.Q;
+      G.visible = true; G.position.set(M.T, 0, M.Zc); G.updateMatrixWorld(true);
+      // which of the far side's chunks the view past the pole needs
+      const rad = ((R.flyK || 0) > 0.3 ? Math.max(R.chunkR, 2) + 1 : R.chunkR) + 1, tg = R.camTarget;
+      const Xa = tg.x - rad * CH, Xb = tg.x + rad * CH, deep = (rad + 1) * CH;
+      const cx0 = Math.floor((M.T - Xb) / CH), cx1 = Math.floor((M.T - Xa) / CH);
+      const NCy = Math.ceil(world.H / CH);
+      const cys = []; for (let i = 0; i <= Math.ceil(deep / CH); i++) cys.push(north ? i : NCy - 1 - i);
+      const want = new Set(), epoch = R.chunkKey(world);
+      for (const cy of cys) for (let cx = cx0; cx <= cx1; cx++) want.add(cx + ',' + cy);
+      for (const k of Object.keys(R.mchunks)) if (!want.has(k)) R.mirrorDrop(k);
+      const t0 = performance.now();
+      const order = [...want].sort((a, b) => Math.abs(+a.split(',')[0] * CH + 8 - M.Q) - Math.abs(+b.split(',')[0] * CH + 8 - M.Q));
+      for (const k of order) {
+        const c = R.mchunks[k];
+        if (c && c.epoch === epoch) continue;
+        if (c && R.chunkUnchanged(world, c, +k.split(',')[0], +k.split(',')[1])) { c.epoch = epoch; continue; }
+        if (performance.now() - t0 > 3 && !R.firstFrame) break;
+        if (c) R.mirrorDrop(k);
+        const [cx, cy] = k.split(',').map(Number);
+        const prev = R.chunks[k];
+        R.buildChunk(world, cx, cy, epoch);
+        const nc = R.chunks[k];
+        if (prev) R.chunks[k] = prev; else delete R.chunks[k];
+        if (!nc) continue;
+        for (const o of nc.objs) { o.userData._home = o.parent; G.add(o); o.visible = true; }
+        for (const o of nc.lo || []) o.visible = false;
+        nc.mirror = true; R.mchunks[k] = nc;
+      }
+    },
+    // You have gone over the pole: what was past it is where you now are, and what was around
+    // you is past it. Each set of chunks is handed to the other; dx re-bases the far side's x.
+    mirrorSwap(world, oldX, newX) {
+      const G = R.mirrorGroup;
+      if (!G) return;
+      const oldReal = R.chunks, oldMirror = R.mchunks || {}, Wc = Math.round(world.W / CH);
+      // the far side's chunks were built about Q = oldX + W/2 (unwrapped); as land under you they belong at newX
+      const sA = Math.round((newX - (oldX + world.W / 2)) / CH);
+      const realNew = {};
+      for (const [k, c] of Object.entries(oldMirror)) {
+        const [cx, cy] = k.split(',').map(Number);
+        for (const o of c.objs) { (o.userData._home || R.groups.props).add(o); if (sA) o.position.x += sA * CH; o.updateMatrixWorld && o.updateMatrixWorld(true); }
+        if (c.box && sA) { c.box.min.x += sA * CH; c.box.max.x += sA * CH; }
+        c.mirror = false; c.shown = null; c.near = null;
+        realNew[(cx + sA) + ',' + cy] = c;
+      }
+      // and the land round you goes past the pole, about the new Q = newX + W/2
+      const sB = Math.round((newX + world.W / 2 - oldX) / world.W) * Wc, mirNew = {};
+      for (const [k, c] of Object.entries(oldReal)) {
+        const [cx, cy] = k.split(',').map(Number);
+        for (const o of c.objs) { o.userData._home = o.parent; G.add(o); if (sB) o.position.x += sB * CH; o.visible = true; o.updateMatrixWorld && o.updateMatrixWorld(true); }
+        for (const o of c.lo || []) o.visible = false;
+        if (c.box && sB) { c.box.min.x += sB * CH; c.box.max.x += sB * CH; }
+        c.mirror = true; mirNew[(cx + sB) + ',' + cy] = c;
+      }
+      R.chunks = realNew; R.mchunks = mirNew;
+      R._mQ = newX + world.W / 2;
+    },
+
     // Everything built of the land moved by dx tiles (dx a whole number of chunks): going round
     // a round world, the chunks already built where you are come with you instead of being built again.
     shiftChunks(dx) {
@@ -627,6 +717,22 @@
 
     // ---------------------------------------------------------------- chunks
     chunkKey(world) { return world.day + '|' + (world._tileEpoch || 0); },
+    // Built for an older epoch, but nothing under it changed since (the land changed elsewhere,
+    // and the world kept a note of where): it stands as it is.
+    chunkUnchanged(world, c, cx, cy) {
+      const log = world._tileLog;
+      if (!log || !c.epoch) return false;
+      const [d0, e0] = c.epoch.split('|').map(Number), e1 = world._tileEpoch || 0;
+      if (d0 !== world.day || !(e1 > e0)) return false;
+      const NC = Math.ceil(world.W / CH), wx = world.globe ? ((cx % NC) + NC) % NC : cx;
+      const x0 = wx * CH, y0 = cy * CH, x1 = x0 + CH, y1 = y0 + CH;
+      for (let e = e0 + 1; e <= e1; e++) {
+        const L = log.find(l => l.e === e);
+        if (!L) return false;                                   // (a change not noted: build it again)
+        for (const r of L.rects) if (r.x0 - 2 < x1 && r.x1 + 2 > x0 && r.y0 - 2 < y1 && r.y1 + 2 > y0) return false;
+      }
+      return true;
+    },
     // The land is built in 16-tile chunks around the camera. At speed (a gallop, a
     // dragon's back) it looks ahead along the way you are going, so the ground is
     // ready before it comes into view; it lets go of what is behind only once that
@@ -677,6 +783,7 @@
         const k = cx + ',' + cy;
         const c = R.chunks[k];
         if (c && c.epoch === epoch) continue;
+        if (c && R.chunkUnchanged(world, c, cx, cy)) { c.epoch = epoch; continue; }
         // a few ms a frame; the chunk under your feet is never left waiting
         const under = Math.abs(cx - ccx) <= 1 && Math.abs(cy - ccy) <= 1 && !c;
         if (!first && built > 0 && !under && performance.now() - t0 > 3) break;
@@ -685,6 +792,7 @@
         built++;
       }
       R.firstFrame = false;
+      R.updateMirror(game);
       R.cullChunks();
     },
     dropChunk(k) {
@@ -890,7 +998,7 @@
       F.setFromProjectionMatrix(M);
       const tx = R.camTarget.x, tz = R.camTarget.z, nearD = 20 + 14 * (R.flyK || 0);
       for (const c of Object.values(R.chunks)) {
-        if (!c.box) continue;
+        if (!c.box || c.mirror) continue;
         const show = F.intersectsBox(c.box);
         // how far the chunk's nearest edge is from where you stand
         const b = c.box, dx = Math.max(b.min.x + 5 - tx, 0, tx - (b.max.x - 5)), dz = Math.max(b.min.z + 5 - tz, 0, tz - (b.max.z - 5));
@@ -2005,7 +2113,8 @@
       const s = root.scale.x, mid = R._fv1 || (R._fv1 = new THREE.Vector3()), q = root.quaternion;
       root.updateMatrix();
       mid.set(0, 1.1 * s, 0).applyQuaternion(q);
-      root.position.set(dv.px != null ? dv.px : dEnt.x, F.z - F.crouch * 0.35 * s, dv.py != null ? dv.py : dEnt.y);
+      root.position.set(dEnt.x, F.z - F.crouch * 0.35 * s, dEnt.y);      // (the beast you ride is exactly under you, every frame)
+      dv.px = dEnt.x; dv.py = dEnt.y;
       root.position.x += 0 - mid.x; root.position.y += 1.1 * s - mid.y; root.position.z += 0 - mid.z;
       root.updateMatrixWorld(true);
       // the rider, astride the back
@@ -2754,7 +2863,10 @@
         if (v.cfgT <= 0) { v.cfgT = 1; R.configure(game, e, v); v.baseScale = root.scale.x; }
         // Smooth what the eye sees: position eases toward the simulation,
         // and "walking" fades in and out instead of flickering on and off.
-        if (v.px == null || Math.hypot(e.x - v.px, e.y - v.py) > 1.5 || e === game.pe) { v.px = e.x; v.py = e.y; }
+        // (a jump snaps; steady speed, however fast, eases — the limit grows with the pace, so a
+        //  dragon at full stretch doesn't snap one frame and lag the next, flickering)
+        const stp = v.lx == null ? 0 : Math.hypot(e.x - v.lx, e.y - v.ly);
+        if (v.px == null || Math.hypot(e.x - v.px, e.y - v.py) > Math.max(1.5, stp < 6 ? stp * 3.5 : 0) || e === game.pe) { v.px = e.x; v.py = e.y; }
         else { const kp = 1 - Math.exp(-dt * 16); v.px += (e.x - v.px) * kp; v.py += (e.y - v.py) * kp; }
         const spd = dt > 0 ? Math.hypot(e.x - (v.lx == null ? e.x : v.lx), e.y - (v.ly == null ? e.y : v.ly)) / dt : 0;
         if (spd > 0.3) v.vdir = Math.atan2(e.y - v.ly, e.x - v.lx);
@@ -3873,10 +3985,10 @@
       }
       // near the poles of a round world: a white wind off the ice
       const pk = world.globe && game.pe && !ECHO.Interior.cur ? U.clamp((70 - Math.min(game.pe.y, world.H - game.pe.y)) / 55, 0, 1) : 0;
-      if (pk > 0) { fog = lerpC(fog, C(dl > 0.3 ? '#eef3f8' : '#3a4250'), 0.85 * pk); R.sun.intensity *= 1 - 0.4 * pk; }
+      if (pk > 0) { fog = lerpC(fog, C(dl > 0.3 ? '#eef3f8' : '#3a4250'), 0.4 * pk); R.sun.intensity *= 1 - 0.15 * pk; }
       R.scene.fog.color.copy(fog);
       R.scene.background = R.scene.fog.color;
-      const fogK = M.fogK * (1 - 0.62 * pk);
+      const fogK = M.fogK * (1 - 0.25 * pk);
       R.scene.fog.near = R.camDistNow * 1.15 * fogK * (1 - 0.18 * dk);
       R.scene.fog.far = R.camDistNow * (season === 3 ? 2.6 : 3.4) * fogK * (1 - 0.45 * dk);
       R.renderer.toneMappingExposure = 1.0 + (1 - dl) * 0.22;

@@ -1114,6 +1114,7 @@ function main() {
     const need = Gl.unmade(w, Math.floor(w.player.x), Math.floor(w.player.y), 120);
     const info = Gl.make(w, need);
     check('land near you is made as you come: ground, regions and villages with people', need.length > 0 && need.every(ci => G.made[ci]) && w.settlements.length > nSet && Object.keys(w.npcs).length > ppl, `${need.length} cells, ${info.towns.length} villages`);
+    check('past the North Pole is the far side of the world, turned about (and past the South Pole too)', ECHO.World.tile(w, 100, -1) === ECHO.World.tile(w, 100 + w.W / 2, 0) && ECHO.World.tile(w, 100, -7) === ECHO.World.tile(w, 100 + w.W / 2, 6) && ECHO.World.tile(w, 5, w.H + 2) === ECHO.World.tile(w, 5 + w.W / 2, w.H - 3) && ECHO.World.isSolid(w, 100.5, -3.5) === ECHO.World.isSolid(w, 100.5 + w.W / 2, 3.5));
     check('east of the east edge is the west edge', ECHO.World.tile(w, -3, 500) === ECHO.World.tile(w, w.W - 3, 500) && ECHO.World.isSolid(w, -2.5, 500.5) === ECHO.World.isSolid(w, w.W - 2.5, 500.5) && Gl.dx(w, w.W - 5, 5) === 10);
     Gl.make(w, Gl.unmade(w, 3, 520, 40)); Gl.make(w, Gl.unmade(w, 1400, 20, 20));
     let sameJ = 0, ice = 0, seamN = 0, inN = 0, inSame = 0; for (let y = 400; y < 700; y++) { if (ECHO.World.tile(w, w.W - 1, y) === ECHO.World.tile(w, 0, y)) sameJ++; seamN++; }

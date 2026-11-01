@@ -36,7 +36,12 @@
       if (x >= 9000 && ECHO.Interior) return ECHO.Interior.tile(x, y);
       x |= 0; y |= 0;
       const ww = world.W || 200;
-      if ((x < 0 || x >= ww) && world.globe) x = ((x % ww) + ww) % ww;     // (the world is round)
+      if (world.globe) {
+        const hh = world.H;
+        // past a pole: the ground over it, on the far side of the world, turned about
+        if (y < 0) { y = -1 - y; x += ww / 2; } else if (y >= hh) { y = 2 * hh - 1 - y; x += ww / 2; }
+        if (x < 0 || x >= ww) x = ((x % ww) + ww) % ww;     // (the world is round)
+      }
       if (x < 0 || y < 0 || x >= ww || y >= (world.H || 150)) return TILE.DEEP;
       return world.tiles[y * ww + x];
     },
@@ -48,7 +53,11 @@
       const fx = x, fy = y;
       x = Math.floor(x); y = Math.floor(y);
       const ww = world.W || 200;
-      if ((x < 0 || x >= ww) && world.globe) { const k = Math.floor(x / ww) * ww; x -= k; return World.isSolid(world, fx - k, fy); }
+      if (world.globe) {
+        if (fy < 0 && fy > -world.H) return World.isSolid(world, fx + ww / 2, -fy);                   // (over a pole)
+        if (fy >= world.H && fy < 2 * world.H) return World.isSolid(world, fx + ww / 2, 2 * world.H - fy);
+        if (x < 0 || x >= ww) { const k = Math.floor(x / ww) * ww; x -= k; return World.isSolid(world, fx - k, fy); }
+      }
       if (x < 0 || y < 0 || x >= ww || y >= (world.H || 150)) return true;
       const i = y * ww + x;
       if (world.blocked[i] === 1) return true;

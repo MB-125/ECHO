@@ -65,7 +65,12 @@
       r.lk = k;
       return LANDS[k];
     },
-    at(world, x, y) { return x >= 9000 ? null : La.of(world, ECHO.World.regionAt(world, x, y)); },
+    at(world, x, y) {
+      if (x >= 9000) return null;
+      // (round the poles one land: going over the top you don't step from one into another)
+      if (world.globe && (y < 44 || y > world.H - 44)) return La.LANDS.frozen;
+      return La.of(world, ECHO.World.regionAt(world, x, y));
+    },
     key(land) { return Object.keys(LANDS).find(k => LANDS[k] === land); },
 
     // ------------------------------------------------------------ each frame

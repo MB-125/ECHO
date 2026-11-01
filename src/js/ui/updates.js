@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.10.9', items: [
+      'Going over a pole is now seamless: the land past the pole (the far side of the world, turned about, as it really lies) is drawn as you come up to it, and as you cross the two simply change places — the view the moment after is the view the moment before, with nothing rebuilt and no sudden switch. The weather and the land\'s name stay the same over the top.',
+      'Your dragon no longer flickers when flying fast or over the world\'s edges: the beast you ride is drawn exactly under you every frame, and fast-moving creatures ease smoothly instead of jumping one frame and lagging the next.',
+      'When new country is settled near you, only the ground that changed is rebuilt, not everything in sight — less stutter while exploring.'
+    ] },
     { v: '0.10.8', items: [
       'No more freeze when you fly (or walk, or sail) round the world: crossing the east-west join or a pole used to stop and start the whole game again, and settle all the country round where you came down. Now you are simply carried over — your dragon, your beasts and the land already in sight come with you — in a fraction of a frame.',
       'In the sky the currents of the rivers below are left alone, one less thing for the game to work out as you fly.'
