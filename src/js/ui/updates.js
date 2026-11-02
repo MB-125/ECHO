@@ -7,6 +7,9 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.12.1', items: [
+      'The guide at the top of the screen is simpler to follow: instead of a heading tape that slid with the way you faced (which jumps about as you fight, aim and walk), a dial with a gold needle points on the screen the way to go. The view never turns, so the needle up is W, up and to the right is W and D, and so on; north is marked on the dial (at the bottom when the view is turned over a pole). Beside it: how far, to where, and the way.'
+    ] },
     { v: '0.12.0', items: [
       'The minimap is now a nav-scope: a round radar of the land about you with a bezel marked in degrees (north in gold), range rings, a sweep going round, the way ahead drawn in light, what hunts you as red blips, the way you face as a cone of light, and where you are headed as a gold diamond — or, when it lies beyond, a mark on the rim with how far. Under it: your heading in degrees and where on the world you stand. Scroll on it to range in or out; click it for the full map.',
       'The guide at the top of the screen is a heading tape that slides as you turn, every five degrees marked: where you are headed is a gold diamond on it — bring the middle onto the diamond and it says On course, otherwise which way to turn and how far. Under it: the distance in leagues, the place, and the way (follow the road north, through the woods…).',

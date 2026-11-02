@@ -91,101 +91,85 @@
         if (d < 46 && d > 3) for (let i = 0; i < 6; i++) Pu.glows.push({ x: g.where.x, y: g.where.y, h: 0.6 + i * 1.1, s: 1.3 - i * 0.12, c: '#ffe08a', a: 0.22 - i * 0.025 + 0.06 * Math.sin(game.time * 2.4 + i) });
       }
     },
-    // The guide at the top of the screen: a heading tape that slides as you turn (your heading at
-    // its middle, every five degrees marked), where you are headed as a diamond on it — bring the
-    // middle onto the diamond and you are on course — and under it how far, to where, and the way.
+    // The guide at the top of the screen: a dial whose gold arrow points, on the screen, the way
+    // to go (the camera never turns, so up the screen is W, up and right is W and D), and beside it
+    // how far, to where, and the way (follow the road north…).
     hud(game) {
       const el = document.getElementById('hud-goal');
       if (!el) return;
       if (ECHO.GateWorld && ECHO.GateWorld.hud(game, el)) { Pu._nav = null; el.classList.remove('nav'); return; }
       let N = Pu._nav;
-      if (!N || !el.contains(N.tape)) {
-        el.innerHTML = `<div class="ng-top"><span class="ng-label"></span><span class="ng-tag"></span></div><canvas class="ng-tape"></canvas><div class="ng-row"><span class="ng-dist"></span><span class="ng-dest"></span><span class="ng-stat"></span></div><div class="ng-leg"></div><div class="ng-keys">J · how?&nbsp;&nbsp;·&nbsp;&nbsp;N · where to?&nbsp;&nbsp;·&nbsp;&nbsp;M · map</div>`;
-        N = Pu._nav = { tape: el.querySelector('.ng-tape'), label: el.querySelector('.ng-label'), tag: el.querySelector('.ng-tag'), dist: el.querySelector('.ng-dist'), dest: el.querySelector('.ng-dest'), stat: el.querySelector('.ng-stat'), leg: el.querySelector('.ng-leg'), c: {} };
+      if (!N || !el.contains(N.dial)) {
+        el.innerHTML = `<canvas class="ng-dial"></canvas><div class="ng-txt"><div class="ng-top"><span class="ng-label"></span><span class="ng-tag"></span></div><div class="ng-row"><span class="ng-dist"></span><span class="ng-dest"></span></div><div class="ng-leg"></div><div class="ng-keys">J · how?&nbsp;&nbsp;·&nbsp;&nbsp;N · where to?&nbsp;&nbsp;·&nbsp;&nbsp;M · map</div></div>`;
+        N = Pu._nav = { dial: el.querySelector('.ng-dial'), label: el.querySelector('.ng-label'), tag: el.querySelector('.ng-tag'), dist: el.querySelector('.ng-dist'), dest: el.querySelector('.ng-dest'), leg: el.querySelector('.ng-leg'), c: {} };
         el.classList.add('nav'); el.classList.remove('hidden');
       }
       const set = (k, v, html) => { if (N.c[k] === v) return; N.c[k] = v; if (html) N[k].innerHTML = v; else N[k].textContent = v; };
-      const g = Pu.goal, pe = game.pe, inside = !!ECHO.Interior.cur, pl = game.pl;
+      const g = Pu.goal, pe = game.pe, inside = !!ECHO.Interior.cur, turned = !!(game.pl && game.pl.viewTurn) && !inside;
       el.classList.toggle('in', inside);
-      // your heading (on a dragon, the way it flies)
-      const F = pl.flying && ECHO.Apex && ECHO.Apex.fly, hdg = (((((F ? F.dir : pe ? pe.dir : 0) || 0) * 180 / Math.PI + 90) % 360) + 360) % 360;
       if (!g) {
         set('label', game.pl.focus ? 'No destination' : 'No road chosen yet'); set('tag', '');
-        set('dist', ''); set('dest', game.pl.focus ? 'N · where to? · or right-click the map' : 'Tab → Ambitions to choose one', true); set('stat', ''); set('leg', '');
-        Pu.tape(N.tape, hdg, null, inside);
+        set('dist', ''); set('dest', game.pl.focus ? 'N · where to? · or right-click the map' : 'Tab → Ambitions to choose one', true); set('leg', '');
+        Pu.dial(N.dial, null, turned, 0);
         return;
       }
-      let brg = null, dist = null, leg = '', vague = false;
+      let ang = null, dist = null, leg = '', vague = false;
       if (g.where && !inside) {
         const dx = ECHO.Globe ? ECHO.Globe.dx(game.world, pe.x, g.where.x) : g.where.x - pe.x, dy = g.where.y - pe.y, d = Math.hypot(dx, dy);   // (round the world, the short way)
-        let ang = Math.atan2(dy, dx);
         const R = ECHO.Nav && ECHO.Nav.route;
         vague = !!g.where.vague;
-        dist = d;
+        dist = d; ang = Math.atan2(dy, dx);
         if (d >= 4 && R && R.ok && R.steer) {
           // along the planned way, not through the lake
           ang = Math.atan2(R.steer.y - pe.y, R.steer.x - pe.x);
           leg = R.leg || ''; dist = R.left;
         } else if (d >= 4 && R && R.air) leg = R.leg || '';
         else if (d >= 4) leg = `head ${DIRS[((Math.round(ang / (Math.PI / 4)) % 8) + 8) % 8]}`;
-        if (d >= 4) brg = (((ang * 180 / Math.PI + 90) % 360) + 360) % 360;
+        if (d < 4) ang = null;
       }
       set('label', g.label); set('tag', g.kind === 'track' ? 'Tracked' : '');
       const dd = dist == null ? '' : dist < 4 ? '<b>HERE</b>' : `<b>${vague ? '~' : ''}${Math.max(1, Math.round(dist / 2) * 2)}</b><i>LG</i>`;   // (every odd league would rewrite it twenty times a second on a dragon)
       set('dist', dd, true);
       set('dest', g.where ? `<i>◆</i>${esc(g.where.name || '')}` : '', true);
-      set('leg', leg ? `▸ ${leg}` : '');
-      const off = brg == null ? null : ((brg - hdg + 540) % 360) - 180;
-      set('stat', off == null ? '' : Math.abs(off) <= 8 ? '<span class="ok">● On course</span>' : `<span>${off < 0 ? '◂ ' : ''}Turn ${Math.round(Math.abs(off) / 5) * 5}°${off > 0 ? ' ▸' : ''}</span>`, true);
-      Pu.tape(N.tape, hdg, brg, inside);
+      set('leg', leg ? `▸ ${leg}` : dist != null && dist < 4 ? '▸ you are there' : '');
+      // on the screen: the view turned about over a pole turns the arrow with it
+      Pu.dial(N.dial, ang == null ? null : ang + (turned ? Math.PI : 0), turned, dist != null && dist < 4 ? 1 : 0);
     },
-    // the heading tape itself: ±55° about where you face
-    tape(cv, hdg, brg, hide) {
-      const dpr = Math.min(2, window.devicePixelRatio || 1), W = 420, H = 34;
-      if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
-      const g = cv.getContext('2d');
-      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-      if (hide) return;
-      const cx = W / 2, ppd = W / 110, HC = 'rgba(95,242,255,', AM = 'rgba(255,207,106,';
-      const fade = x => Math.max(0, 1 - Math.pow(Math.abs(x - cx) / (W / 2), 2.2));
-      g.textAlign = 'center'; g.textBaseline = 'middle';
-      for (let d = Math.floor((hdg - 56) / 5) * 5; d <= hdg + 56; d += 5) {
-        const x = cx + (d - hdg) * ppd, deg = ((d % 360) + 360) % 360, a = fade(x);
-        if (a <= 0) continue;
-        const card = deg % 45 === 0, major = deg % 15 === 0;
-        g.strokeStyle = HC + (a * (card ? 0.95 : major ? 0.7 : 0.4)).toFixed(3) + ')'; g.lineWidth = card ? 1.6 : 1;
-        g.beginPath(); g.moveTo(x, 2); g.lineTo(x, 2 + (card ? 11 : major ? 8 : 4)); g.stroke();
-        if (major && Math.abs(x - cx) > 22) {
-          g.font = card ? '700 11px ui-monospace, Consolas, monospace' : '500 9px ui-monospace, Consolas, monospace';
-          g.fillStyle = card ? (deg === 0 ? AM : HC) + a.toFixed(3) + ')' : HC + (a * 0.65).toFixed(3) + ')';
-          g.fillText(card ? ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][deg / 45] : String(deg).padStart(3, '0'), x, 24);
-        }
+    // the dial: north marked where north is on the screen, the eight ways, and the arrow (eased, so it
+    // does not shiver as the way ahead is worked out again)
+    dial(cv, a, turned, here) {
+      const dpr = Math.min(2, window.devicePixelRatio || 1), S = 60;
+      if (cv.width !== Math.round(S * dpr)) { cv.width = Math.round(S * dpr); cv.height = Math.round(S * dpr); }
+      const g = cv.getContext('2d'), c = S / 2, r = 25, t = performance.now() / 1000, HC = 'rgba(95,242,255,', AM = 'rgba(255,207,106,';
+      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, S, S);
+      g.fillStyle = 'rgba(2,12,22,0.75)'; g.beginPath(); g.arc(c, c, r + 3, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = HC + '0.55)'; g.lineWidth = 1; g.beginPath(); g.arc(c, c, r, 0, Math.PI * 2); g.stroke();
+      for (let i = 0; i < 8; i++) { const q = i * Math.PI / 4; g.strokeStyle = HC + (i % 2 ? '0.35)' : '0.8)'); g.lineWidth = i % 2 ? 1 : 1.5; g.beginPath(); g.moveTo(c + Math.cos(q) * (r - (i % 2 ? 3 : 5)), c + Math.sin(q) * (r - (i % 2 ? 3 : 5))); g.lineTo(c + Math.cos(q) * r, c + Math.sin(q) * r); g.stroke(); }
+      // north, where it is on the screen (up; down when the view is turned about over a pole)
+      const ny = turned ? c + r - 0.5 : c - r + 0.5;
+      g.fillStyle = 'rgba(2,12,22,1)'; g.beginPath(); g.arc(c, ny, 5, 0, Math.PI * 2); g.fill();
+      g.font = '700 8px ui-monospace, Consolas, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = AM + '1)'; g.fillText('N', c, ny + 0.5);
+      if (here) {
+        const ph = (t * 0.9) % 1; g.strokeStyle = AM + (0.9 * (1 - ph)).toFixed(3) + ')'; g.lineWidth = 2; g.beginPath(); g.arc(c, c, 4 + ph * 16, 0, Math.PI * 2); g.stroke();
+        g.save(); g.translate(c, c); g.rotate(Math.PI / 4); g.fillStyle = AM + '1)'; g.shadowColor = AM + '1)'; g.shadowBlur = 8; g.fillRect(-4, -4, 8, 8); g.restore();
+        return;
       }
-      // a line under it all
-      const lg = g.createLinearGradient(0, 0, W, 0); lg.addColorStop(0, HC + '0)'); lg.addColorStop(0.5, HC + '0.5)'); lg.addColorStop(1, HC + '0)');
-      g.strokeStyle = lg; g.lineWidth = 1; g.beginPath(); g.moveTo(0, 1.5); g.lineTo(W, 1.5); g.stroke();
-      // where you are headed
-      let on = false;
-      if (brg != null) {
-        const off = ((brg - hdg + 540) % 360) - 180;
-        on = Math.abs(off) <= 8;
-        if (Math.abs(off) <= 54) {
-          const x = cx + off * ppd;
-          g.save(); g.translate(x, 10); g.rotate(Math.PI / 4); g.fillStyle = AM + '1)'; g.shadowColor = AM + '1)'; g.shadowBlur = 10; g.fillRect(-4.5, -4.5, 9, 9); g.restore();
-          g.strokeStyle = AM + '0.5)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x, 17); g.lineTo(x, H - 2); g.stroke();
-        } else {
-          // beyond the tape: an arrow at its end, the way to turn
-          const s = off < 0 ? -1 : 1, x = cx + s * (W / 2 - 10);
-          g.fillStyle = AM + '1)'; g.shadowColor = AM + '1)'; g.shadowBlur = 8;
-          g.beginPath(); g.moveTo(x + s * 7, 12); g.lineTo(x - s * 3, 5); g.lineTo(x - s * 3, 19); g.closePath(); g.fill(); g.shadowBlur = 0;
-        }
-      }
-      // the middle: where you face, and the reading
-      g.fillStyle = on ? AM + '1)' : '#e6fdff'; g.shadowColor = on ? AM + '1)' : HC + '1)'; g.shadowBlur = 8;
-      g.beginPath(); g.moveTo(cx, 15); g.lineTo(cx - 5, 22); g.lineTo(cx + 5, 22); g.closePath(); g.fill(); g.shadowBlur = 0;
-      g.fillStyle = 'rgba(4,12,22,0.9)'; g.strokeStyle = on ? AM + '0.9)' : HC + '0.7)'; g.lineWidth = 1;
-      g.beginPath(); g.rect(cx - 19, 22, 38, 12); g.fill(); g.stroke();
-      g.font = '700 10px ui-monospace, Consolas, monospace'; g.fillStyle = on ? AM + '1)' : '#e6fdff'; g.fillText(String(Math.round(hdg) % 360).padStart(3, '0') + '°', cx, 28.5);
+      if (a == null) { g.fillStyle = HC + '0.5)'; g.beginPath(); g.arc(c, c, 2, 0, Math.PI * 2); g.fill(); Pu._da = null; return; }
+      Pu._da = Pu._da == null ? a : Pu._da + U.angleDiff(Pu._da, a) * 0.25;
+      const da = Pu._da;
+      // a soft fan the way to go, then the arrow
+      const fan = g.createRadialGradient(c, c, 2, c, c, r);
+      fan.addColorStop(0, AM + '0.35)'); fan.addColorStop(1, AM + '0)');
+      g.fillStyle = fan; g.beginPath(); g.moveTo(c, c); g.arc(c, c, r - 1, da - 0.42, da + 0.42); g.closePath(); g.fill();
+      const pulse = 0.85 + 0.15 * Math.sin(t * 4);
+      g.save(); g.translate(c, c); g.rotate(da);
+      // a needle: a faint tail, a gold shaft and a clear head at the end that points the way
+      g.strokeStyle = HC + '0.45)'; g.lineWidth = 2; g.lineCap = 'round'; g.beginPath(); g.moveTo(-(r - 9), 0); g.lineTo(0, 0); g.stroke();
+      g.shadowColor = AM + '1)'; g.shadowBlur = 10;
+      g.strokeStyle = AM + pulse.toFixed(3) + ')'; g.lineWidth = 3; g.beginPath(); g.moveTo(0, 0); g.lineTo(r - 11, 0); g.stroke();
+      g.fillStyle = AM + pulse.toFixed(3) + ')'; g.beginPath(); g.moveTo(r - 1, 0); g.lineTo(r - 13, 7); g.lineTo(r - 10, 0); g.lineTo(r - 13, -7); g.closePath(); g.fill();
+      g.shadowBlur = 0; g.fillStyle = '#e6fdff'; g.beginPath(); g.arc(0, 0, 2.5, 0, Math.PI * 2); g.fill();
+      g.restore();
     },
 
     // ------------------------------------------------------------ ceremonies
