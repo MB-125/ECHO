@@ -7,6 +7,16 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.17.0', items: [
+      'The land can be changed by your own hand. Walk up to a tree and press E: you swing at it stroke after stroke (keep still — step away, or take a blow, and you leave off), it gives a creak, and it comes down in front of you, crashing through its own boughs. What is left is a stump, chips in the grass and a load or three of timber in your pack.',
+      'Stone too: press E by a stone in the grass, a boulder on the hills, or the rock face of a mountain. Boulders break with anything you carry; the living rock of the mountains wants a pick — and what you cut away stays cut, so you can make your own way through a ridge, a tile at a time. Ore every time, and now and then a gold nugget, a garnet or a sapphire.',
+      'Nothing grows back from stone, but the woods do: a stump sends up a sapling after a season, and in a season or two more it is a tree again where it stood — unless someone has built, paved or ploughed there since. Trees in the deep woods are older and slower to fell, and give more.',
+      'A woodsman\'s axe and a miner\'s pick at every market (Tools of a peaceful trade) halve the strokes. Two new crafts grow by the work, with their own ranks and perks: Woodcutting (fewer strokes, more timber, burls of figured wood that carvers pay well for) and Mining (fewer blows, more ore, gold and gems twice as often, and living rock nearly as easy as a boulder). Both earn experience, like the other peaceful crafts.',
+      'Timber and ore sell at every market — dearest where a town is building or short of iron — and a homestead is built of them.',
+      'Fell enough in one place, or break enough stone, and the place takes your name: folk call it Vey\'s Clearing, or Vey\'s Quarry, or Vey\'s Cut if you went into the rock — and the Chronicle remembers who did it.',
+      'You are not the only one at it: every town with a working lumber camp sends its woodcutters into the woods round it most days. Lumber camps are ringed with stumps and saplings now, and the woods come back about as fast as they are cut.',
+      'All of it is kept with your world and nothing resets: a world from before this version simply starts changing from here on.'
+    ] },
     { v: '0.16.0', items: [
       'A new look for the whole game, matching the map: every panel and tab — journal, notice boards, character sheet, shops, smithy, inn, archive, dialogue, choices, the pause menu, keys, the title screen — is now a glass console with cyan light at its edges, crisp new type (Inter for reading, Rajdhani for headings), glowing tabs, and amber for what you earn.',
       'The HUD matches: your name, level, life, stamina and mana sit on a glass plate with light-edged bars; the clock, the item bar, the foe you face, the boss bar, the big place-name banner and the messages down the right are all restyled; each kind of message has its own coloured edge.',

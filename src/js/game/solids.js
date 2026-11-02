@@ -30,6 +30,7 @@
       if (x < 0 || y < 0 || x >= world.W || y >= world.H) return false;
       const T = TT(), t = world.tiles[y * world.W + x];
       if (t !== T.TREE && t !== T.FOREST && t !== T.GRASS && t !== T.HILL && t !== T.SNOW && t !== T.RUIN) return false;
+      if (world.cut && ECHO.Clearing && ECHO.Clearing.at(world, x, y)) return false;      // (felled, or broken: gone)
       const s = world.seed, a = h2(x, y, s + 31);
       let r;
       if (t === T.TREE) r = 0.17;   // (the trunk as drawn)
@@ -46,6 +47,7 @@
       if (x < 0 || y < 0 || x >= world.W || y >= world.H) return null;
       const T = TT(), t = world.tiles[y * world.W + x];
       if (t !== T.TREE && t !== T.FOREST && t !== T.GRASS && t !== T.HILL && t !== T.SNOW && t !== T.RUIN) return null;
+      if (world.cut && ECHO.Clearing && ECHO.Clearing.at(world, x, y)) return null;
       const s = world.seed, a = h2(x, y, s + 31), b = h2(x, y, s + 32), c = h2(x, y, s + 33);
       const px = x + 0.5 + (b - 0.5) * 0.5, py = y + 0.5 + (c - 0.5) * 0.5;
       if (t === T.TREE) return { x: px, y: py, r: world._wd && world._wd[y * world.W + x] ? 0.22 : 0.17, k: 'trunk' };

@@ -1,6 +1,6 @@
 // Pastimes: a life you can live without drawing a blade.
 //
-// Six crafts grow by doing them, each with its own ranks and its own small
+// Six crafts grow by doing them (and two more, Woodcutting and Mining, in harvest.js), each with its own ranks and its own small
 // mastery: Foraging (berries, mushrooms, herbs, wild honey and eggs from the
 // woods and meadows), Cooking (recipes at a campfire or an inn's kitchen),
 // Prospecting (panning the rivers for gold), Music (playing for coin in town

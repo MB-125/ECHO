@@ -132,6 +132,35 @@
           S.tone(t, 1.2, 'sawtooth', 75, 45, 0.25 * v, 0.15); S.tone(t, 1.1, 'square', 52, 40, 0.1 * v, 0.2);
           break;
         case 'stomp': S.tone(t, 0.4, 'sine', 70, 28, 0.9 * v); S.noise(t, 0.35, 'lowpass', 500, 60, 0.7, 0.6 * v); break;
+        // an axe going into wood: a hollow knock and the bite of the edge
+        case 'chop':
+          S.tone(t, 0.1, 'triangle', 240 * p * r(0.12), 115, 0.5 * v, 0.002);
+          S.noise(t, 0.08, 'bandpass', 1300 * r(0.15), 650, 1.6, 0.45 * v, 0.002);
+          S.noise(t + 0.004, 0.035, 'highpass', 3400, 5200, 0.7, 0.14 * v, 0.001);
+          break;
+        // a pick on stone: the ring of iron, the crack of the rock
+        case 'pick':
+          S.tone(t, 0.18, 'triangle', 1850 * p * r(0.06), 1720, 0.18 * v, 0.001);
+          S.tone(t, 0.12, 'sine', 2860 * r(0.05), 2750, 0.07 * v, 0.001);
+          S.noise(t, 0.06, 'highpass', 2400, 6200, 0.8, 0.32 * v, 0.001);
+          S.tone(t, 0.08, 'sine', 170, 90, 0.3 * v, 0.002);
+          break;
+        // the tree giving: a long low groan in the wood
+        case 'creak':
+          S.tone(t, 0.55, 'sawtooth', 92 * r(0.1), 64, 0.045 * v, 0.18);
+          S.noise(t + 0.05, 0.5, 'bandpass', 340 * r(0.1), 210, 3, 0.12 * v, 0.15);
+          break;
+        // and coming down: the thump of the trunk and the crash of the boughs
+        case 'timber':
+          S.tone(t, 0.5, 'sine', 78, 30, 0.85 * v);
+          S.noise(t, 0.6, 'lowpass', 900, 80, 0.7, 0.6 * v);
+          S.noise(t + 0.02, 0.4, 'bandpass', 2300, 900, 0.8, 0.22 * v, 0.01);
+          break;
+        // stone giving way
+        case 'rubble':
+          S.tone(t, 0.3, 'sine', 95, 40, 0.5 * v);
+          for (let i = 0; i < 5; i++) S.noise(t + i * 0.045, 0.08, 'lowpass', 1600 * r(0.3), 300, 0.8, 0.34 * v * (1 - i / 6), 0.002);
+          break;
         case 'hoof': S.noise(t, 0.045, 'bandpass', 1300 * r(0.25), 700, 2.2, 0.16 * v, 0.002); S.tone(t, 0.07, 'sine', 170 * r(0.2), 80, 0.2 * v, 0.002); break;
         case 'snort': S.noise(t, 0.22, 'bandpass', 420 * r(), 180, 1.1, 0.22 * v, 0.02); S.noise(t + 0.24, 0.14, 'bandpass', 380 * r(), 200, 1.2, 0.12 * v, 0.02); break;
         case 'neigh': {

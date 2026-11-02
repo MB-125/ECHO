@@ -35,6 +35,8 @@
       if (ECHO.Gates) ECHO.Gates.ensure(world);
       if (ECHO.Titans) ECHO.Titans.ensure(world);
       if (ECHO.Wildwood) ECHO.Wildwood.ensure(world);
+      if (ECHO.Clearing) ECHO.Clearing.ensure(world);
+      if (ECHO.Harvest) ECHO.Harvest.reset();
       if (ECHO.GateWorld) ECHO.GateWorld.reset();
       if (ECHO.Apex) ECHO.Apex.reset(Game);
       if (ECHO.Growth) ECHO.Growth.reset();
@@ -185,6 +187,7 @@
       if (ECHO.DungeonLife) ECHO.DungeonLife.update(Game, dt);
       if (ECHO.WorldEvents) ECHO.WorldEvents.update(Game, dt);
       if (ECHO.Pastimes) ECHO.Pastimes.update(Game, dt);
+      if (ECHO.Harvest) ECHO.Harvest.update(Game, dt);
       if (ECHO.Home) ECHO.Home.tick(Game, dt);
       if (ECHO.Tactics) ECHO.Tactics.update(Game, dt);
       if (ECHO.Senses) ECHO.Senses.update(Game, dt);
@@ -717,6 +720,7 @@
       if (ECHO.Stealth) out.push(...ECHO.Stealth.interactables(Game));
       if (ECHO.Camp) out.push(...ECHO.Camp.interactables(Game));
       if (ECHO.Pastimes) out.push(...ECHO.Pastimes.interactables(Game));
+      if (ECHO.Harvest) out.push(...ECHO.Harvest.interactables(Game));
       if (ECHO.GateWorld) out.push(...ECHO.GateWorld.interactables(Game));
       if (ECHO.Deepwood) out.push(...ECHO.Deepwood.interactables(Game));
       if (ECHO.Apex) out.push(...ECHO.Apex.interactables(Game));

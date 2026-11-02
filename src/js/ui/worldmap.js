@@ -157,6 +157,7 @@
         for (let i = 0; i < N; i++) {
           const k = tiles[i], gx = i % W + X0, gy = ((i / W) | 0) + Y0; if (k !== Tl.TREE && !(k === Tl.FOREST && hsh(gx, gy, world.seed + 31) < 0.22)) continue;
           if (tr && tr[i]) continue;
+          if (world.cut && ECHO.Clearing && ECHO.Clearing.at(world, gx, gy)) continue;     // (felled)
           const p = ECHO.World.trunk(world, gx, gy), deep = wd && wd[i], px = (p.x - X0) * S, py = (p.y - Y0) * S;
           const rad = S * (k === Tl.TREE ? 0.42 : 0.3);
           dot(px + rad * 0.25, py + rad * 0.3, rad, [12, 20, 10], 0.35);                          // its shadow

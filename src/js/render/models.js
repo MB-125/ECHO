@@ -23,9 +23,32 @@
         loader.parse(buf.buffer, '', (gltf) => { M.scenes[name] = gltf.scene; gltf.scene.traverse(o => { if (o.isSkinnedMesh) gltf.scene.userData.skinned = true; }); resolve(); }, (err) => { console.error('model', name, err); resolve(); });
       }));
       await Promise.all(jobs);
+      try { M.procedural(); } catch (err) { console.error('model: procedural', err); }
       M.ready = Object.keys(M.scenes).length > 0;
       if (!M.ready) M.failed = 'no models parsed';
       return M.ready;
+    },
+
+    // A few small things made here rather than in Blender: what is left of a felled tree.
+    procedural() {
+      const mat = (name, hex) => { const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(hex).convertSRGBToLinear() }); m.name = name; return m; };
+      if (!M.scenes.stump) {
+        const g = new THREE.Group(), bark = mat('bark', '#5a4330'), cut = mat('cutwood', '#d8b684'), ring = mat('heart', '#a27a4a');
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.19, 0.26, 9), bark); trunk.position.y = 0.13; g.add(trunk);
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(0.137, 0.137, 0.02, 9), cut); top.position.y = 0.265; top.rotation.z = 0.07; g.add(top);
+        const heart = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.014, 7), ring); heart.position.y = 0.279; heart.rotation.z = 0.07; g.add(heart);
+        // the roots going into the ground
+        for (let k = 0; k < 4; k++) {
+          const a = k / 4 * Math.PI * 2 + 0.4, r = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.07, 0.08), bark);
+          r.position.set(Math.cos(a) * 0.17, 0.03, Math.sin(a) * 0.17); r.rotation.set(0, -a, -0.35); g.add(r);
+        }
+        // and the chips the axe threw
+        for (let k = 0; k < 4; k++) {
+          const a = k * 2.3 + 1, c = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.02, 0.045), cut);
+          c.position.set(Math.cos(a) * (0.3 + k * 0.03), 0.01, Math.sin(a) * (0.28 + k * 0.04)); c.rotation.y = a * 1.7; g.add(c);
+        }
+        M.scenes.stump = g;
+      }
     },
 
     // ---------------------------------------------------------------- baking

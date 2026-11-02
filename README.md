@@ -18,6 +18,8 @@ Every system below is real and connected to the others. Nothing is scripted.
 
 **Beasts migrate, and the chain goes on**: a great beast settling into a country, a monster's lair hunting it, hunger or hunters drive its duskwolves out — the whole pack, toward the neighbouring country with the most to eat — and where they arrive they take the villages' flocks and the villages ask for help. Their tracks cross the land between; study them (E) to learn what drove them out and follow them back to it. A country emptied of wolves fills with hares, and a country full of prey draws a great beast out of its range.
 
+**Change the land**: fell any tree and break any stone, boulder or mountain rock face (E, then keep still while you swing; an axe or a pick from any market halves the strokes, and living rock needs a pick). Timber, ore and now and then gold and gems go in your pack; a stump is left where a tree stood and a sapling comes up beside it, a tree again in a season or two; stone never comes back, so you can cut your own way through a ridge. Woodcutting and Mining grow as crafts. Towns' woodcutters fell round their lumber camps too, and a place you clear enough of takes your name.
+
 **One look, end to end**: every panel, tab, shop, dialogue and the HUD share the map's holo console style — dark glass, cyan light, crisp type (Inter and Rajdhani), amber for rewards — and the land itself is shaded smoothly from tile to tile.
 
 **Great events**: rare happenings that leave the world changed — the Great Migration (a great beast arrives and every pack, herd and village near it flees), the Dungeon Bloom (a region's dungeons wake at once), the Broken Crown (a disputed succession splits a kingdom into civil war; pick a side and fight its battles) and the Sleeping God (once a world: shared dreams, earthquakes, a choir of sleepwalkers — go down and sing it back to sleep, or it wakes). Every notice board's Great events page tracks them.
@@ -388,7 +390,7 @@ A see-through controls card sits on the left of the screen (folded away at first
 | **R** / middle mouse | lock onto a target — you always face and aim at it; press again to release (switches to the next foe when it falls) |
 | **Ctrl** | sneak — also required to strike someone who isn't your enemy |
 | **F** (hold) | study a creature or boss |
-| **E** | talk / interact / enter and leave buildings |
+| **E** | talk / interact / enter and leave buildings; by a tree, fell it — by a stone, a boulder or a rock face, break it (keep still while you work) |
 | **H / G** | eat / use herbs |
 | **1** | drink the healing draught that best fits your wounds (minor, healing or greater) |
 | **2–0** | might, stoneskin, fireward, mending tonic, purging tincture, second-wind cordial, heartroot elixir, bloodwine, phoenix tears |
@@ -428,7 +430,7 @@ Pushing a tag such as `v0.1.0` makes GitHub Actions build all three platforms an
 npm test
 ```
 
-Runs the world simulation headless: generation, save/load, a year of history, five-year stability, faction adaptation, species evolution, decipherment — and the monster-kill cascade, comparing two identical worlds where only one loses its apex beast. It also covers levels and experience, gear and forging, the story's chapters, bounties and rival adventurers.
+Runs the world simulation headless: generation, save/load, a year of history, five-year stability, faction adaptation, species evolution, decipherment — and the monster-kill cascade, comparing two identical worlds where only one loses its apex beast. It also covers levels and experience, gear and forging, the story's chapters, bounties and rival adventurers — and the land changed by hand: felling, mining, regrowth, woodcutters and what a save keeps of it.
 
 ## How it's built
 

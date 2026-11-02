@@ -859,6 +859,62 @@
       }
       return true;
     },
+    // The solid thing that stands on a tile by nature, as buildChunk plants it there (a tree,
+    // an oak in the woods, a stone, a boulder): the model, its colours, where, how big, turned
+    // how. (So a felled tree can fall as itself, and a broken boulder crumble as itself.)
+    natSpec(world, x, y) {
+      if (x < 0 || y < 0 || x >= world.W || y >= world.H) return null;
+      const season = T.dateOf(world.day).seasonIdx, t = world.tiles[y * world.W + x];
+      const h1 = hash(x, y, world.seed + 31), h2 = hash(x, y, world.seed + 32), h3 = hash(x, y, world.seed + 33);
+      const px = x + 0.5 + (h2 - 0.5) * 0.5, py = y + 0.5 + (h3 - 0.5) * 0.5, rot = h1 * 6.28;
+      const ii = y * world.W + x, trl = world._trail ? world._trail[ii] : 0, dwt = world._wd ? world._wd[ii] : 0;
+      const oakCols = (v) => { const sc = SEASON.oak[season]; if (season === 2) { const p = sc[v % 2]; return { leaves: p[0], leaves2: p[1] }; } return { leaves: sc[0], leaves2: sc[1] }; };
+      const S = (name, colors, s) => ({ name, colors, x: px, y: py, s, rot });
+      if (trl && (t === TILE.FOREST || t === TILE.TREE)) return null;
+      if (dwt && (t === TILE.TREE || t === TILE.FOREST)) {
+        if (t === TILE.TREE) return h1 < 0.45 ? S('gnarltree', null, 0.78 + h2 * 0.3) : S('deadtree', null, 0.8 + h2 * 0.32);
+        return h1 < 0.22 ? S('deadtree', null, 0.55 + h2 * 0.25) : null;
+      }
+      if (t === TILE.TREE) {
+        const reg = ECHO.World.regionAt(world, x, y);
+        const pineLand = y < world.H * 0.3 || reg.hill > 0.12 || h1 < 0.18;
+        const s = 0.95 + h2 * 0.45;
+        if (pineLand) return S('pine', { pine: SEASON.pine[season] }, s * 1.1);
+        if (reg.swamp > 0.15 && h1 < 0.55) return S('willow', { leaves: SEASON.forest[season], leaves2: SEASON.forest[season] }, s);
+        if (season === 3 && h1 > 0.45) return S('oakbare', null, s);
+        return S('oak', oakCols((h1 * 10) | 0), s);
+      }
+      if (t === TILE.FOREST) return h1 < 0.22 ? S('oak', oakCols((h1 * 10) | 0), 0.6 + h2 * 0.25) : null;
+      if (t === TILE.GRASS) return h1 >= 0.32 && h1 < 0.335 ? S('rock', null, 0.5 + h2 * 0.4) : null;
+      if (t === TILE.HILL || t === TILE.SNOW) return h1 < (ECHO.Solids ? ECHO.Solids.rockOn(world, t, y) : 0.18) ? S('rock', season === 3 ? { rock: '#b8bec0' } : null, 0.8 + h2) : null;
+      if (t === TILE.ROCK) return h1 < 0.25 ? S('boulder', season === 3 ? { rock: '#c8cdd0' } : null, 0.9 + h2) : null;
+      return null;
+    },
+    // What is left where something was felled or broken: a stump (and, as the seasons turn, a
+    // sapling coming up beside it), or the chips and rubble of stone.
+    cutProps(world, e, x, y, add, season) {
+      const h1 = hash(x, y, world.seed + 31), h2 = hash(x, y, world.seed + 32), h3 = hash(x, y, world.seed + 33);
+      const px = x + 0.5 + (h2 - 0.5) * 0.5, py = y + 0.5 + (h3 - 0.5) * 0.5;
+      if (e.k === 'tree' || e.k === 'oak') {
+        const g = ECHO.Clearing ? ECHO.Clearing.grown(world, e) : 0, sc = e.s ? U.clamp(e.s, 0.55, 1.6) : (e.k === 'tree' ? 1.05 : 0.7);
+        add('stump', null, px, py, sc * (0.85 + h1 * 0.25), h1 * 6.28);
+        if (g > 0.45) {
+          const k = (g - 0.45) / 0.55, pine = e.m === 'pine', s = (0.18 + k * 0.42) * (pine ? 1.1 : 1);
+          const ox = px + Math.cos(h1 * 17) * 0.32, oy = py + Math.sin(h1 * 17) * 0.32;
+          if (pine) add('pine', { pine: SEASON.pine[season] }, ox, oy, s, h2 * 6.28);
+          else if (season === 3) add('oakbare', null, ox, oy, s, h2 * 6.28);
+          else { const sc = SEASON.oak[season], p = season === 2 ? sc[0] : sc; add('oak', { leaves: p[0], leaves2: p[1] }, ox, oy, s, h2 * 6.28); }
+        }
+        if (h3 < 0.6) add('grass', { grass: SEASON.grass[season] }, x + 0.25 + h3 * 0.5, y + 0.3 + h1 * 0.4, 0.8, h3 * 6.28);
+        return;
+      }
+      // stone: two or three chips of it, and the dust worked into the ground
+      const n = e.k === 'stone' ? 2 : 3, cols = season === 3 ? { rock: '#b8bec0' } : null;
+      for (let k = 0; k < n; k++) {
+        const a = h1 * 6.28 + k * 2.1, r = 0.12 + hash(x * 3 + k, y, world.seed + 41) * 0.22;
+        add('rock', cols, px + Math.cos(a) * r, py + Math.sin(a) * r, (e.k === 'crag' ? 0.3 : 0.2) + hash(x, y * 3 + k, world.seed + 42) * 0.14, a * 3);
+      }
+    },
     // The land is built in 16-tile chunks around the camera. At speed (a gallop, a
     // dragon's back) it looks ahead along the way you are going, so the ground is
     // ready before it comes into view; it lets go of what is behind only once that
@@ -964,6 +1020,14 @@
         const trl = world._trail ? world._trail[ii] : 0, dwt = world._wd ? world._wd[ii] : 0;
         if (trl) tmp.lerp(C(dwt ? '#3e3528' : '#9a8258'), (dwt ? 0.75 : 0.82) * (0.88 + hash(xw, yc, world.seed + 4) * 0.24));
         if (dwt) tmp.lerp(C(trl ? '#1a1a14' : '#121a10'), 0.3 + dwt * 0.14);
+        if (world.cut && ECHO.Clearing) {
+          const ce = ECHO.Clearing.at(world, xw, yc);
+          if (ce) {
+            if (ce.k === 'tree') tmp.lerp(C(season === 3 ? '#8c8a80' : '#6e5a3a'), 0.42 * (1 - ECHO.Clearing.grown(world, ce) * 0.7));
+            else if (ce.k === 'crag') tmp.lerp(C(season === 3 ? '#c8ccd0' : '#8e877a'), 0.5);
+            else if (ce.k !== 'oak') tmp.lerp(C('#8a8272'), 0.16);
+          }
+        }
         const li = (yy - y0 + 1) * LW + (xx - x0 + 1);
         tcol[li * 3] = tmp.r; tcol[li * 3 + 1] = tmp.g; tcol[li * 3 + 2] = tmp.b; tnat[li] = BUILT.has(t) ? 0 : 1;
       }
@@ -1023,6 +1087,9 @@
         const h1 = hash(x, y, world.seed + 31), h2 = hash(x, y, world.seed + 32), h3 = hash(x, y, world.seed + 33);
         const px = x + 0.5 + (h2 - 0.5) * 0.5, py = y + 0.5 + (h3 - 0.5) * 0.5;
         const ii = y * world.W + x, trl = world._trail ? world._trail[ii] : 0, dwt = world._wd ? world._wd[ii] : 0;
+        // felled, or broken: what is left of it
+        const cutE = world.cut && ECHO.Clearing ? ECHO.Clearing.at(world, x, y) : null;
+        if (cutE) { R.cutProps(world, cutE, x, y, add, season); continue; }
         // worn paths: nothing grows on them (but in the deep woods, things at the edges)
         if (trl && (t === TILE.FOREST || t === TILE.TREE)) { if (dwt && h1 < 0.05 && trl === 1) add('shrooms', null, px, py, 0.7 + h2 * 0.4, h1 * 60); else if (!dwt && h1 < 0.18) add('grass', { grass: SEASON.grass[season] }, px, py, 0.8, h1 * 6.28); continue; }
         // the deep woods: old twisted trees and dead ones, thorns, glowing caps, bones and
@@ -4338,6 +4405,7 @@
       } else { for (const f of R.roomFlames || []) f.scale.y = f.scale.x * (1 + Math.sin(R.time * 13 + f.position.x) * 0.12); if (room.carved) R.animateTraps(game); if (R.voidDrift) R.animateVoid(); }
       R.updateEntities(game, dt);
       R.updateFx(game, dt);
+      R.updateFell(game, dt, room);
       R.updateGlows(game);
       R.updateTownFires(game, room);
       R.updateSecrets(game, room);
@@ -4359,6 +4427,51 @@
       R.imgPass();
       if (ECHO.Post && ECHO.Post.R) ECHO.Post.render(game, dt); else R.renderer.render(R.scene, R.camera);
       R.drawOverlay(game);
+    },
+
+    // A felled tree going over, a broken boulder crumbling: each as itself, for a moment, while
+    // the land under it is built again with the stump (or the rubble) in its place.
+    updateFell(game, dt, room) {
+      const H = ECHO.Harvest, list = H && H.falls && !room ? H.falls : [];
+      const M = R._fell || (R._fell = new Map());
+      for (const [f, o] of M) if (!list.includes(f)) { R.scene.remove(o.g); M.delete(f); }
+      for (const f of list) {
+        let o = M.get(f);
+        if (!o) {
+          const sp = f.spec, baked = sp && ECHO.Models.bake(sp.name, sp.colors);
+          if (!baked || !baked.base) continue;
+          const g = new THREE.Group(), pivot = new THREE.Group(), inner = new THREE.Group(), id = new THREE.Matrix4();
+          const mk = (geo, mat) => { const m = new THREE.InstancedMesh(geo, mat, 1); m.setMatrixAt(0, id); m.castShadow = true; m.frustumCulled = false; return m; };
+          inner.add(mk(baked.base, R.FOLIAGE.has(sp.name) && R.mat.foliage ? R.mat.foliage : R.mat.prop));
+          if (baked.glow) inner.add(mk(baked.glow, R.mat.glow));
+          inner.rotation.y = sp.rot; inner.scale.setScalar(sp.s);
+          pivot.add(inner); g.add(pivot);
+          g.position.set(sp.x, R.groundH(sp.x, sp.y), sp.y);
+          R.scene.add(g);
+          const dx = Math.cos(f.a), dz = Math.sin(f.a);
+          o = { g, pivot, inner, y0: g.position.y, axis: new THREE.Vector3(dz, 0, -dx).normalize() };
+          M.set(f, o);
+        }
+        const t = f.t;
+        if (f.k === 'tree' || f.k === 'oak') {
+          // it gives a little, then goes, faster and faster; bounces once on its boughs; lies;
+          // and is gone into the ground (into your pack, as timber)
+          const L = f.lean || 0.35, F = f.fallT || 1.35;
+          let th;
+          if (t < L) th = 0.06 * Math.sin(t / L * Math.PI * 0.5) + Math.sin(t * 40) * 0.008;
+          else if (t < F) { const u = (t - L) / (F - L); th = 0.06 + (1.42 - 0.06) * Math.pow(u, 2.4); }
+          else th = 1.42 - 0.09 * Math.sin((t - F) * 11) * Math.exp(-(t - F) * 5);
+          o.pivot.quaternion.setFromAxisAngle(o.axis, th);
+          const sink = Math.max(0, t - (F + 1.0)) / 0.8;
+          o.g.position.y = o.y0 - sink * 0.7;
+          o.inner.scale.setScalar(f.spec.s * (1 - sink * 0.35));
+        } else {
+          const u = Math.min(1, t / 0.5);
+          o.inner.scale.setScalar(f.spec.s * (1 - 0.82 * u));
+          o.g.position.y = o.y0 - 0.25 * u;
+          o.pivot.rotation.set(Math.sin(t * 50) * 0.05 * (1 - u), 0, Math.cos(t * 43) * 0.05 * (1 - u));
+        }
+      }
     },
 
     // in the air the view opens out with height and speed
@@ -4660,12 +4773,13 @@
       // bow / flame / study gauge under the player
       if (game.pe) {
         const PC = ECHO.PlayerCtl;
-        const v = PC.drawing ? PC.draw : PC.charging ? Math.min(1, PC.charge / 1.25) : PC.studyT > 0 ? Math.min(1, PC.studyT / 1.6) : -1;
+        const HJ = ECHO.Harvest && ECHO.Harvest.job;
+        const v = PC.drawing ? PC.draw : PC.charging ? Math.min(1, PC.charge / 1.25) : PC.studyT > 0 ? Math.min(1, PC.studyT / 1.6) : HJ ? Math.min(1, HJ.t / (HJ.n * HJ.per)) : -1;
         if (v >= 0) {
           const p = R.project(game.pe.x, game.pe.y, -0.1);
           const w = 44 * R.dpr, bh = 5 * R.dpr;
           ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - w / 2, p.y + 8 * R.dpr, w, bh);
-          ctx.fillStyle = PC.drawing ? '#e8d9a0' : PC.charging ? (PC.charge > 1 ? '#ff5a1f' : '#ffb347') : '#9fe0c8';
+          ctx.fillStyle = PC.drawing ? '#e8d9a0' : PC.charging ? (PC.charge > 1 ? '#ff5a1f' : '#ffb347') : PC.studyT > 0 ? '#9fe0c8' : HJ && HJ.wood ? '#e2b86a' : '#a9c8de';
           ctx.fillRect(p.x - w / 2, p.y + 8 * R.dpr, w * v, bh);
         }
       }

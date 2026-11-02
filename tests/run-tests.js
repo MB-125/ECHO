@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -1310,6 +1310,60 @@ function main() {
     delete W2.wev; for (const s of W2.settlements) delete s.char;
     let ok = true; try { for (let d = 0; d < 3; d++) ECHO.Sim.dailyTick(W2, true); } catch (e) { ok = false; console.log(e); }
     check('an old save takes them up without a hitch', ok && !!W2.wev && W2.settlements.filter(s => s.faction !== 'ashfang').every(s => s.char));
+  }
+
+  console.log('\nThe land, changed by hand');
+  {
+    const W = ECHO.generateWorld({ seed: 6161, name: 'Axe' }), Cl = ECHO.Clearing, T = ECHO.TILE;
+    const pl = W.player = ECHO.Character.create(W, new ECHO.RNG(3), { first: 'Ivo', homeId: W.settlements[0].id });
+    // a save from before there was any of this: nothing to take up, and nothing breaks
+    delete W.cut; delete W._cutI;
+    let okOld = true; try { for (let d = 0; d < 2; d++) ECHO.Sim.dailyTick(W, true); } catch (e) { okOld = false; console.log(e); }
+    check('an old save with no changed land takes it up without a hitch', okOld && Cl.at(W, 10, 10) === null && (!W.cut || W.cut.list.every(e => !e.p)));
+    const find = (k, from) => { for (let y = 3; y < W.H - 3; y++) for (let x = 3; x < W.W - 3; x++) { const t = Cl.target(W, x, y); if (t && t.k === k && (!from || from(t))) return t; } return null; };
+    const tr = find('tree', t => !t.deep), tp = ECHO.World.trunk(W, tr.x, tr.y), ep = W._tileEpoch || 0;
+    const solidBefore = ECHO.World.isSolid(W, tp.x, tp.y);
+    const r = Cl.take(W, tr, { lv: 1, who: { first: 'Ivo', last: 'Hale' } });
+    check('a tree is felled: timber, a stump where it stood, and you can walk through', solidBefore && r.got.timber >= 2 && W.tiles[tr.y * W.W + tr.x] === T.GRASS && !ECHO.World.isSolid(W, tp.x, tp.y) && !!Cl.at(W, tr.x, tr.y) && !Cl.target(W, tr.x, tr.y), `${r.got.timber} timber`);
+    check('the land says where it changed (so only that ground is drawn again)', W._tileEpoch === ep + 1 && W._tileLog.slice(-1)[0].rects.some(q => q.x0 <= tr.x && q.x1 > tr.x && q.y0 <= tr.y && q.y1 > tr.y));
+    const cr = find('crag'), solidRock = ECHO.World.isSolid(W, cr.x + 0.5, cr.y + 0.5);
+    const rc = Cl.take(W, cr, { lv: 7, rng: () => 0.01, who: { first: 'Ivo', last: 'Hale' } });
+    check('the living rock is cut away: ore and gems, and a way through', solidRock && !ECHO.World.isSolid(W, cr.x + 0.5, cr.y + 0.5) && [T.HILL, T.SNOW].includes(W.tiles[cr.y * W.W + cr.x]) && rc.got.ore >= 2 && rc.got.garnet === 1, JSON.stringify(rc.got));
+    const bo = find('boulder');
+    Cl.take(W, bo, { who: { first: 'Ivo', last: 'Hale' } });
+    check('a boulder broken is gone, and nothing stands in its place', !Cl.target(W, bo.x, bo.y) && Cl.at(W, bo.x, bo.y).k === 'boulder');
+    const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
+    check('felled trees and cut rock stay as you left them across a save', W2.tiles[tr.y * W2.W + tr.x] === T.GRASS && W2.tiles[cr.y * W2.W + cr.x] === W.tiles[cr.y * W.W + cr.x] && !!Cl.at(W2, tr.x, tr.y) && !!Cl.at(W2, bo.x, bo.y) && W2.cut.list.length === W.cut.list.length && W2.cut.list.filter(e => e.p).length === 3 && !('_cutI' in JSON.parse(ECHO.Save.serialize(W))));
+    // ground drawn again as first made (a round world's far lands) comes back as it was left
+    W2.tiles[cr.y * W2.W + cr.x] = T.ROCK; Cl.ensure(W2);
+    check('ground made again from the seed is changed again as it was left', W2.tiles[cr.y * W2.W + cr.x] === W.tiles[cr.y * W.W + cr.x]);
+    // a tree grows back where nobody has built
+    const e = Cl.at(W, tr.x, tr.y), g0 = Cl.grown(W, e);
+    W.day = e.g - 1; const half = Cl.grown(W, e);
+    for (let d = 0; d < 2; d++) ECHO.Sim.dailyTick(W, true);
+    check('a stump sprouts, and in a season or two it is a tree again', g0 === 0 && half > 0.9 && W.tiles[tr.y * W.W + tr.x] === T.TREE && !Cl.at(W, tr.x, tr.y), `${e.g - e.d} days`);
+    check('stone never grows back', !!Cl.at(W, cr.x, cr.y) && !!Cl.at(W, bo.x, bo.y));
+    // but not where the ground has been put to use
+    const tr2 = find('tree', t => !t.deep); Cl.take(W, tr2, {}); const e2 = Cl.at(W, tr2.x, tr2.y);
+    W.tiles[tr2.y * W.W + tr2.x] = T.FARM; W.day = e2.g; Cl.dailyTick(W);
+    check('a field ploughed where a tree stood stays a field', W.tiles[tr2.y * W.W + tr2.x] === T.FARM && !Cl.at(W, tr2.x, tr2.y));
+    // enough from one place, and the place has a name
+    let best = null, bn = 0;
+    for (let y = 6; y < W.H - 6; y += 3) for (let x = 6; x < W.W - 6; x += 3) { let n = 0; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const t = Cl.target(W, x + dx, y + dy); if (t && Cl.WOOD[t.k]) n++; } if (n > bn) { bn = n; best = { x, y }; } }
+    let named = null;
+    for (let dy = -4; dy <= 4 && !named; dy++) for (let dx = -4; dx <= 4 && !named; dx++) { const t = Cl.target(W, best.x + dx, best.y + dy); if (t && Cl.WOOD[t.k]) named = Cl.take(W, t, { who: { first: 'Ivo', last: 'Hale' } }).place; }
+    check('fell enough trees in one place and folk name it after you', !!named && named.name === "Hale's Clearing" && W.chronicle.some(c => /Hale's Clearing/.test(c.text)), named && named.name);
+    // the towns' woodcutters are at it too, round their lumber camps — and the woods come back
+    const WL = ECHO.generateWorld({ seed: 777, name: 'Lumber' });
+    for (let d = 0; d < 100; d++) ECHO.Sim.dailyTick(WL, true);
+    const camps = WL.settlements.map(s => ({ s, f: ECHO.Production.facility(WL, s, 'lumber') })).filter(c => c.f && c.f.fac.state === 'working');
+    const ring = camps.map(c => WL.cut.list.filter(e => e.w === c.s.id && Math.hypot(e.x - c.f.x, e.y - c.f.y) < 20).length);
+    const old = WL.cut.list.filter(e => e.w != null && WL.day - e.d > 95).length;
+    check('a town\'s woodcutters fell the trees round its lumber camp, and the woods grow back', camps.length > 0 && ring.some(n => n >= 6) && ring.every(n => n <= 24) && old === 0, `stumps round each camp: ${ring.join(', ')}`);
+    // the land grows: what was taken moves with it
+    const q = W.cut.list[0], qx = q.x, qy = q.y;
+    ECHO.Frontier.shift(W, 4, 2); delete W._cutI;
+    check('what was taken moves with the map when the land grows', q.x === qx + 4 && q.y === qy + 2 && Cl.at(W, qx + 4, qy + 2) === q);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);
