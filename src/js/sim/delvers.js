@@ -160,6 +160,7 @@
         let cleared = false;
         if (last && roll > 0.75 && !site.starter && !site.cleared && !(world.player && ECHO.Interior && ECHO.Interior.cur && ECHO.Interior.cur.site === site)) {
           site.cleared = true; site.clearedDay = world.day; site.clearedBy = `${lead.first} ${lead.last}`; site.chestTaken = true; cleared = true;
+          if (ECHO.DungeonLife) ECHO.DungeonLife.cleared(world, site, false);
         }
         for (const m of party) P().remember(world, m, `went down into ${site.name}${party.length > 1 ? ' with ' + U.listJoin(party.filter(o => o !== m).map(o => o.first)) : ''} and came back stronger`, 'pride', null, 3);
         const best = loot.slice().sort((a, b) => ECHO.Gear.rarity(b.it.rarity).mult - ECHO.Gear.rarity(a.it.rarity).mult)[0];

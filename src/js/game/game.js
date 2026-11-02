@@ -181,6 +181,8 @@
       if (ECHO.Camp) ECHO.Camp.update(Game, dt);
       if (ECHO.Fauna) ECHO.Fauna.update(Game, dt);
       if (ECHO.Events) ECHO.Events.update(Game, dt);
+      if (ECHO.Migrations) ECHO.Migrations.update(Game, dt);
+      if (ECHO.DungeonLife) ECHO.DungeonLife.update(Game, dt);
       if (ECHO.Pastimes) ECHO.Pastimes.update(Game, dt);
       if (ECHO.Home) ECHO.Home.tick(Game, dt);
       if (ECHO.Tactics) ECHO.Tactics.update(Game, dt);
@@ -373,7 +375,7 @@
       const sa = side(a), sb = side(b);
       if (sa === 'prey' || sb === 'prey') return sa === 'player' || sb === 'player' ? false : (sa === 'beast' || sb === 'beast') && false;
       if (sa === 'player' && sb === 'player') return false;
-      if (sa === 'beast' && sb === 'beast') return !!(a.gateMon && b.gateMon && (a.prey === b || b.prey === a));
+      if (sa === 'beast' && sb === 'beast') return !!((a.gateMon && b.gateMon && (a.prey === b || b.prey === a)) || (a.band && b.band && a.band !== b.band));   // (and the two broods of a contested dungeon)
       if ((sa === 'beast') !== (sb === 'beast')) return true; // beasts vs everyone else
       if (a.yielded || b.yielded || a.role === 'captive' || b.role === 'captive') return false;
       if (sa === 'player' || sb === 'player') {
@@ -705,6 +707,7 @@
       if (world.rift && near(world.rift.x + 0.5, world.rift.y + 0.5, 2.4)) out.push({ kind: 'rift', label: 'Look into the Rift', d: 0.5 });
       for (const c of world.camps) if (c.captives.length && near(c.x + 2.5, c.y - 1.2, 1.6)) { /* captives handled as entities */ }
       if (ECHO.Life) out.push(...ECHO.Life.interactables(Game));
+      if (ECHO.Migrations) out.push(...ECHO.Migrations.interactables(Game));
       if (ECHO.Riders) out.push(...ECHO.Riders.interactables(Game));
       if (ECHO.Water) out.push(...ECHO.Water.interactables(Game));
       if (ECHO.Boats) out.push(...ECHO.Boats.interactables(Game));

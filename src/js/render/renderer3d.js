@@ -1297,6 +1297,17 @@
         const add = (name, dx, dy, colors, rot = 0, sc = 1) => R.addStatic(g, name, s.x + dx, s.y + dy, colors, rot, sc);
         const disc = (dx, dy, r, c, o) => { const m = mesh(new THREE.CircleGeometry(r, 18), basic(c, o)); m.rotation.x = -Math.PI / 2; m.position.set(s.x + dx, R.groundH(s.x + dx, s.y + dy) + 0.05, s.y + dy); g.add(m); };
         const hole = (dx, dy, r = 0.6) => { const m = mesh(new THREE.CircleGeometry(r, 12), basic('#05050a')); m.rotation.x = -Math.PI / 2; m.position.set(s.x + dx, R.groundH(s.x + dx, s.y + dy) + 0.04, s.y + dy); g.add(m); };
+        // what has become of it: a camp of those who work it; the trampled, bone-strewn mouth of an infested one; the glow of an awakened one; the fallen stone of a collapsed one
+        const LF = s.life && s.cat === 'delve' ? s.life.state : null;
+        if (LF === 'exploited') {
+          add('tent', 3.4, 1.2, { tent: '#6a5a3a', canvas: '#8a7a5a' }, 2.2, 0.85); add('tent', 4.6, 3, { tent: '#4a5a6a', canvas: '#6a7a8a' }, 2.8, 0.8);
+          add('crate', 2.6, 3.2, null, 0.4, 0.8); add('standard', 5, 1, { banner: '#c8a85a' }, 0, 0.8);
+          R.addStatic(g, 'campfire', s.x + 3.5, s.y + 2.4, null, 0, 0.8, R.flames); R.siteLights.push({ x: s.x + 3.5, y: s.y + 2.4, r: 5, a: 1, color: '#ffb060', h: 0.6 });
+        } else if (LF === 'infested' || LF === 'awakened' || LF === 'contested') {
+          for (let i = 0; i < 4; i++) add('rock', Math.cos(i * 1.9) * 2.6, 1.2 + Math.sin(i * 1.3) * 1.1, { rock: '#e2dccb', darkstone: '#cfc7b4' }, i, 0.26);
+          disc(0, 1.4, 2.2, LF === 'awakened' ? '#ff4a6a' : '#3a2a1a', LF === 'awakened' ? 0.22 : 0.4);
+          if (LF === 'awakened') R.siteLights.push({ x: s.x, y: s.y + 0.4, r: 6, a: 1.1, color: '#ff4a6a', h: 0.5 });
+        } else if (LF === 'collapsed') { add('boulder', -0.5, 0.9, null, 0.7, 1.1); add('rock', 0.8, 1.2, null, 1, 0.6); add('rock', -1.2, 1.5, null, 2, 0.5); }
         switch (s.kind) {
           case 'stones': for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; add('pillar', Math.cos(a) * 2.3, Math.sin(a) * 2.3, { stone: '#8a867c' }, a, 0.85 + (i % 3) * 0.08); } add('tablet', 0, 0, { rune: '#4a4740' }); break;
           case 'lookout': add('boulder', -0.8, 0.2, null, 1, 1.2); add('boulder', 0.9, -0.2, null, 2, 0.9); add('standard', 0, -0.6, { banner: '#c8a85a' }, 0, 1); break;

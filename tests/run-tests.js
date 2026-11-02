@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -201,7 +201,7 @@ function main() {
     check('auxiliaries train harder than other soldiers', (() => { const sold = Object.values(Wg.npcs).filter(n => n.status === 'alive' && ['guard', 'soldier'].includes(n.prof) && !n.ngAux && !n.ng).map(n => GW.lvOf(n)).sort((a, b) => a - b); const am = aux.map(n => GW.lvOf(n)).sort((a, b) => a - b); return am[am.length >> 1] > sold[sold.length >> 1]; })());
     check('it posts garrisons to towns in danger', gar.length >= 2, gar.map(sid => ECHO.Sim.settlement(Wg, sid).name).join(', '));
     check('things get out of the gates, and the Guard runs them down', g.bn >= 1 && Wg.chronicle.some(e => /ran down the .* that got out of/.test(e.text)), `${g.bn} breaches in 150 days`);
-    const s = Wg.settlements.find(t => !g.garrisons[t.id] && t.faction !== 'ashfang');
+    const s = Wg.settlements.filter(t => !g.garrisons[t.id] && t.faction !== 'ashfang').sort((a, b) => (b.residents || []).length - (a.residents || []).length)[0];   // (the biggest town without one: a hamlet may have no one to spare)
     check('a town can pay for a garrison', s && !GW.ask(Wg, s) && !!GW.garrisonOf(Wg, s.id), s && s.name);
     // contracts and the sworn
     const r = ECHO.Powers.rise(Wg, { kind: 'goblin', lv: 30, x: pl.x + 10, y: pl.y, why: 'rose', amb: 'power', infl: 4 });
@@ -356,7 +356,7 @@ function main() {
     }
     const trials = A.chronicle.filter(e => e.kind === 'crime' && /tried|hanged|banished/.test(e.text));
     check('townsfolk are tried under the law', trials.length > 0, (trials[0] || {}).text);
-    { const st = A.settlements.find(x => ECHO.People.residents(A, x).some(n => n.wealth > 80)); const poor = ECHO.People.residents(A, st).find(n => n.prof !== 'child' && !n.debt); poor.wealth = 0; poor.starve = 3; ECHO.Property.borrow(A, rng, poor, st); }
+    { const st = A.settlements.find(x => ECHO.People.residents(A, x).some(n => n.wealth > 80) && ECHO.People.residents(A, x).some(n => n.prof !== 'child' && !n.debt)); const poor = ECHO.People.residents(A, st).find(n => n.prof !== 'child' && !n.debt); poor.wealth = 0; poor.starve = 3; ECHO.Property.borrow(A, rng, poor, st); }
     const debts = Object.values(A.npcs).filter(n => n.debt).length;
     check('people borrow money', debts > 0 || A.chronicle.some(e => /debt/.test(e.text)), debts + ' in debt now');
     const sv = s => ECHO.Law.sentenceFor(A, s, 'murder', 0);
@@ -600,7 +600,7 @@ function main() {
     const kinds = new Set(delves.map(s => s.kind));
     check('many dungeons lie across the map, of many kinds', delves.length >= 12 && ['catacomb', 'warren', 'nest', 'trollden', 'sanctum', 'forge'].every(k => kinds.has(k)), `${delves.length} dungeons: ${[...kinds].join(' ')}`);
     check('dungeons have floors, and grow deadlier away from the capitals', delves.every(s => s.level >= 1 && s.level <= 30 && X.floors(s) >= 3 && X.floorLevel(s, X.floors(s) - 1) > X.floorLevel(s, 0)) && delves.some(s => X.floors(s) >= 5) && new Set(delves.map(s => s.level)).size >= 3, delves.map(s => s.level + '/' + X.floors(s)).join(' '));
-    check('no dungeon sits on solid ground or in a town', delves.every(s => !ECHO.World.isSolid(B, s.x, s.y) && B.settlements.every(t => ECHO.U.dist(t.x, t.y, s.x, s.y) > 10)));
+    check('no dungeon sits on solid ground or in a town', delves.every(s => !ECHO.World.isSolid(B, s.x, s.y) && B.settlements.every(t => ECHO.U.dist(t.x, t.y, s.x, s.y) > (t.founded != null ? 8 : 10))));   // (a village founded since may stand nearer, but not on it)
     const json = ECHO.Save.serialize(B), B2 = ECHO.Save.deserialize(json);
     const cachesFound = B.caches.filter(c => c.found).length; B.caches[0].found = true;
     const B3 = ECHO.Save.deserialize(ECHO.Save.serialize(B));
@@ -853,7 +853,7 @@ function main() {
     // a slain titan's range is claimed again
     const dead = L.find(t => !t.bound); Ti.slain(W, dead, 'a test'); dead.diedDay = W.day - 40;
     for (let i = 0; i < 40; i++) ECHO.Sim.dailyTick(W, true);
-    check('an empty range is claimed by another of the kind', Ti.list(W).some(t => t.sp === dead.sp && t.alive && t !== dead));
+    check('an empty range is claimed by another of the kind', Ti.list(W).some(t => t.sp === dead.sp && t !== dead && (t.alive || W.chronicle.some(c => c.text.includes(`${t.name}, has claimed the range of ${dead.name}`)))));   // (and the newcomer may since have met something bigger)
     check('they eat, and towns pay when the game runs out', W.chronicle.some(c => /came down on the herds|ate its fill|Catastrophe/.test(c.text)) || Ti.wild(W).every(t => t.fed >= W.day - 3));
     const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
     check('titans and bound beasts survive a save', W2.titans && W2.titans.list.length === Ti.list(W).length && Ti.bound(W2).length === Ti.bound(W).length);
@@ -1146,6 +1146,64 @@ function main() {
     }
     ECHO.Sim.fastForward(w, 3);
     check('and it goes on living', w.day > 0 && Object.values(w.npcs).some(n => n.status === 'alive'));
+  }
+
+  console.log('\nBeasts on the move, and dungeons that live');
+  {
+    const W = ECHO.generateWorld({ seed: 2468, name: 'Living' }), Mg = ECHO.Migrations, DL = ECHO.DungeonLife, X = ECHO.Explore, Ti = ECHO.Titans;
+    W.player = ECHO.Character.create(W, new ECHO.RNG(5), { first: 'Wren', homeId: W.settlements[0].id });
+    ECHO.Sim.dailyTick(W, true);
+    // a great beast settles in a wolf country: the pack leaves it
+    const nbOk = r => r.eco && ECHO.World.regionNeighbors(W, r).some(n => n.eco && n !== r);
+    const reg = W.regions.filter(nbOk).sort((a, b) => ECHO.Ecology.capacity(b).wolf - ECHO.Ecology.capacity(a).wolf)[0];
+    reg.eco.wolf = Math.max(reg.eco.wolf, 6);
+    const t = Ti.wild(W)[0]; t.x = (reg.x0 + reg.x1) / 2; t.y = (reg.y0 + reg.y1) / 2; t.mig = null;
+    const P0 = Mg.push(W, reg);
+    let m = null;
+    for (let d = 0; d < 40 && !m; d++) { reg.eco.wolf = Math.max(reg.eco.wolf, 6); t.x = (reg.x0 + reg.x1) / 2; t.y = (reg.y0 + reg.y1) / 2; ECHO.Sim.dailyTick(W, true); m = Mg.st(W).list.find(x => x.from === reg.id); }
+    check('a great beast in their country drives the wolves out of it', !!m && P0.cause && P0.cause.kind === 'titan' && m.to !== reg.id, m && `${m.head ? '' : ''}${Mg.head(m)} wolves, ${reg.name} → ${W.regions[m.to].name}`);
+    for (let d = 0; d < 8 && m && m.arrived == null; d++) ECHO.Sim.dailyTick(W, true);
+    check('they arrive, hungry, and the villages there pay for it', !!m && m.arrived != null && W.chronicle.some(c => /strange pack of duskwolves/.test(c.text)));
+    // a country emptied of wolves fills with hares, and draws something bigger
+    const r2 = W.regions.find(r => r.eco && r !== reg && !Ti.wild(W).some(o => o.mig && o.mig.why === 'prey'));
+    Mg.drawBeast(W, r2, new ECHO.RNG(9));
+    check('a country full of prey draws a great beast out of its range', Ti.wild(W).some(o => o.mig && o.mig.why === 'prey') && W.chronicle.some(c => /drawn by the herds of bristlehares/.test(c.text)));
+    // dungeons: each has a story, and a state that changes with neglect
+    const ds = X.sites(W).filter(s => DL.ok(s));
+    ds.forEach(s => DL.life(W, s));
+    check('every dungeon has a history of its own', ds.length > 5 && ds.every(s => s.life && DL.ORIGINS[s.life.origin] && s.life.hist.length > 80) && new Set(ds.map(s => s.life.origin)).size >= 3, [...new Set(ds.map(s => s.life.origin))].join(', '));
+    const d0 = ds.find(s => !s.cleared && X.DELVES[s.kind].roster && !X.small(s)) || ds[0];
+    d0.grow = 60; d0.life.state = 'active'; d0.life.since = W.day - 30;
+    for (let i = 0; i < 80 && d0.life.state === 'active'; i++) ECHO.Sim.dailyTick(W, true);
+    check('left alone, a dungeon grows infested (or worse)', d0.life.state !== 'active' && d0.life.state !== 'dormant', d0.life.state);
+    const rng = new ECHO.RNG(3);
+    d0.life.state = 'active'; d0.roster = null; DL.contest(W, d0, rng);
+    const mixed = new Set((d0.roster || []).map(r => r[0]));
+    check('a second brood moves in, and the dungeon is contested', d0.life.state === 'contested' && mixed.size > new Set((X.DELVES[d0.kind].roster || []).map(r => r[0])).size);
+    const own = (X.DELVES[d0.kind].roster || [])[0][0], other = d0.roster.map(r => r[0]).find(k => !(X.DELVES[d0.kind].roster || []).some(r => r[0] === k));
+    const ea = {}, eb = {}; DL.band(d0, ea, own); DL.band(d0, eb, other);
+    check('the two broods take sides against each other', ea.band && eb.band && ea.band !== eb.band, `${own} vs ${other}`);
+    const f0 = X.floors(d0), l0 = X.floorLevel(d0, 0);
+    DL.awaken(W, d0);
+    check('awakened, it goes deeper and all of it is stronger', X.floors(d0) > f0 && X.floorLevel(d0, 0) > l0, `${f0} → ${X.floors(d0)} floors, Lv ${l0} → ${X.floorLevel(d0, 0)}`);
+    const f1 = X.floors(d0); DL.collapse(W, d0, new ECHO.RNG(1), 'A test');
+    check('collapsed, some of its ways are sealed', d0.life.state === 'collapsed' && d0.life.lost >= 1 && X.floors(d0) <= f1 + 1);
+    // clear it, kill its lord: in time something comes back — perhaps the two halves of what was there
+    d0.cleared = true; d0.clearedDay = W.day - 50; DL.cleared(W, d0, true);
+    let back = false;
+    for (let i = 0; i < 4 && !back; i++) { const r = new ECHO.RNG(100 + i); d0.cleared = true; d0.clearedDay = W.day - 50; d0.life.mem.lordSlain = W.day; X.refill(W, d0); back = d0.life.state === 'contested' && d0.life.split; }
+    check('kill its master, and its creatures split into warring bands', back);
+    d0.life.mem.grudge = null; d0.floorsDone = { 0: W.day }; DL.left(W, d0, 0.2);
+    check('fight in there and run, and it remembers', d0.life.mem.grudge === W.day);
+    const card = DL.card(W, d0);
+    check('the map tells you what it has become', /Contested/.test(card) && /dlife/.test(card));
+    // saves: the new state goes with the world; an old world takes it up without a hitch
+    const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
+    const s2 = X.byId(W2, d0.id);
+    check('the life of the world survives a save', s2.life && s2.life.state === d0.life.state && s2.life.origin === d0.life.origin && Mg.st(W2).list.length === Mg.st(W).list.length);
+    delete W2.migrations; for (const s of X.sites(W2)) delete s.life;
+    let ok = true; try { for (let d = 0; d < 5; d++) ECHO.Sim.dailyTick(W2, true); } catch (e) { ok = false; console.log(e); }
+    check('an old save picks it all up where it stands', ok && Array.isArray(Mg.st(W2).list) && X.sites(W2).filter(s => DL.ok(s)).every(s => s.life));
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

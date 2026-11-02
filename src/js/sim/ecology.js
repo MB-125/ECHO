@@ -117,8 +117,8 @@
         const Kg = K.gnawer * (r.breed || 1);
         G += 0.38 * verminSeason * G * (1 - G / Math.max(1, Kg)) - eatenGw - apexG - control * G;
         Hh += 0.13 * seasonGrowth * Hh * (1 - Hh / Math.max(1, K.hare)) - eatenH - hunted;
-        const food = (eatenH + eatenGw * 0.6) / Math.max(1, Wf);
-        Wf += Wf * (0.16 * Math.min(1.3, food) - 0.055) - 0.012 * Wf * Wf / Math.max(1, K.wolf) - apexW;
+        const food = (eatenH + eatenGw * 0.6) / Math.max(1, Wf) + 0.05 + 0.08 * (r.forest || 0);   // (and the deer and boar and carrion of the woods, which are not counted)
+        Wf += Wf * (0.32 * Math.min(1.3, food) - 0.03) - 0.08 * Wf * Wf / Math.max(1, K.wolf) - apexW;   // (they can live on what hares there are: the land keeps its wolves)
         e.gnawer = Math.max(0.5, G); e.hare = Math.max(0.5, Hh); e.wolf = Math.max(0.3, Wf);
         e.crop = E.cropFactor(world, r);
         e.wolfDanger = U.clamp(e.wolf / Math.max(4, K.wolf * 0.5), 0, 3);

@@ -199,6 +199,8 @@
         () => { if (ECHO.Gates) ECHO.Gates.dailyTick(world, rng); },
         () => { if (ECHO.Wildwood) ECHO.Wildwood.dailyTick(world, rng); },
         () => { if (ECHO.Titans) ECHO.Titans.dailyTick(world, rng); },
+        () => { if (ECHO.Migrations) ECHO.Migrations.dailyTick(world); },
+        () => { if (ECHO.DungeonLife) ECHO.DungeonLife.dailyTick(world); },
         () => { ECHO.Intel.dailyTick(world, rng); },
         () => { ECHO.Plights.dailyTick(world, rng); },
         () => { ECHO.Civ.dailyTick(world, rng); },

@@ -147,7 +147,7 @@
         const need = 3 + sp.scale * 3;
         const prey = e ? (e.hare || 0) + (e.wolf || 0) * 3 : 0;
         if (e && prey > need * 3 && rng.chance(0.7)) {
-          e.hare = Math.max(0.3, (e.hare || 0) - need * 0.7); e.wolf = Math.max(0.3, (e.wolf || 0) - need * 0.1);
+          e.hare = Math.max(0.3, (e.hare || 0) - need * 0.7); e.wolf = Math.max(0.3, (e.wolf || 0) - need * 0.006);   // (the wolves mostly get out of its way)
           t.fed = world.day; t.hunger = 0;
         } else t.hunger++;
         // hungry: the herds and the granaries of the nearest town

@@ -219,7 +219,7 @@
         const d = U.dist(s.x, s.y, pe.x, pe.y);
         if (d > 32) continue;
         const L = ECHO.Explore.level(game.world, s), D = Pw().diff(L, Pw().level(pl)), fl = ECHO.Explore.floors(s);
-        out.push({ x: s.x, y: s.y - (s.secret ? 1.6 : 0), text: `▼ ${U.cap(s.name)} · ${s.cleared ? 'cleared ✓' : ECHO.Explore.stars(s)}${fl > 1 ? ` · ${fl} floors` : ''}`, color: s.cleared ? '#9a9080' : D.color, a: U.clamp(1.3 - d / 32, 0.45, 1) });
+        out.push({ x: s.x, y: s.y - (s.secret ? 1.6 : 0), text: `▼ ${U.cap(s.name)} · ${s.cleared ? 'cleared ✓' : ECHO.Explore.stars(s)}${fl > 1 ? ` · ${fl} floors` : ''}${s.life && s.life.state !== 'dormant' && ECHO.DungeonLife ? ' · ' + ECHO.DungeonLife.STATES[s.life.state].name : ''}`, color: s.cleared ? '#9a9080' : D.color, a: U.clamp(1.3 - d / 32, 0.45, 1) });
       }
       // the gates, named from far off — and how they stand with you
       const G = ECHO.Gates;

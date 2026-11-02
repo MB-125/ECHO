@@ -182,7 +182,7 @@
       const small = X().small(site);
       const style = def.style || 'cave';
       const cave = style === 'cave';
-      const rng = new ECHO.RNG(ECHO.hashStr(site.id + world.seed + ':' + depth + (site.mobileOf ? ':' + (site.shift || 0) : '')));   // (a living or walking place shifts each time)
+      const rng = new ECHO.RNG(ECHO.hashStr(site.id + world.seed + ':' + depth + (site.mobileOf ? ':' + (site.shift || 0) : '') + (site.life && site.life.shape ? ':f' + site.life.shape : '')));   // (and one that fell in, or woke, is not laid out as it was)   // (a living or walking place shifts each time)
       // rooms and passages: bigger and more tangled the deeper you go
       const cols = small ? 2 + (depth >= 2 ? 1 : 0) : 3 + (depth >= 5 ? 1 : 0), rows = small ? 2 + (depth >= 4 ? 1 : 0) : 2 + (depth >= 1 ? 1 : 0) + (depth >= 7 ? 1 : 0);
       const G = ECHO.DGen.carve(rng, cols, rows);
@@ -324,6 +324,8 @@
     populate(game, L) {
       const world = game.world, site = L.site, BASE = ECHO.Interior.BASE, depth = L.depth || 0, G = L.G;
       site.floorsDone = site.floorsDone || {};
+      const DL = ECHO.DungeonLife && ECHO.DungeonLife.ok(site) ? ECHO.DungeonLife : null;
+      if (DL) DL.onFloor(game, L, site, depth);   // (what it was, a sign at a time; and what has become of it)
       if (site.cleared || site.floorsDone[depth]) {
         if (site.cleared && depth === 0) UI().toast(site.clearedBy ? `Quiet. ${site.clearedBy} came through here ${Math.max(1, world.day - (site.clearedDay || world.day))} days ago and emptied it — the chest stands open. Give it a week or two and something will move back in.` : 'Quiet. Nothing has moved back in yet.', 'info', 6);
         return;
@@ -339,7 +341,7 @@
       const lvl = X().floorLevel(site, depth);
       const roster = (site.roster || def.roster || [[def.foes, 1]]).concat(depth >= 1 ? def.deep || [] : []);
       const pick = () => { const tot = roster.reduce((a, r) => a + r[1], 0); let r = Math.random() * tot; for (const [k, w] of roster) { r -= w; if (r <= 0) return k; } return roster[0][0]; };
-      const tag = e => { e.delve = site.id; e.indoor = true; e.floor = depth; return e; };
+      const tag = e => { e.delve = site.id; e.indoor = true; e.floor = depth; if (DL) DL.band(site, e, e.species); return e; };
       const wolf = (x, y, boss) => { const e = ECHO.Spawner.makeCreature(game, 'wolf', x, y, null, 'den'); const FM = ECHO.Prowess.foeMul(lvl); e.lvl = lvl; e.hp = e.maxHp = Math.round(e.maxHp * FM.hp * (boss ? 3 : 1)); e.dmgMul = (e.dmgMul || 1) * FM.dmg * (boss ? 1.7 : 1); if (boss) { e.scale = 1.5; e.label = 'the Den-Mother'; e.boss2 = true; } return tag(e); };
       const free = r => ECHO.DGen.tiles(G, r, 1).filter(t => !L.blocked[t.y * L.W + t.x]).sort(() => Math.random() - 0.5);
       // a pack in every room but the first; the far room keeps its own guard
@@ -348,7 +350,7 @@
       for (const r of rooms) {
         const spots = free(r);
         const empty = r !== keyRoom && r !== L.treasureRoom && Math.random() < 0.3;
-        const n = empty ? 0 : Math.min(spots.length, 1 + Math.floor(Math.random() * 2) + (depth >= 2 ? 1 : 0) + (r === L.treasureRoom ? 1 : 0));
+        const n = empty ? 0 : Math.min(spots.length, 1 + Math.floor(Math.random() * 2) + (depth >= 2 ? 1 : 0) + (r === L.treasureRoom ? 1 : 0) + (DL ? DL.extraPerRoom(site) : 0));
         for (let i = 0; i < n; i++) {
           const s0 = spots.pop(), k = pick();
           const e = k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, r === L.treasureRoom ? { eliteChance: 0.6 } : {}));
@@ -372,6 +374,8 @@
         for (let i = 0; i < 2 && fs.length; i++) { const s0 = fs.pop(); const k = pick(); game.ents.push(k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { noElite: true }))); }
       } else for (let i = 0; i < 2 && fs.length; i++) { const s0 = fs.pop(); const k = pick(); game.ents.push(k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { eliteChance: 0.5 }))); }
       if (ECHO.Growth) ECHO.Growth.inDelve(game, L, free, tag);   // (a named thing that keeps to its den)
+      // they remember you ran: a few of them waiting just inside the door
+      if (DL && depth === 0) { const er = free(G.entrance).filter(t => Math.hypot(BASE + t.x + 0.5 - L.inside.x, t.y + 0.5 - L.inside.y) > 2.5); DL.ambush(game, L, site, () => { const s0 = er.pop(); if (!s0) return null; const k = pick(); const e = k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { noElite: true })); game.ents.push(e); return e; }); }
       ECHO.Music.stinger('discover');
       if (ECHO.Monsters) ECHO.Monsters.tip(game, 'dungeon');
       if (ECHO.Companions) ECHO.Companions.event(game, 'enter');
@@ -504,6 +508,7 @@
         if (alive) return UI().toast('Not with them still about.', 'warn', 2);
         if (site.chestTaken) return UI().toast('The chest is empty.', 'info', 2);
         site.chestTaken = true; site.cleared = true; site.clearedDay = world.day;
+        if (ECHO.DungeonLife) ECHO.DungeonLife.cleared(world, site, true);
         if (site.mobileOf && ECHO.Bodies) ECHO.Bodies.onCleared(game, site);
         if (ECHO.Ambition) { ECHO.Ambition.note(pl, 'delves'); if (X().floors(site) >= 3) ECHO.Ambition.note(pl, 'deep'); }
         it.label = 'An empty chest';

@@ -249,7 +249,7 @@
       const now = game.time, q = Aw.iq(e), world = game.world;
       const cands = [def];
       for (const o of game.ents) {
-        if (o === def || o.dead || o.hidden || (o.alt || 0) > 1.5 || !(o.isCompanion || o.mentor || o.tamed)) continue;
+        if (o === def || o.dead || o.hidden || (o.alt || 0) > 1.5 || !(o.isCompanion || o.mentor || o.tamed || (e.band && o.band && o.band !== e.band))) continue;
         if (U.dist(o.x, o.y, e.x, e.y) > 10 || !game.hostileTo(e, o)) continue;
         cands.push(o);
       }

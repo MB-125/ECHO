@@ -41,6 +41,7 @@
         r.last = { site: s.id, d: world.day };
         if (roll > 0.38) {
           s.cleared = true; s.clearedDay = world.day; s.clearedBy = r.name; s.chestTaken = true;
+          if (ECHO.DungeonLife) ECHO.DungeonLife.cleared(world, s, false);
           r.cleared++; r.renown += 4 + L * 2; if (rng.chance(0.5)) { r.lv = Math.min(1500, r.lv + 1); const n = world.npcs[r.id]; if (n) n.lv = Math.max(n.lv || 0, r.lv); }
           if (ECHO.Explore.floors(s) >= 3) r.lords++;
           ECHO.Chronicle.add(world, { text: `${r.name} ${r.epithet} came up out of ${s.name} with its treasure — the place is quiet now.`, kind: 'deed', importance: s.found ? 2 : 1, x: s.x, y: s.y });

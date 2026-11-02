@@ -185,12 +185,14 @@
       if (site.kind === 'riftdeep') return def.floors || 2;
       const L = site.level || 1;
       const more = Math.min(3, Math.floor((site.grow || 0) / 25));   // (grown, untended: more floors)
-      return X.small(site) ? Math.min(9, 3 + Math.floor(L / 30) + more) : Math.min(12, (def.floors || 1) + 2 + Math.floor(L / 25) + more);
+      const life = ECHO.DungeonLife ? ECHO.DungeonLife.floorsDelta(site) : 0;   // (an awakened one opens deeper; a collapse seals some)
+      return Math.max(1, (X.small(site) ? Math.min(9, 3 + Math.floor(L / 30) + more) : Math.min(12, (def.floors || 1) + 2 + Math.floor(L / 25) + more)) + life);
     },
     // Each floor down is stronger than the one above.
     floorLevel(site, depth) {
       const L = site.level || 1;
-      return Math.min(150, L + (depth || 0) * (2 + Math.floor(L / 25)) + Math.floor((site.round || 0) / 2) + X.growth(site));
+      const b = L + (depth || 0) * (2 + Math.floor(L / 25)) + Math.floor((site.round || 0) / 2) + X.growth(site);
+      return Math.min(150, b + (ECHO.DungeonLife ? ECHO.DungeonLife.levelAdd(site, b) : 0));
     },
     // how much worse it has grown, untended
     growth(site) { return Math.min(Math.max(3, Math.round((site.level || 1) * 0.3)), Math.floor((site.grow || 0) / 6)); },
@@ -210,6 +212,7 @@
       site.clearedBy = null;
       site.cleared = false; site.chestTaken = false; site.round = (site.round || 0) + 1;
       site.floorsDone = {}; site.caches = {}; site.keys = {}; site.doors = {}; site.treasure = {};
+      if (ECHO.DungeonLife) ECHO.DungeonLife.refilled(world, site, new ECHO.RNG(ECHO.hashStr('refill:' + site.id + ':' + world.day)));   // (and something, perhaps new, moves in)
       return true;
     },
 

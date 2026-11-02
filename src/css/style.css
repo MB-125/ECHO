@@ -558,6 +558,11 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 .wmap.holo .card h4 { margin: 3px 0 2px; font: 700 17px system-ui, "Segoe UI", sans-serif; color: #fff; }
 .wmap.holo .card .sub { color: rgba(207,239,255,0.8); }
 .wmap.holo .card p { margin: 6px 0 0; color: rgba(207,239,255,0.75); line-height: 1.45; }
+.dlife { margin: 8px 0 2px; padding-top: 8px; border-top: 1px solid rgba(95,242,255,0.14); }
+.dlife .st { display: inline-block; padding: 1px 7px; border: 1px solid; border-radius: 3px; font: 700 10px system-ui, sans-serif; letter-spacing: 0.16em; text-transform: uppercase; margin-right: 4px; }
+.dlife .dim { color: rgba(207,239,255,0.65); }
+.dlife .hist { font-style: italic; color: rgba(255,236,200,0.85) !important; }
+.dlife .sign { margin: 4px 0 0 !important; padding-left: 10px; border-left: 2px solid rgba(255,207,106,0.35); font-size: 12px; }
 .wmap.holo .card p b { color: var(--hc); }
 .wmap.holo .card .read { display: flex; gap: 14px; margin: 10px 0 2px; }
 .wmap.holo .card .read span { display: flex; flex-direction: column; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(191,248,255,0.55); }

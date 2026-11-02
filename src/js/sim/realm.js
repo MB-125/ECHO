@@ -304,6 +304,8 @@
       };
       world.settlements.push(s);
       ECHO.World.layoutSettlement(world, s, rng, settlers.length + 6);
+      // (no house built over the mouth of a dungeon)
+      for (const d of world.sites || []) if (d.cat === 'delve' && U.dist(d.x, d.y, s.x, s.y) < 22) s.buildings = s.buildings.filter(b => !(d.x > b.x - 1.5 && d.x < b.x + b.w + 1.5 && d.y > b.y - 1.5 && d.y < b.y + b.h + 1.5));
       ECHO.World.rebuildBlocked(world);
       ECHO.World.connectRoad(world, from, s);
       world._graph = null; world._routes = {};

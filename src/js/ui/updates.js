@@ -7,6 +7,15 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.13.0', items: [
+      'Beasts migrate. When a great beast settles into their country, a monster\'s lair hunts them, the hares run out or hunters kill them too fast, a country\'s duskwolves leave it — the whole pack, over a few days, toward the neighbouring country with the most to eat. Where they arrive they are hungry and do not know the land: they take the villages\' sheep, the villages ask for help on their notice boards, and the Chronicle tells it.',
+      'Their tracks cross the land between, dozens of prints all going one way. Study them (E) and you learn what drove them out — and can mark it on your map and follow them back to it.',
+      'The chain goes on: kill off a country\'s wolves and its hares multiply past counting, and a country so full of prey draws a great beast out of its own range to feed on it.',
+      'Wolves no longer die out across the world: the woods feed them (deer, boar and carrion besides the hares), and great beasts mostly drive them off instead of eating them. In a world where they had died out, packs come back over the next weeks.',
+      'Every dungeon has a history — an underground kingdom, a prison for something that could not be killed, a mage\'s vaults blown apart by an experiment, a mine that broke into what was buried, a warren grown by a thing that eats magic, a temple that opens under the stars, a battlefield where the dead still fight. Each floor shows you one sign of it; read them all and the map\'s card tells you the whole story.',
+      'And a state that changes day by day: Dormant, Active, Infested (its creatures spill out into the country round it and trouble the villages near it), Contested (a second brood moves in and the two fight each other as readily as you), Worked (adventurers camp at its mouth and the town nearby grows rich on it), Awakened (new depths open and everything in it is stronger) and Collapsed (some ways sealed, and the fall opens others; it is laid out anew). Its state shows on the label over its door and on the map, with what happened there lately.',
+      'Dungeons remember you. Fight hard in one and run, and they are waiting for you inside the door next time. Kill what ruled it, and when it fills again its creatures may come back as two warring bands. Empty it, and something new may move in instead of what was there. Come back and you are told what changed while you were away.'
+    ] },
     { v: '0.12.3', items: [
       'You can take a mark away now. Before, clearing a waypoint only went back to pointing at your road\'s next step, so a marker stayed. Now clearing means nothing is marked at all, until you choose somewhere again.',
       'Ways to clear it: on the map (M), the side panel always shows where you are Headed to, with ✕ Clear; click the marker on the map and its card has ✕ Remove waypoint; right-click your waypoint again to take it away; or N · where to? → ✕ Clear — no destination.'
