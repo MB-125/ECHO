@@ -11,7 +11,7 @@
   const PARCH = '#d8c7a0', INK = '#3a2a18';
   const LAYERS = [['dungeons', 'Dungeons'], ['towns', 'Towns'], ['gates', 'Gates'], ['danger', 'Camps & lairs'], ['places', 'Landmarks'], ['wonders', 'Wonders & ruins'], ['quests', 'Quests'], ['regions', 'Region names']];
   const DIRS = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'];
-  const KIND_NAME = { dungeon: 'Dungeon', 'dungeon-cleared': 'Dungeon · cleared', 'dungeon-unknown': 'Dungeon · uncharted', capital: 'Capital', town: 'Town', gate: 'Gate', camp: 'Outlaw camp', lair: 'Lair', 'lair-dead': 'Lair · empty', landmark: 'Landmark', wonder: 'Wonder', ruin: 'Ruins', vault: 'Vault', mark: 'Waypoint', titan: 'Great beast', region: 'Region' };
+  const KIND_NAME = { dungeon: 'Dungeon', 'dungeon-cleared': 'Dungeon · cleared', 'dungeon-unknown': 'Dungeon · uncharted', capital: 'Capital', town: 'Town', gate: 'Gate', camp: 'Outlaw camp', lair: 'Lair', 'lair-dead': 'Lair · empty', landmark: 'Landmark', wonder: 'Wonder', ruin: 'Ruins', vault: 'Vault', mark: 'Waypoint', titan: 'Great beast', region: 'Region', fallen: 'Fallen adventurer' };
   const DIR_S = { east: 'E', 'south-east': 'SE', south: 'S', 'south-west': 'SW', west: 'W', 'north-west': 'NW', north: 'N', 'north-east': 'NE' };
   const LAYER_COL = { dungeons: '#ffc04a', towns: '#8fb4ff', gates: '#c86aff', danger: '#ff6a4a', places: '#a8e0c0', wonders: '#ffd38a', quests: '#ffe08a', regions: '#efe3c8' };
   // the console's light
@@ -212,6 +212,7 @@
         } else if (site.cat === 'wonder') add({ layer: 'wonders', kind: 'wonder', x: site.x, y: site.y, name: site.found || all ? site.name : 'Something strange', color: '#ffd38a', pri: 5, ref: site, sub: site.found ? 'A wonder of the wild' : all ? 'A wonder of the wild · not yet visited' : 'Seen from afar' });
         else add({ layer: 'places', kind: 'landmark', x: site.x, y: site.y, name: site.found || all ? site.name : 'A landmark', color: '#a8e0c0', pri: 4, ref: site, sub: site.found || all ? ECHO.Explore.label(site) + (site.found ? '' : ' · not yet visited') : 'Seen from afar' });
       }
+      if (ECHO.Guild) for (const c of ECHO.Guild.caches(world)) add({ layer: 'danger', kind: 'fallen', x: c.x, y: c.y, name: `Where ${c.name} fell`, color: '#d8c8a0', pri: 5, ref: c, sub: `${c.rank}-rank of the Guild${c.items.length ? ' · gear still on the body' : ''}` });
       for (const cp of world.camps) if ((cp.seen || all) && cp.alive) add({ layer: 'danger', kind: 'camp', x: cp.x, y: cp.y, name: cp.name || 'Outlaw camp', color: '#e0563c', pri: 6, ref: cp, sub: 'Outlaws camp here' });
       for (const l of world.lairs) if (l.seen || all) add({ layer: 'danger', kind: l.boss.alive ? 'lair' : 'lair-dead', x: l.x, y: l.y, name: `The lair of ${l.boss.name}`, color: l.boss.alive ? '#ff6a4a' : '#9a9080', pri: 8, ref: l, sub: l.boss.alive ? 'A great beast sleeps here' : 'Its master is dead' });
       for (const r of world.ruins) if (r.visited || seen(r.x, r.y)) add({ layer: 'wonders', kind: 'ruin', x: r.x + 0.5, y: r.y + 0.5, name: r.name || 'Ruins', color: '#c8c0b0', pri: 3, ref: r, sub: r.visited ? 'Ruins you have read' : 'Old ruins' });
@@ -664,6 +665,7 @@
           g.fillStyle = '#1a0e0a'; g.beginPath(); g.moveTo(0, -9); g.lineTo(9, 0); g.lineTo(0, 9); g.lineTo(-9, 0); g.closePath(); g.fill(); g.lineWidth = 2.5; g.strokeStyle = col; g.stroke();
           g.strokeStyle = col; g.lineWidth = 1.6; for (let i = -1; i <= 1; i++) { g.beginPath(); g.moveTo(i * 2.6 - 1.5, -4); g.lineTo(i * 2.6 + 1.5, 4); g.stroke(); }
           break;
+        case 'fallen': { g.strokeStyle = 'rgba(20,14,8,0.9)'; g.lineWidth = 4; g.beginPath(); g.moveTo(-6, -6); g.lineTo(6, 6); g.moveTo(6, -6); g.lineTo(-6, 6); g.stroke(); g.strokeStyle = col; g.lineWidth = 2; g.stroke(); break; }   // (crossed blades)
         case 'landmark': g.fillStyle = col; line(1.5); g.beginPath(); g.moveTo(0, -6); g.lineTo(5.5, 4.5); g.lineTo(-5.5, 4.5); g.closePath(); g.fill(); g.stroke(); break;
         case 'wonder': case 'star': case 'echo': {
           g.fillStyle = col; line(1.5); g.beginPath();

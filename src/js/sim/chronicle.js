@@ -74,6 +74,7 @@
       const entry = C.add(world, { ...o, char: pl.charId, importance: o.importance != null ? o.importance : 1 });
       world.news = world.news || [];
       world.news.push({ eid: entry.id, char: pl.charId, x: entry.x, y: entry.y, d: world.day, base: o.rep || 0, factions: o.factionRep || {}, tag: o.tag || null, applied: [] });
+      if (ECHO.Renown) ECHO.Renown.fromDeed(world, o);   // (and your name grows by it, one way or another)
       return entry;
     },
 

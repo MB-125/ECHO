@@ -73,7 +73,7 @@
       const cap = U.clamp(Math.round(world.settlements.length * 0.6), 3, 16);
       if (out >= cap) return;
       const comp = world.player && world.player.companion;
-      const ready = n => n.status === 'alive' && n.loc && !n.journey && !n.lost && !n.delving && !n.rival && n.id !== comp && !n.title && !(n.jailUntil > world.day) && !(n.hurtUntil > world.day) && KEEN[n.prof] && !P().has(n, 'cowardly') && P().age(world, n) >= 17 && P().age(world, n) <= 58;
+      const ready = n => n.status === 'alive' && n.loc && !n.journey && !n.lost && !n.delving && !n.rival && !(n.adv && n.adv.status === 'active') && n.id !== comp && !n.title && !(n.jailUntil > world.day) && !(n.hurtUntil > world.day) && KEEN[n.prof] && !P().has(n, 'cowardly') && P().age(world, n) >= 17 && P().age(world, n) <= 58;
       let started = 0;
       for (const n of people) {
         if (started >= 3 || out + started >= cap) break;
@@ -89,7 +89,7 @@
       }
     },
     // Choose a dungeon near home with a floor they can hope to beat.
-    choose(world, party, s) {
+    choose(world, party, s, margin) {
       const pw = Math.max(...party.map(m => D.power(world, m))) + (party.length - 1) * 0.6;
       let best = null, bs = Infinity;
       for (const site of X().sites(world)) {
@@ -99,7 +99,7 @@
         X().level(world, site);
         const nf = X().floors(site);
         let f = -1;
-        for (let k = 0; k < nf; k++) if (X().floorLevel(site, k) <= pw + 1.5) f = k;
+        for (let k = 0; k < nf; k++) if (X().floorLevel(site, k) <= pw + 1.5 - (margin || 0)) f = k;
         if (f < 0) continue;
         const fl = X().floorLevel(site, f);
         const sc = (pw - fl) * 3 + d * 0.15 + (site.cleared ? 25 : 0);
@@ -107,8 +107,8 @@
       }
       return best;
     },
-    start(world, rng, party, s) {
-      const c = D.choose(world, party, s);
+    start(world, rng, party, s, margin) {
+      const c = D.choose(world, party, s, margin);
       if (!c) return false;
       const back = world.day + 1 + rng.int(0, 2), ids = party.map(m => m.id);
       for (const m of party) { m.delving = { site: c.site.id, floor: c.floor, back, lead: party[0].id, party: ids, from: s.id }; m.loc = null; }
@@ -172,7 +172,7 @@
       } else {
         // the dark keeps one
         const lost = party[rng.int(0, party.length - 1)];
-        const odds = fl > pw + 3 ? 0.6 : 0.3;
+        const odds = (fl > pw + 3 ? 0.6 : 0.3) * (lost.adv && lost.adv.status === 'active' ? (lost.adv.temper === 'reckless' ? 0.7 : 0.45) : 1);   // (the Guild's people know when to run)
         if (rng.chance(odds)) {
           for (const sl of ['weapon', 'armor']) { const it = sl === 'weapon' ? D.weapon(world, lost) : D.armor(world, lost); if (it) { it.holder = null; if (it.delverLoot) delete world.items[it.id]; } }
           lost.delving = null;

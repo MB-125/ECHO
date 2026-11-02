@@ -657,7 +657,7 @@
     priceMult(world, s, pl) {
       if (!pl || !s) return 1;
       const rep = (s.rep && s.rep[pl.charId]) || 0;
-      return U.clamp(1 - rep / 300, 0.75, 1.35);
+      return U.clamp((1 - rep / 300) * (ECHO.Renown ? ECHO.Renown.priceMul(world) : 1), 0.7, 1.4);   // (and what the common folk make of your name)
     },
     refuses(world, s, pl) { return !!pl && s && ((s.rep && s.rep[pl.charId]) || 0) < -60; }
   };

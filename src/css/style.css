@@ -625,3 +625,16 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 .wmap.holo #map-dest .l1 .dd { margin-left: auto; }
 .wmap.holo #map-dest .nm { font-size: 14px; }
 .wmap.holo #map-dest .nm.dim { font-size: 12px; white-space: normal; }
+/* Your name (renown) and the Guild */
+.rn-dims { display: grid; gap: 6px; margin: 10px 0 4px; }
+.rn-dim { display: grid; grid-template-columns: 110px 1fr 34px; align-items: center; gap: 8px; font-size: 14px; }
+.rn-dim .t { height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; }
+.rn-dim .t div { height: 100%; border-radius: 4px; }
+.rn-dim .v { text-align: right; opacity: 0.8; }
+.rn-views { display: grid; gap: 4px; }
+.rn-view { display: grid; grid-template-columns: 150px 44px 1fr; gap: 8px; font-size: 14px; }
+.rn-rum .row { margin-top: 6px; display: flex; gap: 6px; }
+.gd-t { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }
+.gd-t th { text-align: left; font-weight: 600; opacity: 0.7; font-size: 12px; padding: 2px 6px; }
+.gd-t td { padding: 4px 6px; border-top: 1px solid rgba(255,255,255,0.07); vertical-align: top; }
+.gd-rk { display: inline-block; min-width: 18px; text-align: center; padding: 0 4px; border: 1px solid; border-radius: 3px; font-weight: 700; font-size: 12px; }

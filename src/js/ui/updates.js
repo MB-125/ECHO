@@ -7,6 +7,14 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.14.0', items: [
+      'The Adventurers\' Guild. Forty or so real people of the realm — guards who wanted more, hunters, wanderers, a hedge-mage or two — live by the same trade as you, each with a rank from E to S, a way of fighting and a temper (reckless, careful, greedy, honourable, glory-hungry). Every day some of them take contracts off the notice boards and go down into the dungeons in parties.',
+      'They take the same pleas you do, and whoever finishes first is paid: take a job and dawdle, and a glory-hungry B-rank may beat you to it (you are told when one takes your job, and when they finish it). Or they fail — and leave the wolves half dead or the beast wounded, so it is easier for you.',
+      'They grow famous and earn names (Wolfsbane, the Deepdelver, the Unbroken, the Bold…). They die, and their gear lies where they fell, marked on your map: find the body, take what is useful, and bury them if you will. The old and the rich retire and open an inn or a smithy. When one dies or leaves, someone new signs the book. See them all on any notice board, under The Guild, or from your character sheet (K). Talk to one and they tell you their rank and what they make of you.',
+      'Your name is now seven things, not one: Heroism, Honour, Fear, Reliability, Influence, Knowledge and Infamy, grown by what you do (help people, keep your promises, find things out, rule land — or be cruel, break your word, break the law). The Crown, the common folk, the Guild, the Wardens and the underworld each read them their own way. What the common folk think changes shop prices; a feared name makes outlaws who face you lose their nerve sooner.',
+      'And stories about you go round — some grown in the telling, some made up out of nothing, flattering or ugly. Let them stand, or set the record straight (and be known for honesty). Ask anyone "What do people say about me?" Everything is on your character sheet (K) → Your name.',
+      'Your progress carries over: on an old save the Guild fills its book from the people already living in your world, and your name starts from what you have already done.'
+    ] },
     { v: '0.13.0', items: [
       'Beasts migrate. When a great beast settles into their country, a monster\'s lair hunts them, the hares run out or hunters kill them too fast, a country\'s duskwolves leave it — the whole pack, over a few days, toward the neighbouring country with the most to eat. Where they arrive they are hungry and do not know the land: they take the villages\' sheep, the villages ask for help on their notice boards, and the Chronicle tells it.',
       'Their tracks cross the land between, dozens of prints all going one way. Study them (E) and you learn what drove them out — and can mark it on your map and follow them back to it.',

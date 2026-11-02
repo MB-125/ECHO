@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -1173,7 +1173,7 @@ function main() {
     ds.forEach(s => DL.life(W, s));
     check('every dungeon has a history of its own', ds.length > 5 && ds.every(s => s.life && DL.ORIGINS[s.life.origin] && s.life.hist.length > 80) && new Set(ds.map(s => s.life.origin)).size >= 3, [...new Set(ds.map(s => s.life.origin))].join(', '));
     const d0 = ds.find(s => !s.cleared && X.DELVES[s.kind].roster && !X.small(s)) || ds[0];
-    d0.grow = 60; d0.life.state = 'active'; d0.life.since = W.day - 30;
+    d0.grow = 60; d0.life.state = 'active'; d0.life.since = W.day - 30; d0.level = 140; d0.lv2 = 1;   // (too deep for anyone to empty it meanwhile)
     for (let i = 0; i < 80 && d0.life.state === 'active'; i++) ECHO.Sim.dailyTick(W, true);
     check('left alone, a dungeon grows infested (or worse)', d0.life.state !== 'active' && d0.life.state !== 'dormant', d0.life.state);
     const rng = new ECHO.RNG(3);
@@ -1183,6 +1183,7 @@ function main() {
     const own = (X.DELVES[d0.kind].roster || [])[0][0], other = d0.roster.map(r => r[0]).find(k => !(X.DELVES[d0.kind].roster || []).some(r => r[0] === k));
     const ea = {}, eb = {}; DL.band(d0, ea, own); DL.band(d0, eb, other);
     check('the two broods take sides against each other', ea.band && eb.band && ea.band !== eb.band, `${own} vs ${other}`);
+    d0.level = 9;
     const f0 = X.floors(d0), l0 = X.floorLevel(d0, 0);
     DL.awaken(W, d0);
     check('awakened, it goes deeper and all of it is stronger', X.floors(d0) > f0 && X.floorLevel(d0, 0) > l0, `${f0} → ${X.floors(d0)} floors, Lv ${l0} → ${X.floorLevel(d0, 0)}`);
@@ -1204,6 +1205,60 @@ function main() {
     delete W2.migrations; for (const s of X.sites(W2)) delete s.life;
     let ok = true; try { for (let d = 0; d < 5; d++) ECHO.Sim.dailyTick(W2, true); } catch (e) { ok = false; console.log(e); }
     check('an old save picks it all up where it stands', ok && Array.isArray(Mg.st(W2).list) && X.sites(W2).filter(s => DL.ok(s)).every(s => s.life));
+  }
+
+  console.log('\nThe Guild, and your name');
+  {
+    const W = ECHO.generateWorld({ seed: 1357, name: 'Guild' }), Gd = ECHO.Guild, Rn = ECHO.Renown;
+    const pl = W.player = ECHO.Character.create(W, new ECHO.RNG(8), { first: 'Ren', homeId: W.settlements[0].id });
+    ECHO.Sim.dailyTick(W, true);
+    const mem = Gd.members(W);
+    check('the Guild keeps a book of real people of the realm', mem.length >= 12 && mem.length <= 40 && mem.every(n => n.adv && n.status === 'alive' && ['E', 'D', 'C', 'B', 'A', 'S'].includes(Gd.rank(W, n))), `${mem.length} members, hall in ${ECHO.Sim.settlement(W, Gd.st(W).hall).name}`);
+    check('each with a way of fighting and a temper of their own', new Set(mem.map(n => n.adv.style)).size >= 3 && new Set(mem.map(n => n.adv.temper)).size >= 3);
+    // a plea you took: someone from the Guild may get there first
+    const s = W.settlements[0], r = ECHO.World.regionAt(W, s.x, s.y);
+    const p = ECHO.Plights.post(W, { kind: 'beasts', sid: s.id, regionId: r.id, need: 4, deadline: W.day + 30, reward: 80, text: 'Wolves.' });
+    pl.accepted.push(p.id); r.eco.wolfDanger = Math.max(r.eco.wolfDanger, 1.4);
+    const n = mem[0]; n.lv = 60; n.adv.temper = 'glory';
+    const rng = new ECHO.RNG(3);
+    let got = false;
+    for (let i = 0; i < 12 && !got; i++) { n.adv.job = null; p.guildOn = null; n.hurtUntil = 0; p.status = 'open'; p.progress = 0; n.adv.job = { pid: p.id, until: W.day, x: s.x, y: s.y, day: W.day }; p.guildOn = n.id; Gd.resolve(W, new ECHO.RNG(50 + i), n); got = p.status === 'resolved' && p.beatenBy === n.id; }
+    check('they take the same contracts you do, and whoever finishes first is paid', got && /before Ren/.test(p.outcome) && n.adv.wins >= 1, p.outcome);
+    // and they die, and their gear lies where they fell
+    const m = mem.find(x => x !== n && x.status === 'alive'); const it = ECHO.Gear.make(W, rng, 'sword', 10, 'rare', 'test'); ECHO.Delvers.equip(W, m, it);
+    Gd.fall(W, rng, m, { x: s.x + 20, y: s.y }, 'killed by duskwolves on a Guild contract', 'the wolves');
+    const c = Gd.caches(W)[0];
+    check('a fallen adventurer\'s gear lies where they fell, for whoever finds it', m.status === 'dead' && m.adv.status === 'dead' && c && c.items.includes(it.id) && W.chronicle.some(e => /did not come back/.test(e.text)));
+    // they retire
+    const o = mem.find(x => x.adv.status === 'active' && x !== n); Gd.retire(W, rng, o);
+    check('the old and the rich retire and open a business', o.adv.status === 'retired' && !!o.adv.shop && !Gd.members(W).includes(o));
+    // and the book is kept full
+    for (let d = 0; d < 6; d++) ECHO.Sim.dailyTick(W, true);
+    check('when one dies or leaves, someone new signs the book', Gd.book(W).length > mem.length && Gd.st(W).log.some(e => /signed the Guild's book/.test(e.text)));
+    // your name: seven ways of being known
+    const F = Rn.st(W), h0 = F.d.hero;
+    ECHO.Chronicle.deed(W, { text: `${pl.first} ${pl.last} saved a child from the river.`, importance: 2, rep: 5, tag: 'protect' });
+    check('what you do for others makes you a hero to some', F.d.hero > h0 && Rn.view(W, 'folk') > 0);
+    const i0 = F.d.infamy; ECHO.Chronicle.deed(W, { text: `${pl.first} ${pl.last} killed a prisoner.`, importance: 2, rep: -8, tag: 'cruel' });
+    check('cruelty makes you feared, and infamous', F.d.fear > 0 && F.d.infamy > i0 && F.d.honor < 1);
+    check('the underworld reads it differently from the Crown', Rn.view(W, 'under') > Rn.view(W, 'crown'));
+    // a promise broken
+    const q = ECHO.Plights.post(W, { kind: 'famine', sid: s.id, deadline: W.day - 1, text: 'Hungry.' }); pl.accepted.push(q.id);
+    const r0 = F.d.reliable; ECHO.Plights.close(W, q, 'failed', null);
+    check('a promise you do not keep costs you your name for reliability', F.d.reliable < r0 + 0.001 && F.log.some(e => e.dim === 'reliable' && e.amt < 0));
+    // rumours: some grown, some made up; let them stand or set them straight
+    F.rum = []; for (let k = 0; k < 20 && !F.rum.length; k++) Rn.maybeRumour(W, { text: `${pl.first} ${pl.last} killed the great wolf.` }, 1, new ECHO.RNG(900 + k));
+    const ru = F.rum[0], hon = F.d.honor;
+    check('stories about you go round, true or not', !!ru && ru.text.length > 30 && ru.status === 'open', ru && ru.text);
+    Rn.answer(W, ru.id, true);
+    check('set the record straight, and you are known for honesty', ru.status === 'corrected' && F.d.honor > hon);
+    check('your name changes what shopkeepers ask of you', typeof ECHO.Minds.priceMult(W, s, pl) === 'number');
+    // saves
+    const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
+    check('the Guild and your name survive a save', Gd.members(W2).length === Gd.members(W).length && W2.player.fame && W2.player.fame.d.hero === F.d.hero && Gd.caches(W2).length === Gd.caches(W).length);
+    delete W2.guild; delete W2.player.fame; for (const x of Object.values(W2.npcs)) delete x.adv;
+    let ok = true; try { for (let d = 0; d < 3; d++) ECHO.Sim.dailyTick(W2, true); } catch (e) { ok = false; console.log(e); }
+    check('an old save takes it all up without a hitch', ok && Gd.members(W2).length >= 12 && !!W2.player.fame);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

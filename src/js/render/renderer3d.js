@@ -1288,6 +1288,12 @@
           R.siteLights.push({ x: st.x + 0.5, y: st.y + 0.5, r: 3, a: 0.7, color: '#9fd3ff', h: 0.3 });
         }
       }
+      // where an adventurer of the Guild fell: bones, and a blade stuck in the ground
+      if (ECHO.Guild) for (const c of ECHO.Guild.caches(world)) {
+        if (!near(c.x, c.y)) continue;
+        R.addStatic(g, 'bones', c.x, c.y, null, 0.6, 0.8);
+        if (c.items.length) { R.addStatic(g, 'standard', c.x + 0.5, c.y - 0.3, { banner: '#8a7a5a' }, 0.4, 0.55); R.siteLights.push({ x: c.x, y: c.y, r: 2.2, a: 0.5, color: '#ffe0a0', h: 0.4 }); }
+      }
       // landmarks and delves
       R._siteMats = R._siteMats || {};
       const mesh = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.userData.own = true; return m; };

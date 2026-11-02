@@ -19,6 +19,7 @@
     },
     close(world, p, status, outcome, importance = 1) {
       p.status = status; p.outcome = outcome; p.closed = world.day;
+      if (ECHO.Renown && status === 'failed') ECHO.Renown.onPlight(world, p, 'failed');   // (a plea you had taken on, gone wrong)
       if (outcome) ECHO.Chronicle.add(world, { text: outcome, kind: 'plight', importance, sid: p.sid, npcs: [p.victim, p.requester].filter(Boolean) });
       ECHO.emit('plight:closed', p);
     },

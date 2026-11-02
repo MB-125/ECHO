@@ -708,6 +708,7 @@
       for (const c of world.camps) if (c.captives.length && near(c.x + 2.5, c.y - 1.2, 1.6)) { /* captives handled as entities */ }
       if (ECHO.Life) out.push(...ECHO.Life.interactables(Game));
       if (ECHO.Migrations) out.push(...ECHO.Migrations.interactables(Game));
+      if (ECHO.Guild) out.push(...ECHO.Guild.interactables(Game));
       if (ECHO.Riders) out.push(...ECHO.Riders.interactables(Game));
       if (ECHO.Water) out.push(...ECHO.Water.interactables(Game));
       if (ECHO.Boats) out.push(...ECHO.Boats.interactables(Game));

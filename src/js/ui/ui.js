@@ -437,6 +437,8 @@
         if (ECHO.Guard) ECHO.Guard.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         if (ECHO.GuardField) ECHO.GuardField.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         if (ECHO.Delvers) ECHO.Delvers.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
+        if (ECHO.Guild) ECHO.Guild.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
+        if (ECHO.Renown) ECHO.Renown.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         if (ECHO.Jobs && npc.id !== pl.companion) ECHO.Jobs.dialogue(world, npc, ent, pl, { add, say, render, clear: () => { opts.innerHTML = ''; } });
         add('Any tales of heroes?', () => say(ECHO.Dialogue.aboutLegends(world, npc)));
         if (npc.carry) add('That blade you carry…', () => say(ECHO.Dialogue.aboutItem(world, npc, pl)));
@@ -1237,6 +1239,7 @@
       }[p.kind];
       const whatText = what ? what() : 'did as they were asked';
       p.status = 'done'; p.closed = world.day; p.outcome = `${pl.first} ${pl.last} ${whatText}.`;
+      if (ECHO.Renown) ECHO.Renown.onPlight(world, p, 'done');
       if (p.kind === 'hunt' && pl.inv.pelt) { pl.inv.pelt--; }
       ECHO.Chronicle.deed(world, { text: p.outcome, importance: 2, sid: p.sid, rep: 6, tag: 'protect', factionRep: s ? { [s.faction]: 4 } : {} });
       UI.toast(`${p.reward ? '+' + p.reward + ' crowns. ' : ''}${s ? 'The people of ' + s.name + ' will remember this.' : ''}`, 'mercy', 4);
@@ -1247,9 +1250,10 @@
       if (ECHO.Courier) ECHO.Courier.deliver(game, s);
       const body = UI.openPanel(`Notice board — ${s.name}`, '', 'board');
       const render = () => {
-        const tabs = [['pleas', 'Pleas'], ['jobs', 'Odd jobs'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['coin', 'Spend your coin'], ['affairs', 'Town affairs']];
+        const tabs = [['pleas', 'Pleas'], ['guild', 'The Guild'], ['jobs', 'Odd jobs'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['coin', 'Spend your coin'], ['affairs', 'Town affairs']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
-        if (tab === 'pleas') html += '<p class="dim">Pleas, bounties and warnings, nailed up by people who will not wait forever.</p><div class="list" id="pl"></div>';
+        if (tab === 'pleas') html += '<p class="dim">Pleas, bounties and warnings, nailed up by people who will not wait forever. The Guild\'s people read them too: whoever finishes a job first is paid.</p><div class="list" id="pl"></div>';
+        else if (tab === 'guild') html += ECHO.Guild ? ECHO.Guild.html(game) : '';
         else if (tab === 'law') {
           const lines = ECHO.Law.summary(world, s);
           const mine = ECHO.Law.openAgainstPlayer(world, pl).filter(c => c.faction === s.faction);
@@ -1287,6 +1291,7 @@
         }
         body.innerHTML = html;
         body.querySelectorAll('button[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
+        if (tab === 'guild' && ECHO.Guild) ECHO.Guild.bind(body, game, render);
         if (tab === 'pleas') {
           UI.fillPlights(body.querySelector('#pl'), s);
           for (const p of world.plights) if (p.status === 'open' && p.kind === 'beasts' && p.progress >= p.need && !p.claimable) { p.claimable = true; UI.fillPlights(body.querySelector('#pl'), s); }
@@ -1615,7 +1620,7 @@
       const body = UI.openPanel(UI.settings.journal !== 'all' ? 'Your beasts' : 'Journal', '', 'journal');
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
-        const tabs = [['guide', 'Guide'], ['nearby', 'Nearby'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['animals', 'Animals'], ['tamed', `Tamed beasts${(n => n ? ' (' + n + ')' : '')((ECHO.Tame ? ECHO.Tame.pack(pl).length : 0) + (world.titans && ECHO.Titans ? ECHO.Titans.bound(world).length : 0))}`], ['powers', 'Rising powers'], ['guard', 'The Guard'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
+        const tabs = [['guide', 'Guide'], ['nearby', 'Nearby'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['animals', 'Animals'], ['tamed', `Tamed beasts${(n => n ? ' (' + n + ')' : '')((ECHO.Tame ? ECHO.Tame.pack(pl).length : 0) + (world.titans && ECHO.Titans ? ECHO.Titans.bound(world).length : 0))}`], ['powers', 'Rising powers'], ['guard', 'The Guard'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['name', 'Your name'], ['guild', 'The Guild'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
         // your choice (Esc → Gameplay → Journal): only your beasts and animals, or every page
         if (UI.settings.journal !== 'all') { const keep = ['tamed', 'animals']; for (let i = tabs.length - 1; i >= 0; i--) if (!keep.includes(tabs[i][0])) tabs.splice(i, 1); tabs.sort((a, b) => keep.indexOf(a[0]) - keep.indexOf(b[0])); }
         if (!tabs.some(t => t[0] === tab)) tab = UI.settings.journal !== 'all' ? 'tamed' : tab === 'quests' ? 'tasks' : 'guide';   // (a page not shown: the nearest one, lit)
@@ -1624,6 +1629,8 @@
         else if (tab === 'tamed') html += ECHO.Tame ? ECHO.Tame.page(game) : '';
         else if (tab === 'powers') html += ECHO.Growth ? ECHO.Growth.html(game) : '';
         else if (tab === 'guard') html += ECHO.GuardField ? ECHO.GuardField.html(game) : '';
+        else if (tab === 'name') html += ECHO.Renown ? ECHO.Renown.html(game) : '';
+        else if (tab === 'guild') html += ECHO.Guild ? ECHO.Guild.html(game) : '';
         else if (tab === 'guide') { html += ECHO.Guide.html(game); if (ECHO.Tutorial) ECHO.Tutorial.flag('guide'); }
         else if (tab === 'nearby') html += ECHO.Jobs ? ECHO.Jobs.nearbyHtml(game) : '';
         else if (tab === 'story') html += ECHO.Saga.html(world, pl);
@@ -1733,6 +1740,8 @@
         body.querySelectorAll('button[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
         if (tab === 'animals' && ECHO.Apex) ECHO.Apex.animalsBind(body, game, render);
         if (tab === 'tamed' && ECHO.Tame) ECHO.Tame.bind(body, game, () => setTimeout(render, 60));
+        if (tab === 'name' && ECHO.Renown) ECHO.Renown.bind(body, game, render);
+        if (tab === 'guild' && ECHO.Guild) ECHO.Guild.bind(body, game, render);
         body.querySelectorAll('button[data-k]').forEach(b => b.addEventListener('click', () => { kind = b.dataset.k; render(); }));
         body.querySelectorAll('[data-letter]').forEach(c => c.addEventListener('click', () => { const l = ECHO.Letters.list(world).find(x => x.id === c.dataset.letter); if (l) { l.read = true; openLetter = openLetter === l.id ? null : l.id; render(); } }));
         const lamp = body.querySelector('button[data-lamp]');
@@ -1799,12 +1808,14 @@
         ${ECHO.Apex ? ECHO.Apex.html(game) : ''}
         ${ECHO.Life ? ECHO.Life.card(world, pl) : ''}
         ${ECHO.Tech.pageHtml(pl)}
-        ${reps.length ? `<h3 class="gold">Standing</h3><div class="dim">${reps.join(' · ')}</div>` : ''}</div>
+        ${reps.length ? `<h3 class="gold">Standing</h3><div class="dim">${reps.join(' · ')}</div>` : ''}
+        ${ECHO.Renown ? ECHO.Renown.sheetHtml(game) : ''}</div>
         <div><h3 class="gold">Skills — grown by use</h3>${skills}<h3 class="gold" style="margin-top:16px">Tendencies — what you keep doing</h3>${tends}
         <p class="dim" style="font-size:13px">Tendencies change how you fight: aggression quickens strikes and weakens your guard; patience cheapens guarding; recklessness strengthens fire and makes it unstable.</p></div></div>`, 'char');
       document.querySelectorAll('#panel button[data-tech]').forEach(b => b.addEventListener('click', () => { if (ECHO.Tech.toggle(b.dataset.tech) === false) UI.toast(`You can only carry ${ECHO.Tech.slots(pl)} techniques. Set one down first.`, 'warn', 3); UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-w]').forEach(b => b.addEventListener('click', () => { pl.weapon = b.dataset.w; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-dismiss]').forEach(b => b.addEventListener('click', () => { ECHO.Companions.dismiss(game); UI.openCharacter(); }));
+      document.querySelectorAll('#panel button[data-rnpage]').forEach(b => b.addEventListener('click', () => b.dataset.rnpage === 'guild' ? ECHO.Guild.open(game) : ECHO.Renown.open(game)));
       document.querySelectorAll('#panel button[data-bow]').forEach(b => b.addEventListener('click', () => { pl.bow = b.dataset.bow; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-arm]').forEach(b => b.addEventListener('click', () => { pl.armor = b.dataset.arm || null; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
       if (ECHO.Fellow) ECHO.Fellow.bind(document.querySelector('#panel'), game);
