@@ -279,6 +279,7 @@
             <button data-help="1">Got it</button></div>
           <div class="wmap-hint"><b>Drag</b> turn · <b>Scroll</b> zoom · <b>Double-click</b> fly in · <b>Right-click</b> waypoint · <b>Space</b> me · <b>G</b> goal · <b>?</b> help</div></div>
         <div class="wmap-side">
+          <div id="map-dest"></div>
           <div id="map-sel"></div>
           <div class="wmap-sec"><span>Layers</span><button class="link ${WM.revealed(pl) ? 'on' : ''}" data-reveal="1" title="Show the whole world, or only the land you have walked">${WM.revealed(pl) ? '◉ Whole world shown' : '○ Only land you have walked'}</button></div>
           <div class="wmap-layers">${LAYERS.map(chip).join('')}</div>
@@ -398,6 +399,7 @@
         ev.preventDefault();
         const { mx, my } = ptr(ev), f = WM.hit(c, mx, my), p = f || WM.toWorld(c, mx, my);
         if (p.x < 0 || p.y < 0 || p.x >= world.W || p.y >= world.H) return;
+        if (f && f.isGoal) { WM.guide(game, f, false); return; }     // (right-click it again: gone)
         const m = f || { kind: 'mark', x: p.x, y: p.y, name: 'Your waypoint', sub: (ECHO.World.regionAt(world, p.x, p.y) || {}).name || '', color: '#ffe08a' };
         if (m.kind === 'dungeon-cleared') return;
         WM.select(game, m); WM.guide(game, m, true);
@@ -530,10 +532,13 @@
     },
     // follow the line at the top of the screen to f (or stop)
     guide(game, f, on) {
-      const pl = game.pl, id = WM.trackId(f);
-      pl.tracked = on ? id : null;
+      const pl = game.pl, id = f.isGoal ? pl.tracked : WM.trackId(f);
+      pl.tracked = on ? id : 'off';      // (off: nothing marked at all, not your road's next step instead)
       ECHO.Purpose._html = null; ECHO.Purpose.t = 0; if (ECHO.Nav) ECHO.Nav.route = null;
-      if (on) ECHO.UI.toast(`Waypoint set: ${f.name}. The line at the top of the screen points the way.`, 'info', 3);
+      ECHO.Purpose.goal = ECHO.Purpose.current(game);
+      if (on) ECHO.UI.toast(`Waypoint set: ${f.name}. The arrow at the edge of the screen and the minimap point the way.`, 'info', 3);
+      else ECHO.UI.toast(`${f.isGoal || f.kind === 'mark' ? 'Waypoint removed' : 'No longer guiding you to ' + f.name}. Nothing is marked now.`, 'info', 3);
+      if (!on && WM.sel && (WM.sel.isGoal || WM.sel === f)) WM.sel = f.isGoal ? null : WM.sel;
       const c = document.getElementById('worldmap'); WM.side(game, c); if (c) WM.draw(game, c);
     },
     // the altitude ruler: where on it is how high
@@ -544,7 +549,15 @@
     },
     toScreen(c, x, y) { if (WM.isGlobe()) return WM.gScreen(c, x, y); const V = WM.view; return { x: (x - V.cx) * V.z + c.width / 2, y: (y - V.cy) * V.z + c.height / 2 }; },
     toWorld(c, sx, sy) { if (WM.isGlobe()) return WM.gWorld(c, sx, sy); const V = WM.view; return { x: (sx - c.width / 2) / V.z + V.cx, y: (sy - c.height / 2) / V.z + V.cy }; },
-    visible() { return WM.feats.filter(f => WM.layers[f.layer]); },
+    visible() { const g = WM.goalFeat(); return WM.feats.filter(f => WM.layers[f.layer]).concat(g ? [g] : []); },
+    // where you are headed, as a place on the map (click it to see it, and to take the mark away)
+    goalFeat() {
+      const game = ECHO.Game, goal = game && ECHO.Purpose && ECHO.Purpose.current(game);
+      if (!goal || !goal.where || goal.where.x == null || ECHO.Interior.cur) { WM._gf = null; return null; }
+      const w = goal.where, key = `${w.x}|${w.y}|${w.name}`;
+      if (!WM._gf || WM._gf.key !== key) WM._gf = { key, isGoal: true, layer: 'goal', kind: 'flag', pri: 9, x: w.x, y: w.y, name: w.name || 'Your destination', sub: goal.kind === 'track' ? 'Where you are headed' : 'Your road\'s next step', color: '#ffcf6a' };
+      return WM._gf;
+    },
     hit(c, mx, my) {
       let best = null, bd = 14;
       for (const f of WM.visible()) { const p = WM.toScreen(c, f.x, f.y), d = Math.hypot(p.x - mx, p.y - my) - (f.layer === 'dungeons' ? 3 : 0); if (d < bd) { bd = d; best = f; } }
@@ -573,15 +586,26 @@
       if (!sel || !list) return;
       const f = WM.sel, round = !!world.globe;
       if (f) {
-        const D = WM.dist(game, f), id = WM.trackId(f), on = pl.tracked === id || (pl.tracked && f.kind === 'mark' && pl.tracked.startsWith('mark:') && pl.tracked.endsWith(':' + f.name) && Math.abs(parseFloat(pl.tracked.split(':')[1]) - f.x) < 0.2);
+        const D = WM.dist(game, f), id = WM.trackId(f), on = f.isGoal || pl.tracked === id || (pl.tracked && f.kind === 'mark' && pl.tracked.startsWith('mark:') && pl.tracked.endsWith(':' + f.name) && Math.abs(parseFloat(pl.tracked.split(':')[1]) - f.x) < 0.2);
         sel.innerHTML = `<div class="card${on ? ' on' : ''}" style="--c:${f.color}"><div class="kind">${esc(KIND_NAME[f.kind] || f.layer || 'Place')}</div><h4>${esc(f.name)}</h4>${f.sub ? `<div class="sub">${esc(f.sub)}</div>` : ''}${f.diff ? `<div class="diff" style="color:${f.color}">${esc(f.diff)}</div>` : ''}
           <div class="read"><span><b>${D.d < 3 ? '—' : D.d}</b>${D.d < 3 ? 'you are here' : 'leagues ' + D.dir}</span>${round ? `<span><b>${esc(ECHO.Globe.fmtLatLon(world, f.x, f.y))}</b>position</span>` : ''}</div>
-          <div class="row">${f.kind === 'dungeon-cleared' ? '' : `<button class="go${on ? ' on' : ''}" data-track="1">${on ? '■ Stop guiding' : '➤ Guide me there'}</button>`}<button data-fly="1" title="Fly the view there (double-click does too)">◎ Fly to</button><button data-unsel="1" title="Close">✕</button></div></div>`;
+          <div class="row">${f.kind === 'dungeon-cleared' ? '' : `<button class="go${on ? ' on' : ''}" data-track="1">${on ? (f.isGoal || f.kind === 'mark' ? '✕ Remove waypoint' : '■ Stop guiding') : '➤ Guide me there'}</button>`}<button data-fly="1" title="Fly the view there (double-click does too)">◎ Fly to</button><button data-unsel="1" title="Close">✕</button></div></div>`;
         const b = sel.querySelector('[data-track]');
         if (b) b.addEventListener('click', () => WM.guide(game, f, !on));
         sel.querySelector('[data-fly]').addEventListener('click', () => WM.flyTo(game, f.x, f.y, WM.isGlobe(world) ? Math.min(WM.G.dist, 1.6) : Math.max(WM.view.z, 5)));
         sel.querySelector('[data-unsel]').addEventListener('click', () => { WM.sel = null; WM.side(game, c); if (c) WM.draw(game, c); });
-      } else sel.innerHTML = `<div class="card idle"><div class="kind">Navigation</div><p>Click a place for its details, then <b>Guide me there</b> — the line at the top of the screen points the way. Or <b>right-click</b> anywhere for a waypoint.</p></div>`;
+      } else sel.innerHTML = `<div class="card idle"><div class="kind">Navigation</div><p>Click a place for its details, then <b>Guide me there</b> — the arrow at the edge of the screen and the minimap point the way. Or <b>right-click</b> anywhere for a waypoint (right-click it again to take it away).</p></div>`;
+      // where you are headed, always in sight here, with a way to clear it
+      const dest = document.getElementById('map-dest');
+      if (dest) {
+        const gf = WM.goalFeat();
+        if (gf) {
+          const D = WM.dist(game, gf);
+          dest.innerHTML = `<div class="dest"><div class="l1"><span class="k">Headed to</span><span class="dd">${D.d < 3 ? 'here' : `${D.d} LG ${DIR_S[D.dir]}`}</span></div><div class="l2"><span class="nm"><i>◆</i>${esc(gf.name)}</span><button data-dfly="1" title="Fly the view there">◎</button><button data-dclear="1" title="Clear it: nothing marked">✕ Clear</button></div></div>`;
+          dest.querySelector('[data-dfly]').addEventListener('click', () => { WM.select(game, gf); WM.flyTo(game, gf.x, gf.y, WM.isGlobe(world) ? Math.min(WM.G.dist, 1.6) : Math.max(WM.view.z, 5)); });
+          dest.querySelector('[data-dclear]').addEventListener('click', () => WM.guide(game, gf, false));
+        } else dest.innerHTML = `<div class="dest none"><div class="l1"><span class="k">Headed to</span></div><div class="l2"><span class="nm dim">Nothing marked — right-click the map for a waypoint</span></div></div>`;
+      }
       document.querySelectorAll('.wmap-tabs [data-tab]').forEach(t => t.classList.toggle('on', t.dataset.tab === (WM.tab || 'near')));
       const rowOf = (x, i, extra) => { const D = WM.dist(game, x); return `<div class="dl ${WM.sel === x ? 'on' : ''}" data-goto="${i}"><span class="dot" style="background:${x.color}"></span><span class="nm">${esc(x.name)}</span>${extra || ''}<span class="dd">${D.d < 3 ? 'here' : `${D.d}<i>${DIR_S[D.dir]}</i>`}</span></div>`; };
       const wire = arr => list.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click', () => { const x = arr[+el.dataset.goto]; WM.select(game, x); WM.flyTo(game, x.x, x.y, WM.isGlobe(world) ? Math.min(WM.G.dist, 1.6) : Math.max(WM.view.z, 5)); }));
@@ -735,6 +759,7 @@
       const pos = feats.map(f => ({ f, p: WM.toScreen(c, f.x, f.y) })).filter(({ p }) => p.x > -30 && p.y > -30 && p.x < c.width + 30 && p.y < c.height + 30);
       const sug = ECHO.Guide && ECHO.Guide.suggestDungeon(world, pl);
       for (const { f, p } of pos) {
+        if (f.isGoal) continue;
         const hi = f === WM.hover || f === WM.sel;
         const pulse = (f.ref && sug && f.ref === sug) || (pl.tracked === 'site:' + (f.ref && f.ref.id));
         WM.icon(g, f.kind, p.x, p.y, f.color, k * (hi ? 1.25 : 1), pulse ? now : 0);
@@ -752,6 +777,7 @@
       // labels: dungeons and towns first
       const lblOrder = pos.slice().sort((a, b) => (b.f === WM.sel || b.f === WM.hover) - (a.f === WM.sel || a.f === WM.hover) || b.f.pri - a.f.pri);
       for (const { f, p } of lblOrder) {
+        if (f.isGoal) continue;
         const hi = f === WM.hover || f === WM.sel;
         const show = hi || f.layer === 'towns' || (f.layer === 'dungeons' && f.kind !== 'dungeon-unknown' && V.z >= (WM.revealed(pl) ? 4.5 : 2.2)) || (V.z >= 5 && f.pri >= 5) || V.z >= 8;
         if (!show) continue;

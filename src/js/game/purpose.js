@@ -18,6 +18,7 @@
     // A tracked quest, if any, or the next step of the chosen ambition.
     current(game) {
       const world = game.world, pl = game.pl;
+      if (pl.tracked === 'off') return null;     // (you cleared it: nowhere marked, until you choose somewhere)
       const tr = pl.tracked && Pu.trackedGoal(world, pl, pl.tracked);
       if (tr) return tr;
       if (pl.tracked) pl.tracked = null;
@@ -26,6 +27,7 @@
       return { kind: 'ambition', label: g.done ? g.text : `${A().PATHS[g.path].icon} ${g.title}: ${g.text}${g.need > 1 ? ` (${g.have}/${g.need})` : ''}`, where: g.where, done: g.done };
     },
     trackedGoal(world, pl, id) {
+      if (id === 'off') return null;
       if (id === 'story') return ECHO.Saga ? ECHO.Saga.tracked(world, pl) : null;
       if (id.startsWith('job:')) return ECHO.Jobs ? ECHO.Jobs.tracked(ECHO.Game, id) : null;
       if (id.startsWith('tmap:')) return ECHO.Secrets ? ECHO.Secrets.trackedMap(ECHO.Game, id) : null;

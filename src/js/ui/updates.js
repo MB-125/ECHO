@@ -7,6 +7,10 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.12.3', items: [
+      'You can take a mark away now. Before, clearing a waypoint only went back to pointing at your road\'s next step, so a marker stayed. Now clearing means nothing is marked at all, until you choose somewhere again.',
+      'Ways to clear it: on the map (M), the side panel always shows where you are Headed to, with ✕ Clear; click the marker on the map and its card has ✕ Remove waypoint; right-click your waypoint again to take it away; or N · where to? → ✕ Clear — no destination.'
+    ] },
     { v: '0.12.2', items: [
       'The guide at the top of the screen and the trail on the ground are gone, for a clearer view. The minimap still draws your way in light and marks where you are headed, and an arrow at the edge of the screen (kept clear of the panels) points to it with how far. Want either back? N · where to? has a switch for each.'
     ] },

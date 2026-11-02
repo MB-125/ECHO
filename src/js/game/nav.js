@@ -371,18 +371,19 @@
       const render = () => {
         const cur = pl.tracked;
         body.innerHTML = `<p class="dim" style="margin-top:0">Pick where you're headed — the line at the top, the trail on the ground and your maps will lead you there by the best way, roads where there are roads. <b>N</b> opens this list.</p>${list.length ? `<div class="list">${list.map((o, k) => {
-          const on = (o.id || null) === (cur || null) && (o.id || !cur);
+          const on = cur !== 'off' && (o.id || null) === (cur || null) && (o.id || !cur);
           return `<div class="card nav-row ${on ? 'on' : ''}"><div class="nav-ic">${esc(o.icon)}</div><div style="flex:1"><b>${esc(o.label)}</b><div class="dim" style="font-size:13px">${esc(o.where.vague ? 'a rough area — search when you get there · ' : (o.where.name && !o.label.includes(o.where.name) ? o.where.name + ' · ' : ''))}${Math.round(o.d)} leagues ${esc(dirName(Math.atan2(o.where.y - pl.y, o.where.x - pl.x)))}</div></div><div>${on ? '<span class="gold">leading you here</span>' : `<button class="small" data-nav="${k}">Go here</button>`}</div></div>`;
-        }).join('')}</div>` : '<p class="dim">Nothing to head for yet. Take a promise from a notice board, a job from someone in town, or choose a road (Tab → Ambitions).</p>'}${cur ? '<div class="row" style="margin-top:12px"><button class="small" data-nav="none">Stop guiding (back to your road)</button></div>' : ''}
+        }).join('')}</div>` : '<p class="dim">Nothing to head for yet. Take a promise from a notice board, a job from someone in town, or choose a road (Tab → Ambitions).</p>'}<div class="row" style="margin-top:12px">${cur && cur !== 'off' ? '<button class="small" data-nav="none">Stop guiding (back to your road)</button>' : ''}${cur === 'off' ? '<button class="small" data-nav="none">Follow your road again</button>' : '<button class="small" data-nav="off">✕ Clear — no destination</button>'}</div>
         <div class="row" style="margin-top:8px"><label class="dim"><input type="checkbox" id="nav-trail" ${N.hidden() ? '' : 'checked'}> Show the trail on the ground</label></div>
         <div class="row" style="margin-top:4px"><label class="dim"><input type="checkbox" id="nav-guide" ${N.guideOn() ? 'checked' : ''}> Show the guide at the top of the screen</label></div>`;
         body.querySelectorAll('[data-nav]').forEach(b => b.addEventListener('click', () => {
           const v = b.dataset.nav;
-          if (v === 'none') pl.tracked = null; else { const o = list[+v]; pl.tracked = o.id; }
+          if (v === 'none') pl.tracked = null; else if (v === 'off') pl.tracked = 'off'; else { const o = list[+v]; pl.tracked = o.id; }
           ECHO.Purpose._html = null; ECHO.Purpose.t = 0; N.route = null;
           UI.closePanel();
           const g = ECHO.Purpose.current(game);
           if (g) UI.toast(`Leading you to ${g.where ? g.where.name || 'it' : 'it'}.`, 'info', 3);
+          else if (v === 'off') UI.toast('Nothing marked now. Choose a place here or on the map (M) when you want leading again.', 'info', 4);
         }));
         const cb = body.querySelector('#nav-trail');
         const save = () => { try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ } };
