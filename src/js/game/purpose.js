@@ -213,7 +213,7 @@
       for (const [k, p] of Object.entries(PATHS)) {
         const r = A().rank(pl, k), n = A().next(world, pl, k);
         const ladder = p.ranks.map((R, i) => `<span class="${i < r ? 'gold' : i === r ? '' : 'dim'}">${i < r ? '✔ ' : ''}${esc(R.title)}</span>`).join(' → ');
-        html += `<div class="card" style="${pl.focus === k ? 'border-color:#c8a85a' : ''}"><h4>${p.icon} ${esc(p.name)} ${pl.focus === k ? '<span class="gold">· your road</span>' : ''}</h4><div class="dim">${esc(p.blurb)}</div><div style="margin:6px 0">${ladder}</div>
+        html += `<div class="card" style="${pl.focus === k ? 'border-color:rgba(255,207,106,0.6)' : ''}"><h4>${p.icon} ${esc(p.name)} ${pl.focus === k ? '<span class="gold">· your road</span>' : ''}</h4><div class="dim">${esc(p.blurb)}</div><div style="margin:6px 0">${ladder}</div>
           ${n ? `<div><b>Next: ${esc(n.R.title)}</b> — <span class="dim">${esc(n.R.reward)}</span></div><ul>${n.objectives.map(o => `<li class="${o.done ? 'gold' : ''}">${o.done ? '✔ ' : ''}${esc(o.text)}${o.need > 1 ? ` — ${o.have}/${o.need}` : ''}${!o.done && o.where && o.where.name ? ` <span class="dim">(${esc(o.where.vague ? 'somewhere ' + Pu.dirTo(world, pl, o.where) : o.where.name)})</span>` : ''}${!o.done && pl.focus === k && ECHO.Guide ? `<div class="dim" style="font-size:13px">${esc(ECHO.Guide.how(o.text))}</div>` : ''}</li>`).join('')}</ul>` : '<div class="gold">You have risen as far as this road goes.</div>'}
           ${pl.focus === k ? '' : `<div class="row"><button class="small" data-focus="${k}">Follow this road</button></div>`}</div>`;
       }

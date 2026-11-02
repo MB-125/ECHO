@@ -312,6 +312,7 @@
       UI.panelOpen = true; UI.panelKind = kind || null;
       ECHO.Input.clear();
       $('#panel').classList.remove('hidden');
+      $('#panel').dataset.kind = kind || '';
       $('#panel .panel-inner').classList.toggle('wide', kind === 'map');
       $('#panel .panel-inner').classList.toggle('holo', kind === 'map');   // (the map is a navigation console)
       $('#panel h2').textContent = title;
@@ -1081,7 +1082,7 @@
         ${ruler && op > 40 && pl.renown > 40 && !pl.knighted ? `<button data-k="1">Kneel before ${esc(ruler.first)}</button>` : ''}
         ${UI.realmCard(world, f)}
         ${f.type === 'kingdom' && s.id === f.capital ? `<div class="card"><h4>A royal charter</h4><div>Found a village of your own on the frontier. You must clear the land; then you name it, and rule it as its warden.</div><div class="dim">${esc(ECHO.Holding.canCharter(world, pl, f) || `The steward will draw it up for ${ECHO.Holding.charterCost(pl)} crowns.`)}</div><div class="row"><button data-charter="1" ${ECHO.Holding.canCharter(world, pl, f) ? 'disabled' : ''}>Petition for a charter</button></div></div>` : ''}
-        ${envoys.map(p => `<div class="card" style="border-color:#c8a85a"><h4>A sealed letter from ${esc(world.factions[p.faction].name)}</h4><div class="row"><button data-envoy="${p.id}">Present it to the court</button></div></div>`).join('')}
+        ${envoys.map(p => `<div class="card" style="border-color:rgba(255,207,106,0.6)"><h4>A sealed letter from ${esc(world.factions[p.faction].name)}</h4><div class="row"><button data-envoy="${p.id}">Present it to the court</button></div></div>`).join('')}
         <h3 class="gold" style="margin-top:16px">Royal commissions and bounties</h3><div class="list" id="kb"></div>`;
       UI.fillPlights(body.querySelector('#kb'), s, p => ['bounty', 'clearsite', 'envoy', 'plot'].includes(p.kind) && (p.faction ? p.faction === f.id : true));
       const chb = body.querySelector('button[data-charter]');
@@ -1354,7 +1355,7 @@
     watchHtml(s) {
       const world = ECHO.Game.world, pl = ECHO.Game.pl, W = ECHO.Watch;
       const w = W.st(world, s);
-      const bar = (v, good) => `<div class="t" style="display:inline-block;width:140px;height:8px;background:#2a2620;vertical-align:middle;margin:0 8px"><div style="height:100%;width:${Math.round(v)}%;background:${good ? '#9fd38a' : '#d0563c'}"></div></div>`;
+      const bar = (v, good) => `<div class="t" style="display:inline-block;width:140px;height:6px;border-radius:3px;overflow:hidden;background:rgba(95,242,255,0.08);vertical-align:middle;margin:0 8px"><div style="height:100%;width:${Math.round(v)}%;background:${good ? '#9fd38a' : '#d0563c'}"></div></div>`;
       let html = `<div class="card"><h4>The watch of ${esc(s.name)}</h4>${W.describe(world, s).map(l => `<div>${esc(l)}</div>`).join('')}
         <div style="margin-top:8px">Safety ${bar(w.safety, w.safety > 50)}<span class="dim">${Math.round(w.safety)}</span> &nbsp; Trust in the watch ${bar(w.trust, w.trust > 45)}<span class="dim">${Math.round(w.trust)}</span></div></div>`;
       const open = W.cases(world).filter(c => c.sid === s.id && c.status === 'open' && c.by !== 'player' && c.kind !== 'smuggling');
@@ -1678,7 +1679,7 @@
             html += f.type === 'kingdom' ? UI.realmCard(world, f).replace('<h4>The state of', `<h4>${r ? esc(P().fullTitle(world, r)) + ' — ' : ''}`) : `<div class="card"><h4>${esc(f.name)}</h4><div>${r ? esc(P().fullTitle(world, r)) + ' tends the flame.' : ''}</div></div>`;
           }
           const ward = (pl.wardenOf || []).map(id => ECHO.Sim.settlement(world, id)).filter(Boolean);
-          for (const v of ward.filter(v => v.warden === pl.charId)) html += `<div class="card" style="border-color:#c8a85a"><h4>${esc(v.name)} — your village</h4><div>${P().residents(world, v).length} people · ${(v.projects || []).filter(x => !x.done).length ? 'works under way' : 'no works under way'}</div><div class="row"><button class="small" data-hold="${v.id}">Send word to the reeve</button></div></div>`;
+          for (const v of ward.filter(v => v.warden === pl.charId)) html += `<div class="card" style="border-color:rgba(255,207,106,0.6)"><h4>${esc(v.name)} — your village</h4><div>${P().residents(world, v).length} people · ${(v.projects || []).filter(x => !x.done).length ? 'works under way' : 'no works under way'}</div><div class="row"><button class="small" data-hold="${v.id}">Send word to the reeve</button></div></div>`;
           html += `<div class="card"><h4>Your standing</h4><div>${pl.knighted ? 'Knight of ' + esc(world.factions[pl.knighted].short) + '. ' : ''}${ward.length ? 'Warden of ' + ward.map(x => esc(x.name)).join(', ') + ' — you receive a share of the dues each season.' : 'You hold no lands.'}</div><div class="dim">Clear a frontier site for the crown and you may name — and keep — the village that rises there.</div></div>`;
           const pol = ECHO.Chronicle.knownEntries(world).filter(e => e.kind === 'politics' || e.kind === 'war').slice(-14).reverse();
           if (pol.length) html += `<h3 class="gold">Recent affairs of state</h3><div class="chron">${pol.map(e => `<div class="e i${e.imp}"><span class="d">${T.fmtDate(e.d)}</span>${esc(e.text)}</div>`).join('')}</div>`;

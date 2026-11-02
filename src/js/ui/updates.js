@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.16.0', items: [
+      'A new look for the whole game, matching the map: every panel and tab — journal, notice boards, character sheet, shops, smithy, inn, archive, dialogue, choices, the pause menu, keys, the title screen — is now a glass console with cyan light at its edges, crisp new type (Inter for reading, Rajdhani for headings), glowing tabs, and amber for what you earn.',
+      'The HUD matches: your name, level, life, stamina and mana sit on a glass plate with light-edged bars; the clock, the item bar, the foe you face, the boss bar, the big place-name banner and the messages down the right are all restyled; each kind of message has its own coloured edge.',
+      'In the world: shop signs, name tags, speech and the [E] prompt are glass tags with a light edge instead of paper and brown boxes, and every label uses the new type. Below ground, the corner map is drawn in the same frame, with the floor you are on.',
+      'The land is smoother: grass, woods, sand, hills and snow now shade gently into one another instead of showing every tile as a square of its own (paving, fields and ruins keep their clean edges). Shorelines and paths read as part of the ground.',
+      'The Guild\'s page is full from the first day of a new world.'
+    ] },
     { v: '0.15.0', items: [
       'Great events — rare, and the world is different after each. You hear of them wherever you are, and every notice board has a Great events page with what is happening and what you can do about it.',
       'The Great Migration: a great beast comes into a country, and everything that can run, runs — the wolf packs of every country round it, the herds, and the people of the villages near it, who take to the roads for safer towns. Out in the wild you see the herds go by.',

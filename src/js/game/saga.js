@@ -70,7 +70,7 @@
       CH.forEach((C, i) => {
         if (i > s.ch && !s.done) return;
         const cur = i === s.ch && !s.done;
-        html += `<div class="card" style="${cur ? 'border-color:#c8a85a' : ''}"><h4>${cur ? '📜' : '✔'} Chapter ${i + 1}: ${esc(C.title)}</h4><div class="prose" style="font-size:16px">${esc(C.intro)}</div>`;
+        html += `<div class="card" style="${cur ? 'border-color:rgba(255,207,106,0.6)' : ''}"><h4>${cur ? '📜' : '✔'} Chapter ${i + 1}: ${esc(C.title)}</h4><div class="prose" style="font-size:16px">${esc(C.intro)}</div>`;
         if (cur) html += `<ul>${C.objectives(world, pl).map(o => `<li class="${o.done ? 'gold' : ''}">${o.done ? '✔ ' : ''}${esc(o.text)}${o.need > 1 ? ` — ${o.have}/${o.need}` : ''}${!o.done && ECHO.Guide ? `<div class="dim" style="font-size:13px">${esc(ECHO.Guide.how(o.text))}</div>` : ''}</li>`).join('')}</ul><div class="row"><button class="small" data-track="story">${pl.tracked === 'story' ? 'Stop following the story' : 'Follow the story'}</button></div>`;
         else html += `<div class="prose dim" style="font-size:15px">${esc(C.outro)}</div>`;
         html += '</div>';

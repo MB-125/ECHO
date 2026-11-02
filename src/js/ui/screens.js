@@ -363,7 +363,7 @@
       const In = ECHO.Input, UI = ECHO.UI;
       UI.pauseOpen = false;   // (a panel of its own: Esc closes it and you are back in the world)
       const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-      const rows = In.ACTIONS.map(([act, lbl]) => `<div class="row" style="justify-content:space-between;border-bottom:1px solid #2e251b;padding:4px 0;margin:0"><span>${esc(lbl)}</span><span style="display:flex;gap:8px;align-items:center"><kbd style="min-width:54px;text-align:center">${esc(In.keyName(In.bound(act)))}</kbd><button class="small" data-key="${esc(act)}">Change</button></span></div>`).join('');
+      const rows = In.ACTIONS.map(([act, lbl]) => `<div class="row" style="justify-content:space-between;border-bottom:1px solid rgba(95,242,255,0.1);padding:5px 0;margin:0"><span>${esc(lbl)}</span><span style="display:flex;gap:8px;align-items:center"><kbd style="min-width:54px;text-align:center">${esc(In.keyName(In.bound(act)))}</kbd><button class="small" data-key="${esc(act)}">Change</button></span></div>`).join('');
       const body = UI.openPanel('Keys', `<p class="dim">Click Change, then press the key you want. If another action has that key, the two swap. Esc cancels. (Mouse buttons, Esc and F1 stay as they are.)</p>
         <div class="card">${rows}</div><div class="row" style="margin-top:10px"><button data-keys="back" class="primary">Back</button><button data-keys="reset">Reset all to the defaults</button></div>`, 'keys');
       body.querySelectorAll('button[data-key]').forEach(b => b.addEventListener('click', () => {

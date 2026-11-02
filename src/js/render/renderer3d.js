@@ -950,16 +950,41 @@
       const KIND = R.GROUND_KIND || (R.GROUND_KIND = { [TILE.PLAZA]: 1, [TILE.ROAD]: 2, [TILE.BRIDGE]: 2, [TILE.FARM]: 3, [TILE.SAND]: 4, [TILE.SNOW]: 5, [TILE.ROCK]: 7, [TILE.HILL]: 8, [TILE.RUIN]: 6, [TILE.RUINWALL]: 6 });
       let o = 0, groundTop = 0;
       const tmp = new THREE.Color();
+      // Each tile's colour, with a ring of neighbours round the chunk. The natural ground (grass,
+      // woods, sand, hills, snow, dirt) is shaded smoothly from corner to corner — the average of
+      // the tiles meeting there — so the land reads as one surface, not a chequerboard of squares;
+      // what people built (paving, fields, ruins, bridges) keeps its own clean edge.
+      const BUILT = R._BUILT || (R._BUILT = new Set([TILE.PLAZA, TILE.FARM, TILE.RUIN, TILE.RUINWALL, TILE.BRIDGE]));
+      const LW = x1 - x0 + 2, LH = y1 - y0 + 2, tcol = new Float32Array(LW * LH * 3), tnat = new Uint8Array(LW * LH);
+      for (let yy = y0 - 1; yy <= y1; yy++) for (let xx = x0 - 1; xx <= x1; xx++) {
+        const yc = Math.max(0, Math.min(world.H - 1, yy)), xw = world.globe ? ((xx % world.W) + world.W) % world.W : Math.max(0, Math.min(world.W - 1, xx));
+        const ii = yc * world.W + xw, t = world.tiles[ii];
+        tmp.copy(C(tileColor(t, season, xw, yc, world.seed)));
+        tmp.multiplyScalar(0.93 + hash(xw, yc, world.seed + 2) * 0.14);
+        const trl = world._trail ? world._trail[ii] : 0, dwt = world._wd ? world._wd[ii] : 0;
+        if (trl) tmp.lerp(C(dwt ? '#3e3528' : '#9a8258'), (dwt ? 0.75 : 0.82) * (0.88 + hash(xw, yc, world.seed + 4) * 0.24));
+        if (dwt) tmp.lerp(C(trl ? '#1a1a14' : '#121a10'), 0.3 + dwt * 0.14);
+        const li = (yy - y0 + 1) * LW + (xx - x0 + 1);
+        tcol[li * 3] = tmp.r; tcol[li * 3 + 1] = tmp.g; tcol[li * 3 + 2] = tmp.b; tnat[li] = BUILT.has(t) ? 0 : 1;
+      }
+      const cc = [0, 0, 0];
+      // the colour at a corner of tile (x, y): ox, oy = 0|1 for which corner
+      const cornerCol = (x, y, ox, oy) => {
+        const li0 = (y - y0 + 1) * LW + (x - x0 + 1);
+        if (!tnat[li0]) { cc[0] = tcol[li0 * 3]; cc[1] = tcol[li0 * 3 + 1]; cc[2] = tcol[li0 * 3 + 2]; return cc; }
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let dy = -1; dy <= 0; dy++) for (let dx = -1; dx <= 0; dx++) {
+          const li = (y + oy + dy - y0 + 1) * LW + (x + ox + dx - x0 + 1);
+          if (!tnat[li]) continue;
+          r += tcol[li * 3]; g += tcol[li * 3 + 1]; b += tcol[li * 3 + 2]; n++;
+        }
+        const k = 0.82;   // (a touch of the tile's own colour stays: the ground keeps some grain)
+        cc[0] = tcol[li0 * 3] * (1 - k) + (r / n) * k; cc[1] = tcol[li0 * 3 + 1] * (1 - k) + (g / n) * k; cc[2] = tcol[li0 * 3 + 2] * (1 - k) + (b / n) * k;
+        return cc;
+      };
+      const VC = [[0, 0], [0, 1], [1, 0], [1, 0], [0, 1], [1, 1]];
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
         const t = world.tiles[y * world.W + x];
-        tmp.copy(C(tileColor(t, season, x, y, world.seed)));
-        const jit = 0.9 + hash(x, y, world.seed + 2) * 0.2;
-        tmp.multiplyScalar(jit);
-        {
-          const ii = y * world.W + x, trl = world._trail ? world._trail[ii] : 0, dwt = world._wd ? world._wd[ii] : 0;
-          if (trl) tmp.lerp(C(dwt ? '#3e3528' : '#9a8258'), (dwt ? 0.75 : 0.82) * (0.88 + hash(x, y, world.seed + 4) * 0.24));
-          if (dwt) tmp.lerp(C(trl ? '#1a1a14' : '#121a10'), 0.3 + dwt * 0.14);
-        }
         const a = R.cornerH(x, y), b = R.cornerH(x + 1, y), c2 = R.cornerH(x, y + 1), d = R.cornerH(x + 1, y + 1);
         if (a > groundTop) groundTop = a;
         const V = [[x, a, y], [x, c2, y + 1], [x + 1, b, y], [x + 1, b, y], [x, c2, y + 1], [x + 1, d, y + 1]];
@@ -967,8 +992,8 @@
         for (let i = 0; i < 6; i++) {
           kind[o / 3] = kd;
           pos[o] = V[i][0]; pos[o + 1] = V[i][1]; pos[o + 2] = V[i][2];
-          const shade = i < 3 ? 1 : 0.97;
-          col[o] = tmp.r * shade; col[o + 1] = tmp.g * shade; col[o + 2] = tmp.b * shade;
+          const shade = i < 3 ? 1 : 0.985, q = cornerCol(x, y, VC[i][0], VC[i][1]);
+          col[o] = q[0] * shade; col[o + 1] = q[1] * shade; col[o + 2] = q[2] * shade;
           o += 3;
         }
       }
@@ -4452,34 +4477,41 @@
         const p = R.project(cx, cy, R.SIGN_H[b.type] || 3);
         if (p.z > 1) continue;
         const big = Math.round(fs * 1.08), small = Math.round(fs * 0.86);
-        ctx.font = `600 ${big}px "Pixelify Sans", monospace`;
+        ctx.font = `700 ${big}px Inter, system-ui, sans-serif`;
         const t1 = `${info.icon} ${info.title}`;
         const w1 = ctx.measureText(t1).width;
-        ctx.font = `${small}px "Pixelify Sans", monospace`;
+        ctx.font = `600 ${small}px Inter, system-ui, sans-serif`;
         const w2 = ctx.measureText(info.sub).width;
         const W = Math.max(w1, w2) + 16 * R.dpr, H = info.sub ? big + small + 14 * R.dpr : big + 10 * R.dpr;
         const x0 = p.x - W / 2, y0 = p.y - H;
         if (ECHO.UI.overHud(x0, y0, x0 + W, y0 + H + 6 * R.dpr, R.dpr)) continue;
         ctx.globalAlpha = a;
-        ctx.fillStyle = 'rgba(28,20,12,0.82)'; ctx.fillRect(x0, y0, W, H);
-        ctx.strokeStyle = 'rgba(230,192,106,0.85)'; ctx.lineWidth = 1.5 * R.dpr; ctx.strokeRect(x0 + 0.5, y0 + 0.5, W - 1, H - 1);
-        ctx.beginPath(); ctx.moveTo(p.x, y0 + H); ctx.lineTo(p.x - 5 * R.dpr, y0 + H); ctx.lineTo(p.x, y0 + H + 6 * R.dpr); ctx.lineTo(p.x + 5 * R.dpr, y0 + H); ctx.closePath(); ctx.fillStyle = 'rgba(230,192,106,0.85)'; ctx.fill();
+        // (a holo tag: dark glass, a light edge, a pin down to the door)
+        R.glassBox(ctx, x0, y0, W, H, 6 * R.dpr, 'rgba(4,14,26,0.84)', 'rgba(95,242,255,0.6)');
+        ctx.beginPath(); ctx.moveTo(p.x - 5 * R.dpr, y0 + H); ctx.lineTo(p.x, y0 + H + 6 * R.dpr); ctx.lineTo(p.x + 5 * R.dpr, y0 + H); ctx.closePath(); ctx.fillStyle = 'rgba(95,242,255,0.75)'; ctx.fill();
         ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-        ctx.font = `600 ${big}px "Pixelify Sans", monospace`; ctx.fillStyle = '#f2d47a'; ctx.fillText(t1, p.x, y0 + 4 * R.dpr);
-        ctx.font = `${small}px "Pixelify Sans", monospace`; ctx.fillStyle = '#e8dcc0'; ctx.fillText(info.sub, p.x, y0 + 6 * R.dpr + big);
+        ctx.font = `700 ${big}px Inter, system-ui, sans-serif`; ctx.fillStyle = '#eafdff'; ctx.fillText(t1, p.x, y0 + 4 * R.dpr);
+        ctx.font = `600 ${small}px Inter, system-ui, sans-serif`; ctx.fillStyle = '#8fdcf0'; ctx.fillText(info.sub, p.x, y0 + 6 * R.dpr + big);
         ctx.globalAlpha = 1;
       }
       ctx.textBaseline = 'bottom';
-      ctx.font = `${fs}px "Pixelify Sans", monospace`;
+      ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`;
     },
 
+    // a rounded glass box with a light edge (labels, signs, speech)
+    glassBox(ctx, x, y, w, h, r, fill, edge) {
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+      ctx.fillStyle = fill; ctx.fill();
+      if (edge) { ctx.lineWidth = Math.max(1, R.dpr); ctx.strokeStyle = edge; ctx.stroke(); }
+    },
     // ---------------------------------------------------------------- overlay (names, speech, numbers, prompts)
     drawOverlay(game) {
       const ctx = R.octx, world = game.world;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, R.cw, R.ch);
       const fs = Math.round(14 * R.dpr);
-      ctx.font = `${fs}px "Pixelify Sans", monospace`;
+      ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       const mouse = game.screenToWorld(ECHO.Input.mx, ECHO.Input.my);
       const placed = [];
@@ -4497,22 +4529,22 @@
           if (ECHO.UI.overHud(x - w / 2 - 6 * R.dpr, y - hh - 4 * R.dpr, x + w / 2 + 6 * R.dpr, y + 3 * R.dpr, R.dpr)) return;
           placed.push([x - w / 2, y - hh, x + w / 2, y]);
         }
-        if (bg) { ctx.fillStyle = bg; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x - w / 2 - 6 * R.dpr, y - fs - 4 * R.dpr, w + 12 * R.dpr, fs + 7 * R.dpr, 5 * R.dpr); else ctx.rect(x - w / 2 - 6 * R.dpr, y - fs - 4 * R.dpr, w + 12 * R.dpr, fs + 7 * R.dpr); ctx.fill(); }
+        if (bg) R.glassBox(ctx, x - w / 2 - 6 * R.dpr, y - fs - 4 * R.dpr, w + 12 * R.dpr, fs + 7 * R.dpr, 5 * R.dpr, bg, 'rgba(95,242,255,0.22)');
         ctx.lineJoin = 'round'; ctx.lineWidth = 4 * R.dpr; ctx.strokeStyle = 'rgba(0,0,0,0.9)'; ctx.strokeText(t, x, y);
         ctx.fillStyle = col; ctx.fillText(t, x, y);
       };
       // Shop signs: what each building is and what it sells
       // the trail to wherever you're headed, on the ground
-      if (!ECHO.Interior.cur && game.pe && ECHO.Nav) { ECHO.Nav.drawTrail(ctx, game, (x, y) => R.project(x, y, 0.06), R.dpr); if (ECHO.Nav.drawMarker) ECHO.Nav.drawMarker(ctx, game, (x, y, h) => R.project(x, y, h), R.dpr); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
+      if (!ECHO.Interior.cur && game.pe && ECHO.Nav) { ECHO.Nav.drawTrail(ctx, game, (x, y) => R.project(x, y, 0.06), R.dpr); if (ECHO.Nav.drawMarker) ECHO.Nav.drawMarker(ctx, game, (x, y, h) => R.project(x, y, h), R.dpr); ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
       if (!ECHO.Interior.cur && game.pe) R.drawShopSigns(game, ctx, fs);
       if (!ECHO.Interior.cur && game.pe && ECHO.Marvels) {
         ECHO.Marvels.drawSky(ctx, game, R.cw, R.ch);
         ECHO.Marvels.drawHints(ctx, game, (x, y) => R.project(x, y, 1), R.cw, R.ch);
-        ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       }
-      if (ECHO.Fest) { ECHO.Fest.drawHUD(ctx, game, R.cw); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
-      if (ECHO.Progress) { ctx.font = `${Math.round(fs * 0.85)}px "Pixelify Sans", monospace`; for (const ll of ECHO.Progress.lootLabels(game)) { if (!R.onScreen(game, ll.x, ll.y)) continue; const p = R.project(ll.x, ll.y, 0.75); if (p.z > 1) continue; text(ll.text, p.x, p.y - (ll.line || 0) * Math.round(fs * 1.05), ll.color, null, true); } ctx.font = `${fs}px "Pixelify Sans", monospace`; }
-      if (ECHO.Progress) for (const sl of ECHO.Progress.siteLabels(game)) { if (!R.onScreen(game, sl.x, sl.y)) continue; const p = R.project(sl.x, sl.y, 2.6); if (p.z > 1) continue; ctx.globalAlpha = sl.a; text(sl.text, p.x, p.y, sl.color, 'rgba(14,10,8,0.66)', true); ctx.globalAlpha = 1; }
+      if (ECHO.Fest) { ECHO.Fest.drawHUD(ctx, game, R.cw); ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
+      if (ECHO.Progress) { ctx.font = `600 ${Math.round(fs * 0.85)}px Inter, system-ui, sans-serif`; for (const ll of ECHO.Progress.lootLabels(game)) { if (!R.onScreen(game, ll.x, ll.y)) continue; const p = R.project(ll.x, ll.y, 0.75); if (p.z > 1) continue; text(ll.text, p.x, p.y - (ll.line || 0) * Math.round(fs * 1.05), ll.color, null, true); } ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`; }
+      if (ECHO.Progress) for (const sl of ECHO.Progress.siteLabels(game)) { if (!R.onScreen(game, sl.x, sl.y)) continue; const p = R.project(sl.x, sl.y, 2.6); if (p.z > 1) continue; ctx.globalAlpha = sl.a; text(sl.text, p.x, p.y, sl.color, 'rgba(4,14,26,0.72)', true); ctx.globalAlpha = 1; }
       const heights = { player: 1.25, person: 1.25, boss: 3.6 };
       for (const e of game.ents) {
         if (e.dead || e.hidden || e === game.pe) continue;
@@ -4530,11 +4562,11 @@
         // a foe's suspicion or alarm is a big glyph over its head, not a speech bubble
         if ((e.say === '?' || e.say === '!') && e.sayT > 0) {
           const big = Math.round(fs * 2.3), pop = Math.min(1, (1.2 - e.sayT) * 8 + 0.4), gy = ty - 4 * R.dpr - Math.sin(Math.min(1, pop) * Math.PI) * 3 * R.dpr;
-          ctx.save(); ctx.font = `bold ${Math.round(big * Math.min(1.15, 0.6 + pop * 0.55))}px "Pixelify Sans", monospace`;
+          ctx.save(); ctx.font = `700 ${Math.round(big * Math.min(1.15, 0.6 + pop * 0.55))}px Inter, system-ui, sans-serif`;
           ctx.globalAlpha = Math.min(1, e.sayT * 3);
           ctx.lineJoin = 'round'; ctx.lineWidth = 5 * R.dpr; ctx.strokeStyle = 'rgba(20,10,6,0.95)'; ctx.strokeText(e.say, p.x, gy);
           ctx.fillStyle = e.say === '!' ? '#ff5a3a' : '#ffd84a'; ctx.fillText(e.say, p.x, gy);
-          ctx.restore(); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          ctx.restore(); ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
           continue;
         }
         if (e.say && e.sayT > 0 && ECHO.UI.bubbleOk(game, e)) {
@@ -4545,21 +4577,22 @@
           if (ECHO.UI.overHud(p.x - w / 2 - 8 * R.dpr, tyb - fs - 10 * R.dpr, p.x + w / 2 + 8 * R.dpr, tyb, R.dpr)) continue;
           placed.push([p.x - w / 2 - 7 * R.dpr, tyb - fs - 10 * R.dpr, p.x + w / 2 + 7 * R.dpr, tyb - 1 * R.dpr]);
           const ty0 = ty; { const ty = tyb; void ty0;
-          ctx.fillStyle = 'rgba(250,244,228,0.95)';
-          ctx.fillRect(p.x - w / 2 - 7 * R.dpr, ty - fs - 10 * R.dpr, w + 14 * R.dpr, fs + 9 * R.dpr);
-          ctx.fillStyle = '#2a2420'; ctx.fillText(e.say, p.x, ty - 5 * R.dpr); }
+          // (speech: a pale glass bubble, its tail to the speaker)
+          R.glassBox(ctx, p.x - w / 2 - 7 * R.dpr, ty - fs - 10 * R.dpr, w + 14 * R.dpr, fs + 9 * R.dpr, 7 * R.dpr, 'rgba(6,20,34,0.88)', 'rgba(95,242,255,0.5)');
+          ctx.beginPath(); ctx.moveTo(p.x - 4 * R.dpr, ty - 1.5 * R.dpr); ctx.lineTo(p.x, ty + 4 * R.dpr); ctx.lineTo(p.x + 4 * R.dpr, ty - 1.5 * R.dpr); ctx.closePath(); ctx.fillStyle = 'rgba(95,242,255,0.6)'; ctx.fill();
+          ctx.fillStyle = '#e8f9ff'; ctx.fillText(e.say, p.x, ty - 5 * R.dpr); }
           continue;
         }
         // your own beasts: named only when you look at one, or it is hurt — the fight is not buried in labels
         if (e.pal || (e.tamed && !e.titan)) {
           const hurt = e.hp < e.maxHp * 0.5;
           if (hover || hurt || e === ECHO.PlayerCtl.lock || allTags) {
-            text(e.pal ? e.pal.name : (e.label || 'yours'), p.x, ty, '#9fe08a', 'rgba(14,10,8,0.55)');
+            text(e.pal ? e.pal.name : (e.label || 'yours'), p.x, ty, '#9fe08a', 'rgba(4,14,26,0.6)');
             const bw = 40 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw, bh); ctx.fillStyle = hurt ? '#e0c060' : '#8fe08a'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw * U.clamp(e.hp / e.maxHp, 0, 1), bh);
           }
           continue;
         }
-        if (e.type === 'boss') { const lb = ECHO.Progress ? ECHO.Progress.label(game, e) : { text: e.label, color: '#ffcf8a' }; text(lb.text, p.x, ty, lb.color, 'rgba(14,10,8,0.66)', true); continue; }
+        if (e.type === 'boss') { const lb = ECHO.Progress ? ECHO.Progress.label(game, e) : { text: e.label, color: '#ffcf8a' }; text(lb.text, p.x, ty, lb.color, 'rgba(4,14,26,0.72)', true); continue; }
         if (e.marvel) { if (e.label && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6) text(e.label, p.x, ty, '#bfe8ff'); continue; }
         if (e.yielded) { text('yields — [E] to spare', p.x, ty, '#9fe0c8'); continue; }
         if (e.sleeping && hover) { text('asleep', p.x, ty, '#9fb7d8'); continue; }
@@ -4567,7 +4600,7 @@
         if (foeish) {
           if (hover || e === ECHO.PlayerCtl.lock || e.boss2 || e.beast || nearFoes.has(e) || (e.type === 'person' && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 9)) {
             const lb = ECHO.Progress.label(game, e);
-            text(lb.text, p.x, ty, lb.color, 'rgba(14,10,8,0.66)', true);
+            text(lb.text, p.x, ty, lb.color, 'rgba(4,14,26,0.72)', true);
             if (e.hp < e.maxHp && e.type === 'creature') { const bw = 44 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw, bh); ctx.fillStyle = e.boss2 ? '#ffcf5a' : '#e05a4a'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw * Math.max(0, e.hp / e.maxHp), bh); }
           }
           continue;
@@ -4584,7 +4617,7 @@
           }
         } else if (e.type === 'creature' && e.lvl && !e.dead) {
           if (hover || e.label || U.dist(e.x, e.y, game.pe.x, game.pe.y) < 8) {
-            text(`${e.label || e.foe.name} · Lv ${e.lvl}`, p.x, ty, e.boss2 ? '#ffcf5a' : e.elite ? '#ff9a7a' : '#ffb0a0', 'rgba(14,10,8,0.66)', true);
+            text(`${e.label || e.foe.name} · Lv ${e.lvl}`, p.x, ty, e.boss2 ? '#ffcf5a' : e.elite ? '#ff9a7a' : '#ffb0a0', 'rgba(4,14,26,0.72)', true);
             if (e.hp < e.maxHp) { const bw = 44 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw, bh); ctx.fillStyle = e.boss2 ? '#ffcf5a' : '#e05a4a'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw * Math.max(0, e.hp / e.maxHp), bh); }
           }
         } else if (e.type === 'creature' && e.label && !e.marvel) {
@@ -4600,9 +4633,9 @@
         if (p.z > 1) continue;
         ctx.globalAlpha = Math.max(0, 1 - Math.max(0, f.t / f.life - 0.4) / 0.6);
         const pop = 1 + Math.max(0, 0.14 - f.t) * (f.big ? 6 : 4);
-        ctx.font = `${Math.round(fs * (f.big ? 1.6 : 1.25) * pop)}px "Pixelify Sans", monospace`;
+        ctx.font = `600 ${Math.round(fs * (f.big ? 1.6 : 1.25) * pop)}px Inter, system-ui, sans-serif`;
         text(f.text, p.x, p.y, f.color, null, true);
-        ctx.font = `${fs}px "Pixelify Sans", monospace`;
+        ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`;
         ctx.globalAlpha = 1;
       }
       // a chevron over the locked target
@@ -4641,7 +4674,7 @@
         game._interact = its[0] || null;
         if (its[0]) {
           const p = R.project(game.pe.x, game.pe.y, -0.2);
-          text(`[E] ${its[0].label}`, p.x, p.y + 34 * R.dpr, '#ffe8a8', 'rgba(20,16,12,0.78)');
+          text(`[E] ${its[0].label}`, p.x, p.y + 34 * R.dpr, '#bff8ff', 'rgba(4,14,26,0.84)');
         }
       }
     },

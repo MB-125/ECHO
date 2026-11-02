@@ -331,7 +331,7 @@
       const z = window.devicePixelRatio || 1;
       const t = `Archery · arrows ${game.pl.inv.arrows} · score ${c.score} · ${Math.max(0, Math.ceil(c.t))}s · to beat: ${Math.max(...c.rivals.map(r => r.score))}`;
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.font = `600 ${Math.round(15 * z)}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.font = `700 ${Math.round(15 * z)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       const w = ctx.measureText(t).width + 24 * z;
       ctx.fillStyle = 'rgba(20,14,8,0.82)'; ctx.fillRect(W2 / 2 - w / 2, 70 * z, w, 28 * z);
       ctx.strokeStyle = 'rgba(230,192,106,0.9)'; ctx.lineWidth = 1.5 * z; ctx.strokeRect(W2 / 2 - w / 2, 70 * z, w, 28 * z);

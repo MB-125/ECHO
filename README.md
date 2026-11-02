@@ -18,6 +18,8 @@ Every system below is real and connected to the others. Nothing is scripted.
 
 **Beasts migrate, and the chain goes on**: a great beast settling into a country, a monster's lair hunting it, hunger or hunters drive its duskwolves out — the whole pack, toward the neighbouring country with the most to eat — and where they arrive they take the villages' flocks and the villages ask for help. Their tracks cross the land between; study them (E) to learn what drove them out and follow them back to it. A country emptied of wolves fills with hares, and a country full of prey draws a great beast out of its range.
 
+**One look, end to end**: every panel, tab, shop, dialogue and the HUD share the map's holo console style — dark glass, cyan light, crisp type (Inter and Rajdhani), amber for rewards — and the land itself is shaded smoothly from tile to tile.
+
 **Great events**: rare happenings that leave the world changed — the Great Migration (a great beast arrives and every pack, herd and village near it flees), the Dungeon Bloom (a region's dungeons wake at once), the Broken Crown (a disputed succession splits a kingdom into civil war; pick a side and fight its battles) and the Sleeping God (once a world: shared dreams, earthquakes, a choir of sleepwalkers — go down and sing it back to sleep, or it wakes). Every notice board's Great events page tracks them.
 
 **Towns with character**: farming, mining, market, garrison, walled, holy, adventurers', thriving or declining — worked out from who lives there, changing slowly, each with its own effects (granaries, defence, families moving from declining towns to thriving ones).

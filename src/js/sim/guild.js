@@ -65,14 +65,7 @@
     dailyTick(world) {
       if (!world.player || !X() || !D()) return;
       const S = Gd.st(world), rng = new ECHO.RNG(ECHO.hashStr('guild:' + world.seed + ':' + world.day));
-      // the book is kept full (at first all at once; after that, a name or two a day)
-      const mem = Gd.members(world), want = Gd.target(world);
-      if (mem.length < want) {
-        const first = !S.filled;
-        const pool = P().alive(world).filter(n => Gd.canJoin(world, n)).map(n => ({ n, w: PROF[n.prof] * (1 + ((n.skill && n.skill.fight) || 0) / 40) * (n.delves ? 1.5 : 1) * rng.range(0.5, 1.5) })).sort((a, b) => b.w - a.w);
-        for (const { n } of pool.slice(0, first ? want - mem.length : Math.min(2, want - mem.length))) Gd.recruit(world, rng, n, first);
-        S.filled = true;
-      }
+      Gd.fill(world, rng);
       for (const n of Gd.book(world)) {
         const A = n.adv;
         if (A.status === 'active' && n.status === 'dead') { A.status = 'dead'; A.died = A.died || world.day; if (!A.diedTold) { A.diedTold = 1; Gd.note(world, `${Gd.name(n)} (${Gd.rank(world, n)}-rank) is dead: ${n.cause || 'killed'}.`, n); } continue; }
@@ -96,6 +89,16 @@
       }
       // the fallen's gear does not lie there for ever
       S.caches = S.caches.filter(c => !c.taken && world.day - c.day < 90);
+    },
+    // the book is kept full (at first all at once; after that, a name or two a day)
+    fill(world, rng) {
+      const S = Gd.st(world), mem = Gd.members(world), want = Gd.target(world);
+      if (mem.length >= want) return;
+      rng = rng || new ECHO.RNG(ECHO.hashStr('guildfill:' + world.seed + ':' + world.day));
+      const first = !S.filled;
+      const pool = P().alive(world).filter(n => Gd.canJoin(world, n)).map(n => ({ n, w: PROF[n.prof] * (1 + ((n.skill && n.skill.fight) || 0) / 40) * (n.delves ? 1.5 : 1) * rng.range(0.5, 1.5) })).sort((a, b) => b.w - a.w);
+      for (const { n } of pool.slice(0, first ? want - mem.length : Math.min(2, want - mem.length))) Gd.recruit(world, rng, n, first);
+      S.filled = true;
     },
     // how hard a plea is, in levels
     diff(world, p) {
@@ -276,6 +279,7 @@
     },
     html(game) {
       const world = game.world, S = Gd.st(world), hall = ECHO.Sim.settlement(world, S.hall);
+      if (!S.filled && world.player) Gd.fill(world);   // (a world too young to have ticked a day yet)
       const mem = Gd.members(world).sort((a, b) => RANKS.indexOf(Gd.rank(world, b)) - RANKS.indexOf(Gd.rank(world, a)) || b.adv.fame - a.adv.fame);
       const status = n => {
         const A = n.adv, job = A.job && ECHO.Plights.byId(world, A.job.pid);

@@ -742,7 +742,7 @@
       g.textAlign = 'center'; g.textBaseline = 'middle';
       if (WM.layers.regions && V.z >= 1.6 && V.z < 9) {
         const font = `italic ${Math.round(U.clamp(V.z * 3.4, 11, 19))}px "Cormorant Garamond", Georgia, serif`;
-        for (const r of WM.regions) { const p = WM.toScreen(c, r.x, r.y); if (r.land && r.land.roster) (WM._later = WM._later || []).push({ text: r.land.short, x: p.x, y: p.y + Math.round(U.clamp(V.z * 3.4, 11, 19)) * 0.95, font: `${Math.round(U.clamp(V.z * 2.6, 9, 14))}px "Pixelify Sans", monospace`, fill: r.land.col, stroke: 'rgba(20,14,8,0.7)', pri: 0 }); (WM._later = WM._later || []).push({ text: U.cap(r.name).toUpperCase().split('').join(String.fromCharCode(8202)), x: p.x, y: p.y, font, fill: 'rgba(58,42,24,0.66)', stroke: 'rgba(236,226,196,0.5)', pri: 0 }); }
+        for (const r of WM.regions) { const p = WM.toScreen(c, r.x, r.y); if (r.land && r.land.roster) (WM._later = WM._later || []).push({ text: r.land.short, x: p.x, y: p.y + Math.round(U.clamp(V.z * 3.4, 11, 19)) * 0.95, font: `600 ${Math.round(U.clamp(V.z * 2.6, 9, 14))}px Inter, system-ui, sans-serif`, fill: r.land.col, stroke: 'rgba(20,14,8,0.7)', pri: 0 }); (WM._later = WM._later || []).push({ text: U.cap(r.name).toUpperCase().split('').join(String.fromCharCode(8202)), x: p.x, y: p.y, font, fill: 'rgba(58,42,24,0.66)', stroke: 'rgba(236,226,196,0.5)', pri: 0 }); }
       }
       // the way there: the planned route, or a straight line if there is none yet
       const goal = ECHO.Purpose && ECHO.Purpose.current(game);
@@ -785,7 +785,7 @@
         const show = hi || f.layer === 'towns' || (f.layer === 'dungeons' && f.kind !== 'dungeon-unknown' && V.z >= (WM.revealed(pl) ? 4.5 : 2.2)) || (V.z >= 5 && f.pri >= 5) || V.z >= 8;
         if (!show) continue;
         const size = Math.round(U.clamp(9 + V.z * 0.9, 11, 16) * (f.kind === 'capital' ? 1.12 : 1));
-        g.font = `${f.layer === 'towns' ? 'bold ' : ''}${size}px "Pixelify Sans", monospace`;
+        g.font = `${f.layer === 'towns' ? 700 : 600} ${size}px Inter, system-ui, sans-serif`;
         const text = f.layer === 'dungeons' && f.kind === 'dungeon' ? `${f.name} ${f.stars}` : f.name;
         const w = g.measureText(text).width, y = p.y + 13 * k + size * 0.6;
         if (!hi && !fits(p.x - w / 2 - 2, y - size / 2, w + 4, size)) continue;
@@ -817,7 +817,7 @@
       g.fillStyle = '#fff4dc'; g.font = 'bold 11px sans-serif'; g.fillText('N', 0, -24 + 30); g.restore();
       const lg = 20, px = lg * V.z;
       g.fillStyle = 'rgba(20,14,8,0.6)'; g.fillRect(10, c.height - 28, px + 70, 20);
-      g.fillStyle = '#efe3c8'; g.fillRect(16, c.height - 16, px, 3); g.font = '11px "Pixelify Sans", monospace'; g.textAlign = 'left'; g.fillText(`${lg} leagues`, 22 + px, c.height - 15);
+      g.fillStyle = '#efe3c8'; g.fillRect(16, c.height - 16, px, 3); g.font = '600 11px Inter, system-ui, sans-serif'; g.textAlign = 'left'; g.fillText(`${lg} leagues`, 22 + px, c.height - 15);
       g.textAlign = 'center';
       void INK;
     },
@@ -1271,14 +1271,35 @@
 
     // ------------------------------------------------------------ the minimap
     // Below ground: the floor as you have seen it.
+    // the scope's frame below ground: dark glass, a light edge, a faint grid, a label
+    miniFrame(g, c, label) {
+      const W = c.width, H = c.height, r = Math.min(W, H) * 0.06;
+      g.clearRect(0, 0, W, H);
+      g.save();
+      g.beginPath(); if (g.roundRect) g.roundRect(4, 4, W - 8, H - 8, r); else g.rect(4, 4, W - 8, H - 8);
+      g.fillStyle = 'rgba(2,10,18,0.86)'; g.fill();
+      g.clip();
+      g.strokeStyle = 'rgba(95,242,255,0.06)'; g.lineWidth = 1;
+      const step = Math.max(10, Math.round(W / 14));
+      for (let x = 4; x < W; x += step) { g.beginPath(); g.moveTo(x + 0.5, 0); g.lineTo(x + 0.5, H); g.stroke(); }
+      for (let y = 4; y < H; y += step) { g.beginPath(); g.moveTo(0, y + 0.5); g.lineTo(W, y + 0.5); g.stroke(); }
+      g.restore();
+      g.beginPath(); if (g.roundRect) g.roundRect(4.5, 4.5, W - 9, H - 9, r); else g.rect(4.5, 4.5, W - 9, H - 9);
+      g.strokeStyle = 'rgba(95,242,255,0.45)'; g.lineWidth = 1.2; g.stroke();
+      g.strokeStyle = 'rgba(95,242,255,0.95)'; g.lineWidth = 2;
+      const k = Math.min(W, H) * 0.12;
+      g.beginPath(); g.moveTo(4, 4 + k); g.lineTo(4, 4 + r * 0.6); g.quadraticCurveTo(4, 4, 4 + r * 0.6, 4); g.lineTo(4 + k, 4); g.stroke();
+      g.beginPath(); g.moveTo(W - 4, H - 4 - k); g.lineTo(W - 4, H - 4 - r * 0.6); g.quadraticCurveTo(W - 4, H - 4, W - 4 - r * 0.6, H - 4); g.lineTo(W - 4 - k, H - 4); g.stroke();
+      if (label) { g.font = `700 ${Math.round(H * 0.045)}px Rajdhani, Inter, sans-serif`; g.fillStyle = 'rgba(95,242,255,0.85)'; g.textAlign = 'left'; g.textBaseline = 'top'; g.fillText(label.split('').join(String.fromCharCode(8202)), 12, 11); }
+    },
     miniDungeon(game, c) {
       const L = ECHO.Interior.cur, g = c.getContext('2d'), B = ECHO.Interior.BASE, pe = game.pe;
-      const s = Math.min((c.width - 8) / L.W, (c.height - 8) / L.H), ox = (c.width - L.W * s) / 2, oy = (c.height - L.H * s) / 2;
-      g.fillStyle = '#0a0806'; g.fillRect(0, 0, c.width, c.height);
+      const s = Math.min((c.width - 20) / L.W, (c.height - 30) / L.H), ox = (c.width - L.W * s) / 2, oy = (c.height - L.H * s) / 2 + 5;
+      WM.miniFrame(g, c, L.depth != null ? `FLOOR ${(L.depth || 0) + 1}${L.floors ? ' / ' + L.floors : ''}` : 'BELOW');
       for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) {
         if (L.rock[y * L.W + x] || !L.seen[y * L.W + x]) continue;
         const lord = L.lordRoom && x >= L.lordRoom.x0 && x < L.lordRoom.x1 && y >= L.lordRoom.y0 && y < L.lordRoom.y1;
-        g.fillStyle = lord ? '#6a3a30' : '#8a7c66'; g.fillRect(ox + x * s, oy + y * s, Math.ceil(s), Math.ceil(s));
+        g.fillStyle = lord ? 'rgba(255,95,109,0.55)' : 'rgba(95,242,255,0.34)'; g.fillRect(ox + x * s, oy + y * s, Math.ceil(s), Math.ceil(s));
       }
       const mark = (x, y, col, r = 2.2) => { if (!L.seen[Math.floor(y) * L.W + Math.floor(x)]) return; g.fillStyle = col; g.beginPath(); g.arc(ox + x * s, oy + y * s, r, 0, Math.PI * 2); g.fill(); };
       for (const f of L.furn) {
@@ -1305,8 +1326,8 @@
         }
         x.putImageData(img, 0, 0);
       }
-      const s = Math.min((c.width - 6) / L.W, (c.height - 6) / L.H), ox = (c.width - L.W * s) / 2, oy = (c.height - L.H * s) / 2;
-      g.fillStyle = '#0a0806'; g.fillRect(0, 0, c.width, c.height);
+      const s = Math.min((c.width - 20) / L.W, (c.height - 30) / L.H), ox = (c.width - L.W * s) / 2, oy = (c.height - L.H * s) / 2 + 5;
+      WM.miniFrame(g, c, 'BEYOND THE GATE');
       g.imageSmoothingEnabled = false; g.drawImage(L._mini, ox, oy, L.W * s, L.H * s);
       const dot = (x, y, col, r) => { g.fillStyle = col; g.beginPath(); g.arc(ox + x * s, oy + y * s, r, 0, Math.PI * 2); g.fill(); };
       dot(L.inside.x - B, L.inside.y + 2, '#fff0c0', 2.6);

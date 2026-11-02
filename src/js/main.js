@@ -37,7 +37,7 @@
         window.echoNative.closeNow();
       });
     }
-    try { if (document.fonts) await document.fonts.load('16px "Pixelify Sans"'); } catch (e) { /* fonts optional */ }
+    try { if (document.fonts) await Promise.all(['16px "Pixelify Sans"', '400 16px Inter', '600 16px Inter', '700 16px Inter', '600 16px Rajdhani', '700 16px Rajdhani'].map(f => document.fonts.load(f))); } catch (e) { /* fonts optional */ }
     ECHO.Screens.title();
     if (ECHO.Updates) ECHO.Updates.init();
     if (window.echoNative && window.echoNative.ready) window.echoNative.ready().catch(() => {});

@@ -225,7 +225,7 @@
       return `<h3 class="gold" style="margin-top:16px">Techniques — learned in battle <span class="dim" style="font-size:14px">(${t.active.length}/${T.slots(pl)} carried)</span></h3>
         ${known.length ? known.map(k => {
           const d = TECHS[k], lv = t.known[k], on = t.active.includes(k), next = d.at[lv];
-          return `<div class="card" style="${on ? 'border-color:#c8a85a' : ''}"><h4>${d.icon} ${esc(d.name)} ${['', 'I', 'II', 'III'][lv]} <button class="small" data-tech="${k}" style="float:right">${on ? 'Carried' : 'Carry'}</button></h4><div>${esc(d.desc(lv))}</div>${next ? `<div class="dim" style="font-size:13px">Grows with use ${bar(S[d.stat] || 0, next)} ${Math.floor(S[d.stat] || 0)}/${next}</div>` : '<div class="dim" style="font-size:13px">Mastered.</div>'}</div>`;
+          return `<div class="card" style="${on ? 'border-color:rgba(255,207,106,0.6)' : ''}"><h4>${d.icon} ${esc(d.name)} ${['', 'I', 'II', 'III'][lv]} <button class="small" data-tech="${k}" style="float:right">${on ? 'Carried' : 'Carry'}</button></h4><div>${esc(d.desc(lv))}</div>${next ? `<div class="dim" style="font-size:13px">Grows with use ${bar(S[d.stat] || 0, next)} ${Math.floor(S[d.stat] || 0)}/${next}</div>` : '<div class="dim" style="font-size:13px">Mastered.</div>'}</div>`;
         }).join('') : '<p class="dim">None yet. Techniques are not taught — they come from fighting the way you fight, again and again.</p>'}
         ${unknown.length ? `<div class="dim" style="margin-top:6px">${unknown.map(k => { const d = TECHS[k], v = S[d.stat] || 0; return v > 0 ? `<div style="font-size:13px">？ ${esc(d.hint)} ${bar(v, d.at[0])}</div>` : ''; }).join('')}</div>` : ''}`;
     }

@@ -505,7 +505,7 @@
       ctx.fillStyle = `rgba(207,234,255,${pulse})`; ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 2 * z;
       ctx.beginPath(); ctx.moveTo(12 * z, 0); ctx.lineTo(-6 * z, -8 * z); ctx.lineTo(-2 * z, 0); ctx.lineTo(-6 * z, 8 * z); ctx.closePath(); ctx.stroke(); ctx.fill();
       ctx.restore();
-      ctx.save(); ctx.font = `${Math.round(11 * z)}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.fillStyle = '#cfeaff'; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 3 * z;
+      ctx.save(); ctx.font = `600 ${Math.round(11 * z)}px Inter, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.fillStyle = '#cfeaff'; ctx.strokeStyle = 'rgba(0,0,0,0.8)'; ctx.lineWidth = 3 * z;
       const lx = x - Math.cos(a) * 26 * z, ly = y - Math.sin(a) * 18 * z;
       const t = `fallen star · ${Math.round(U.dist(s.x, s.y, game.pe.x, game.pe.y))}`;
       ctx.strokeText(t, lx, ly); ctx.fillText(t, lx, ly); ctx.restore();

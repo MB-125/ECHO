@@ -12,7 +12,7 @@ const OUT = path.join(ROOT, 'dist', 'web');
 const html = fs.readFileSync(path.join(SRC, 'index.html'), 'utf8');
 
 // Stylesheet with fonts embedded
-let css = fs.readFileSync(path.join(SRC, 'css', 'style.css'), 'utf8');
+let css = fs.readFileSync(path.join(SRC, 'css', 'style.css'), 'utf8') + '\n' + fs.readFileSync(path.join(SRC, 'css', 'holo.css'), 'utf8');
 css = css.replace(/url\('\.\.\/fonts\/([^']+)'\)/g, (_, f) => {
   const b64 = fs.readFileSync(path.join(SRC, 'fonts', f)).toString('base64');
   return `url(data:font/woff2;base64,${b64})`;
