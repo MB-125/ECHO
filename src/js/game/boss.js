@@ -309,6 +309,7 @@
         add('meat', 3); add('hide', 2);
         for (let i = 0; i < 2; i++) ECHO.Monsters.dropGear(game, e.x + (r() - 0.5) * 2, e.y + (r() - 0.5) * 2, L, 25, `in the lair of ${e.boss.name}`);
         out.push('two pieces of gear from its victims');
+        if (ECHO.Arcana) { const it = ECHO.Arcana.drop(game, e.x + (r() - 0.5) * 2, e.y + (r() - 0.5) * 2, L, { boost: 40, floor: r() < 0.3 ? 'legendary' : 'epic', where: `in the lair of ${e.boss.name}` }); const rn = ECHO.Gear.rarity(it.rarity).name.toLowerCase(); out.push(`${/^[aeiou]/.test(rn) ? 'an' : 'a'} ${rn} relic`); }
       } else {
         add('greathide', 1);
         if (r() < 0.5) add('gold', Math.round(20 + r() * 40));

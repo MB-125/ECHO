@@ -486,6 +486,7 @@
         const mats = (D0.roster || []).concat(D0.deep || []).map(r => ECHO.Monsters.DEFS[r[0]]).filter(Boolean).flatMap(m => (m.loot || []).map(l => l[0]));
         for (let i = 0; i < 2 && mats.length; i++) { const k = mats[Math.floor(Math.random() * mats.length)], q = 2 + Math.floor(Math.random() * 3); pl.inv[k] = (pl.inv[k] || 0) + q; out.push(`${q} ${ECHO.Gear.MATS[k].name}`); }
         if (Math.random() < 0.7) { ECHO.Monsters.dropGear(game, ECHO.Interior.BASE + it.x, it.y + 1, lvl + 1, 14, `in a strongbox in ${site.name}`); out.push('a piece of gear (on the floor)'); }
+        if (ECHO.Arcana && Math.random() < 0.35) { ECHO.Arcana.drop(game, ECHO.Interior.BASE + it.x + 0.7, it.y + 1, lvl + 1, { boost: 16, where: `in a strongbox in ${site.name}` }); out.push('a relic'); }
         if (Math.random() < 0.4) { pl.inv.herbs = (pl.inv.herbs || 0) + 2; out.push('two bundles of herbs'); }
         ECHO.Sfx.play('coin'); ECHO.Music.stinger('star');
         return UI().toast(`A treasure room! In the strongbox: ${out.join(', ')}.`, 'legend', 6);
@@ -557,6 +558,7 @@
       const MATS = { catacomb: ['grave', 'bonedust'], warren: ['trinket', 'fetish'], nest: ['queensilk', 'silk', 'venom'], trollden: ['tusk', 'trollhide'], sanctum: ['sigil', 'ecto'], forge: ['core', 'heartstone'], crypt: ['bonedust', 'ecto'], barrow: ['bonedust'] }[site.kind];
       if (MATS) for (const k of MATS) if (r() < 0.75) { const q = 1 + Math.floor(r() * 2); pl.inv[k] = (pl.inv[k] || 0) + q; out.push(`${q} ${ECHO.Gear.MATS[k].name}`); }
       const L0 = ECHO.Interior.cur;
+      if (L0 && L0.chest && ECHO.Arcana) { ECHO.Arcana.drop(game, ECHO.Interior.BASE + L0.chest.x + 0.9, L0.chest.y + 1.2, lv + 1, { boost: 18 + lv * 3, floor: 'rare', where: `at the bottom of ${site.name}` }); out.push('a relic'); }
       if (L0 && L0.chest) { ECHO.Monsters.dropGear(game, ECHO.Interior.BASE + L0.chest.x, L0.chest.y + 1.2, lv + 1, 14 + lv * 3, `at the bottom of ${site.name}`); out.push('a piece of gear, left on the floor beside the chest — take it (E)'); }
       if (lv >= 3 && D) { const extra = Math.round(lv * 25 * r()); pl.gold += extra; if (extra) out.push(`${extra} more crowns, hidden under the lining`); }
       return out;

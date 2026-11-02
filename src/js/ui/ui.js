@@ -59,6 +59,7 @@
         if (In.pressed.has('m')) UI.openMap();
         // (C wakes your third relic; Ctrl sneaks; the character sheet is on K)
         if (In.pressed.has('k')) UI.openCharacter();
+        if (In.pressed.has('i') && ECHO.Arcana) ECHO.Arcana.open(game);
         if (In.pressed.has('y') && ECHO.Apex) ECHO.Apex.cycle(game);
         if (In.pressed.has('o') && ECHO.Tame && !UI.blocksWorld()) ECHO.Tame.rally(game);
         if (In.pressed.has('u') && ECHO.Apex) UI.openJournal(ECHO.Tame && (ECHO.Tame.pack(game.pl).length || game.pl.horse || (game.world.titans && ECHO.Titans && ECHO.Titans.bound(game.world).length)) ? 'tamed' : 'animals');
@@ -67,6 +68,7 @@
       } else if (UI.panelOpen) {
         if ((In.pressed.has('Tab') || In.pressed.has('j')) && UI.panelKind === 'journal') UI.closePanel();
         else if (In.pressed.has('m') && UI.panelKind === 'map') UI.closePanel();
+        else if (In.pressed.has('i') && UI.panelKind === 'relics') UI.closePanel();
         else if (In.pressed.has('n') && UI.panelKind === 'nav') UI.closePanel();
         else if (In.pressed.has('k') && UI.panelKind === 'char') UI.closePanel();
         else if (In.pressed.has('u') && UI.panelKind === 'journal') UI.closePanel();
@@ -159,6 +161,8 @@
       const w = world.items[pl.weapon];
       const inv = `<span>${w ? esc(w.name) : 'Bare hands'}</span><span>Arrows <b>${pl.inv.arrows}</b></span><span>Food <b>${pl.inv.food + (pl.inv.meat || 0)}</b></span><span>Herbs <b>${pl.inv.herbs}</b></span>${Object.entries(ECHO.Gear.POTIONS).filter(([id]) => (pl.potions || {})[id] > 0).map(([id, P0]) => `<span style="color:${P0.color}">${P0.key}·${P0.short} <b>${pl.potions[id]}</b></span>`).join('')}${Object.entries(pl.buffs || {}).filter(([k, v]) => v > 0 && ECHO.Gear.POTIONS[k]).map(([k, v]) => `<span style="color:${ECHO.Gear.POTIONS[k].color}">✦${ECHO.Gear.POTIONS[k].short} ${Math.ceil(v)}s</span>`).join('')}${ECHO.Arcana ? ECHO.Arcana.hud(game) : ''}${ECHO.Mending ? ECHO.Mending.hud(game) : ''}${pl.flying && ECHO.Apex && ECHO.Apex.airHud ? ECHO.Apex.airHud(game) : ''}${ECHO.Tame ? (m => m === 'leash' ? '<span style="color:#ffcf6a">⛓ leash</span>' : m === 'kill' ? '<span style="color:#e0806a">✕ to the kill</span>' : '') (ECHO.Tame.mode(pl)) : ''}<span>Crowns <b>${Math.floor(pl.gold)}</b></span>${pl.companion && world.npcs[pl.companion] ? `<span>With <b>${esc(world.npcs[pl.companion].first)}</b></span>` : ''}${pl.inv.starshard ? `<span style="color:#bfe8ff">✦ <b>${pl.inv.starshard}</b></span>` : ''}${ECHO.Letters && ECHO.Letters.unread(world).length ? `<span class="gold">✉ <b>${ECHO.Letters.unread(world).length}</b> (J)</span>` : ''}`;
       if (UI._inv !== inv) { $('#hud-inv').innerHTML = inv; UI._inv = inv; }
+      const rel = ECHO.Arcana ? ECHO.Arcana.bar(game) : '';
+      if (UI._rel !== rel) { const rb = $('#hud-relics'); if (rb) rb.innerHTML = rel; UI._rel = rel; }
       if (UI.bossEnt) {
         const e = UI.bossEnt;
         if (e.dead) UI.bossBar(null);
@@ -589,7 +593,7 @@
           if (d.horse) { const why = ECHO.Life.buyHorse(pl, d.horse); if (why) UI.toast(why, 'warn', 3); else { s.wealth += ECHO.Life.BREEDS[d.horse].price; UI.toast(`${pl.horse.name} the ${ECHO.Life.BREEDS[d.horse].name.toLowerCase()} is yours, waiting outside. Press V beside it to ride; from further off, V whistles for it.`, 'legend', 5); } }
           if (d.rod) { if (pl.gold >= 12) { pl.gold -= 12; pl.inv.rod = 1; UI.toast('A fishing rod. Stand by any water and press E to cast; press E again when something bites.', 'info', 5); } }
           if (d.brew) { const why = ECHO.Gear.brew(pl, d.brew); if (why) UI.toast(why, 'warn', 3); else { ECHO.Sfx.play('coin'); UI.toast(`You have ${/^[aeiou]/i.test(ECHO.Gear.POTIONS[d.brew].name) ? 'an' : 'a'} ${ECHO.Gear.POTIONS[d.brew].name.toLowerCase()} made up. Drink it with ${ECHO.Gear.POTIONS[d.brew].key}.`, 'info', 3); } }
-          if (d.relic != null && ECHO.Arcana) { const r = ECHO.Arcana.buy(ECHO.Game, s, +d.relic, am); if (typeof r === 'string') UI.toast(r, 'warn', 3); else { ECHO.Sfx.play('coin'); UI.toast(`${r.it.name} is yours${r.on ? ` — worn; wake it with ${ECHO.Arcana.KEYS[ECHO.Arcana.slots(pl).indexOf(r.it.id)].toUpperCase()}` : ' — in your pack; wear it from your character page (K)'}.`, 'legend', 5); } }
+          if (d.relic != null && ECHO.Arcana) { const r = ECHO.Arcana.buy(ECHO.Game, s, +d.relic, am); if (typeof r === 'string') UI.toast(r, 'warn', 3); else { ECHO.Sfx.play('coin'); UI.toast(`${r.it.name} is yours${r.on ? ` — worn: its gift is on you now, and it wakes by itself when it is needed${ECHO.Arcana.slots(pl).indexOf(r.it.id) < 3 ? ` (or with ${ECHO.Arcana.keyName(ECHO.Arcana.slots(pl).indexOf(r.it.id))})` : ''}` : ' — in your satchel; wear it from your relics (I)'}.`, 'legend', 5); } }
           if (d.buypot) { const P0 = ECHO.Gear.POTIONS[d.buypot], c = ECHO.Gear.potionPrice(P0, am), why = ECHO.Gear.buyPotion(pl, d.buypot, am); if (why) UI.toast(why, 'warn', 3); else { s.wealth = (s.wealth || 0) + c; ECHO.Sfx.play('coin'); UI.toast(`${P0.name}, ready-made. Drink it with ${P0.key}.`, 'info', 3); } }
           if (d.sellmats) { const r = ECHO.Gear.sellMats(pl, s); if (r.total) { ECHO.Sfx.play('coin'); UI.toast(`Sold ${r.out.join(', ')} for ${r.total} crowns.`, 'info', 4); } }
           if (d.sellmat) { const k = d.sellmat, n = pl.inv[k] || 0; if (n) { const got = ECHO.Gear.matPrice(s, k) * n; pl.inv[k] = 0; pl.gold += got; s.wealth = (s.wealth || 0) + got * 0.2; ECHO.Sfx.play('coin'); } }

@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js'
 ];
 
 function loadEcho() {
@@ -1364,6 +1364,45 @@ function main() {
     const q = W.cut.list[0], qx = q.x, qy = q.y;
     ECHO.Frontier.shift(W, 4, 2); delete W._cutI;
     check('what was taken moves with the map when the land grows', q.x === qx + 4 && q.y === qy + 2 && Cl.at(W, qx + 4, qy + 2) === q);
+  }
+
+  console.log('\nMagical equipment');
+  {
+    const W = ECHO.generateWorld({ seed: 7171, name: 'Relics' }), A = ECHO.Arcana, rng = new ECHO.RNG(5);
+    const pl = W.player = ECHO.Character.create(W, new ECHO.RNG(2), { first: 'Mira', homeId: W.settlements[0].id });
+    pl.items = pl.items || [];
+    ECHO.Game = { world: W, pl };
+    const take = (k, r, L) => { const it = A.make(W, rng, L, r, 'in a test', k); it.holder = 'player'; pl.items.push(it.id); return it; };
+    check('a rare relic is plainly stronger than a common one, and a legendary one is about three times it', A.power(20, 'legendary') >= A.power(20, 'common') * 2.7 && A.power(20, 'rare') >= A.power(20, 'common') * 1.6 && A.power(30, 'legendary') > ECHO.Gear.statFor('sword', 30, 'legendary') * 1.4, `L20: ${A.RANK.map(r => A.power(20, r)).join(' / ')}`);
+    const old = take('storm', 'epic', 10); old.power = 40; delete old.rv; A.wear(pl, old.id);
+    check('a relic from an older world is brought up to the new strength, and stays worn', A.pw(old) === A.power(10, 'epic') && A.pw(old) > 40 && old.rv === 2 && A.worn(pl, old.id));
+    check('you wear three relics, four from level 12, five from level 30', (() => { const st = ECHO.Prowess.st(pl), lv0 = st.lv; const a = A.nslots(pl); st.lv = 12; const b = A.nslots(pl); st.lv = 30; const c = A.nslots(pl); st.lv = lv0; return a === 3 && b === 4 && c === 5; })());
+    const lv0 = ECHO.Prowess.st(pl).lv; ECHO.Prowess.st(pl).lv = 1;
+    const fr = take('frost', 'legendary', 10), ae = take('aegis', 'rare', 10), extra = take('bloom', 'fine', 10);
+    A.wear(pl, fr.id); A.wear(pl, ae.id);
+    check('a locked slot cannot be worn', !A.wear(pl, extra.id, 3) && !A.worn(pl, extra.id));
+    const v = A.passive(pl);
+    check('every relic worn gives its gift, always: harder blows, less harm, more life', v.dmg > 0.1 && v.taken > 0.16 && v.hp > 20, A.passiveSummary(pl).join(' · '));
+    for (let i = 0; i < 3; i++) { const f = take('frost', 'legendary', 10); ECHO.Prowess.st(pl).lv = 30; A.wear(pl, f.id); }
+    check('the harm a ward takes off has a ceiling', A.passive(pl).taken <= 0.45);
+    ECHO.Prowess.st(pl).lv = lv0;
+    const tally = m => { const c = {}; for (let i = 0; i < 400; i++) { const r = A.rarityFor(new ECHO.RNG(i * 13 + m), 20, m, false); c[r] = (c[r] || 0) + 1; } return c; };
+    const t2 = tally(2), t3 = tally(3), t4 = tally(4), t5 = tally(5);
+    check('the strong carry the best: an elite something fine or better, a dungeon lord rare or better, a lair\'s beast epic or legendary, a sovereign legendary', !t2.common && !t3.common && !t3.fine && !t4.common && !t4.fine && !t4.rare && Object.keys(t5).join() === 'legendary' && (t4.legendary || 0) > 80, `lair beast: ${JSON.stringify(t4)}`);
+    check('a dungeon lord of level 25 or more carries epic or better', ['epic', 'legendary'].includes(A.rarityFor(new ECHO.RNG(1), 25, 3, true)) && ['epic', 'legendary'].includes(A.rarityFor(new ECHO.RNG(99), 40, 3, true)));
+    check('relics are no dearer to buy for being stronger', A.value({ level: 10, rarity: 'epic' }) <= 300 && A.priceOf({ level: 10, rarity: 'epic' }) < 800);
+    // wear the best: one of each kind first
+    pl.items.push(take('storm', 'legendary', 30).id);
+    A.best(pl, W);
+    const kinds = A.wornItems(pl, W).map(w => w.it.relic);
+    check('"wear the best" puts on the strongest, one of each kind first', kinds[0] === 'storm' && W.items[A.slots(pl)[0]].rarity === 'legendary' && new Set(kinds).size === kinds.length, kinds.join(', '));
+    // an old stone circle wrote a count over the slots: what can be read is taken back
+    const wornIds = A.slots(pl).filter(Boolean);
+    pl.relics = wornIds.join(',') + '1';
+    check('slots an old stone circle wrote over are recovered', A.slots(pl).filter(Boolean).length >= Math.min(3, wornIds.length) - 1 && Array.isArray(pl.relics));
+    const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
+    check('relics, their strength and what is worn survive a save', W2.items[old.id].rv === 2 && W2.items[old.id].power === old.power && W2.player.relics.length === pl.relics.length);
+    delete ECHO.Game;
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

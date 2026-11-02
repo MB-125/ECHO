@@ -43,6 +43,7 @@
         maxMana: 60 + pl.skills.flame * 1.2 + ((pl.boons && pl.boons.mana) || 0) + (ECHO.Arcana ? ECHO.Arcana.bonus(pl) : 0),
         wellfed: charm('wellfed')
       };
+      if (ECHO.Arcana) ECHO.Arcana.applyDerived(game, PC.derived);
       if (ECHO.Lore) PC.derived.maxHp = Math.round(PC.derived.maxHp * ECHO.Lore.lifeMul(pl));
       pl.maxHp = PC.derived.maxHp; pl.maxSta = PC.derived.maxSta; pl.maxMana = PC.derived.maxMana;
       pl.hp = Math.min(pl.hp, pl.maxHp);
@@ -363,6 +364,7 @@
       pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40 + (ECHO.Arcana ? ECHO.Arcana.regenBonus(pl) : 0)) * dt);
       if (ECHO.Arcana) ECHO.Arcana.after(game);
       if (game.time - (game.lastHurtTime || -99) > 8 && !pl.sick) pl.hp = Math.min(pl.maxHp, pl.hp + 0.5 * dt);
+      if (D.relicRegen > 0 && pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + D.relicRegen * dt);     // (Verdance: even in a fight)
       pe.hp = pl.hp; pe.maxHp = pl.maxHp;
     },
 

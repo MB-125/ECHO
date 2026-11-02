@@ -120,6 +120,7 @@
         if (byYou) {
           add('gold', 140 + Math.floor(r() * 120)); add('giantheart', 1); add('trollhide', 3);
           for (let i = 0; i < 2; i++) ECHO.Monsters.dropGear(game, e.x + (r() - 0.5) * 2, e.y + (r() - 0.5) * 2, (e.lvl || 6) + 1, 25, `from the pack of ${e.label}`);
+          if (ECHO.Arcana && r() < 0.5) ECHO.Arcana.drop(game, e.x + (r() - 0.5) * 2, e.y + (r() - 0.5) * 2, (e.lvl || 6) + 1, { boost: 25, floor: 'rare', where: `from the pack of ${e.label}` });
           pl.renown += 30;
           ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} brought down ${e.label}.`, importance: 3, x: e.x, y: e.y, rep: 8, tag: 'brave' });
           game.ui.banner('Giant-slayer', `${e.label} lies where it fell`);

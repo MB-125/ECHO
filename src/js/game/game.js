@@ -578,7 +578,7 @@
       if (it.kind === 'bow' && (!world.items[pl.bow] || it.dmg > (world.items[pl.bow].dmg || 0))) pl.bow = it.id;
       if (it.kind === 'armor' && (!world.items[pl.armor] || (it.def || 0) > (world.items[pl.armor].def || 0))) pl.armor = it.id;
       const worn = it.kind === 'relic' && ECHO.Arcana && ECHO.Arcana.onTake(pl, it);
-      if (it.rarity && ECHO.Gear && !quiet) ECHO.UI.toast(`${it.name} — ${ECHO.Gear.line(it)}${worn ? ` (worn — wake it with ${ECHO.Arcana.KEYS[ECHO.Arcana.slots(pl).indexOf(it.id)].toUpperCase()})` : [pl.weapon, pl.bow, pl.armor].includes(it.id) ? ' (equipped)' : ' (in your pack; sell it, or equip it from your character page)'}`, it.rarity === 'common' ? 'info' : 'legend', 5);
+      if (it.rarity && ECHO.Gear && !quiet) ECHO.UI.toast(`${it.name} — ${ECHO.Gear.line(it)}${worn ? ` (worn — its gift is on you now, and it wakes by itself when it is needed${ECHO.Arcana.slots(pl).indexOf(it.id) < 3 ? `, or with ${ECHO.Arcana.keyName(ECHO.Arcana.slots(pl).indexOf(it.id))}` : ''}; I for your relics)` : [pl.weapon, pl.bow, pl.armor].includes(it.id) ? ' (equipped)' : ' (in your pack; sell it, or equip it from your character page)'}`, it.rarity === 'common' ? 'info' : 'legend', 5);
       Game.loot = Game.loot.filter(l => l.itemId !== itemId);
       for (const r of world.ruins) r.relics = r.relics.filter(x => x !== itemId);
       ECHO.PlayerCtl.derivedT = 0;

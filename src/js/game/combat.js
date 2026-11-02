@@ -370,6 +370,7 @@
       if (src.stealth) dmg *= from === game.pe ? ECHO.Tech.stealthMul() : 3;
       if (from === game.pe && target !== game.pe) dmg *= ECHO.Tech.dealt(target, src);
       if (from === game.pe && target !== game.pe && (type === 'melee' || type === 'ranged') && ECHO.Arcana) dmg *= ECHO.Arcana.dealt(game, type);
+      if (from && from !== game.pe && target !== game.pe && (from.tamed || from.pal || from.isCompanion) && ECHO.Arcana) dmg *= ECHO.Arcana.pets(game);
       if (from === game.pe && target !== game.pe && ECHO.Lore) dmg *= ECHO.Lore.dealt(game, target);
       if (target === game.pe && from && from !== game.pe && ECHO.Lore) dmg *= ECHO.Lore.taken(game, from);
       if (target === game.pe && from !== game.pe && game.pl.mounted && ECHO.Life) dmg = ECHO.Life.hitInSaddle(game, from, dmg);

@@ -1152,6 +1152,7 @@
       add('dragonscale', Ti().sp(t).flies ? 3 + Math.floor(r() * 4) : 0); add('greathide', 2 + Math.floor(r() * 2)); add('greatfang', 2); if (r() < 0.6) add('heartstone', 1 + Math.floor(r() * 2));
       add('gold', Math.round(200 + Math.min(L, 150) * 12));
       for (let i = 0; i < 2; i++) ECHO.Monsters.dropGear(game, e.x + (r() - 0.5) * 2, e.y + (r() - 0.5) * 2, L, 30, `in the hoard of ${t.name}`);
+      if (ECHO.Arcana) for (let i = 0; i < 1 + (r() < 0.5 ? 1 : 0); i++) ECHO.Arcana.drop(game, e.x + (r() - 0.5) * 3, e.y + (r() - 0.5) * 3, L, { boost: 60, floor: r() < 0.55 ? 'legendary' : 'epic', where: `in the hoard of ${t.name}` });
       const saved = ECHO.Calamity ? ECHO.Calamity.stoppedBy(world, t, pl, 'slew') : [];
       Ti().slain(world, t, `${pl.first} ${pl.last}`);
       pl.renown += 40;

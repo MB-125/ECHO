@@ -388,7 +388,7 @@
           o.done = true;
           ECHO.Combat.ring(o.x, o.y, 3.2, 'rgba(168,216,255,0.9)', 1.2);
           pl.maxHp += 6; pl.hp = pl.maxHp; pe.hp = pl.hp;
-          pl.relics = (pl.relics || 0) + 1;
+          pl.stones = (pl.stones || 0) + 1;
           const g = 40 + Math.floor(Math.random() * 40); pl.gold += g;
           ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} opened the stone circle near ${(ECHO.World.nearestSettlement(world, o.x, o.y) || {}).name || 'the wilds'}.`, importance: 1, x: o.x, y: o.y, rep: 2 });
           game.ui.toast(`The stones hum together, one long note — and the centre stone slides aside. In the hollow beneath: ${g} crowns of ancient coin, and a smooth blue stone that warms in your hand. (+6 life, for good.)`, 'legend', 8);

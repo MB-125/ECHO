@@ -280,6 +280,8 @@
       const gearChance = e.boss2 ? 1 : e.elite ? 0.35 : Math.min(0.22, 0.04 + L * 0.012);
       const n = e.boss2 ? (r() < 0.4 ? 2 : 1) : r() < gearChance ? 1 : 0;
       for (let i = 0; i < n; i++) M.dropGear(game, e.x + (r() - 0.5), e.y + (r() - 0.5), L, e.boss2 ? 18 : e.elite ? 8 : 0, `on ${e.label || 'a ' + D.name.toLowerCase()}`);
+      // relics: far more often in the deep places, and the strong carry the best of them
+      if (ECHO.Arcana) ECHO.Arcana.fromKill(game, e, L);
       // what splits, splits
       if (e.ab && e.ab.split && !e.shard) for (let i = 0; i < e.ab.split.n; i++) {
         const sp = ECHO.Ent.freeSpot(world, e.x + (r() - 0.5) * 1.5, e.y + (r() - 0.5) * 1.5, 2);
@@ -311,6 +313,7 @@
       weak: 'That hit hard — this monster is weak to it. The guide (J) lists what you have learned about each monster.',
       resist: 'It shrugs that off. Try another weapon — fire (Q), heavy blows (hold the mouse) or arrows. The guide (J) knows its weaknesses.',
       split: 'Slimes split when cut. Fire kills them cleanly.',
+      relic: 'A relic! Take it up (E) and it goes on at once if a slot is free: its gift (more damage, less harm, more life…) is always on, and its power wakes by itself when the moment comes, spending mana. I shows your relics; Z, X and C wake them by hand. Dungeons and strong foes give the best.',
       gear: 'Gear dropped! Walk to it and press E to take it — better pieces are equipped at once. Sell the rest at a market, or have a smith hone what you keep.',
       mats: 'Monster parts are worth money at any market — and a smith can turn them into better gear (talk to a smith → "Improve your gear").',
       trap: 'A trap! Watch the floor in the passages — plates glow just before they fire. Roll (Space) across them.',
