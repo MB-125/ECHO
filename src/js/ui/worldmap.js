@@ -11,6 +11,11 @@
   const PARCH = '#d8c7a0', INK = '#3a2a18';
   const LAYERS = [['dungeons', 'Dungeons'], ['towns', 'Towns'], ['gates', 'Gates'], ['danger', 'Camps & lairs'], ['places', 'Landmarks'], ['wonders', 'Wonders & ruins'], ['quests', 'Quests'], ['regions', 'Region names']];
   const DIRS = ['east', 'south-east', 'south', 'south-west', 'west', 'north-west', 'north', 'north-east'];
+  const KIND_NAME = { dungeon: 'Dungeon', 'dungeon-cleared': 'Dungeon · cleared', 'dungeon-unknown': 'Dungeon · uncharted', capital: 'Capital', town: 'Town', gate: 'Gate', camp: 'Outlaw camp', lair: 'Lair', 'lair-dead': 'Lair · empty', landmark: 'Landmark', wonder: 'Wonder', ruin: 'Ruins', vault: 'Vault', mark: 'Waypoint', titan: 'Great beast', region: 'Region' };
+  const DIR_S = { east: 'E', 'south-east': 'SE', south: 'S', 'south-west': 'SW', west: 'W', 'north-west': 'NW', north: 'N', 'north-east': 'NE' };
+  const LAYER_COL = { dungeons: '#ffc04a', towns: '#8fb4ff', gates: '#c86aff', danger: '#ff6a4a', places: '#a8e0c0', wonders: '#ffd38a', quests: '#ffe08a', regions: '#efe3c8' };
+  // the console's light
+  const HOLO = 'rgba(95,242,255,', AMBER = 'rgba(255,207,106,';
 
   const WM = ECHO.WorldMap = {
     layers: null, view: null, sel: null, hover: null, feats: [],
@@ -248,17 +253,43 @@
       const world = game.world, pl = game.pl, UI = ECHO.UI;
       WM.layers = WM.layers || Object.fromEntries(LAYERS.map(([k]) => [k, true])); if (WM.layers.gates == null) WM.layers.gates = true;
       if (ECHO.Tutorial) ECHO.Tutorial.flag('map');
-      const body = UI.openPanel(`Map of ${world.name}`, `<div class="wmap"><div class="wmap-main"><canvas id="worldmap"></canvas><div id="map-tip" class="hidden"></div>
-          <div class="wmap-ctl"><button data-z="1" title="Zoom in">＋</button><button data-z="-1" title="Zoom out">－</button><button data-me="1" title="Centre on you">◎</button><button data-fit="1" title="The whole world">⤢</button>${world.globe ? '<button data-globe="1" title="Globe or flat chart">🌐</button>' : ''}</div>
-          <div class="wmap-hint">Scroll to zoom · drag to ${world.globe ? 'turn the world' : 'move'} · click a place for details</div></div>
-        <div class="wmap-side"><div class="wmap-find"><input id="map-find" type="text" placeholder="Find a place…" autocomplete="off"><div id="map-found"></div></div>
-          <div class="wmap-layers"><button class="small ${WM.revealed(pl) ? 'on' : ''}" data-reveal="1" title="Show the whole world, or only the land you have walked">${WM.revealed(pl) ? 'Whole map shown' : 'Only what you have walked'}</button>${LAYERS.map(([k, l]) => `<button class="small ${WM.layers[k] ? 'on' : ''}" data-layer="${k}">${l}</button>`).join('')}</div>
-          <div id="map-sel"></div><h4 class="gold">Dungeons you know</h4><div id="map-dlist"></div><h4 class="gold">Key</h4><div id="map-key"></div></div></div>`, 'map');
-      const c = body.querySelector('#worldmap'), main = body.querySelector('.wmap-main');
-      // a round world opens on the globe (🌐 switches to the flat chart and back)
-      WM.mode = world.globe ? (WM.mode || 'globe') : 'chart';
-      if (world.globe) WM.globeInit(main, c);
-      const fit = () => { c.width = main.clientWidth; c.height = main.clientHeight; if (WM.G && world.globe) WM.globeSize(c); };
+      const round = !!world.globe;
+      WM.tab = WM.tab || 'near';
+      const chip = ([k, l]) => `<button class="chip ${WM.layers[k] ? 'on' : ''}" data-layer="${k}"><i style="background:${LAYER_COL[k] || '#9fe8ff'}"></i>${l}</button>`;
+      const body = UI.openPanel(round ? `Navigation · ${world.name}` : `Map of ${world.name}`, `<div class="wmap holo${WM.sideHidden ? ' noside' : ''}"><div class="wmap-main"><canvas id="worldmap"></canvas><div id="map-tip" class="hidden"></div>
+          <div class="wmap-search"><span class="ic">⌕</span><input id="map-find" type="text" placeholder="Search places…" autocomplete="off" spellcheck="false"><kbd>/</kbd><div id="map-found"></div></div>
+          <div class="wmap-ctl">
+            <button data-z="1" title="Zoom in  (E or +)">＋</button><button data-z="-1" title="Zoom out  (Q or −)">－</button><i></i>
+            <button data-me="1" title="Find me  (Space)">◎<span>Me</span></button>
+            <button data-goal="1" title="Your destination  (G)">⚑<span>Goal</span></button>
+            <button data-fit="1" title="The whole world  (H)">◍<span>World</span></button>
+            ${round ? `<button data-globe="1" title="Globe or flat chart  (T)">◐<span>${WM.mode === 'chart' ? 'Globe' : 'Chart'}</span></button>` : ''}<i></i>
+            <button data-help="1" title="Controls  (?)">?</button>
+          </div>
+          <button class="wmap-fold" data-fold="1" title="Hide or show the side panel">${WM.sideHidden ? '⟨' : '⟩'}</button>
+          <div class="wmap-help hidden"><h5>Controls</h5>
+            <div><kbd>Drag</kbd><span>turn the world (let go mid-drag and it spins on)</span></div>
+            <div><kbd>Scroll</kbd><kbd>E</kbd><kbd>Q</kbd><span>come closer · go higher (or drag the altitude ruler on the right)</span></div>
+            <div><kbd>W A S D</kbd><kbd>Arrows</kbd><span>turn the world</span></div>
+            <div><kbd>Click</kbd><span>a place: its details, and Guide me there</span></div>
+            <div><kbd>Double-click</kbd><span>fly in to it</span></div>
+            <div><kbd>Right-click</kbd><span>set a waypoint there and be guided to it</span></div>
+            <div><kbd>Space</kbd><span>find yourself</span><kbd>G</kbd><span>your destination</span><kbd>H</kbd><span>the whole world</span></div>
+            <div><kbd>/</kbd><span>search</span>${round ? '<kbd>T</kbd><span>globe or flat chart</span>' : ''}<kbd>M</kbd><span>close</span></div>
+            <button data-help="1">Got it</button></div>
+          <div class="wmap-hint"><b>Drag</b> turn · <b>Scroll</b> zoom · <b>Double-click</b> fly in · <b>Right-click</b> waypoint · <b>Space</b> me · <b>G</b> goal · <b>?</b> help</div></div>
+        <div class="wmap-side">
+          <div id="map-sel"></div>
+          <div class="wmap-sec"><span>Layers</span><button class="link ${WM.revealed(pl) ? 'on' : ''}" data-reveal="1" title="Show the whole world, or only the land you have walked">${WM.revealed(pl) ? '◉ Whole world shown' : '○ Only land you have walked'}</button></div>
+          <div class="wmap-layers">${LAYERS.map(chip).join('')}</div>
+          <div class="wmap-tabs"><button data-tab="near">Nearby</button><button data-tab="dun">Dungeons</button><button data-tab="key">Key</button></div>
+          <div id="map-list"></div>
+        </div></div>`, 'map');
+      const c = body.querySelector('#worldmap'), main = body.querySelector('.wmap-main'), wrap = body.querySelector('.wmap');
+      // a round world opens on the globe (◐ switches to the flat chart and back)
+      WM.mode = round ? (WM.mode || 'globe') : 'chart';
+      if (round) WM.globeInit(main, c);
+      const fit = () => { c.width = main.clientWidth; c.height = main.clientHeight; if (WM.G && round) WM.globeSize(c); };
       fit();
       WM.globeShow(main);
       const zFit = Math.min(c.width / world.W, c.height / world.H);
@@ -266,103 +297,250 @@
       WM.view.cx = pl.x; WM.view.cy = pl.y;
       WM.view.min = zFit * 0.9; WM.view.max = 14;
       WM.fogC = WM.fog(world, pl);
-      if (world.globe) { WM.globeTex(game); if (!WM.G.opened) { WM.G.opened = true; WM.G.dist = 3.9; } WM.globeFocus(pl.x, pl.y, null, true); }
+      if (round) {
+        WM.globeTex(game);
+        if (!WM.G.opened) { WM.G.opened = true; WM.G.dist = 3.2; }
+        // coming in: from a little higher and further round, down onto where you are
+        const to = WM.G.dist; WM.globeFocus(pl.x, pl.y, to + 1.4, true); WM.G.yaw -= 0.5;
+        WM.globeFocus(pl.x, pl.y, to, false, 1000);
+      }
+      WM._bootT = performance.now();
       WM.regions = WM.regionCentres(world, pl);
       WM.feats = WM.features(game);
       WM.sel = null; WM.hover = null;
       const V = WM.view;
       UI.mapView = { toScreen: (x, y) => WM.toScreen(c, x, y), view: V };
-      // ---- input
-      let drag = null;
-      c.addEventListener('wheel', ev => {
-        ev.preventDefault();
-        const r = c.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
-        if (WM.isGlobe(world)) {
+      const globe = () => WM.isGlobe(world);
+      const ptr = ev => { const r = c.getBoundingClientRect(); return { mx: ev.clientX - r.left, my: ev.clientY - r.top }; };
+      const poke = () => { if (WM.G) WM.G.lastInput = performance.now(); WM.drawSoon(game, c); };
+      // ---- zoom
+      const zoomAt = (f, mx, my) => {
+        if (globe()) {
           // in toward the ground (by height above it, so the last of the way is as smooth as the first),
           // keeping the place under the pointer under it
-          const G = WM.G, before = WM.gWorld(c, mx, my);
-          G.dist = 1 + U.clamp((G.dist - 1) * (ev.deltaY < 0 ? 0.84 : 1.19), G.min - 1, G.max - 1); G.anim = null;
+          const G = WM.G, before = mx != null ? WM.gWorld(c, mx, my) : { x: -1 };
+          G.dist = 1 + U.clamp((G.dist - 1) * f, G.min - 1, G.max - 1); G.anim = null;
           if (before.x >= 0) { WM.globeStep(); const after = WM.gWorld(c, mx, my); if (after.x >= 0) { G.yaw += (Globe().dx(world, after.x, before.x)) / world.W * Math.PI * 2 * -1; G.pitch = U.clamp(G.pitch - (Globe().lat(world, after.y) - Globe().lat(world, before.y)), -1.45, 1.45); } }
-          G.lastInput = performance.now(); WM.drawSoon(game, c); return;
+          return poke();
         }
-        const before = WM.toWorld(c, mx, my);
-        V.z = U.clamp(V.z * (ev.deltaY < 0 ? 1.25 : 0.8), V.min, V.max);
-        const after = WM.toWorld(c, mx, my);
+        const cx = mx != null ? mx : c.width / 2, cy = my != null ? my : c.height / 2, before = WM.toWorld(c, cx, cy);
+        V.z = U.clamp(V.z / f, V.min, V.max);
+        const after = WM.toWorld(c, cx, cy);
         V.cx += before.x - after.x; V.cy += before.y - after.y;
-        WM.drawSoon(game, c);
-      }, { passive: false });
-      c.addEventListener('mousedown', ev => { if (ev.button !== 0) return; drag = { x: ev.clientX, y: ev.clientY, cx: V.cx, cy: V.cy, moved: false, yaw: WM.G && WM.G.yaw, pitch: WM.G && WM.G.pitch }; if (WM.G) WM.G.anim = null; });
+        poke();
+      };
+      c.addEventListener('wheel', ev => { ev.preventDefault(); const { mx, my } = ptr(ev); zoomAt(ev.deltaY < 0 ? 0.84 : 1.19, mx, my); }, { passive: false });
+      // ---- turning: drag (it spins on when you let go mid-drag), the altitude ruler, the keys
+      let drag = null;
+      c.addEventListener('mousedown', ev => {
+        if (ev.button !== 0) return;
+        const { mx, my } = ptr(ev), Rr = WM._ruler;
+        if (globe() && Rr && mx > Rr.x - 14 && mx < Rr.x + 14 && my > Rr.y0 - 8 && my < Rr.y1 + 8) { drag = { ruler: true }; WM.rulerSet(c, my); poke(); return; }
+        drag = { x: ev.clientX, y: ev.clientY, cx: V.cx, cy: V.cy, moved: false, yaw: WM.G && WM.G.yaw, pitch: WM.G && WM.G.pitch, trail: [] };
+        if (WM.G) { WM.G.anim = null; WM.G.spinV = null; }
+      });
       const move = ev => {
-        const r = c.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+        const { mx, my } = ptr(ev);
+        if (drag && drag.ruler) { WM.rulerSet(c, my); poke(); return; }
         if (drag) {
           const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
           if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
-          if (drag.moved && WM.isGlobe(world)) {
+          drag.trail.push({ t: performance.now(), x: ev.clientX, y: ev.clientY }); if (drag.trail.length > 8) drag.trail.shift();
+          if (drag.moved && globe()) {
             const G = WM.G, k = 0.0042 * (G.dist - 1) * 0.95;
             G.yaw = drag.yaw + dx * k; G.pitch = U.clamp(drag.pitch + dy * k, -1.45, 1.45);
-            G.lastInput = performance.now(); WM.drawSoon(game, c); c.style.cursor = 'grabbing'; return;
+            c.style.cursor = 'grabbing'; return poke();
           }
-          if (drag.moved) { V.cx = drag.cx - dx / V.z; V.cy = drag.cy - dy / V.z; WM.drawSoon(game, c); c.style.cursor = 'grabbing'; return; }
+          if (drag.moved) { V.cx = drag.cx - dx / V.z; V.cy = drag.cy - dy / V.z; c.style.cursor = 'grabbing'; return poke(); }
         }
         const f = WM.hit(c, mx, my);
-        if (WM.isGlobe(world)) {
+        if (globe()) {
           // the reading under the pointer: where on the globe, and what land
           const p = WM.gWorld(c, mx, my), was = WM._hoverLL;
-          WM._hoverLL = p.x < 0 ? null : `${ECHO.Globe.fmtLatLon(world, p.x, p.y)}${ECHO.Globe.made(world, p.x, p.y) ? ' · ' + U.cap(((ECHO.World.regionAt(world, p.x, p.y) || {}).name) || '') : ' · uncharted'}`;
+          WM._hoverLL = p.x < 0 ? null : { ll: ECHO.Globe.fmtLatLon(world, p.x, p.y), land: ECHO.Globe.made(world, p.x, p.y) ? U.cap(((ECHO.World.regionAt(world, p.x, p.y) || {}).name) || '') : 'Uncharted', x: p.x, y: p.y };
           if (WM._hoverLL !== was && f === WM.hover) WM.drawSoon(game, c);
         }
         if (f !== WM.hover) { WM.hover = f; WM.drawSoon(game, c); }
         WM.tip(game, f, mx, my);
-        c.style.cursor = f ? 'pointer' : 'grab';
+        const Rr = WM._ruler;
+        c.style.cursor = f ? 'pointer' : globe() && Rr && mx > Rr.x - 14 && mx < Rr.x + 14 && my > Rr.y0 - 8 && my < Rr.y1 + 8 ? 'ns-resize' : 'grab';
       };
       const up = ev => {
         if (!drag) return;
         const was = drag; drag = null; c.style.cursor = 'grab';
-        if (was.moved) return;
-        const r = c.getBoundingClientRect(), mx = ev.clientX - r.left, my = ev.clientY - r.top;
+        if (was.ruler) return;
+        if (was.moved) {
+          // let go while still moving: the world spins on, slowing
+          if (globe() && was.trail.length > 1) {
+            const now = performance.now(), recent = was.trail.filter(p => now - p.t < 90);
+            if (recent.length > 1) { const a = recent[0], b = recent[recent.length - 1], dt = Math.max(16, b.t - a.t), G = WM.G, k = 0.0042 * (G.dist - 1) * 0.95; G.spinV = { yaw: (b.x - a.x) / dt * k, pitch: (b.y - a.y) / dt * k }; if (Math.hypot(G.spinV.yaw, G.spinV.pitch) < 0.00012) G.spinV = null; }
+          }
+          return;
+        }
+        const { mx, my } = ptr(ev);
+        // an arrow at the edge: to where it points
+        const E = (WM._edge || []).find(e => Math.hypot(e.x - mx, e.y - my) < 26);
+        if (E) { if (E.what === 'goal') WM.goGoal(game, c); else WM.flyTo(game, pl.x, pl.y, globe() ? Math.min(WM.G.dist, 2.0) : null); return; }
         const f = WM.hit(c, mx, my);
         if (f) WM.select(game, f);
         else { const p = WM.toWorld(c, mx, my); if (p.x >= 0 && p.y >= 0 && p.x < world.W && p.y < world.H && (WM.revealed(pl) || game.explored(p.x, p.y))) WM.select(game, { kind: 'mark', x: p.x, y: p.y, name: 'A spot you marked', sub: (ECHO.World.regionAt(world, p.x, p.y) || {}).name || '', color: '#ffe08a' }); else { WM.sel = null; WM.side(game, c); } }
         WM.draw(game, c);
       };
-      c.addEventListener('mousemove', move);
-      c.addEventListener('mouseleave', () => { WM.hover = null; WM.tip(game, null); WM.drawSoon(game, c); });
+      // double-click: fly in to it
+      c.addEventListener('dblclick', ev => {
+        const { mx, my } = ptr(ev), f = WM.hit(c, mx, my), p = f || WM.toWorld(c, mx, my);
+        if (p.x < 0) return;
+        if (f) WM.select(game, f);
+        WM.flyTo(game, p.x, p.y, globe() ? Math.max(WM.G.min + 0.04, 1 + (WM.G.dist - 1) * 0.42) : null);
+      });
+      // right-click: a waypoint, and the way there
+      c.addEventListener('contextmenu', ev => {
+        ev.preventDefault();
+        const { mx, my } = ptr(ev), f = WM.hit(c, mx, my), p = f || WM.toWorld(c, mx, my);
+        if (p.x < 0 || p.y < 0 || p.x >= world.W || p.y >= world.H) return;
+        const m = f || { kind: 'mark', x: p.x, y: p.y, name: 'Your waypoint', sub: (ECHO.World.regionAt(world, p.x, p.y) || {}).name || '', color: '#ffe08a' };
+        if (m.kind === 'dungeon-cleared') return;
+        WM.select(game, m); WM.guide(game, m, true);
+      });
+      c.addEventListener('mousemove', ev => { if (!drag) move(ev); });
+      c.addEventListener('mouseleave', () => { if (drag) return; WM.hover = null; WM.tip(game, null); WM._hoverLL = null; WM.drawSoon(game, c); });
+      const wmove = ev => { if (drag) move(ev); };
+      window.addEventListener('mousemove', wmove);
       window.addEventListener('mouseup', up);
-      const stop = () => { if (!UI.panelOpen || UI.panelKind !== 'map') { window.removeEventListener('mouseup', up); window.removeEventListener('resize', rs); clearInterval(tick); } };
-      const rs = () => { if (UI.panelKind === 'map') { fit(); WM.draw(game, c); } };
+      // ---- the keys (while the map is open and you are not typing)
+      const held = WM._held = new Set();
+      const isOpen = () => UI.panelOpen && UI.panelKind === 'map';
+      const kd = ev => {
+        if (!isOpen()) return;
+        if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA')) return;
+        const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
+        if (['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'q', 'e', '+', '=', '-', '_'].includes(k)) { held.add(k); ev.preventDefault(); return; }
+        if (k === ' ' || k === 'c') { ev.preventDefault(); WM.flyTo(game, pl.x, pl.y, globe() ? Math.min(WM.G.dist, 2.0) : null); }
+        else if (k === 'g') { ev.preventDefault(); WM.goGoal(game, c); }
+        else if (k === 'h') { ev.preventDefault(); body.querySelector('[data-fit]').click(); }
+        else if (k === 't' && round) { ev.preventDefault(); body.querySelector('[data-globe]').click(); }
+        else if (k === '/' || k === 'f') { ev.preventDefault(); fin.focus(); fin.select(); }
+        else if (k === '?') { ev.preventDefault(); help(); }
+      };
+      const ku = ev => { const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key; held.delete(k); };
+      window.addEventListener('keydown', kd); window.addEventListener('keyup', ku);
+      // ---- every frame while the map is open: keys held, a spin let go, the globe's own slow life
+      let last = performance.now(), lastDraw = 0;
+      const loop = () => {
+        if (!isOpen() || !c.isConnected) { stop(); return; }
+        const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now;
+        let moved = false;
+        if (held.size) {
+          const ax = (held.has('a') || held.has('ArrowLeft') ? 1 : 0) - (held.has('d') || held.has('ArrowRight') ? 1 : 0);
+          const ay = (held.has('w') || held.has('ArrowUp') ? 1 : 0) - (held.has('s') || held.has('ArrowDown') ? 1 : 0);
+          const az = (held.has('e') || held.has('+') || held.has('=') ? 1 : 0) - (held.has('q') || held.has('-') || held.has('_') ? 1 : 0);
+          if (globe()) {
+            const G = WM.G, k = 1.5 * (G.dist - 1) * dt;
+            if (ax || ay) { G.anim = null; G.spinV = null; G.yaw += ax * k; G.pitch = U.clamp(G.pitch + ay * k, -1.45, 1.45); moved = true; }
+            if (az) { G.anim = null; G.dist = 1 + U.clamp((G.dist - 1) * Math.exp(-az * 1.6 * dt), G.min - 1, G.max - 1); moved = true; }
+          } else {
+            if (ax || ay) { V.cx -= ax * 420 * dt / V.z; V.cy -= ay * 420 * dt / V.z; moved = true; }
+            if (az) { V.z = U.clamp(V.z * Math.exp(az * 1.6 * dt), V.min, V.max); moved = true; }
+          }
+        }
+        const G = WM.G;
+        if (globe() && G.spinV && !drag) {
+          G.yaw += G.spinV.yaw * dt * 1000; G.pitch = U.clamp(G.pitch + G.spinV.pitch * dt * 1000, -1.45, 1.45);
+          const f = Math.exp(-dt * 3.2); G.spinV.yaw *= f; G.spinV.pitch *= f;
+          if (Math.hypot(G.spinV.yaw, G.spinV.pitch) < 0.00004) G.spinV = null;
+          moved = true;
+        }
+        if (moved && G) G.lastInput = now;
+        // the globe lives (its sweep, the pings round you): a frame thirty times a second; the flat chart four
+        const every = moved || (G && G.anim) ? 0 : globe() ? 33 : 250;
+        if (now - lastDraw >= every) { lastDraw = now; WM.draw(game, c); }
+        WM._raf2 = requestAnimationFrame(loop);
+      };
+      let stopped = false;
+      const stop = () => {
+        if (stopped) return; stopped = true;
+        window.removeEventListener('mouseup', up); window.removeEventListener('mousemove', wmove); window.removeEventListener('resize', rs); window.removeEventListener('keydown', kd); window.removeEventListener('keyup', ku);
+        cancelAnimationFrame(WM._raf2); held.clear(); if (WM.G) WM.G.spinV = null;
+      };
+      WM.isOpen = isOpen;
+      const rs = () => { if (isOpen()) { fit(); WM.draw(game, c); } };
       window.addEventListener('resize', rs);
-      const tick = setInterval(() => { stop(); if (UI.panelKind === 'map') WM.draw(game, c); }, 250);
-      body.querySelectorAll('[data-z]').forEach(b => b.addEventListener('click', () => { if (WM.isGlobe(world)) { WM.G.dist = U.clamp(WM.G.dist * (+b.dataset.z > 0 ? 0.8 : 1.25), WM.G.min, WM.G.max); WM.G.anim = null; } else V.z = U.clamp(V.z * (+b.dataset.z > 0 ? 1.4 : 0.7), V.min, V.max); WM.draw(game, c); }));
-      body.querySelector('[data-me]').addEventListener('click', () => { V.cx = pl.x; V.cy = pl.y; if (WM.isGlobe(world)) WM.globeFocus(pl.x, pl.y, Math.min(WM.G.dist, 2.2)); WM.draw(game, c); });
-      body.querySelector('[data-fit]').addEventListener('click', () => { V.cx = world.W / 2; V.cy = world.H / 2; V.z = Math.min(c.width / world.W, c.height / world.H) * 0.98; if (WM.isGlobe(world)) WM.globeFocus(pl.x, pl.y, 4.2); WM.draw(game, c); });
+      cancelAnimationFrame(WM._raf2); WM._raf2 = requestAnimationFrame(loop);
+      // ---- the buttons
+      body.querySelectorAll('[data-z]').forEach(b => b.addEventListener('click', () => zoomAt(+b.dataset.z > 0 ? 0.7 : 1.4)));
+      body.querySelector('[data-me]').addEventListener('click', () => WM.flyTo(game, pl.x, pl.y, globe() ? Math.min(WM.G.dist, 2.0) : null));
+      body.querySelector('[data-goal]').addEventListener('click', () => WM.goGoal(game, c));
+      body.querySelector('[data-fit]').addEventListener('click', () => { V.cx = world.W / 2; V.cy = world.H / 2; V.z = Math.min(c.width / world.W, c.height / world.H) * 0.98; if (globe()) WM.globeFocus(pl.x, pl.y, 3.6); WM.draw(game, c); });
       const gb = body.querySelector('[data-globe]');
       if (gb) gb.addEventListener('click', () => {
         if (WM.mode === 'globe') { const p = WM.gWorld(c, c.width / 2, c.height / 2); WM.mode = 'chart'; if (p.x >= 0) { V.cx = p.x; V.cy = p.y; } V.z = Math.max(V.z, 2.5); }
         else { WM.mode = 'globe'; WM.globeTex(game); WM.globeFocus(V.cx, V.cy, null, true); }
+        gb.querySelector('span').textContent = WM.mode === 'chart' ? 'Globe' : 'Chart';
         WM.globeShow(main); WM.draw(game, c);
       });
+      const helpEl = body.querySelector('.wmap-help');
+      const help = on => { const show = on != null ? on : helpEl.classList.contains('hidden'); helpEl.classList.toggle('hidden', !show); if (!show) { try { localStorage.setItem('echo.mapHelp', '1'); } catch (e) { /* (only a reminder) */ } } };
+      body.querySelectorAll('[data-help]').forEach(b => b.addEventListener('click', () => help()));
+      let seenHelp = false; try { seenHelp = !!localStorage.getItem('echo.mapHelp'); } catch (e) { seenHelp = true; }
+      if (!seenHelp) help(true);
+      body.querySelector('[data-fold]').addEventListener('click', ev => { WM.sideHidden = !WM.sideHidden; wrap.classList.toggle('noside', WM.sideHidden); ev.currentTarget.textContent = WM.sideHidden ? '⟨' : '⟩'; requestAnimationFrame(() => { fit(); WM.draw(game, c); }); });
       body.querySelector('[data-reveal]').addEventListener('click', ev => {
         pl.mapReveal = !WM.revealed(pl);
-        ev.currentTarget.classList.toggle('on', WM.revealed(pl)); ev.currentTarget.textContent = WM.revealed(pl) ? 'Whole map shown' : 'Only what you have walked';
+        ev.currentTarget.classList.toggle('on', WM.revealed(pl)); ev.currentTarget.textContent = WM.revealed(pl) ? '◉ Whole world shown' : '○ Only land you have walked';
         WM.regions = WM.regionCentres(world, pl); WM.feats = WM.features(game); WM._mf = null;
         if (world.globe && WM.G) { WM.fogC = WM.fog(world, pl); WM.globeTex(game); }
         WM.side(game, c); WM.draw(game, c);
       });
-      // find a place by name
+      body.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { WM.tab = b.dataset.tab; WM.side(game, c); }));
+      // ---- find a place by name (Enter: the first)
       const fin = body.querySelector('#map-find'), found = body.querySelector('#map-found');
       const places = () => WM.feats.concat(WM.regions.map(r => ({ layer: 'regions', kind: 'region', x: r.x, y: r.y, name: U.cap(r.name), color: '#efe3c8', sub: 'A region' })));
-      fin.addEventListener('keydown', ev => ev.stopPropagation());
+      let hits = [];
+      const go = f => { fin.blur(); found.innerHTML = ''; fin.value = f.name; if (f.kind !== 'region') WM.select(game, f); WM.flyTo(game, f.x, f.y, globe() ? Math.min(WM.G.dist, 1.6) : Math.max(V.z, 5)); };
+      fin.addEventListener('keydown', ev => {
+        ev.stopPropagation();
+        if (ev.key === 'Enter' && hits.length) go(hits[0]);
+        if (ev.key === 'Escape') { fin.value = ''; found.innerHTML = ''; fin.blur(); ev.preventDefault(); }
+      });
       fin.addEventListener('input', () => {
         const q = fin.value.trim().toLowerCase();
-        if (q.length < 2) { found.innerHTML = ''; return; }
-        const hits = places().filter(f => f.name.toLowerCase().includes(q)).sort((a, b) => a.name.toLowerCase().indexOf(q) - b.name.toLowerCase().indexOf(q) || U.dist(a.x, a.y, pl.x, pl.y) - U.dist(b.x, b.y, pl.x, pl.y)).slice(0, 8);
-        found.innerHTML = hits.length ? hits.map((f, i) => `<div class="dl" data-hit="${i}"><span class="dot" style="border-color:${f.color}"></span><span class="nm">${esc(f.name)}</span><span class="dd">${WM.dist(game, f).d}</span></div>`).join('') : '<div class="dim" style="font-size:12px">Nothing by that name.</div>';
-        found.querySelectorAll('[data-hit]').forEach(el => el.addEventListener('click', () => { const f = hits[+el.dataset.hit]; V.cx = f.x; V.cy = f.y; V.z = Math.max(V.z, 5); if (WM.isGlobe(world)) WM.globeFocus(f.x, f.y, Math.min(WM.G.dist, 1.7)); if (f.kind !== 'region') WM.select(game, f); WM.draw(game, c); }));
+        if (q.length < 2) { found.innerHTML = ''; hits = []; return; }
+        const dd = f => WM.dist(game, f).d;
+        hits = places().filter(f => f.name.toLowerCase().includes(q)).sort((a, b) => a.name.toLowerCase().indexOf(q) - b.name.toLowerCase().indexOf(q) || dd(a) - dd(b)).slice(0, 8);
+        found.innerHTML = hits.length ? hits.map((f, i) => { const D = WM.dist(game, f); return `<div class="dl" data-hit="${i}"><span class="dot" style="background:${f.color}"></span><span class="nm">${esc(f.name)}</span><span class="dd">${D.d < 3 ? 'here' : D.d + ' lg ' + DIR_S[D.dir]}</span></div>`; }).join('') : '<div class="none">Nothing by that name.</div>';
+        found.querySelectorAll('[data-hit]').forEach(el => el.addEventListener('mousedown', ev => { ev.preventDefault(); go(hits[+el.dataset.hit]); }));
       });
-      body.querySelectorAll('[data-layer]').forEach(b => b.addEventListener('click', () => { WM.layers[b.dataset.layer] = !WM.layers[b.dataset.layer]; b.classList.toggle('on', WM.layers[b.dataset.layer]); WM.draw(game, c); }));
+      body.querySelectorAll('[data-layer]').forEach(b => b.addEventListener('click', () => { WM.layers[b.dataset.layer] = !WM.layers[b.dataset.layer]; b.classList.toggle('on', WM.layers[b.dataset.layer]); WM.side(game, c); WM.draw(game, c); }));
       WM.side(game, c);
-      WM.key(body);
       WM.draw(game, c);
+    },
+    // fly the view to (x, y): over the globe in an arc (up, across, down), or across the chart
+    flyTo(game, x, y, dist) {
+      const c = document.getElementById('worldmap'), world = game.world;
+      if (WM.isGlobe(world)) WM.globeFocus(x, y, dist, false);
+      else { WM.view.cx = x; WM.view.cy = y; if (dist) WM.view.z = U.clamp(dist, WM.view.min, WM.view.max); }
+      if (c) WM.draw(game, c);
+    },
+    // to where you are headed (or, with nowhere chosen, say so)
+    goGoal(game, c) {
+      const goal = ECHO.Purpose && ECHO.Purpose.current(game);
+      if (!goal || !goal.where || goal.where.x == null) { ECHO.UI.toast('Nowhere chosen yet. Click a place and Guide me there — or right-click anywhere for a waypoint.', 'info', 4); return; }
+      WM.flyTo(game, goal.where.x, goal.where.y, WM.isGlobe(game.world) ? Math.min(WM.G.dist, 1.9) : Math.max(WM.view.z, 4));
+      void c;
+    },
+    // follow the line at the top of the screen to f (or stop)
+    guide(game, f, on) {
+      const pl = game.pl, id = WM.trackId(f);
+      pl.tracked = on ? id : null;
+      ECHO.Purpose._html = null; ECHO.Purpose.t = 0; if (ECHO.Nav) ECHO.Nav.route = null;
+      if (on) ECHO.UI.toast(`Waypoint set: ${f.name}. The line at the top of the screen points the way.`, 'info', 3);
+      const c = document.getElementById('worldmap'); WM.side(game, c); if (c) WM.draw(game, c);
+    },
+    // the altitude ruler: where on it is how high
+    rulerSet(c, my) {
+      const R = WM._ruler, G = WM.G; if (!R || !G) return;
+      const t = U.clamp((R.y1 - my) / (R.y1 - R.y0), 0, 1), lo = Math.log(G.min - 1), hi = Math.log(G.max - 1);
+      G.anim = null; G.spinV = null; G.dist = 1 + Math.exp(lo + (hi - lo) * t);
     },
     toScreen(c, x, y) { if (WM.isGlobe()) return WM.gScreen(c, x, y); const V = WM.view; return { x: (x - V.cx) * V.z + c.width / 2, y: (y - V.cy) * V.z + c.height / 2 }; },
     toWorld(c, sx, sy) { if (WM.isGlobe()) return WM.gWorld(c, sx, sy); const V = WM.view; return { x: (sx - c.width / 2) / V.z + V.cx, y: (sy - c.height / 2) / V.z + V.cy }; },
@@ -378,7 +556,8 @@
       if (!el) return;
       if (!f) { el.classList.add('hidden'); return; }
       const D = WM.dist(game, f);
-      el.innerHTML = `<b style="color:${f.color}">${esc(f.name)}</b><div>${esc(f.sub || '')}</div>${f.diff ? `<div style="color:${f.color}">${esc(f.diff)}</div>` : ''}<div class="dim">${D.d < 3 ? 'You are here' : `${D.d} leagues ${D.dir}`}${game.world.globe ? ' · ' + ECHO.Globe.fmtLatLon(game.world, f.x, f.y) : ''}</div>`;
+      el.style.setProperty('--c', f.color);
+      el.innerHTML = `<div class="k">${esc(KIND_NAME[f.kind] || 'Place')}</div><b>${esc(f.name)}</b>${f.sub ? `<div>${esc(f.sub)}</div>` : ''}${f.diff ? `<div style="color:${f.color}">${esc(f.diff)}</div>` : ''}<div class="m">${D.d < 3 ? 'You are here' : `${D.d} leagues ${D.dir}`}${game.world.globe ? ' · ' + ECHO.Globe.fmtLatLon(game.world, f.x, f.y) : ''}</div><div class="h">Click · details  ·  Double-click · fly in  ·  Right-click · guide me</div>`;
       el.classList.remove('hidden');
       el.style.left = Math.min(mx + 16, el.parentElement.clientWidth - 240) + 'px'; el.style.top = Math.max(4, my - 10) + 'px';
     },
@@ -387,24 +566,38 @@
       return `mark:${f.x.toFixed(1)}:${f.y.toFixed(1)}:${f.name}`;
     },
     select(game, f) { WM.sel = f; WM.side(game, document.getElementById('worldmap')); },
-    // The side panel: the selected place, and the dungeons you know.
+    // The side panel: the selected place, then what is near (or the dungeons you know, or the key).
     side(game, c) {
       const pl = game.pl, world = game.world;
-      const sel = document.getElementById('map-sel'), list = document.getElementById('map-dlist');
+      const sel = document.getElementById('map-sel'), list = document.getElementById('map-list');
       if (!sel || !list) return;
-      const f = WM.sel;
+      const f = WM.sel, round = !!world.globe;
       if (f) {
         const D = WM.dist(game, f), id = WM.trackId(f), on = pl.tracked === id || (pl.tracked && f.kind === 'mark' && pl.tracked.startsWith('mark:') && pl.tracked.endsWith(':' + f.name) && Math.abs(parseFloat(pl.tracked.split(':')[1]) - f.x) < 0.2);
-        sel.innerHTML = `<div class="card"><h4 style="color:${f.color}">${esc(f.name)}</h4><div>${esc(f.sub || '')}</div>${f.diff ? `<div style="color:${f.color}">${esc(f.diff)}</div>` : ''}<div class="dim">${D.d < 3 ? 'You are here' : `${D.d} leagues ${D.dir}`}</div>
-          ${f.kind === 'dungeon-cleared' ? '' : `<div class="row"><button class="small" data-track="1">${on ? 'Stop guiding' : 'Guide me there'}</button></div>`}</div>`;
+        sel.innerHTML = `<div class="card${on ? ' on' : ''}" style="--c:${f.color}"><div class="kind">${esc(KIND_NAME[f.kind] || f.layer || 'Place')}</div><h4>${esc(f.name)}</h4>${f.sub ? `<div class="sub">${esc(f.sub)}</div>` : ''}${f.diff ? `<div class="diff" style="color:${f.color}">${esc(f.diff)}</div>` : ''}
+          <div class="read"><span><b>${D.d < 3 ? '—' : D.d}</b>${D.d < 3 ? 'you are here' : 'leagues ' + D.dir}</span>${round ? `<span><b>${esc(ECHO.Globe.fmtLatLon(world, f.x, f.y))}</b>position</span>` : ''}</div>
+          <div class="row">${f.kind === 'dungeon-cleared' ? '' : `<button class="go${on ? ' on' : ''}" data-track="1">${on ? '■ Stop guiding' : '➤ Guide me there'}</button>`}<button data-fly="1" title="Fly the view there (double-click does too)">◎ Fly to</button><button data-unsel="1" title="Close">✕</button></div></div>`;
         const b = sel.querySelector('[data-track]');
-        if (b) b.addEventListener('click', () => { pl.tracked = on ? null : id; ECHO.Purpose._html = null; ECHO.Purpose.t = 0; if (!on) ECHO.UI.toast(`The line at the top of the screen now points to ${f.name}.`, 'info', 3); WM.side(game, c); WM.draw(game, c); });
-      } else sel.innerHTML = '<p class="dim" style="font-size:13px">Click any place on the map for details, or empty land you have walked to mark a spot — then <b>Guide me there</b> and the line at the top of the screen will point the way.</p>';
-      const ds = WM.feats.filter(x => x.layer === 'dungeons').sort((a, b) => U.dist(a.x, a.y, pl.x, pl.y) - U.dist(b.x, b.y, pl.x, pl.y));
-      const total = ECHO.Explore.sites(world).filter(s => s.cat === 'delve').length;
-      list.innerHTML = ds.length ? ds.map((x, i) => `<div class="dl ${WM.sel === x ? 'on' : ''}" data-goto="${i}"><span class="dot" style="border-color:${x.color}"></span><span class="nm">${esc(x.name)}</span><span class="st">${x.kind === 'dungeon-cleared' ? '✓' : x.stars}</span><span class="dd">${WM.dist(game, x).d}</span></div>`).join('') + `<div class="dim" style="font-size:12px;margin-top:4px">${total - ds.length} more lie uncharted.</div>`
-        : '<p class="dim" style="font-size:13px">None yet. Explore — hilltop lookouts show you what lies around them.</p>';
-      list.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click', () => { const x = ds[+el.dataset.goto]; WM.view.cx = x.x; WM.view.cy = x.y; WM.view.z = Math.max(WM.view.z, 5); if (WM.isGlobe(world)) WM.globeFocus(x.x, x.y, Math.min(WM.G.dist, 1.7)); WM.select(game, x); WM.draw(game, c); }));
+        if (b) b.addEventListener('click', () => WM.guide(game, f, !on));
+        sel.querySelector('[data-fly]').addEventListener('click', () => WM.flyTo(game, f.x, f.y, WM.isGlobe(world) ? Math.min(WM.G.dist, 1.6) : Math.max(WM.view.z, 5)));
+        sel.querySelector('[data-unsel]').addEventListener('click', () => { WM.sel = null; WM.side(game, c); if (c) WM.draw(game, c); });
+      } else sel.innerHTML = `<div class="card idle"><div class="kind">Navigation</div><p>Click a place for its details, then <b>Guide me there</b> — the line at the top of the screen points the way. Or <b>right-click</b> anywhere for a waypoint.</p></div>`;
+      document.querySelectorAll('.wmap-tabs [data-tab]').forEach(t => t.classList.toggle('on', t.dataset.tab === (WM.tab || 'near')));
+      const rowOf = (x, i, extra) => { const D = WM.dist(game, x); return `<div class="dl ${WM.sel === x ? 'on' : ''}" data-goto="${i}"><span class="dot" style="background:${x.color}"></span><span class="nm">${esc(x.name)}</span>${extra || ''}<span class="dd">${D.d < 3 ? 'here' : `${D.d}<i>${DIR_S[D.dir]}</i>`}</span></div>`; };
+      const wire = arr => list.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('click', () => { const x = arr[+el.dataset.goto]; WM.select(game, x); WM.flyTo(game, x.x, x.y, WM.isGlobe(world) ? Math.min(WM.G.dist, 1.6) : Math.max(WM.view.z, 5)); }));
+      const tab = WM.tab || 'near';
+      if (tab === 'key') { list.innerHTML = '<div id="map-key"></div>'; WM.key(list); return; }
+      if (tab === 'dun') {
+        const ds = WM.feats.filter(x => x.layer === 'dungeons').sort((a, b) => WM.dist(game, a).d - WM.dist(game, b).d);
+        const total = ECHO.Explore.sites(world).filter(s => s.cat === 'delve').length;
+        list.innerHTML = ds.length ? ds.map((x, i) => rowOf(x, i, `<span class="st">${x.kind === 'dungeon-cleared' ? '✓' : x.stars}</span>`)).join('') + `<div class="none">${total - ds.length} more lie uncharted.</div>`
+          : '<div class="none">None yet. Explore — hilltop lookouts show you what lies around them.</div>';
+        return wire(ds);
+      }
+      // what is near: the places shown on the map, nearest first
+      const near = WM.visible().filter(x => x.layer !== 'regions').map(x => ({ x, d: WM.dist(game, x).d })).sort((a, b) => a.d - b.d).slice(0, 40).map(o => o.x);
+      list.innerHTML = near.length ? near.map((x, i) => rowOf(x, i)).join('') : '<div class="none">Nothing known nearby yet — or every layer is off.</div>';
+      wire(near);
     },
     key(body) {
       const el = body.querySelector('#map-key');
@@ -480,6 +673,7 @@
         // the sharper painting is worked out only once the view is still (turning and zooming stay smooth)
         if (performance.now() - (G.lastInput || 0) > 180) WM.globeDetail(game, c);
         else if (!G._settle) G._settle = setTimeout(() => { G._settle = null; const cc = document.getElementById('worldmap'); if (cc) WM.drawSoon(game, cc); }, 200);
+        WM.globeFxStep(G);
         G.r.render(G.sc, G.cam);
         g.clearRect(0, 0, c.width, c.height);
         const Rpx = (c.height / 2) / Math.tan(G.cam.fov * Math.PI / 360) / Math.sqrt(Math.max(0.02, G.dist * G.dist - 1));
@@ -525,7 +719,7 @@
       }
       // the way there: the planned route, or a straight line if there is none yet
       const goal = ECHO.Purpose && ECHO.Purpose.current(game);
-      if (globe) { /* (on the globe: the flag alone) */ }
+      if (globe) { if (goal && goal.where && goal.where.x != null) WM.gRoute(game, c, g, goal, now); }
       else if (goal && goal.where && goal.where.x != null && ECHO.Nav && ECHO.Nav.drawOnMap(g, (x, y) => WM.toScreen(c, x, y), null, 3)) { /* drawn */ }
       else if (goal && goal.where && goal.where.x != null) {
         const a = WM.toScreen(c, pl.x, pl.y), b = WM.toScreen(c, goal.where.x, goal.where.y);
@@ -545,6 +739,15 @@
         const pulse = (f.ref && sug && f.ref === sug) || (pl.tracked === 'site:' + (f.ref && f.ref.id));
         WM.icon(g, f.kind, p.x, p.y, f.color, k * (hi ? 1.25 : 1), pulse ? now : 0);
         rects.push({ x: p.x - 9 * k, y: p.y - 9 * k, w: 18 * k, h: 18 * k });
+      }
+      // what the pointer is over, and what is chosen: rings of light round them
+      for (const { f, p } of pos) {
+        if (f === WM.hover && f !== WM.sel) { g.strokeStyle = HOLO + '0.85)'; g.lineWidth = 1.5; g.shadowColor = HOLO + '0.9)'; g.shadowBlur = 8; g.beginPath(); g.arc(p.x, p.y, 15 * k, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0; }
+        if (f === WM.sel) {
+          g.strokeStyle = HOLO + '0.95)'; g.lineWidth = 2; g.shadowColor = HOLO + '0.9)'; g.shadowBlur = 10;
+          for (let i = 0; i < 4; i++) { const a = now * 1.4 + i * Math.PI / 2; g.beginPath(); g.arc(p.x, p.y, 19 * k, a, a + 0.9); g.stroke(); }
+          g.shadowBlur = 0; g.globalAlpha = 0.5 + 0.5 * Math.sin(now * 5); g.beginPath(); g.arc(p.x, p.y, 24 * k + (now * 18) % 10, 0, Math.PI * 2); g.lineWidth = 1; g.stroke(); g.globalAlpha = 1;
+        }
       }
       // labels: dungeons and towns first
       const lblOrder = pos.slice().sort((a, b) => (b.f === WM.sel || b.f === WM.hover) - (a.f === WM.sel || a.f === WM.hover) || b.f.pri - a.f.pri);
@@ -568,10 +771,9 @@
       }
       WM._later = [];
       // where you are headed, and you
-      if (goal && goal.where && goal.where.x != null) { const b = WM.toScreen(c, goal.where.x, goal.where.y); WM.icon(g, 'flag', b.x, b.y - 6, '#ffe08a', 1.2); }
-      const me = WM.toScreen(c, pl.x, pl.y);
-      g.fillStyle = 'rgba(255,255,255,0.18)'; g.beginPath(); g.arc(me.x, me.y, 14 + Math.sin(now * 3) * 2, 0, Math.PI * 2); g.fill();
-      WM.icon(g, 'player', me.x, me.y, '#fff', 1.15, ECHO.Interior.cur ? 0 : (game.pe && game.pe.dir) || 0);
+      WM._edge = [];
+      if (goal && goal.where && goal.where.x != null) WM.gGoal(game, c, g, goal, now);
+      WM.gMe(game, c, g, now);
       if (globe) { WM.globeFrame(game, c, g); return; }
       // the chart's edge, darkened as old paper is
       const vg = g.createRadialGradient(c.width / 2, c.height / 2, Math.min(c.width, c.height) * 0.45, c.width / 2, c.height / 2, Math.max(c.width, c.height) * 0.75);
@@ -606,7 +808,7 @@
         // the sky round its rim
         const halo = new THREE.Mesh(new THREE.SphereGeometry(1.12, 96, 48), new THREE.ShaderMaterial({ transparent: true, side: THREE.BackSide, depthWrite: false, blending: THREE.AdditiveBlending,
           vertexShader: 'varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-          fragmentShader: 'varying vec3 vN; void main(){ float k = pow(max(0.0, 0.7 - dot(vN, vec3(0.0, 0.0, 1.0))), 3.0); gl_FragColor = vec4(0.42, 0.66, 1.0, 1.0) * k * 1.6; }' }));
+          fragmentShader: 'varying vec3 vN; void main(){ float k = pow(max(0.0, 0.7 - dot(vN, vec3(0.0, 0.0, 1.0))), 3.0); gl_FragColor = vec4(0.3, 0.78, 1.0, 1.0) * k * 1.7; }' }));
         sc.add(halo);
         // and the stars past it
         const N = 2200, sp = new Float32Array(N * 3);
@@ -614,10 +816,59 @@
         const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
         sc.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: '#d8e0ff', size: 0.35, sizeAttenuation: true, transparent: true, opacity: 0.8 })));
         G = WM.G = { r, sc, cam, tilt, spin, ball, mat, sun, yaw: 0, pitch: 0, dist: 3.9, min: 1.09, max: 7, ray: new THREE.Raycaster(), anim: null };
+        try { WM.globeFx(G, wd); } catch (err) { console.error('ECHO: map light', err); }
       }
       G.r.domElement.className = 'wmap-globe';
       main.insertBefore(G.r.domElement, c);
       return G;
+    },
+    // The console's light on the globe: lines of latitude and longitude every fifteen degrees
+    // (the equator and the prime meridian brighter), a bright rim, a slow sweep round it, and
+    // two rings in orbit with their satellites — faded as you come down toward the ground.
+    globeFx(G, world) {
+      const R = 1.0016, pts = [], strong = [];
+      const P = (lat, lon) => { const c = Math.cos(lat), ph = lon; return [-Math.cos(ph) * c * R, Math.sin(lat) * R, Math.sin(ph) * c * R]; };
+      const d2r = Math.PI / 180;
+      for (let la = -75; la <= 75; la += 15) { const out = la === 0 ? strong : pts; for (let i = 0; i < 144; i++) out.push(...P(la * d2r, i / 144 * Math.PI * 2), ...P(la * d2r, (i + 1) / 144 * Math.PI * 2)); }
+      for (let lo = 0; lo < 360; lo += 15) { const out = lo === 0 ? strong : pts; for (let j = 0; j < 72; j++) out.push(...P((-87 + j * 174 / 72) * d2r, lo * d2r), ...P((-87 + (j + 1) * 174 / 72) * d2r, lo * d2r)); }
+      const mk = (arr, op) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#5ff2ff', transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending })); };
+      G.grid = mk(pts, 0.16); G.gridS = mk(strong, 0.42); G.spin.add(G.grid); G.spin.add(G.gridS);
+      // the rim: a thin bright edge where the ball turns away from you
+      G.rim = new THREE.Mesh(new THREE.SphereGeometry(1.003, 96, 48), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uK: { value: 1 } },
+        vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'uniform float uK; varying vec3 vN; varying vec3 vV; void main(){ float f = 1.0 - max(0.0, dot(vN, vV)); gl_FragColor = vec4(0.37, 0.95, 1.0, 1.0) * pow(f, 4.0) * 0.9 * uK; }' }));
+      G.sc.add(G.rim);
+      // the sweep: a line of light going round the world, a fading trail behind it
+      G.sweep = new THREE.Mesh(new THREE.SphereGeometry(1.004, 96, 48), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: { uT: { value: 0 }, uK: { value: 1 } },
+        vertexShader: 'varying vec3 vP; varying vec3 vN; varying vec3 vV; void main(){ vP = position; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }',
+        fragmentShader: 'uniform float uT; uniform float uK; varying vec3 vP; varying vec3 vN; varying vec3 vV; void main(){ float a = atan(vP.z, vP.x); float d = mod(uT - a + 6.2831853, 6.2831853); float line = smoothstep(0.035, 0.0, min(d, 6.2831853 - d)); float trail = d < 3.14159 ? exp(-d * 2.2) * 0.22 : 0.0; float face = 0.35 + 0.65 * pow(1.0 - max(0.0, dot(vN, vV)), 1.5); gl_FragColor = vec4(0.37, 0.95, 1.0, 1.0) * (line * 0.55 + trail) * face * uK; }' }));
+      G.tilt.add(G.sweep);
+      // rings in orbit, and what goes round on them
+      G.orbits = new THREE.Group();
+      G.sats = [];
+      for (const [r, rx, rz, n, sp] of [[1.42, 1.18, 0.32, 3, 0.11], [1.68, 1.42, -0.5, 2, -0.07]]) {
+        const o = new THREE.Group(); o.rotation.set(rx, 0, rz);
+        const pts2 = []; for (let i = 0; i <= 256; i++) { const a = i / 256 * Math.PI * 2; pts2.push(Math.cos(a) * r, 0, Math.sin(a) * r); }
+        const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.Float32BufferAttribute(pts2, 3));
+        o.add(new THREE.Line(lg, new THREE.LineDashedMaterial({ color: '#5ff2ff', transparent: true, opacity: 0.32, dashSize: 0.04, gapSize: 0.03, depthWrite: false })));
+        o.children[0].computeLineDistances();
+        for (let i = 0; i < n; i++) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), new THREE.MeshBasicMaterial({ color: i ? '#bff8ff' : '#ffcf6a' })); s.userData = { r, a: i / n * Math.PI * 2, sp }; o.add(s); G.sats.push(s); }
+        G.orbits.add(o);
+      }
+      G.sc.add(G.orbits);
+      void world;
+    },
+    // the light's life, every drawing: the sweep goes round, the satellites along their rings,
+    // and all of it fades as you come down to the ground (where it would be in the way)
+    globeFxStep(G) {
+      if (!G.grid) return;
+      const t = performance.now() / 1000, far = U.clamp((G.dist - 1.25) / 1.1, 0, 1), mid = U.clamp((G.dist - 1.08) / 0.5, 0, 1);
+      G.grid.material.opacity = 0.05 + 0.13 * mid; G.gridS.material.opacity = 0.14 + 0.3 * mid;
+      G.rim.material.uniforms.uK.value = 0.35 + 0.65 * mid;
+      G.sweep.material.uniforms.uT.value = (t * 0.45) % (Math.PI * 2) - Math.PI; G.sweep.material.uniforms.uK.value = far; G.sweep.visible = far > 0.01;
+      G.orbits.visible = far > 0.02;
+      for (const o of G.orbits.children) { const ln = o.children[0]; ln.material.opacity = 0.3 * far; }
+      for (const s of G.sats) { const u = s.userData, a = u.a + t * u.sp * 6; s.position.set(Math.cos(a) * u.r, 0, Math.sin(a) * u.r); s.material.transparent = true; s.material.opacity = far; }
     },
     globeSize(c) { const G = WM.G; G.r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); G.r.setSize(c.width, c.height); G.cam.aspect = c.width / Math.max(1, c.height); G.cam.updateProjectionMatrix(); },
     globeShow(main) { const on = WM.isGlobe(); main.classList.toggle('globe', on); if (WM.G) WM.G.r.domElement.style.display = on ? 'block' : 'none'; },
@@ -638,11 +889,7 @@
         g.stroke();
       }
       if (!all) { g.globalAlpha = 0.55; g.drawImage(WM.fogC, -4 * k, -4 * ky, WM.fogC.width * 4 * k, WM.fogC.height * 4 * ky); g.globalAlpha = 1; }   // (on the globe the unwalked land shows through, paler)
-      // the lines of the globe: every fifteen degrees, the equator and the old island's meridian a little stronger
-      g.lineWidth = 1;
-      for (let i = 0; i <= 24; i++) { g.strokeStyle = 'rgba(90,62,30,0.2)'; g.beginPath(); g.moveTo(i * TW / 24, 0); g.lineTo(i * TW / 24, TH); g.stroke(); }
-      for (let i = 1; i < 12; i++) { g.strokeStyle = i === 6 ? 'rgba(150,60,30,0.38)' : 'rgba(90,62,30,0.2)'; g.lineWidth = i === 6 ? 1.6 : 1; g.beginPath(); g.moveTo(0, i * TH / 12); g.lineTo(TW, i * TH / 12); g.stroke(); }
-      if (world.globe) { const mx = (world.globe.old.x0 + world.globe.old.x1) / 2 * k; g.strokeStyle = 'rgba(255,232,180,0.26)'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(mx, 0); g.lineTo(mx, TH); g.stroke(); }
+      // (the lines of latitude and longitude are drawn in light over the globe: see globeFx)
       if (!G.tex) { G.tex = new THREE.CanvasTexture(cv); G.tex.encoding = THREE.sRGBEncoding; G.tex.anisotropy = G.r.capabilities.getMaxAnisotropy ? G.r.capabilities.getMaxAnisotropy() : 1; G.mat.map = G.tex; G.mat.needsUpdate = true; }
       else G.tex.needsUpdate = true;
       G.texKey = WM._baseKey; WM.globeSegsClear();
@@ -758,13 +1005,16 @@
       return g;
     },
     // turn the globe to bring (x, y) to face you, slowly or at once
-    globeFocus(x, y, dist, now) {
+    globeFocus(x, y, dist, now, dur) {
       const G = WM.G, world = ECHO.Game.world;
       const yaw = Math.PI / 2 - x / world.W * Math.PI * 2, pitch = U.clamp(ECHO.Globe.lat(world, y), -1.45, 1.45);
       let dy = ((yaw - G.yaw) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
       const to = { yaw: G.yaw + dy, pitch, dist: dist != null ? U.clamp(dist, G.min, G.max) : G.dist };
       if (now) { G.yaw = to.yaw; G.pitch = to.pitch; G.dist = to.dist; G.anim = null; return; }
-      G.anim = { from: { yaw: G.yaw, pitch: G.pitch, dist: G.dist }, to, t0: performance.now(), dur: 650 };
+      G.spinV = null;
+      // a long way round: up, across and down again, as a flight would go
+      const ang = Math.hypot(dy * Math.cos((pitch + G.pitch) / 2), pitch - G.pitch), arc = ang > 0.25 ? Math.min(1.6, ang * 0.55) * Math.max(0.4, Math.min(G.dist, to.dist) - 0.6) : 0;
+      G.anim = { from: { yaw: G.yaw, pitch: G.pitch, dist: G.dist }, to, arc, t0: performance.now(), dur: dur || U.clamp(600 + ang * 380, 600, 1500) };
       const step = () => { if (!G.anim) return; const c = document.getElementById('worldmap'); if (c && ECHO.Game) WM.draw(ECHO.Game, c); if (G.anim) requestAnimationFrame(step); };
       requestAnimationFrame(step);
     },
@@ -772,7 +1022,7 @@
       const G = WM.G;
       if (G.anim) {
         const a = G.anim, t = U.clamp((performance.now() - a.t0) / a.dur, 0, 1), e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-        G.yaw = a.from.yaw + (a.to.yaw - a.from.yaw) * e; G.pitch = a.from.pitch + (a.to.pitch - a.from.pitch) * e; G.dist = a.from.dist + (a.to.dist - a.from.dist) * e;
+        G.yaw = a.from.yaw + (a.to.yaw - a.from.yaw) * e; G.pitch = a.from.pitch + (a.to.pitch - a.from.pitch) * e; G.dist = a.from.dist + (a.to.dist - a.from.dist) * e + (a.arc || 0) * Math.sin(Math.PI * e);
         if (t >= 1) G.anim = null;
       }
       if (ECHO.Game && ECHO.Game.world) { WM.base(ECHO.Game.world); if (G.texKey !== WM._baseKey) WM.globeTex(ECHO.Game); }
@@ -796,8 +1046,10 @@
         G.sun.position.copy(d.multiplyScalar(10));
       }
     },
-    gScreen(c, x, y) {
-      const G = WM.G, p = WM.gPoint(ECHO.Game.world, x, y).applyMatrix4(G.spin.matrixWorld);
+    gScreen(c, x, y) { return WM.gScreenV(c, WM.gPoint(ECHO.Game.world, x, y)); },
+    // a point of the ball (unturned) on the screen, or hidden behind it
+    gScreenV(c, v) {
+      const G = WM.G, p = (G._sv = G._sv || new THREE.Vector3()).copy(v).applyMatrix4(G.spin.matrixWorld);
       const facing = p.z * G.dist - 1;                                   // (seen only from the near side of the ball)
       if (facing < 0.05 * (G.dist - 1)) return { x: -9999, y: -9999, hidden: true };
       const q = p.project(G.cam);
@@ -822,29 +1074,145 @@
       if (WM._raf) return;
       WM._raf = requestAnimationFrame(() => { WM._raf = 0; WM.draw(game, c); });
     },
-    // what goes round the globe on the screen: its name, a compass rose of the poles, the reading under the pointer
-    globeFrame(game, c, g) {
-      const world = game.world, G = WM.G;
-      g.font = 'italic bold 18px "Cormorant Garamond", Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-      const label = world.name, tw = g.measureText(label).width + 36;
-      g.fillStyle = 'rgba(236,224,190,0.88)'; g.strokeStyle = 'rgba(58,42,24,0.85)'; g.lineWidth = 1.5; g.fillRect(c.width / 2 - tw / 2, 8, tw, 28); g.strokeRect(c.width / 2 - tw / 2 + 3, 11, tw - 6, 22);
-      g.fillStyle = '#3a2a18'; g.fillText(label, c.width / 2, 22);
-      // the poles, where they can be seen
-      for (const [yy, t] of [[0.5, 'N'], [world.H - 0.5, 'S']]) {
-        const p = WM.gScreen(c, world.W / 2, yy); if (p.hidden) continue;
-        g.fillStyle = 'rgba(20,14,8,0.6)'; g.beginPath(); g.arc(p.x, p.y, 9, 0, Math.PI * 2); g.fill(); g.fillStyle = '#e8c86a'; g.font = 'bold 11px sans-serif'; g.fillText(t, p.x, p.y + 0.5);
+    // ---- on the map, over the land
+    // The way there: along the planned route, or (with none, or from the sky) the short way over
+    // the ball, a great circle; a glow under a bright line whose dashes run toward the goal.
+    gRoute(game, c, g, goal, now) {
+      const world = game.world, pl = game.pl, R = ECHO.Nav && ECHO.Nav.route, globe = WM.isGlobe(world);
+      let scr = [];
+      if (R && R.ok && !R.air && R.pts && R.pts.length > 1) scr = [{ x: pl.x, y: pl.y }].concat(R.pts.slice(R.i + 1)).map(q => WM.toScreen(c, q.x, q.y));
+      else if (globe) {
+        const a = WM.gPoint(world, pl.x, pl.y), b = WM.gPoint(world, goal.where.x, goal.where.y), om = Math.acos(U.clamp(a.dot(b), -1, 1)), n = Math.max(2, Math.ceil(om * 90)), so = Math.sin(om) || 1;
+        for (let i = 0; i <= n; i++) { const t = i / n, ka = Math.sin((1 - t) * om) / so, kb = Math.sin(t * om) / so; scr.push(WM.gScreenV(c, (WM._rv = WM._rv || new THREE.Vector3()).set(a.x * ka + b.x * kb, a.y * ka + b.y * kb, a.z * ka + b.z * kb))); }
+      } else return;
+      const path = () => { g.beginPath(); let on = false; for (const p of scr) { if (p.hidden) { on = false; continue; } if (!on) { g.moveTo(p.x, p.y); on = true; } else g.lineTo(p.x, p.y); } };
+      g.save(); g.lineCap = 'round'; g.lineJoin = 'round';
+      path(); g.strokeStyle = HOLO + '0.16)'; g.lineWidth = 9; g.stroke();
+      path(); g.strokeStyle = HOLO + '0.95)'; g.lineWidth = 2.2; g.setLineDash([10, 7]); g.lineDashOffset = -now * 28; g.shadowColor = HOLO + '0.9)'; g.shadowBlur = 6; g.stroke();
+      g.restore();
+    },
+    // where you are headed: a beacon of light over it, and (off the screen, or round the far side
+    // of the world) an arrow at the edge pointing the way to it
+    gGoal(game, c, g, goal, now) {
+      const world = game.world, b = WM.toScreen(c, goal.where.x, goal.where.y), D = WM.dist(game, { x: goal.where.x, y: goal.where.y });
+      const w = c.width, h = c.height, inView = !b.hidden && b.x > 20 && b.y > 20 && b.x < w - 20 && b.y < h - 20;
+      if (inView) {
+        const top = b.y - 46, gr = g.createLinearGradient(0, b.y, 0, top);
+        gr.addColorStop(0, AMBER + '0.95)'); gr.addColorStop(1, AMBER + '0)');
+        g.strokeStyle = gr; g.lineWidth = 3; g.beginPath(); g.moveTo(b.x, b.y); g.lineTo(b.x, top); g.stroke();
+        const ph = (now * 0.9) % 1; g.strokeStyle = AMBER + (0.8 * (1 - ph)).toFixed(3) + ')'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(b.x, b.y, 6 + ph * 22, (6 + ph * 22) * 0.45, 0, 0, Math.PI * 2); g.stroke();
+        g.save(); g.translate(b.x, b.y - 26); g.rotate(Math.PI / 4); g.fillStyle = AMBER + '1)'; g.shadowColor = AMBER + '0.9)'; g.shadowBlur = 10; g.fillRect(-5, -5, 10, 10); g.restore();
+        g.font = '600 11px ui-monospace, Consolas, monospace'; g.textAlign = 'center'; g.fillStyle = AMBER + '1)'; g.strokeStyle = 'rgba(4,10,18,0.9)'; g.lineWidth = 3;
+        const t = (goal.where.name || 'Goal') + (D.d >= 3 ? `  ${D.d} LG` : '');
+        g.strokeText(t.toUpperCase(), b.x, top - 9); g.fillText(t.toUpperCase(), b.x, top - 9);
+        return;
       }
-      // how much of the world is known
+      WM.edgeArrow(c, g, goal.where.x, goal.where.y, AMBER, `GOAL ${D.d} LG`, 'goal');
+      void world;
+    },
+    // an arrow at the edge of the view toward a place that is not in it
+    edgeArrow(c, g, x, y, col, label, what) {
+      const w = c.width, h = c.height, cx = w / 2, cy = h / 2;
+      let a;
+      if (WM.isGlobe()) {
+        const G = WM.G, p = WM.gPoint(ECHO.Game.world, x, y).applyMatrix4(G.spin.matrixWorld), q = p.clone().project(G.cam);
+        a = Math.atan2(-q.y * h, q.x * w);
+        if (Math.hypot(q.x, q.y) < 0.02) a = Math.atan2(-p.y, p.x);   // (straight behind the world: the way it leans)
+      } else { const s = WM.toScreen(c, x, y); a = Math.atan2(s.y - cy, s.x - cx); }
+      const rx = w / 2 - 70, ry = h / 2 - 64;
+      // (two arrows the same way: the second steps along the edge)
+      for (let k = 0; k < 4 && (WM._edge || []).some(e => Math.hypot(e.x - (cx + Math.cos(a) * rx), e.y - (cy + Math.sin(a) * ry)) < 46); k++) a += 0.16;
+      const ex = cx + Math.cos(a) * rx, ey = cy + Math.sin(a) * ry;
+      g.save(); g.translate(ex, ey); g.rotate(a);
+      g.fillStyle = col + '0.95)'; g.shadowColor = col + '0.9)'; g.shadowBlur = 10;
+      g.beginPath(); g.moveTo(14, 0); g.lineTo(-6, 9); g.lineTo(-2, 0); g.lineTo(-6, -9); g.closePath(); g.fill();
+      g.restore();
+      g.font = '600 10px ui-monospace, Consolas, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const lx = ex - Math.cos(a) * 26, ly = ey - Math.sin(a) * 18;
+      g.lineWidth = 3; g.strokeStyle = 'rgba(4,10,18,0.9)'; g.strokeText(label, lx, ly); g.fillStyle = col + '1)'; g.fillText(label, lx, ly);
+      (WM._edge = WM._edge || []).push({ x: ex, y: ey, what });
+    },
+    // you: pings going out round you, the way you face as a cone of light, and your arrow
+    gMe(game, c, g, now) {
+      const pl = game.pl, pe = game.pe, me = WM.toScreen(c, pl.x, pl.y), w = c.width, h = c.height;
+      const inView = !me.hidden && me.x > 10 && me.y > 10 && me.x < w - 10 && me.y < h - 10;
+      if (!inView) { WM.edgeArrow(c, g, pl.x, pl.y, HOLO, 'YOU', 'me'); return; }
+      const dir = ECHO.Interior.cur ? 0 : (pe && pe.dir) || 0, ah = WM.toScreen(c, pl.x + Math.cos(dir) * 4, pl.y + Math.sin(dir) * 4);
+      const a = ah.hidden ? dir : Math.atan2(ah.y - me.y, ah.x - me.x);
+      for (let i = 0; i < 2; i++) { const ph = (now * 0.7 + i * 0.5) % 1; g.strokeStyle = HOLO + (0.7 * (1 - ph)).toFixed(3) + ')'; g.lineWidth = 1.5; g.beginPath(); g.arc(me.x, me.y, 8 + ph * 34, 0, Math.PI * 2); g.stroke(); }
+      const cone = g.createRadialGradient(me.x, me.y, 4, me.x, me.y, 46);
+      cone.addColorStop(0, HOLO + '0.42)'); cone.addColorStop(1, HOLO + '0)');
+      g.fillStyle = cone; g.beginPath(); g.moveTo(me.x, me.y); g.arc(me.x, me.y, 46, a - 0.45, a + 0.45); g.closePath(); g.fill();
+      g.shadowColor = HOLO + '1)'; g.shadowBlur = 12;
+      WM.icon(g, 'player', me.x, me.y, '#fff', 1.15, a);
+      g.shadowBlur = 0;
+    },
+    // ---- the console round the globe: corner marks, the middle's reticle, a compass that turns
+    // with the world, the altitude ruler (drag it), a scale, and what lies under the pointer
+    globeFrame(game, c, g) {
+      const world = game.world, G = WM.G, w = c.width, h = c.height, now = performance.now() / 1000;
+      g.save(); g.textBaseline = 'middle';
+      const mono = (px, wt) => `${wt || 500} ${px}px ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace`;
+      // corners
+      g.strokeStyle = HOLO + '0.55)'; g.lineWidth = 2;
+      for (const [x, y, sx, sy] of [[10, 10, 1, 1], [w - 10, 10, -1, 1], [10, h - 10, 1, -1], [w - 10, h - 10, -1, -1]]) { g.beginPath(); g.moveTo(x, y + sy * 26); g.lineTo(x, y); g.lineTo(x + sx * 26, y); g.stroke(); }
+      // the reticle in the middle
+      const cx = w / 2, cy = h / 2;
+      g.strokeStyle = HOLO + '0.32)'; g.lineWidth = 1; g.beginPath(); g.arc(cx, cy, 15, 0, Math.PI * 2); g.stroke();
+      for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * 20, cy + Math.sin(a) * 20); g.lineTo(cx + Math.cos(a) * 28, cy + Math.sin(a) * 28); g.stroke(); }
+      g.fillStyle = HOLO + '0.6)'; g.fillRect(cx - 1, cy - 1, 2, 2);
+      // the compass: north as the world is turned
+      const p0 = WM.gWorld(c, cx, cy);
+      let aN = -Math.PI / 2;
+      if (p0.x >= 0) { const q0 = WM.gScreen(c, p0.x, p0.y), q = WM.gScreen(c, p0.x, Math.max(0.01, p0.y - 8)); if (!q.hidden && !q0.hidden && Math.hypot(q.x - q0.x, q.y - q0.y) > 0.5) aN = Math.atan2(q.y - q0.y, q.x - q0.x); }
+      const kx = w - 54, ky = 54, kr = 30;
+      g.fillStyle = 'rgba(4,12,22,0.72)'; g.beginPath(); g.arc(kx, ky, kr + 6, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = HOLO + '0.6)'; g.lineWidth = 1.2; g.beginPath(); g.arc(kx, ky, kr, 0, Math.PI * 2); g.stroke();
+      g.save(); g.translate(kx, ky); g.rotate(aN + Math.PI / 2);
+      for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, r0 = i % 6 ? kr - 4 : kr - 8; g.strokeStyle = HOLO + (i % 6 ? '0.35)' : '0.8)'); g.beginPath(); g.moveTo(Math.sin(a) * r0, -Math.cos(a) * r0); g.lineTo(Math.sin(a) * kr, -Math.cos(a) * kr); g.stroke(); }
+      g.fillStyle = AMBER + '1)'; g.beginPath(); g.moveTo(0, -kr + 9); g.lineTo(5, 0); g.lineTo(-5, 0); g.closePath(); g.fill();
+      g.fillStyle = HOLO + '0.5)'; g.beginPath(); g.moveTo(0, kr - 9); g.lineTo(5, 0); g.lineTo(-5, 0); g.closePath(); g.fill();
+      g.font = mono(10, 700); g.textAlign = 'center'; g.fillStyle = AMBER + '1)'; g.fillText('N', 0, -kr - 9 + 18 - 18);
+      g.restore();
+      // what lies under the pointer (or in the middle of the view)
+      const Hv = WM._hoverLL, at = Hv || (p0.x >= 0 ? { ll: ECHO.Globe.fmtLatLon(world, p0.x, p0.y), land: ECHO.Globe.made(world, p0.x, p0.y) ? U.cap(((ECHO.World.regionAt(world, p0.x, p0.y) || {}).name) || '') : 'Uncharted' } : null);
       const Gd = world.globe, made = Gd ? Gd.made.reduce((a, b) => a + b, 0) : 0, tot = Gd ? Gd.made.length : 1;
-      const a = WM._hoverLL;
-      g.font = '12px "Pixelify Sans", monospace'; g.textAlign = 'left';
-      const lines = [`${Math.max(1, Math.round(made / tot * 100))}% of the world's country known`, a ? a : 'Drag to turn the world · scroll to come closer'];
-      const bw = Math.max(...lines.map(t => g.measureText(t).width)) + 16;
-      g.fillStyle = 'rgba(20,14,8,0.62)'; g.fillRect(c.width - bw - 10, 10, bw, 38);
-      g.fillStyle = '#efe3c8'; lines.forEach((t, i) => g.fillText(t, c.width - bw - 2, 21 + i * 16));
-      if (ECHO.Updates && ECHO.Updates.build) { g.font = '11px "Pixelify Sans", monospace'; g.fillStyle = 'rgba(239,227,200,0.55)'; g.fillText('ECHO ' + ECHO.Updates.build, 14, c.height - 14); }
       g.textAlign = 'center';
-      void G;
+      const l1 = world.name.toUpperCase().split('').join(String.fromCharCode(8202)), l2 = `${Math.max(1, Math.round(made / tot * 100))}% CHARTED${at ? `   ◇ ${at.ll}${at.land ? '  ·  ' + at.land.toUpperCase() : ''}` : ''}`;
+      g.font = mono(11); const bw = Math.max(180, g.measureText(l2).width + 34), bx = Math.max(Math.min(cx - bw / 2, w - 150 - bw), Math.min(380, cx - bw / 2));
+      g.fillStyle = 'rgba(4,12,22,0.78)'; g.strokeStyle = HOLO + '0.3)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(bx + 10, 8); g.lineTo(bx + bw - 10, 8); g.lineTo(bx + bw, 18); g.lineTo(bx + bw, 40); g.lineTo(bx + bw - 10, 50); g.lineTo(bx + 10, 50); g.lineTo(bx, 40); g.lineTo(bx, 18); g.closePath(); g.fill(); g.stroke();
+      const tx = bx + bw / 2;
+      g.font = mono(13, 700); g.fillStyle = '#d8fbff'; g.shadowColor = HOLO + '0.8)'; g.shadowBlur = 8; g.fillText(l1, tx, 21); g.shadowBlur = 0;
+      g.font = mono(11); g.fillStyle = Hv ? HOLO + '1)' : HOLO + '0.75)'; g.fillText(l2, tx, 38);
+      // the altitude ruler: drag it to come down or go up
+      const rx = w - 30, y0 = 132, y1 = Math.max(y0 + 80, h - 92);
+      WM._ruler = { x: rx, y0, y1 };
+      const lo = Math.log(G.min - 1), hi = Math.log(G.max - 1), t = U.clamp((Math.log(Math.max(1e-4, G.dist - 1)) - lo) / (hi - lo), 0, 1), my = y1 - (y1 - y0) * t;
+      g.strokeStyle = HOLO + '0.35)'; g.lineWidth = 1; g.beginPath(); g.moveTo(rx, y0); g.lineTo(rx, y1); g.stroke();
+      for (let i = 0; i <= 20; i++) { const yy = y0 + (y1 - y0) * i / 20; g.beginPath(); g.moveTo(rx - (i % 5 ? 3 : 7), yy); g.lineTo(rx + (i % 5 ? 3 : 7), yy); g.stroke(); }
+      g.fillStyle = HOLO + '0.25)'; g.fillRect(rx - 2, my, 4, y1 - my);
+      g.fillStyle = '#d8fbff'; g.shadowColor = HOLO + '1)'; g.shadowBlur = 8; g.beginPath(); g.moveTo(rx - 9, my); g.lineTo(rx - 18, my - 6); g.lineTo(rx - 18, my + 6); g.closePath(); g.fill(); g.shadowBlur = 0;
+      const alt = Math.round((G.dist - 1) * world.W / (Math.PI * 2));
+      g.font = mono(10, 600); g.textAlign = 'right'; g.fillStyle = HOLO + '0.9)';
+      g.fillText('ALT', rx - 22, my - 8); g.fillText(`${alt.toLocaleString()} LG`, rx - 22, my + 6);
+      g.textAlign = 'center'; g.fillStyle = HOLO + '0.55)'; g.fillText('ORBIT', rx, y0 - 14); g.fillText('GROUND', rx, y1 + 14);
+      // the scale: a round number of leagues across
+      const V = WM.view, nice = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000];
+      let lg = nice[0]; for (const n of nice) { lg = n; if (n * V.z > 70) break; }
+      const px = Math.min(220, lg * V.z), sx = 22, sy = h - 34;
+      g.strokeStyle = HOLO + '0.85)'; g.lineWidth = 2; g.beginPath(); g.moveTo(sx, sy - 5); g.lineTo(sx, sy); g.lineTo(sx + px, sy); g.lineTo(sx + px, sy - 5); g.stroke();
+      g.font = mono(11, 600); g.textAlign = 'left'; g.fillStyle = HOLO + '0.95)'; g.fillText(`${lg} LEAGUE${lg > 1 ? 'S' : ''}`, sx, sy - 14);
+      if (ECHO.Updates && ECHO.Updates.build) { g.font = mono(10); g.textAlign = 'right'; g.fillStyle = HOLO + '0.4)'; g.fillText('ECHO ' + ECHO.Updates.build, w - 18, h - 18); }
+      // coming in: a line of light passes down the view
+      const bt = (performance.now() - (WM._bootT || 0)) / 900;
+      if (bt < 1) {
+        const yy = bt * h, gr = g.createLinearGradient(0, yy - 60, 0, yy);
+        gr.addColorStop(0, HOLO + '0)'); gr.addColorStop(1, HOLO + (0.35 * (1 - bt)).toFixed(3) + ')');
+        g.fillStyle = gr; g.fillRect(0, yy - 60, w, 60); g.fillStyle = HOLO + (0.9 * (1 - bt)).toFixed(3) + ')'; g.fillRect(0, yy, w, 1.5);
+      }
+      g.restore();
+      void now;
     },
     rings(game, c, g) {
       if (!WM.layers.quests) return;

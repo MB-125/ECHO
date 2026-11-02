@@ -491,3 +491,95 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 .wmap-globe { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
 .wmap-main #worldmap { position: relative; z-index: 1; }
 .wmap-main .wmap-ctl, .wmap-main #map-tip, .wmap-main .wmap-hint { z-index: 2; }
+
+/* ---------------------------------------------------------------- the navigation console (the map) */
+.panel-inner.holo { --hc: #5ff2ff; --hc-d: rgba(95,242,255,0.32); --hc-f: rgba(95,242,255,0.12); --am: #ffcf6a; --glass: rgba(6,16,28,0.82);
+  background: linear-gradient(180deg, #071422 0%, #040a14 100%); border: 1px solid rgba(95,242,255,0.5); border-radius: 8px;
+  box-shadow: 0 0 0 1px #000, 0 0 36px rgba(40,200,255,0.2), inset 0 0 60px rgba(40,160,255,0.06), 0 24px 70px rgba(0,0,0,0.75); }
+.panel-inner.holo header { background: linear-gradient(90deg, rgba(30,90,130,0.45), rgba(8,22,38,0.1) 60%); border-bottom: 1px solid var(--hc-d); padding: 10px 16px; }
+.panel-inner.holo h2 { font-family: system-ui, "Segoe UI", Roboto, sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 0.32em; text-transform: uppercase; color: #d8fbff; text-shadow: 0 0 12px rgba(95,242,255,0.7); }
+.panel-inner.holo h2::before { content: '◈'; color: var(--hc); margin-right: 10px; }
+.panel-inner.holo header .close { background: transparent; border: 1px solid var(--hc-d); color: #bff8ff; border-radius: 4px; }
+.panel-inner.holo header .close:hover { background: var(--hc-f); border-color: var(--hc); color: #fff; }
+.wmap.holo { gap: 10px; font-family: system-ui, "Segoe UI", Roboto, sans-serif; color: #cfefff; }
+.wmap.holo .wmap-main { border: 1px solid var(--hc-d); border-radius: 6px; background: radial-gradient(ellipse at 50% 46%, #0f2a44 0%, #071526 50%, #02060c 100%); box-shadow: inset 0 0 40px rgba(0,0,0,0.6); }
+.wmap.holo .wmap-main:not(.globe) { background: #d8c7a0; }
+.wmap.holo.noside .wmap-side { display: none; }
+.wmap.holo button { font-family: system-ui, "Segoe UI", Roboto, sans-serif; }
+/* the left rail */
+.wmap.holo .wmap-ctl { left: 12px; top: 62px; gap: 6px; z-index: 3; }
+.wmap.holo .wmap-ctl i { display: block; height: 1px; margin: 2px 6px; background: var(--hc-d); }
+.wmap.holo .wmap-ctl button { position: relative; width: 40px; height: 40px; padding: 0; font-size: 18px; line-height: 1; color: #d8fbff; background: var(--glass); border: 1px solid var(--hc-d); border-radius: 8px; backdrop-filter: blur(6px); box-shadow: 0 0 12px rgba(0,0,0,0.4); transition: border-color .15s, box-shadow .15s, background .15s; }
+.wmap.holo .wmap-ctl button span { position: absolute; left: 48px; top: 50%; transform: translateY(-50%); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--hc); white-space: nowrap; opacity: 0.75; text-shadow: 0 0 6px #000, 0 0 2px #000; pointer-events: none; }
+.wmap.holo .wmap-ctl button:hover { background: rgba(20,60,90,0.85); border-color: var(--hc); box-shadow: 0 0 14px rgba(95,242,255,0.45); color: #fff; }
+.wmap.holo .wmap-ctl button:hover span { opacity: 1; }
+/* search, on the globe */
+.wmap.holo .wmap-search { position: absolute; left: 12px; top: 12px; width: min(340px, 50%); z-index: 4; }
+.wmap.holo .wmap-search input { width: 100%; box-sizing: border-box; padding: 9px 36px 9px 34px; font: 500 13px system-ui, "Segoe UI", sans-serif; color: #e6fbff; background: var(--glass); border: 1px solid var(--hc-d); border-radius: 8px; outline: none; backdrop-filter: blur(6px); letter-spacing: 0.02em; }
+.wmap.holo .wmap-search input:focus { border-color: var(--hc); box-shadow: 0 0 0 3px rgba(95,242,255,0.15), 0 0 18px rgba(95,242,255,0.25); }
+.wmap.holo .wmap-search input::placeholder { color: rgba(191,248,255,0.5); }
+.wmap.holo .wmap-search .ic { position: absolute; left: 11px; top: 7px; font-size: 17px; color: var(--hc); pointer-events: none; }
+.wmap.holo .wmap-search kbd { position: absolute; right: 9px; top: 8px; }
+.wmap.holo kbd { display: inline-block; min-width: 14px; padding: 1px 5px; font: 600 10px ui-monospace, Consolas, monospace; color: var(--hc); border: 1px solid var(--hc-d); border-radius: 4px; background: rgba(95,242,255,0.06); text-align: center; }
+.wmap.holo #map-found { margin-top: 4px; background: var(--glass); border: 1px solid var(--hc-d); border-radius: 8px; backdrop-filter: blur(8px); overflow: hidden; }
+.wmap.holo #map-found:empty { display: none; }
+.wmap.holo #map-found .none { padding: 8px 12px; font-size: 12px; color: rgba(191,248,255,0.6); }
+/* rows (search hits and the side lists) */
+.wmap.holo .dl { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; border-left: 2px solid transparent; }
+.wmap.holo .dl:hover, .wmap.holo .dl.on { background: rgba(95,242,255,0.09); border-left-color: var(--hc); }
+.wmap.holo .dl .dot { width: 8px; height: 8px; flex: none; border-radius: 50%; border: none; box-shadow: 0 0 6px currentColor; }
+.wmap.holo .dl .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e6fbff; }
+.wmap.holo .dl .st { font-size: 11px; color: var(--am); }
+.wmap.holo .dl .dd { font: 600 11px ui-monospace, Consolas, monospace; color: var(--hc); white-space: nowrap; }
+.wmap.holo .dl .dd i { font-style: normal; opacity: 0.6; margin-left: 4px; }
+/* the fold, the help card, the hint */
+.wmap.holo .wmap-fold { position: absolute; right: 100px; top: 12px; z-index: 3; width: 30px; height: 30px; padding: 0; font-size: 14px; color: #d8fbff; background: var(--glass); border: 1px solid var(--hc-d); border-radius: 6px; }
+.wmap.holo .wmap-fold:hover { border-color: var(--hc); box-shadow: 0 0 12px rgba(95,242,255,0.4); }
+.wmap.holo .wmap-hint { bottom: 10px; font: 500 11px system-ui, "Segoe UI", sans-serif; letter-spacing: 0.04em; color: rgba(207,239,255,0.8); background: var(--glass); border: 1px solid var(--hc-f); border-radius: 20px; padding: 5px 14px; backdrop-filter: blur(6px); white-space: nowrap; }
+.wmap.holo .wmap-hint b { color: var(--hc); font-weight: 700; }
+.wmap.holo .wmap-help { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 6; width: min(480px, 86%); padding: 18px 20px 16px; background: rgba(6,16,28,0.94); border: 1px solid var(--hc); border-radius: 10px; box-shadow: 0 0 40px rgba(95,242,255,0.25); backdrop-filter: blur(10px); font-size: 13px; }
+.wmap.holo .wmap-help.hidden { display: none; }
+.wmap.holo .wmap-help h5 { margin: 0 0 10px; font-size: 12px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--hc); }
+.wmap.holo .wmap-help > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 7px 0; color: #cfefff; }
+.wmap.holo .wmap-help > div span { margin-right: 8px; }
+.wmap.holo .wmap-help > button { margin-top: 10px; width: 100%; padding: 8px; color: #04121e; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; background: var(--hc); border: none; border-radius: 6px; }
+.wmap.holo .wmap-help > button:hover { background: #a8f8ff; }
+/* the tip by the pointer */
+.wmap.holo #map-tip { background: rgba(6,16,28,0.9); border: 1px solid var(--hc-d); border-left: 3px solid var(--c, var(--hc)); border-radius: 6px; padding: 8px 12px; color: #cfefff; font: 13px system-ui, "Segoe UI", sans-serif; backdrop-filter: blur(8px); box-shadow: 0 0 18px rgba(0,0,0,0.5); max-width: 260px; }
+.wmap.holo #map-tip .k { font: 700 9px system-ui, sans-serif; letter-spacing: 0.24em; text-transform: uppercase; color: var(--c, var(--hc)); opacity: 0.9; }
+.wmap.holo #map-tip b { display: block; font-size: 14px; color: #fff; margin: 1px 0 2px; }
+.wmap.holo #map-tip .m { margin-top: 4px; font: 600 11px ui-monospace, Consolas, monospace; color: var(--hc); }
+.wmap.holo #map-tip .h { margin-top: 5px; font-size: 10px; color: rgba(191,248,255,0.5); }
+/* the side panel */
+.wmap.holo .wmap-side { width: 300px; padding: 2px 2px 2px 0; font-size: 13px; scrollbar-width: thin; scrollbar-color: rgba(95,242,255,0.35) transparent; }
+.wmap.holo .card { position: relative; padding: 12px 14px; background: linear-gradient(180deg, rgba(14,40,62,0.75), rgba(6,16,28,0.75)); border: 1px solid var(--hc-d); border-left: 3px solid var(--c, var(--hc)); border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.35); }
+.wmap.holo .card.on { box-shadow: 0 0 0 1px rgba(255,207,106,0.35), 0 0 20px rgba(255,207,106,0.15); }
+.wmap.holo .card .kind { font: 700 9px system-ui, sans-serif; letter-spacing: 0.26em; text-transform: uppercase; color: var(--c, var(--hc)); }
+.wmap.holo .card h4 { margin: 3px 0 2px; font: 700 17px system-ui, "Segoe UI", sans-serif; color: #fff; }
+.wmap.holo .card .sub { color: rgba(207,239,255,0.8); }
+.wmap.holo .card p { margin: 6px 0 0; color: rgba(207,239,255,0.75); line-height: 1.45; }
+.wmap.holo .card p b { color: var(--hc); }
+.wmap.holo .card .read { display: flex; gap: 14px; margin: 10px 0 2px; }
+.wmap.holo .card .read span { display: flex; flex-direction: column; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(191,248,255,0.55); }
+.wmap.holo .card .read b { font: 700 14px ui-monospace, Consolas, monospace; letter-spacing: 0; color: var(--hc); text-transform: none; }
+.wmap.holo .card .row { display: flex; gap: 6px; margin-top: 10px; }
+.wmap.holo .card .row button { padding: 7px 10px; font-size: 12px; font-weight: 600; color: #d8fbff; background: rgba(95,242,255,0.07); border: 1px solid var(--hc-d); border-radius: 6px; }
+.wmap.holo .card .row button:hover { border-color: var(--hc); background: rgba(95,242,255,0.16); color: #fff; }
+.wmap.holo .card .row button.go { flex: 1; color: #04121e; background: var(--hc); border-color: var(--hc); }
+.wmap.holo .card .row button.go:hover { background: #a8f8ff; }
+.wmap.holo .card .row button.go.on { background: var(--am); border-color: var(--am); }
+.wmap.holo .wmap-sec { display: flex; align-items: center; justify-content: space-between; margin: 14px 0 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.26em; text-transform: uppercase; color: var(--hc); }
+.wmap.holo .wmap-sec .link { padding: 2px 6px; font-size: 10px; letter-spacing: 0.04em; text-transform: none; color: rgba(191,248,255,0.7); background: none; border: none; }
+.wmap.holo .wmap-sec .link.on, .wmap.holo .wmap-sec .link:hover { color: var(--hc); }
+.wmap.holo .wmap-layers { gap: 5px; }
+.wmap.holo .wmap-layers .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; font-size: 11px; font-weight: 600; color: rgba(207,239,255,0.55); background: rgba(95,242,255,0.03); border: 1px solid rgba(95,242,255,0.18); border-radius: 14px; opacity: 1; }
+.wmap.holo .wmap-layers .chip i { width: 7px; height: 7px; border-radius: 50%; opacity: 0.35; }
+.wmap.holo .wmap-layers .chip.on { color: #e6fbff; background: rgba(95,242,255,0.1); border-color: var(--hc-d); }
+.wmap.holo .wmap-layers .chip.on i { opacity: 1; box-shadow: 0 0 6px currentColor; }
+.wmap.holo .wmap-layers .chip:hover { border-color: var(--hc); }
+.wmap.holo .wmap-tabs { display: flex; margin: 12px 0 4px; border-bottom: 1px solid var(--hc-f); }
+.wmap.holo .wmap-tabs button { flex: 1; padding: 7px 0; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(191,248,255,0.5); background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0; }
+.wmap.holo .wmap-tabs button.on { color: var(--hc); border-bottom-color: var(--hc); text-shadow: 0 0 8px rgba(95,242,255,0.6); }
+.wmap.holo .wmap-tabs button:hover { color: #e6fbff; background: none; }
+.wmap.holo #map-list .none { padding: 10px; font-size: 12px; color: rgba(191,248,255,0.5); }
+.wmap.holo #map-key .kr { color: #cfefff; }

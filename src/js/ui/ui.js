@@ -313,6 +313,7 @@
       ECHO.Input.clear();
       $('#panel').classList.remove('hidden');
       $('#panel .panel-inner').classList.toggle('wide', kind === 'map');
+      $('#panel .panel-inner').classList.toggle('holo', kind === 'map');   // (the map is a navigation console)
       $('#panel h2').textContent = title;
       const body = $('#panel .panel-body');
       body.innerHTML = html;

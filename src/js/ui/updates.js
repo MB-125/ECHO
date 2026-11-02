@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.11.0', items: [
+      'The map (M) is now a navigation console: the globe glows, with lines of latitude and longitude in light, a bright rim, a slow sweep going round it and rings in orbit with their satellites (all fading away as you come down close), and round the view a compass that turns with the world, an altitude ruler you can drag to come down or go up, a scale, and a readout of where the pointer is.',
+      'Easier to use: search right on the globe (press / and type, Enter flies there); big buttons for Me, Goal, World and Chart; W A S D or the arrows turn the world and Q / E zoom; Space finds you, G flies to where you are headed, H shows the whole world, T switches to the flat chart; double-click flies in; right-click anywhere sets a waypoint and guides you to it; let go mid-drag and the world spins on.',
+      'The way to your goal is drawn on the globe as a line of light (along the planned road, or the short way over the world), with a beacon over the place; when it, or you, is out of sight an arrow at the edge points the way (click it to fly there).',
+      'The side panel: a card for the place you chose (Guide me there, Fly to), the map layers as switches, and a list of what is Nearby (nearest first), the Dungeons you know, or the Key. The side panel can be folded away for a bigger globe, and ? shows the controls.'
+    ] },
     { v: '0.10.13', items: [
       'Riding a horse over a pole works: before, the horse kept galloping the old way after you crossed, which threw you straight back over the pole, and back again, every frame — the view flickering, you spinning on its back, the horse facing every which way. Now the horse (and your own feet, a roll, a lunge, a slide on the ice, a boat you are rowing) turns with you over the top and carries straight on down the far side.',
       'Creatures carried over a pole with you turn every way they were heading and every push they were under, so a charge or a knock-back goes on the way it was going.'
