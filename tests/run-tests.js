@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js'
 ];
 
 function loadEcho() {
@@ -1259,6 +1259,57 @@ function main() {
     delete W2.guild; delete W2.player.fame; for (const x of Object.values(W2.npcs)) delete x.adv;
     let ok = true; try { for (let d = 0; d < 3; d++) ECHO.Sim.dailyTick(W2, true); } catch (e) { ok = false; console.log(e); }
     check('an old save takes it all up without a hitch', ok && Gd.members(W2).length >= 12 && !!W2.player.fame);
+  }
+
+  console.log('\nGreat events, and what towns become');
+  {
+    const W = ECHO.generateWorld({ seed: 4242, name: 'Events' }), WE = ECHO.WorldEvents, TL = ECHO.TownLife, X = ECHO.Explore;
+    const pl = W.player = ECHO.Character.create(W, new ECHO.RNG(9), { first: 'Eda', homeId: W.settlements[0].id });
+    for (let d = 0; d < 3; d++) ECHO.Sim.dailyTick(W, true);
+    // the Great Migration
+    const mg0 = ECHO.Migrations.st(W).list.length;
+    const m = WE.force(W, 'migration');
+    check('a great beast comes, and everything that can run, runs', !!m && ECHO.Migrations.st(W).list.length >= mg0 + 2 && /running from it/.test(m.headline), m && `${m.packs} packs, ${m.fled} people`);
+    // the Dungeon Bloom
+    const b = WE.force(W, 'bloom'), bs = b ? b.sites.map(id => X.byId(W, id)) : [];
+    check('the deep places of a region wake all at once', !!b && bs.length >= 3 && bs.every(s => s.bloom && !s.cleared && ['awakened', 'infested'].includes(s.life.state)) && W.plights.some(p => p.kind === 'delve' && b.sites.includes(p.siteId)), b && `${bs.length} dungeons`);
+    // clear one yourself: it counts
+    bs[2].cleared = true; ECHO.DungeonLife.cleared(W, bs[2], true);
+    check('and putting one down counts for you', b.mine === 1);
+    // the Broken Crown
+    const c = WE.force(W, 'crown');
+    const f = c && W.factions[c.fid];
+    check('a crown is disputed, and the kingdom splits town by town', !!c && Object.values(c.sides).includes('a') && Object.values(c.sides).includes('b') && f.ruler === c.a, c && c.headline);
+    WE.declare(W, c.id, 'a');
+    const game = { world: W, pl, pe: { hp: 100, maxHp: 100 } }; pl.hp = 100;
+    const r = WE.fight(game, c.id);
+    check('choose a side and fight in its battles', c.side === 'a' && !!r && c.battlesYou === 1 && pl.hp < 100);
+    c.until = W.day; ECHO.Sim.dailyTick(W, true);
+    check('the war ends, and the side you chose rewards you or hunts you', c.over && /war of the Broken Crown is over/.test(c.outcome) && (W.factions[c.fid].ruler === c.a ? (pl.gold > 0 || ECHO.Renown.get(W, 'influence') > 0) : (pl.wanted[c.fid] || 0) > 0), c.outcome);
+    // the Sleeping God
+    const g = WE.force(W, 'sleeper'), seat = g && X.byId(W, g.site);
+    check('the realm dreams of a sleeping god, and the place it sleeps', !!g && !!seat && seat.sleeper === g.id && seat.found && g.dreamers > 0 && W.chronicle.some(x => /dreamt the same dream/.test(x.text)), g && g.headline);
+    for (let d = 0; d < 25; d++) ECHO.Sim.dailyTick(W, true);
+    check('the ground shakes, and people walk away to sing to it', g.choir.length >= 1 && W.chronicle.some(x => /The ground shook/.test(x.text)) && g.choir.every(id => W.npcs[id].journey === 'choir' || W.npcs[id].status === 'dead'), `${g.choir.length} in the choir`);
+    // go down and sing it back to sleep
+    if (!g.over) { seat.cleared = true; seat.clearedDay = W.day; ECHO.DungeonLife.cleared(W, seat, true); }
+    check('reach the bottom of its seat, and it sleeps on', g.over && (/sleeps on/.test(g.outcome) || /turned over/.test(g.outcome)) && !seat.sleeper && WE.st(W).godDone, g.outcome);
+    // and it never comes twice
+    const S0 = WE.st(W); S0.last.sleeper = -1e9;
+    let again = false; for (let d = 0; d < 5; d++) { ECHO.Sim.dailyTick(W, true); if (WE.active(W, 'sleeper').length) again = true; }
+    check('the god comes once in a world', !again);
+    // what towns become
+    for (let d = 0; d < 12; d++) ECHO.Sim.dailyTick(W, true);
+    const kinds = new Set(W.settlements.filter(s => s.char).map(s => s.char.kind));
+    check('every town has a character of its own, made from who lives there', W.settlements.filter(s => s.faction !== 'ashfang').every(s => s.char && TL.KINDS[s.char.kind]) && kinds.size >= 3, [...kinds].join(', '));
+    const t = W.settlements.find(s => s.faction !== 'ashfang' && s.residents.length > 10);
+    t.prosperity = 5; t.unrest = 80; t._peak = t.residents.length * 3; TL.judge(W, t);
+    check('a town can fall into decline, and the Chronicle says so', t.char.kind === 'declining' && W.chronicle.some(x => x.sid === t.id && /in decline/.test(x.text)));
+    const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
+    check('great events and towns\' characters survive a save', W2.wev && W2.wev.list.length === S0.list.length && W2.settlements.every((s, i) => (s.char && s.char.kind) === (W.settlements[i].char && W.settlements[i].char.kind)));
+    delete W2.wev; for (const s of W2.settlements) delete s.char;
+    let ok = true; try { for (let d = 0; d < 3; d++) ECHO.Sim.dailyTick(W2, true); } catch (e) { ok = false; console.log(e); }
+    check('an old save takes them up without a hitch', ok && !!W2.wev && W2.settlements.filter(s => s.faction !== 'ashfang').every(s => s.char));
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

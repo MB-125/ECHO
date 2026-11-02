@@ -456,6 +456,7 @@
       }
       if (!heir) { f.ruler = null; return; }
       Pol.crown(world, f, heir, f.type === 'order' ? 'was raised to High Wick of the Lantern' : kids[0] ? `inherited the throne of ${f.short} from ${dead.first}` : `was chosen to rule ${f.short} after the death of ${dead.first}`);
+      if (ECHO.WorldEvents) ECHO.WorldEvents.onSuccession(world, f, dead, heir);   // (and someone may not kneel)
     },
 
     newReeve(world, s) {

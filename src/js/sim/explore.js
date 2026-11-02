@@ -234,7 +234,7 @@
         const delve = sites.filter(s => s.cat === 'delve' && !s.cleared && U.dist(s.x, s.y, t.x, t.y) < 45).sort((a, b) => U.dist(a.x, a.y, t.x, t.y) - U.dist(b.x, b.y, t.x, t.y))[0];
         if (r < 0.3 && delve && !open.some(p => p.kind === 'delve' && p.siteId === delve.id)) {
           const asker = rng.pick(res.filter(n => n.prof !== 'child')) || null;
-          const what = { barrow: 'pale things walking out of', cave: 'wolves without number coming out of', hideout: 'cutthroats using', crypt: 'lights and voices in' }[delve.kind];
+          const what = { barrow: 'pale things walking out of', cave: 'wolves without number coming out of', hideout: 'cutthroats using', crypt: 'lights and voices in', warren: 'goblins creeping out of', nest: 'spiders the size of dogs around', trollden: 'a troll coming out of', catacomb: 'the dead walking out of', sanctum: 'robed figures going in and out of', forge: 'smoke rising from', grot: 'things moving in', scar: 'things crawling out of' }[delve.kind] || 'things moving in';
           ECHO.Plights.post(world, { kind: 'delve', sid: t.id, requester: asker ? asker.id : null, siteId: delve.id, deadline: world.day + 18, reward: 70 + rng.int(0, 50),
             text: `${asker ? asker.first + ' swears they have seen' : 'People have seen'} ${what} ${delve.name}${delve.found ? '' : ` — somewhere ${X.dirFrom(t, delve)} of ${t.name}`}. Someone should go in and put an end to it.` });
           continue;

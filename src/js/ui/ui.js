@@ -1250,10 +1250,11 @@
       if (ECHO.Courier) ECHO.Courier.deliver(game, s);
       const body = UI.openPanel(`Notice board — ${s.name}`, '', 'board');
       const render = () => {
-        const tabs = [['pleas', 'Pleas'], ['guild', 'The Guild'], ['jobs', 'Odd jobs'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['coin', 'Spend your coin'], ['affairs', 'Town affairs']];
+        const tabs = [['pleas', 'Pleas'], ['events', `Great events${ECHO.WorldEvents && ECHO.WorldEvents.active(world).length ? ' (' + ECHO.WorldEvents.active(world).length + ')' : ''}`], ['guild', 'The Guild'], ['jobs', 'Odd jobs'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['coin', 'Spend your coin'], ['affairs', 'Town affairs']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'pleas') html += '<p class="dim">Pleas, bounties and warnings, nailed up by people who will not wait forever. The Guild\'s people read them too: whoever finishes a job first is paid.</p><div class="list" id="pl"></div>';
         else if (tab === 'guild') html += ECHO.Guild ? ECHO.Guild.html(game) : '';
+        else if (tab === 'events') html += ECHO.WorldEvents ? ECHO.WorldEvents.html(game, s) : '';
         else if (tab === 'law') {
           const lines = ECHO.Law.summary(world, s);
           const mine = ECHO.Law.openAgainstPlayer(world, pl).filter(c => c.faction === s.faction);
@@ -1278,6 +1279,7 @@
         else if (tab === 'coin') html += ECHO.Patron.html(game, s);
         else {
           const lines = [];
+          if (s.char && ECHO.TownLife) lines.push(`<b class="gold">${esc(ECHO.TownLife.KINDS[s.char.kind].name)}</b> — ${esc(ECHO.TownLife.KINDS[s.char.kind].desc)}`);
           const wx = ECHO.Weather.at(world, s);
           lines.push(`Weather: ${ECHO.Weather.word(wx)}.`);
           const need = ECHO.Economy.need(world, s);
@@ -1292,6 +1294,7 @@
         body.innerHTML = html;
         body.querySelectorAll('button[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
         if (tab === 'guild' && ECHO.Guild) ECHO.Guild.bind(body, game, render);
+        if (tab === 'events' && ECHO.WorldEvents) ECHO.WorldEvents.bind(body, game, render);
         if (tab === 'pleas') {
           UI.fillPlights(body.querySelector('#pl'), s);
           for (const p of world.plights) if (p.status === 'open' && p.kind === 'beasts' && p.progress >= p.need && !p.claimable) { p.claimable = true; UI.fillPlights(body.querySelector('#pl'), s); }

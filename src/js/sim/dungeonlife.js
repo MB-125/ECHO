@@ -248,6 +248,7 @@
       const L = DL.life(world, site);
       if (!L) return;
       if (byPlayer) { L.mem.lordSlain = world.day; L.mem.byYou = (L.mem.byYou || 0) + 1; }
+      if (ECHO.WorldEvents) ECHO.WorldEvents.onCleared(world, site, byPlayer);   // (a bloomed one, or the Sleeper's seat)
       if (L.state !== 'exploited') DL.set(world, site, 'dormant', null);
     },
 
@@ -300,7 +301,7 @@
       const S0 = STATES[L.state];
       // its story: whole, once you have read every sign of it down there; till then, the signs you have seen
       const O = ORIGINS[L.origin], seen = O ? O.clues.filter((c, i) => (L.cl || 0) & (1 << i)) : [];
-      const story = L.knowsAll ? `<p class="hist">${esc(L.hist)}</p>` : seen.length ? `<p class="dim">What you have seen of what it was (${seen.length} of ${O.clues.length} signs):</p>${seen.map(c => `<p class="sign dim">${esc(c)}</p>`).join('')}` : site.found ? '<p class="dim">No one knows what it was. Its floors would tell you.</p>' : '';
+      const story = L.knowsAll || site.sleeper ? `<p class="hist">${esc(L.hist)}</p>` : seen.length ? `<p class="dim">What you have seen of what it was (${seen.length} of ${O.clues.length} signs):</p>${seen.map(c => `<p class="sign dim">${esc(c)}</p>`).join('')}` : site.found ? '<p class="dim">No one knows what it was. Its floors would tell you.</p>' : '';
       return `<div class="dlife"><span class="st" style="color:${S0.col};border-color:${S0.col}">${S0.name}</span> <span class="dim">${esc(S0.desc)}</span>${story}${L.log.length ? `<p class="dim">Lately: ${esc(L.log[L.log.length - 1].text)}</p>` : ''}</div>`;
     }
   };

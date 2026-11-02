@@ -183,6 +183,7 @@
       if (ECHO.Events) ECHO.Events.update(Game, dt);
       if (ECHO.Migrations) ECHO.Migrations.update(Game, dt);
       if (ECHO.DungeonLife) ECHO.DungeonLife.update(Game, dt);
+      if (ECHO.WorldEvents) ECHO.WorldEvents.update(Game, dt);
       if (ECHO.Pastimes) ECHO.Pastimes.update(Game, dt);
       if (ECHO.Home) ECHO.Home.tick(Game, dt);
       if (ECHO.Tactics) ECHO.Tactics.update(Game, dt);

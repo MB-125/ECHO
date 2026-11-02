@@ -67,16 +67,7 @@
         if (S.list.some(m => (m.from === r.id || m.to === r.id) && world.day - m.day < 24)) continue;
         const P0 = M.push(world, r);
         if (P0.total < 1 || !P0.cause || !rng.chance(0.18 + 0.1 * Math.min(2, P0.total - 1))) continue;
-        const to = M.dest(world, r);
-        if (!to) continue;
-        const size = Math.max(1.5, e.wolf * U.clamp(0.35 + 0.2 * P0.total, 0.35, 0.75));   // (in the world's reckoning of a country's wolves; a few head to each)
-        const a = mid(r), b = mid(to);
-        const m = { id: 'mg' + (++S.seq), sp: 'wolf', from: r.id, to: to.id, size, moved: 0, day: world.day, cause: P0.cause, ax: a.x, ay: a.y, bx: b.x, by: b.y, raids: 0 };
-        S.list.push(m);
-        const why = { titan: `${P0.cause.name} has come into their country`, lair: `${P0.cause.name} hunts them down`, hunger: 'they are starving: the hares are gone', hunted: 'they are being hunted out' }[P0.cause.kind];
-        ECHO.Chronicle.add(world, { text: `The duskwolves of ${r.name} are leaving it, ${M.head(m)} or more of them, going ${dirWord(dx(world, a.x, b.x), b.y - a.y)} toward ${to.name}. Hunters say ${why}.`, kind: 'nature', importance: 2, x: a.x, y: a.y });
-        if (S.list.length > 40) S.list.splice(0, S.list.length - 40);
-        break;   // (one a day at most)
+        if (M.depart(world, r, P0)) break;   // (one a day at most)
       }
       // ---- on the move, and arriving
       for (const m of M.active(world)) {
@@ -113,6 +104,21 @@
         }
         if (r._boom >= 16 && !r._drew && world.day - (S.drew || -99) > 40 && rng.chance(0.15)) M.drawBeast(world, r, rng);   // (one great beast drawn at a time, and seldom)
       }
+    },
+    // a country's pack sets out (frac: how much of it goes; away: a place to go away from)
+    depart(world, r, P0, frac, away) {
+      const S = M.st(world), e = r.eco;
+      let to = M.dest(world, r);
+      if (away) { const nb = Wd().regionNeighbors(world, r).filter(n => n.eco && n.id !== r.id); const far = nb.sort((a, b) => Math.hypot(dx(world, away.x, mid(b).x), mid(b).y - away.y) - Math.hypot(dx(world, away.x, mid(a).x), mid(a).y - away.y))[0]; if (far) to = far; }
+      if (!to || !e) return null;
+      const size = Math.max(1.5, e.wolf * (frac || U.clamp(0.35 + 0.2 * P0.total, 0.35, 0.75)));   // (in the world's reckoning of a country's wolves; a few head to each)
+      const a = mid(r), b = mid(to);
+      const m = { id: 'mg' + (++S.seq), sp: 'wolf', from: r.id, to: to.id, size, moved: 0, day: world.day, cause: P0.cause, ax: a.x, ay: a.y, bx: b.x, by: b.y, raids: 0 };
+      S.list.push(m);
+      const why = { titan: `${P0.cause.name} has come into their country`, lair: `${P0.cause.name} hunts them down`, hunger: 'they are starving: the hares are gone', hunted: 'they are being hunted out' }[P0.cause.kind] || 'something drove them out';
+      ECHO.Chronicle.add(world, { text: `The duskwolves of ${r.name} are leaving it, ${M.head(m)} or more of them, going ${dirWord(dx(world, a.x, b.x), b.y - a.y)} toward ${to.name}. Hunters say ${why}.`, kind: 'nature', importance: away ? 1 : 2, x: a.x, y: a.y });
+      if (S.list.length > 40) S.list.splice(0, S.list.length - 40);
+      return m;
     },
     // the pack has come: the villages of its new country ask for help
     arrive(world, m, rng) {

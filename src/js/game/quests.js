@@ -136,7 +136,8 @@
       const game = ECHO.Game, world = game.world;
       if (target.gateMon && ECHO.GateWorld && ECHO.GateWorld.onKill(game, target, from)) return;
       if (target.breach && (target._pDmg || 0) < target.maxHp * 0.3) return;
-      if (target.wood && ECHO.Deepwood) ECHO.Deepwood.onKill(game, target, from);   // (a loose beast the Guard ran down: its spoils go back to the gate with them)
+      if (target.wood && ECHO.Deepwood) ECHO.Deepwood.onKill(game, target, from);
+      if (target.choirOf && ECHO.WorldEvents) ECHO.WorldEvents.onKill(game.world, target);   // (one of the Sleeper's choir)   // (a loose beast the Guard ran down: its spoils go back to the gate with them)
       if (ECHO.Monsters && ECHO.Monsters.DEFS[target.species]) ECHO.Monsters.onKill(game, target);
       else {
         const gold = target.foe ? (target.foe.elite ? 30 + Math.floor(Math.random() * 40) : Math.floor(Math.random() * 8)) : 0;
@@ -374,6 +375,7 @@
         for (let i = 0; i < 2 && fs.length; i++) { const s0 = fs.pop(); const k = pick(); game.ents.push(k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { noElite: true }))); }
       } else for (let i = 0; i < 2 && fs.length; i++) { const s0 = fs.pop(); const k = pick(); game.ents.push(k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { eliteChance: 0.5 }))); }
       if (ECHO.Growth) ECHO.Growth.inDelve(game, L, free, tag);   // (a named thing that keeps to its den)
+      if (ECHO.WorldEvents) ECHO.WorldEvents.inDelve(game, L, site, free, tag);   // (the Sleeper's choir, singing in the dark)
       // they remember you ran: a few of them waiting just inside the door
       if (DL && depth === 0) { const er = free(G.entrance).filter(t => Math.hypot(BASE + t.x + 0.5 - L.inside.x, t.y + 0.5 - L.inside.y) > 2.5); DL.ambush(game, L, site, () => { const s0 = er.pop(); if (!s0) return null; const k = pick(); const e = k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { noElite: true })); game.ents.push(e); return e; }); }
       ECHO.Music.stinger('discover');

@@ -114,6 +114,7 @@
       ECHO.Chronicle.add(world, { text: `${t.name} ${t.title} ${blocked ? 'could go no further, and' : 'has'} settled on new ground${s ? ` ${Math.round(U.dist(s.x, s.y, t.x, t.y))} leagues ${C.dirWord(t.x - s.x, t.y - s.y)} of ${s.name}` : ''}.`, kind: 'beast', importance: 1, x: t.x, y: t.y });
       // the towns it threatened on the way breathe again
       for (const st of world.settlements) if (st.calamity && st.calamity.tid === t.id) C.clearThreat(world, st, t, false);
+      if (ECHO.WorldEvents) ECHO.WorldEvents.onTitanSettles(world, t);   // (and the land may empty before it)
       void from;
     },
     // somewhere new on its kind of ground, a long way off, clear of towns and of the others

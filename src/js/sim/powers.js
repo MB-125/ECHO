@@ -276,7 +276,7 @@
       s.raidedDay = world.day;
       const def = guards[0], W = s.works || {};
       // (walls, a watchtower and a well-drilled guard all count)
-      const fort = (W.walls ? 6 : 0) + (W.watch ? 2 : 0) + (s.drilled && world.day - s.drilled < 30 ? 3 : 0) + (ECHO.GuardWork && ECHO.GuardWork.garrisonOf(world, s.id) ? 4 : 0);
+      const fort = (W.walls ? 6 : 0) + (W.watch ? 2 : 0) + (s.drilled && world.day - s.drilled < 30 ? 3 : 0) + (ECHO.GuardWork && ECHO.GuardWork.garrisonOf(world, s.id) ? 4 : 0) + (ECHO.TownLife ? ECHO.TownLife.fort(s) : 0);
       if ((def || W.walls) && rng.next() < 1 / (1 + Math.exp(-((def ? Pw.lvOf(def) : 0) + guards.length * 0.8 + fort - Pw.might(r)) / 3))) {
         if (!def) { r.infl = Math.max(0, r.infl - 2); Pw.tell(world, r, `${Pw.short(r)} came against the walls of ${s.name} and could not get in.`, 1); return; }
         def.renown = (def.renown || 0) + 6; def.lv = Pw.lvOf(def) + 1;

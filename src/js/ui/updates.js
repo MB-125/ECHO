@@ -7,6 +7,14 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.15.0', items: [
+      'Great events — rare, and the world is different after each. You hear of them wherever you are, and every notice board has a Great events page with what is happening and what you can do about it.',
+      'The Great Migration: a great beast comes into a country, and everything that can run, runs — the wolf packs of every country round it, the herds, and the people of the villages near it, who take to the roads for safer towns. Out in the wild you see the herds go by.',
+      'The Dungeon Bloom: the deep places of a whole region wake at once — some infested, some awakened, all deeper and worse — and the towns near them post rewards for anyone who goes down. Put down two or more and the realm will remember it.',
+      'The Broken Crown: a crown passes and someone will not kneel. The kingdom splits town by town and there is war until one of them holds it all — battles on the border, towns going over, soldiers dying. Declare for a side and march to its battles: if it wins, gold, influence and perhaps a knighthood; if it loses, you are wanted.',
+      'The Sleeping God (once in a world): everyone dreams the same dream, of something vast asleep under a deep place. The ground shakes, people walk out of their towns at night to go down and sing to it — you will find them there — and if no one reaches the bottom and sings it back to sleep, it turns over: the earth opens, every dungeon for a hundred leagues wakes, and something walks out of the ground. (The Guild\'s best may try, too.)',
+      'Towns have characters now, made from who lives there and what happens to them: farming towns, mining towns, market towns, garrison towns, walled towns, holy towns, adventurers\' towns, thriving towns and towns in decline. Each does something (farm towns fill their granaries, walled and garrison towns hold better against raids, thriving towns draw families from declining ones), changes slowly, and the Chronicle says so when it does. See it on the map and under Town affairs on the notice board.'
+    ] },
     { v: '0.14.0', items: [
       'The Adventurers\' Guild. Forty or so real people of the realm — guards who wanted more, hunters, wanderers, a hedge-mage or two — live by the same trade as you, each with a rank from E to S, a way of fighting and a temper (reckless, careful, greedy, honourable, glory-hungry). Every day some of them take contracts off the notice boards and go down into the dungeons in parties.',
       'They take the same pleas you do, and whoever finishes first is paid: take a job and dawdle, and a glory-hungry B-rank may beat you to it (you are told when one takes your job, and when they finish it). Or they fail — and leave the wolves half dead or the beast wounded, so it is easier for you.',

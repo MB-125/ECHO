@@ -203,6 +203,8 @@
         () => { if (ECHO.DungeonLife) ECHO.DungeonLife.dailyTick(world); },
         () => { if (ECHO.Guild) ECHO.Guild.dailyTick(world); },
         () => { if (ECHO.Renown) ECHO.Renown.dailyTick(world); },
+        () => { if (ECHO.WorldEvents) ECHO.WorldEvents.dailyTick(world); },
+        () => { if (ECHO.TownLife) ECHO.TownLife.dailyTick(world); },
         () => { ECHO.Intel.dailyTick(world, rng); },
         () => { ECHO.Plights.dailyTick(world, rng); },
         () => { ECHO.Civ.dailyTick(world, rng); },
