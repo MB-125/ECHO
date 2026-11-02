@@ -165,7 +165,7 @@
         else $('#bossbar .fill').style.transform = `scaleX(${U.clamp(e.hp / e.maxHp, 0, 1)})`;
       }
       UI.miniT -= dt;
-      if (UI.miniT <= 0) { UI.miniT = 0.4; UI.minimap(game); }
+      if (UI.miniT <= 0) { UI.miniT = 0.05; UI.minimap(game); }   // (the scope's sweep and pings: twenty frames a second)
     },
     minimap(game) { ECHO.WorldMap.mini(game, $('#minimap')); },
 

@@ -1288,73 +1288,177 @@
       WM.icon(g, 'player', ox + (pe.x - B) * s, oy + pe.y * s, '#fff', 0.5, pe.dir || 0);
     },
     mini(game, c) {
-      if (ECHO.Interior.cur && ECHO.Interior.cur.type === 'gate') return WM.miniGate(game, c);
-      if (ECHO.Interior.cur && ECHO.Interior.cur.carved) return WM.miniDungeon(game, c);
-      // the view turned about (over a pole): the little map turns with it
-      if (game.pl && game.pl.viewTurn && !ECHO.Interior.cur) { const g = c.getContext('2d'); g.save(); g.translate(c.width, c.height); g.rotate(Math.PI); try { WM.miniOut(game, c); } finally { g.restore(); } return; }
-      return WM.miniOut(game, c);
+      if (!c) return;
+      if (!c._wired) {
+        // scroll on it to range in or out; click it for the full map
+        c._wired = true;
+        c.addEventListener('wheel', ev => { ev.preventDefault(); WM.miniZ = U.clamp((WM.miniZ || 2) * (ev.deltaY < 0 ? 1.2 : 1 / 1.2), 0.7, 6); WM.mini(ECHO.Game, c); }, { passive: false });
+        c.addEventListener('click', () => { if (ECHO.UI && !ECHO.UI.paused()) ECHO.UI.openMap(); });
+      }
+      const inside = ECHO.Interior.cur;
+      if (inside && (inside.type === 'gate' || inside.carved)) {
+        // below ground and through the gates: the old flat sketch, on the scope's own canvas
+        const dpr = 1; if (c.width !== 212 * dpr || c.height !== 240 * dpr) { c.width = 212 * dpr; c.height = 240 * dpr; }
+        const g = c.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
+        return inside.type === 'gate' ? WM.miniGate(game, c) : WM.miniDungeon(game, c);
+      }
+      // the view turned about (over a pole): the scope turns with it
+      return WM.miniOut(game, c, game.pl && game.pl.viewTurn && !inside ? Math.PI : 0);
     },
-    miniOut(game, c) {
-      const world = game.world, pl = game.pl, g = c.getContext('2d');
+    // The nav-scope: a round radar of the land about you, north up (or turned with the view),
+    // its bezel marked in degrees; the way ahead in light, where you are headed as a diamond (on
+    // the rim, with its distance, when it lies beyond), what hunts you as blips, a sweep going
+    // round; under it, your heading and where on the world you stand.
+    miniOut(game, c, rot) {
+      const world = game.world, pl = game.pl, dpr = Math.min(2, window.devicePixelRatio || 1);
+      const CW = 212, CH = 240;
+      if (c.width !== Math.round(CW * dpr) || c.height !== Math.round(CH * dpr)) { c.width = Math.round(CW * dpr); c.height = Math.round(CH * dpr); }
+      const g = c.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, CW, CH);
       const pe = ECHO.Interior.cur ? { x: pl.x, y: pl.y, dir: game.pe ? game.pe.dir : 0 } : game.pe;
-      const scale = 2.2, sx = pe.x - c.width / scale / 2, sy = pe.y - c.height / scale / 2;
-      // where a thing is marked: its copy nearest you (round the world, or past a pole, turned about), as it is drawn
+      const now = performance.now() / 1000, cx = CW / 2, cy = 104, RO = 100, R = 87, scale = WM.miniZ || 2;
       const R3 = ECHO.Renderer3D, im = world.globe && !ECHO.Interior.cur && R3 && R3._imF ? R3.img : null;
-      const P = (x, y) => { const I = im ? im(x, y) : { x, y }; return { x: (I.x - sx) * scale, y: (I.y - sy) * scale }; };
-      g.imageSmoothingEnabled = false;
-      g.fillStyle = PARCH; g.fillRect(0, 0, c.width, c.height);
+      // a place → the scope (about you, before the turn): its copy nearest you, as it is drawn
+      const P = (x, y) => { const I = im ? im(x, y) : { x, y }; return { x: (I.x - pe.x) * scale, y: (I.y - pe.y) * scale }; };
+      const inR = (p, m) => p.x * p.x + p.y * p.y < (R - (m || 0)) ** 2;
+      // ---- the land, in the round
+      g.save();
+      g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.clip();
+      g.fillStyle = '#04101c'; g.fillRect(cx - R, cy - R, R * 2, R * 2);
+      g.translate(cx, cy); if (rot) g.rotate(rot);
+      const vw = R * 2 / scale, sx = pe.x - vw / 2, sy = pe.y - vw / 2;
       const bs = WM.base(world), S = WM.baseScale || 1;
-      g.imageSmoothingEnabled = true;
-      for (const k of world.globe ? [0, world.W, -world.W] : [0]) g.drawImage(bs, (sx + k) * S, sy * S, c.width / scale * S, c.height / scale * S, 0, 0, c.width, c.height);   // (round the world: the other side, past the edge)
+      g.imageSmoothingEnabled = scale < 3;
+      for (const k of world.globe ? [0, world.W, -world.W] : [0]) g.drawImage(bs, (sx + k) * S, sy * S, vw * S, vw * S, -R, -R, R * 2, R * 2);   // (round the world: the other side, past the edge)
       // past a pole: the far side of the world, turned about (as the land itself is drawn)
-      const vw = c.width / scale, vh = c.height / scale;
-      if (world.globe && (sy < 0 || sy + vh > world.H)) {
+      if (world.globe && (sy < 0 || sy + vw > world.H)) {
         const north = sy < 0, Tm = ECHO.Globe ? ECHO.Globe.poleT(world, north, pe.x) : 2 * pe.x + world.W / 2, T = pe.x + ((((Tm - pe.x) % world.W) + world.W) % world.W), Zc = north ? 0 : 2 * world.H;
         g.save();
         g.beginPath();
-        if (north) g.rect(0, 0, c.width, -sy * scale); else g.rect(0, (world.H - sy) * scale, c.width, c.height);
+        if (north) g.rect(-R, -R, R * 2, (0 - pe.y) * scale + R); else g.rect(-R, (world.H - pe.y) * scale, R * 2, R * 2);
         g.clip();
-        // a base pixel (u, v) lands at X = T - u/S, Y = Zc - v/S
-        g.transform(-scale / S, 0, 0, -scale / S, (T - sx) * scale, (Zc - sy) * scale);
-        const u0 = T - (sx + vw), v0 = north ? 0 : Zc - (sy + vh);
-        for (const k of [0, world.W, -world.W, 2 * world.W]) g.drawImage(bs, (u0 - k) * S, v0 * S, vw * S, vh * S, (u0 - k) * S + k * S, v0 * S, vw * S, vh * S);
+        g.transform(-scale / S, 0, 0, -scale / S, (T - pe.x) * scale, (Zc - pe.y) * scale);
+        const u0 = T - (sx + vw), v0 = north ? 0 : Zc - (sy + vw);
+        for (const k of [0, world.W, -world.W, 2 * world.W]) g.drawImage(bs, (u0 - k) * S, v0 * S, vw * S, vw * S, (u0 - k) * S + k * S, v0 * S, vw * S, vw * S);
         g.restore();
       }
-      const cw = Math.ceil(world.W / 4);
-      g.fillStyle = PARCH;
-      const chH = Math.ceil(world.H / 4);
-      if (!WM.revealed(pl)) for (let y = Math.floor(sy / 4); y <= Math.ceil((sy + c.height / scale) / 4); y++) for (let x = Math.floor(sx / 4); x <= Math.ceil((sx + c.width / scale) / 4); x++) {
-        // (round the world, and past a pole: the cell of the world that is drawn there)
-        let X = x, Y = y;
-        if (world.globe && (Y < 0 || Y >= chH) && ECHO.Globe) { const north = Y < 0, T = ECHO.Globe.poleT(world, north, pe.x), wx = T - (x * 4 + 2), wy = north ? -(y * 4 + 2) : 2 * world.H - (y * 4 + 2); X = Math.floor(wx / 4); Y = Math.floor(wy / 4); }
-        if (world.globe) X = ((X % cw) + cw) % cw;
-        if (X < 0 || Y < 0 || X >= cw || Y >= chH || !pl.explored[Y * cw + X]) g.fillRect((x * 4 - sx) * scale, (y * 4 - sy) * scale, 4 * scale + 1, 4 * scale + 1);
-      }
-      const inView = p => p.x > -8 && p.y > -8 && p.x < c.width + 8 && p.y < c.height + 8;
-      if (!WM._mf || game.time - WM._mfT > 1 || game.time < WM._mfT) { WM._mf = WM.features(game, { x0: pe.x - 90, x1: pe.x + 90, y0: pe.y - 90, y1: pe.y + 90 }); WM._mfT = game.time; }
-      for (const f of WM._mf) {
-        if (f.layer !== 'towns' && f.layer !== 'dungeons' && f.layer !== 'danger' && f.layer !== 'gates') continue;
-        const p = P(f.x, f.y);
-        if (!inView(p)) continue;
-        WM.icon(g, f.kind, p.x, p.y, f.color, f.layer === 'dungeons' ? 0.62 : 0.55, 0);
-      }
-      // Tracker (Hunter rank 2): what hunts near you, as red marks
-      if (ECHO.Lore) for (const e of ECHO.Lore.tracked(game)) { const p = P(e.x, e.y); if (!inView(p)) continue; g.fillStyle = e.titan || e.type === 'boss' ? '#ff4a2a' : '#e05a4a'; g.beginPath(); g.arc(p.x, p.y, e.titan ? 4 : 2.2, 0, Math.PI * 2); g.fill(); g.strokeStyle = 'rgba(0,0,0,0.6)'; g.lineWidth = 1; g.stroke(); }
-      // the way ahead
-      if (ECHO.Nav && !ECHO.Interior.cur) ECHO.Nav.drawOnMap(g, P, 120, 2);
-      // where you are headed: on the map, or an arrow at the edge
-      const goal = ECHO.Purpose && ECHO.Purpose.goal;
-      if (goal && goal.where && goal.where.x != null && !goal.where.vague) {
-        const p = P(goal.where.x, goal.where.y);
-        if (p.x > 6 && p.y > 6 && p.x < c.width - 6 && p.y < c.height - 6) WM.icon(g, 'flag', p.x, p.y - 4, '#ffe08a', 0.75);
-        else {
-          const a = Math.atan2(p.y - c.height / 2, p.x - c.width / 2);
-          const ex = c.width / 2 + Math.cos(a) * (c.width / 2 - 9), ey = c.height / 2 + Math.sin(a) * (c.height / 2 - 9);
-          g.save(); g.translate(U.clamp(ex, 9, c.width - 9), U.clamp(ey, 9, c.height - 9)); g.rotate(a);
-          g.fillStyle = '#ffe08a'; g.strokeStyle = '#1a120a'; g.lineWidth = 2; g.beginPath(); g.moveTo(7, 0); g.lineTo(-5, 5); g.lineTo(-5, -5); g.closePath(); g.stroke(); g.fill(); g.restore();
+      // the unwalked, dark
+      const cw = Math.ceil(world.W / 4), chH = Math.ceil(world.H / 4);
+      if (!WM.revealed(pl)) {
+        g.fillStyle = 'rgba(3,10,18,0.86)';
+        for (let y = Math.floor(sy / 4); y <= Math.ceil((sy + vw) / 4); y++) for (let x = Math.floor(sx / 4); x <= Math.ceil((sx + vw) / 4); x++) {
+          // (round the world, and past a pole: the cell of the world that is drawn there)
+          let X = x, Y = y;
+          if (world.globe && (Y < 0 || Y >= chH) && ECHO.Globe) { const north = Y < 0, T = ECHO.Globe.poleT(world, north, pe.x), wx = T - (x * 4 + 2), wy = north ? -(y * 4 + 2) : 2 * world.H - (y * 4 + 2); X = Math.floor(wx / 4); Y = Math.floor(wy / 4); }
+          if (world.globe) X = ((X % cw) + cw) % cw;
+          if (X < 0 || Y < 0 || X >= cw || Y >= chH || !pl.explored[Y * cw + X]) g.fillRect((x * 4 - pe.x) * scale, (y * 4 - pe.y) * scale, 4 * scale + 0.6, 4 * scale + 0.6);
         }
       }
-      WM.icon(g, 'player', c.width / 2, c.height / 2, '#fff', 0.8, pe.dir || 0);
+      // the console's light over it: a cool wash, a grid that moves with the land, faint scan lines
+      g.fillStyle = 'rgba(4,22,40,0.32)'; g.fillRect(-R, -R, R * 2, R * 2);
+      const step = 10 * scale, gx = -(((pe.x % 10) + 10) % 10) * scale, gy = -(((pe.y % 10) + 10) % 10) * scale;
+      g.strokeStyle = HOLO + '0.10)'; g.lineWidth = 1; g.beginPath();
+      for (let x = gx - Math.ceil(R / step) * step; x <= R; x += step) { g.moveTo(x, -R); g.lineTo(x, R); }
+      for (let y = gy - Math.ceil(R / step) * step; y <= R; y += step) { g.moveTo(-R, y); g.lineTo(R, y); }
+      g.stroke();
+      // ---- what is about you
+      if (!WM._mf || game.time - WM._mfT > 1 || game.time < WM._mfT) { WM._mf = WM.features(game, { x0: pe.x - 120, x1: pe.x + 120, y0: pe.y - 120, y1: pe.y + 120 }); WM._mfT = game.time; }
+      for (const f of WM._mf) {
+        if (f.layer !== 'towns' && f.layer !== 'dungeons' && f.layer !== 'danger' && f.layer !== 'gates' && f.layer !== 'wonders') continue;
+        const p = P(f.x, f.y); if (!inR(p, 4)) continue;
+        g.save(); g.translate(p.x, p.y); if (rot) g.rotate(-rot);
+        g.shadowColor = f.color; g.shadowBlur = 6;
+        WM.icon(g, f.kind, 0, 0, f.color, f.layer === 'dungeons' ? 0.55 : 0.5, 0);
+        g.restore();
+      }
+      // the way ahead, in light
+      const goal = ECHO.Purpose && ECHO.Purpose.goal;
+      if (ECHO.Nav && !ECHO.Interior.cur) {
+        const Rt = ECHO.Nav.route;
+        if (Rt && Rt.ok && Rt.pts && Rt.pts.length > 1) {
+          const pts = [{ x: pe.x, y: pe.y }].concat(Rt.pts.slice(Rt.i + 1, Rt.i + 140)).map(q => P(q.x, q.y));
+          g.lineCap = 'round'; g.lineJoin = 'round';
+          const line = () => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y)); };
+          line(); g.strokeStyle = HOLO + '0.18)'; g.lineWidth = 6; g.stroke();
+          line(); g.strokeStyle = HOLO + '0.95)'; g.lineWidth = 1.8; g.setLineDash([5, 4]); g.lineDashOffset = -now * 16; g.shadowColor = HOLO + '1)'; g.shadowBlur = 6; g.stroke(); g.setLineDash([]); g.shadowBlur = 0;
+        }
+      }
+      // what hunts you: red blips
+      if (ECHO.Lore) for (const e of ECHO.Lore.tracked(game)) {
+        const p = P(e.x, e.y); if (!inR(p, 3)) continue;
+        const big = e.titan || e.type === 'boss';
+        g.fillStyle = big ? '#ff4a2a' : '#ff5a4a'; g.shadowColor = '#ff3a2a'; g.shadowBlur = 8; g.beginPath(); g.arc(p.x, p.y, big ? 3.6 : 2.2, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0;
+        const ph = (now * 1.3 + (e.id || 0) * 0.17) % 1; g.strokeStyle = `rgba(255,80,60,${(0.7 * (1 - ph)).toFixed(3)})`; g.lineWidth = 1; g.beginPath(); g.arc(p.x, p.y, 3 + ph * 7, 0, Math.PI * 2); g.stroke();
+      }
+      // where you are headed
+      let goalOut = null;
+      if (goal && goal.where && goal.where.x != null && !goal.where.vague) {
+        const p = P(goal.where.x, goal.where.y);
+        if (inR(p, 8)) {
+          const ph = (now * 0.9) % 1;
+          g.strokeStyle = AMBER + (0.85 * (1 - ph)).toFixed(3) + ')'; g.lineWidth = 1.2; g.beginPath(); g.arc(p.x, p.y, 4 + ph * 10, 0, Math.PI * 2); g.stroke();
+          g.save(); g.translate(p.x, p.y); g.rotate(Math.PI / 4); g.fillStyle = AMBER + '1)'; g.shadowColor = AMBER + '1)'; g.shadowBlur = 10; g.fillRect(-3.5, -3.5, 7, 7); g.restore();
+        } else goalOut = Math.atan2(p.y, p.x);
+      } else if (goal && goal.where && goal.where.x != null) {
+        const p = P(goal.where.x, goal.where.y);
+        if (inR(p, 0)) { g.setLineDash([3, 3]); g.strokeStyle = AMBER + '0.7)'; g.lineWidth = 1.2; g.beginPath(); g.arc(p.x, p.y, Math.max(8, 10 * scale), 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }
+        else goalOut = Math.atan2(p.y, p.x);
+      }
+      g.restore();
+      // ---- the sweep, going round (on the screen, not the land)
+      g.save(); g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.clip();
+      const sa = (now * 1.1) % (Math.PI * 2);
+      if (g.createConicGradient) {
+        const cg = g.createConicGradient(sa - 1.2, cx, cy);
+        cg.addColorStop(0, HOLO + '0)'); cg.addColorStop(1.2 / (Math.PI * 2), HOLO + '0.16)'); cg.addColorStop(1.2 / (Math.PI * 2) + 0.001, HOLO + '0)'); cg.addColorStop(1, HOLO + '0)');
+        g.fillStyle = cg; g.fillRect(cx - R, cy - R, R * 2, R * 2);
+      }
+      g.strokeStyle = HOLO + '0.45)'; g.lineWidth = 1; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(sa) * R, cy + Math.sin(sa) * R); g.stroke();
+      // range rings, and how far the inner one is
+      g.strokeStyle = HOLO + '0.22)'; g.setLineDash([2, 3]);
+      for (const k of [1 / 3, 2 / 3]) { g.beginPath(); g.arc(cx, cy, R * k, 0, Math.PI * 2); g.stroke(); }
+      g.setLineDash([]);
+      g.font = '600 8px ui-monospace, Consolas, monospace'; g.fillStyle = HOLO + '0.6)'; g.textAlign = 'left'; g.textBaseline = 'middle';
+      g.fillText(`${Math.round(R * 2 / 3 / scale)}`, cx + 3, cy - R * 2 / 3 + 6);
+      g.restore();
+      // ---- you, in the middle: the way you face as a cone of light
+      const hd = (game.pl && game.pl.flying && ECHO.Apex && ECHO.Apex.fly ? ECHO.Apex.fly.dir : pe.dir) || 0, ha = hd + (rot || 0);
+      const cone = g.createRadialGradient(cx, cy, 2, cx, cy, 34);
+      cone.addColorStop(0, HOLO + '0.45)'); cone.addColorStop(1, HOLO + '0)');
+      g.fillStyle = cone; g.beginPath(); g.moveTo(cx, cy); g.arc(cx, cy, 34, ha - 0.5, ha + 0.5); g.closePath(); g.fill();
+      g.save(); g.translate(cx, cy); g.rotate(ha); g.shadowColor = HOLO + '1)'; g.shadowBlur = 10;
+      g.fillStyle = '#e6fdff'; g.beginPath(); g.moveTo(8, 0); g.lineTo(-5, 5.5); g.lineTo(-2.5, 0); g.lineTo(-5, -5.5); g.closePath(); g.fill(); g.restore();
+      // ---- the bezel: a ring marked every ten degrees, the four quarters named
+      g.save();
+      g.lineWidth = RO - R; g.strokeStyle = 'rgba(4,12,22,0.86)'; g.beginPath(); g.arc(cx, cy, (RO + R) / 2, 0, Math.PI * 2); g.stroke();
+      g.lineWidth = 1; g.strokeStyle = HOLO + '0.55)'; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = HOLO + '0.3)'; g.beginPath(); g.arc(cx, cy, RO, 0, Math.PI * 2); g.stroke();
+      for (let i = 0; i < 36; i++) {
+        const a = i / 36 * Math.PI * 2 + (rot || 0) - Math.PI / 2, big = i % 9 === 0, mid = i % 3 === 0;
+        g.strokeStyle = big ? HOLO + '0.95)' : mid ? HOLO + '0.6)' : HOLO + '0.3)'; g.lineWidth = big ? 1.6 : 1;
+        const r0 = R + 1, r1 = R + (big ? 7 : mid ? 5 : 3);
+        g.beginPath(); g.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0); g.lineTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.stroke();
+      }
+      g.font = '700 9px ui-monospace, Consolas, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      ['N', 'E', 'S', 'W'].forEach((t, i) => { const a = i * Math.PI / 2 + (rot || 0) - Math.PI / 2; const x = cx + Math.cos(a) * (RO - 6), y = cy + Math.sin(a) * (RO - 6); g.fillStyle = 'rgba(4,12,22,0.95)'; g.beginPath(); g.arc(x, y, 6, 0, Math.PI * 2); g.fill(); g.fillStyle = t === 'N' ? AMBER + '1)' : HOLO + '0.95)'; g.fillText(t, x, y + 0.5); });
+      // where you are headed, beyond the scope: a mark on the rim, and how far
+      if (goalOut != null) {
+        const a = goalOut + (rot || 0), D = WM.dist(game, { x: goal.where.x, y: goal.where.y }), bx = cx + Math.cos(a) * (R + 5), by = cy + Math.sin(a) * (R + 5);
+        g.save(); g.translate(bx, by); g.rotate(a); g.fillStyle = AMBER + '1)'; g.shadowColor = AMBER + '1)'; g.shadowBlur = 10;
+        g.beginPath(); g.moveTo(6, 0); g.lineTo(-4, 5); g.lineTo(-1.5, 0); g.lineTo(-4, -5); g.closePath(); g.fill(); g.restore();
+        const tx = cx + Math.cos(a) * (R - 15), ty = cy + Math.sin(a) * (R - 12);
+        g.font = '700 9px ui-monospace, Consolas, monospace'; g.lineWidth = 3; g.strokeStyle = 'rgba(2,8,14,0.9)'; g.strokeText(`${D.d}`, tx, ty); g.fillStyle = AMBER + '1)'; g.fillText(`${D.d}`, tx, ty);
+      }
+      g.restore();
+      // ---- the readout under the scope: your heading, and where on the world you are
+      const brg = ((Math.round((hd * 180 / Math.PI + 90) % 360) + 360) % 360), card = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(brg / 45) % 8];
+      const y0 = CH - 30;
+      g.fillStyle = 'rgba(4,12,22,0.82)'; g.strokeStyle = HOLO + '0.35)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(14, y0); g.lineTo(CW - 14, y0); g.lineTo(CW - 6, y0 + 8); g.lineTo(CW - 6, y0 + 26); g.lineTo(6, y0 + 26); g.lineTo(6, y0 + 8); g.closePath(); g.fill(); g.stroke();
+      g.font = '700 11px ui-monospace, Consolas, monospace'; g.textBaseline = 'middle'; g.textAlign = 'left';
+      g.fillStyle = HOLO + '0.6)'; g.fillText('HDG', 13, y0 + 14); g.fillStyle = '#e6fdff'; g.fillText(`${String(brg).padStart(3, '0')}°`, 40, y0 + 14); g.fillStyle = HOLO + '0.85)'; g.fillText(card, 80, y0 + 14);
+      g.textAlign = 'right'; g.font = '600 10px ui-monospace, Consolas, monospace'; g.fillStyle = HOLO + '0.9)';
+      g.fillText(world.globe && ECHO.Globe && !ECHO.Interior.cur ? ECHO.Globe.fmtLatLon(world, pe.x, pe.y) : `${Math.round(pe.x)}, ${Math.round(pe.y)}`, CW - 12, y0 + 14);
     }
   };
 })();

@@ -4486,7 +4486,7 @@
       };
       // Shop signs: what each building is and what it sells
       // the trail to wherever you're headed, on the ground
-      if (!ECHO.Interior.cur && game.pe && ECHO.Nav) { ECHO.Nav.drawTrail(ctx, game, (x, y) => R.project(x, y, 0.06), R.dpr); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
+      if (!ECHO.Interior.cur && game.pe && ECHO.Nav) { ECHO.Nav.drawTrail(ctx, game, (x, y) => R.project(x, y, 0.06), R.dpr); if (ECHO.Nav.drawMarker) ECHO.Nav.drawMarker(ctx, game, (x, y, h) => R.project(x, y, h), R.dpr); ctx.font = `${fs}px "Pixelify Sans", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; }
       if (!ECHO.Interior.cur && game.pe) R.drawShopSigns(game, ctx, fs);
       if (!ECHO.Interior.cur && game.pe && ECHO.Marvels) {
         ECHO.Marvels.drawSky(ctx, game, R.cw, R.ch);

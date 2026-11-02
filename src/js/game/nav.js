@@ -221,26 +221,97 @@
       return out;
     },
     hidden() { return ECHO.UI && ECHO.UI.settings && ECHO.UI.settings.trail === false; },
-    // Draw the trail on an overlay canvas: project(x, y) → {x, y, z?} in canvas pixels.
+    // Draw the trail on an overlay canvas: project(x, y) → {x, y, z?} in canvas pixels. Thin
+    // chevrons of light along the ground, each pointing the way as it lies on the screen, and a
+    // pulse running out ahead of you along them.
     drawTrail(ctx, game, project, dpr) {
       const pts = N.trail(game);
       if (!pts.length) return;
       ctx.save();
-      const cw = ctx.canvas.width, chh = ctx.canvas.height, pad = 40 * dpr;
-      for (const p of pts) {
-        const s = project(p.x, p.y);
+      const cw = ctx.canvas.width, chh = ctx.canvas.height, pad = 40 * dpr, n = pts.length, t = game.time || 0;
+      const head = (t * 9) % (n + 6);
+      for (let k = 0; k < n; k++) {
+        const p = pts[k], s = project(p.x, p.y);
         if (!s || s.z > 1) continue;
         // only what is on screen (a point far off the edge, or right under the
         // camera, projects to enormous numbers that the canvas chokes on)
         if (!isFinite(s.x) || !isFinite(s.y) || s.x < -pad || s.y < -pad || s.x > cw + pad || s.y > chh + pad) continue;
-        const r = 11 * dpr;
-        ctx.globalAlpha = p.alpha;
-        ctx.translate(s.x, s.y);
-        ctx.fillStyle = 'rgba(255,214,110,0.22)'; ctx.beginPath(); ctx.ellipse(0, 0, r * 1.25, r * 0.8, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.rotate(p.a);
-        ctx.fillStyle = '#ffe08a'; ctx.strokeStyle = 'rgba(40,24,8,0.75)'; ctx.lineWidth = 2 * dpr;
-        ctx.beginPath(); ctx.moveTo(r, 0); ctx.lineTo(-r * 0.6, r * 0.7); ctx.lineTo(-r * 0.2, 0); ctx.lineTo(-r * 0.6, -r * 0.7); ctx.closePath(); ctx.stroke(); ctx.fill();
+        const s2 = project(p.x + Math.cos(p.a) * 0.6, p.y + Math.sin(p.a) * 0.6);
+        const a = s2 && isFinite(s2.x) ? Math.atan2(s2.y - s.y, s2.x - s.x) : p.a;
+        const r = 12 * dpr, wave = Math.max(0, 1 - Math.abs(k - head) / 2.2);
+        ctx.globalAlpha = Math.min(1, p.alpha * 1.25 + 0.15 + wave * 0.6);
+        ctx.translate(s.x, s.y); ctx.scale(1, 0.62); ctx.rotate(a);
+        // a dark pad under it, so it reads on pale stone and snow as on grass
+        ctx.fillStyle = `rgba(2,16,28,${(0.28 + wave * 0.1).toFixed(3)})`; ctx.beginPath(); ctx.arc(0, 0, r * 1.2, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = `rgba(95,242,255,${(0.35 + wave * 0.4).toFixed(3)})`; ctx.lineWidth = 1 * dpr; ctx.stroke();
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = 'rgba(2,14,24,0.8)'; ctx.lineWidth = (5 + wave * 1.2) * dpr;
+        ctx.beginPath(); ctx.moveTo(-r * 0.45, -r * 0.75); ctx.lineTo(r * 0.55, 0); ctx.lineTo(-r * 0.45, r * 0.75); ctx.stroke();
+        ctx.shadowColor = 'rgba(95,242,255,1)'; ctx.shadowBlur = (6 + wave * 10) * dpr;
+        ctx.strokeStyle = wave > 0.2 ? '#e8feff' : 'rgba(110,240,255,0.95)'; ctx.lineWidth = (2.2 + wave * 1.2) * dpr;
+        ctx.beginPath(); ctx.moveTo(-r * 0.45, -r * 0.75); ctx.lineTo(r * 0.55, 0); ctx.lineTo(-r * 0.45, r * 0.75); ctx.stroke();
+        ctx.lineWidth = 1.2 * dpr; ctx.strokeStyle = 'rgba(95,242,255,0.55)'; ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.moveTo(-r * 1.0, -r * 0.75); ctx.lineTo(0, 0); ctx.lineTo(-r * 1.0, r * 0.75); ctx.stroke();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
+      ctx.restore();
+    },
+    // Where you are headed, marked in the world: a reticle of light over it with its name and
+    // distance while it is in view; at the edge of the screen, an arrow pointing to it, when not.
+    drawMarker(ctx, game, project, dpr) {
+      const g = ECHO.Purpose && ECHO.Purpose.goal, pe = game.pe, world = game.world;
+      if (!g || !g.where || g.where.x == null || ECHO.Interior.cur || !pe || N.hidden()) return;
+      const w = g.where, dx = world.globe && ECHO.Globe ? ECHO.Globe.dx(world, pe.x, w.x) : w.x - pe.x, d = Math.hypot(dx, w.y - pe.y);
+      if (d < 3.2) return;
+      const cw = ctx.canvas.width, chh = ctx.canvas.height, t = game.time || 0;
+      const AM = 'rgba(255,207,106,', HC = 'rgba(95,242,255,';
+      const s0 = project(w.x, w.y, 0.1), s1 = project(w.x, w.y, 3.4);
+      const mt = 128 * dpr, mb = 112 * dpr, ms = 46 * dpr;
+      const inView = s0 && isFinite(s0.x) && s0.z < 1 && s0.x > ms && s0.x < cw - ms && s0.y > mt && s0.y < chh - mb;
+      const Rt = N.route, along = Rt && Rt.ok && Rt.left != null && !Rt.air ? Rt.left : d;   // (the same as the guide at the top: along the way)
+      const dist = `${w.vague ? '~' : ''}${Math.max(1, Math.round(along / 2) * 2)} LG`;
+      ctx.save();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      if (inView) {
+        const x = s1.x, y = s1.y;
+        // a line of light down to the ground, and a ring going out on it
+        const gr = ctx.createLinearGradient(0, s0.y, 0, y); gr.addColorStop(0, AM + '0.9)'); gr.addColorStop(1, AM + '0.1)');
+        ctx.strokeStyle = gr; ctx.lineWidth = 2 * dpr; ctx.setLineDash([4 * dpr, 3 * dpr]); ctx.beginPath(); ctx.moveTo(s0.x, s0.y); ctx.lineTo(x, y + 14 * dpr); ctx.stroke(); ctx.setLineDash([]);
+        const ph = (t * 0.8) % 1; ctx.strokeStyle = AM + (0.8 * (1 - ph)).toFixed(3) + ')'; ctx.lineWidth = 1.5 * dpr;
+        ctx.beginPath(); ctx.ellipse(s0.x, s0.y, (8 + ph * 26) * dpr, (8 + ph * 26) * 0.5 * dpr, 0, 0, Math.PI * 2); ctx.stroke();
+        // the reticle: four corners turning slowly about a diamond
+        const r = 14 * dpr;
+        ctx.strokeStyle = AM + '1)'; ctx.lineWidth = 2 * dpr; ctx.shadowColor = AM + '1)'; ctx.shadowBlur = 10 * dpr;
+        for (let i = 0; i < 4; i++) { const a = t * 0.9 + i * Math.PI / 2; ctx.beginPath(); ctx.arc(x, y, r, a, a + 0.7); ctx.stroke(); }
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillStyle = AM + '1)'; ctx.fillRect(-4 * dpr, -4 * dpr, 8 * dpr, 8 * dpr); ctx.restore();
+        ctx.shadowBlur = 0;
+        ctx.font = `700 ${Math.round(11 * dpr)}px ui-monospace, Consolas, monospace`;
+        const name = (w.name || 'Destination').toUpperCase(), tw = Math.max(ctx.measureText(name).width, ctx.measureText(dist).width) + 16 * dpr, by = y - r - 26 * dpr;
+        ctx.fillStyle = 'rgba(4,12,22,0.78)'; ctx.strokeStyle = AM + '0.6)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.rect(x - tw / 2, by - 12 * dpr, tw, 26 * dpr); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#fff2d0'; ctx.fillText(name, x, by - 4 * dpr);
+        ctx.font = `600 ${Math.round(10 * dpr)}px ui-monospace, Consolas, monospace`; ctx.fillStyle = AM + '1)'; ctx.fillText(dist, x, by + 7 * dpr);
+      } else {
+        // off the screen: an arrow at the edge, pointing the way to it
+        const cx = cw / 2, cy = (mt + chh - mb) / 2;
+        let ax = s0 && isFinite(s0.x) ? s0.x - cx : dx, ay = s0 && isFinite(s0.y) ? s0.y - cy : w.y - pe.y;
+        if (s0 && s0.z > 1) { ax = -ax; ay = -ay; }
+        const a = Math.atan2(ay, ax), hx = cw / 2 - ms, hy = (chh - mb - mt) / 2;
+        const k = Math.min(hx / Math.max(1e-6, Math.abs(Math.cos(a))), hy / Math.max(1e-6, Math.abs(Math.sin(a))));
+        const ex = cx + Math.cos(a) * k, ey = cy + Math.sin(a) * k, pulse = 0.75 + 0.25 * Math.sin(t * 4);
+        ctx.translate(ex, ey);
+        ctx.save(); ctx.rotate(a);
+        ctx.fillStyle = 'rgba(2,12,22,0.7)'; ctx.beginPath(); ctx.arc(0, 0, 24 * dpr, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = HC + '0.55)'; ctx.lineWidth = 1.2 * dpr; ctx.beginPath(); ctx.arc(0, 0, 24 * dpr, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = AM + pulse.toFixed(3) + ')'; ctx.shadowColor = AM + '1)'; ctx.shadowBlur = 12 * dpr;
+        ctx.beginPath(); ctx.moveTo(18 * dpr, 0); ctx.lineTo(-8 * dpr, 13 * dpr); ctx.lineTo(-2 * dpr, 0); ctx.lineTo(-8 * dpr, -13 * dpr); ctx.closePath(); ctx.fill();
+        ctx.shadowBlur = 0; ctx.strokeStyle = AM + '0.9)'; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.arc(0, 0, 30 * dpr, -0.5, 0.5); ctx.stroke();
+        ctx.restore();
+        const lx = -Math.cos(a) * 58 * dpr, ly = -Math.sin(a) * 38 * dpr;
+        ctx.font = `700 ${Math.round(11 * dpr)}px ui-monospace, Consolas, monospace`;
+        const tw = ctx.measureText(dist).width + 12 * dpr;
+        ctx.fillStyle = 'rgba(4,12,22,0.78)'; ctx.strokeStyle = AM + '0.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.rect(lx - tw / 2, ly - 9 * dpr, tw, 18 * dpr); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = AM + '1)'; ctx.fillText(dist, lx, ly + 0.5);
       }
       ctx.restore();
     },

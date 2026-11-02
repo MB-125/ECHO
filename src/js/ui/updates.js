@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.12.0', items: [
+      'The minimap is now a nav-scope: a round radar of the land about you with a bezel marked in degrees (north in gold), range rings, a sweep going round, the way ahead drawn in light, what hunts you as red blips, the way you face as a cone of light, and where you are headed as a gold diamond — or, when it lies beyond, a mark on the rim with how far. Under it: your heading in degrees and where on the world you stand. Scroll on it to range in or out; click it for the full map.',
+      'The guide at the top of the screen is a heading tape that slides as you turn, every five degrees marked: where you are headed is a gold diamond on it — bring the middle onto the diamond and it says On course, otherwise which way to turn and how far. Under it: the distance in leagues, the place, and the way (follow the road north, through the woods…).',
+      'In the world, the trail on the ground is a line of chevrons of light with a pulse running out ahead of you (pointing the right way on the screen, over the poles too); where you are headed has a reticle of light over it with its name and distance, and when it is off the screen an arrow at the edge points the way, with how far.'
+    ] },
     { v: '0.11.0', items: [
       'The map (M) is now a navigation console: the globe glows, with lines of latitude and longitude in light, a bright rim, a slow sweep going round it and rings in orbit with their satellites (all fading away as you come down close), and round the view a compass that turns with the world, an altitude ruler you can drag to come down or go up, a scale, and a readout of where the pointer is.',
       'Easier to use: search right on the globe (press / and type, Enter flies there); big buttons for Me, Goal, World and Chart; W A S D or the arrows turn the world and Q / E zoom; Space finds you, G flies to where you are headed, H shows the whole world, T switches to the flat chart; double-click flies in; right-click anywhere sets a waypoint and guides you to it; let go mid-drag and the world spins on.',
