@@ -220,7 +220,9 @@
       out.forEach((p, k) => { p.alpha = Math.max(0.1, (1 - k / Math.max(1, n)) * 0.85) * (0.75 + 0.25 * Math.sin(game.time * 3 - k * 0.6)); });
       return out;
     },
-    hidden() { return ECHO.UI && ECHO.UI.settings && ECHO.UI.settings.trail === false; },
+    // (the trail on the ground and the guide at the top are off unless you turn them on: N · where to?)
+    hidden() { return !(ECHO.UI && ECHO.UI.settings && ECHO.UI.settings.trailOn === true); },
+    guideOn() { return !!(ECHO.UI && ECHO.UI.settings && ECHO.UI.settings.guideOn === true); },
     // Draw the trail on an overlay canvas: project(x, y) → {x, y, z?} in canvas pixels. Thin
     // chevrons of light along the ground, each pointing the way as it lies on the screen, and a
     // pulse running out ahead of you along them.
@@ -260,13 +262,13 @@
     // distance while it is in view; at the edge of the screen, an arrow pointing to it, when not.
     drawMarker(ctx, game, project, dpr) {
       const g = ECHO.Purpose && ECHO.Purpose.goal, pe = game.pe, world = game.world;
-      if (!g || !g.where || g.where.x == null || ECHO.Interior.cur || !pe || N.hidden()) return;
+      if (!g || !g.where || g.where.x == null || ECHO.Interior.cur || !pe) return;
       const w = g.where, dx = world.globe && ECHO.Globe ? ECHO.Globe.dx(world, pe.x, w.x) : w.x - pe.x, d = Math.hypot(dx, w.y - pe.y);
       if (d < 3.2) return;
       const cw = ctx.canvas.width, chh = ctx.canvas.height, t = game.time || 0;
       const AM = 'rgba(255,207,106,', HC = 'rgba(95,242,255,';
       const s0 = project(w.x, w.y, 0.1), s1 = project(w.x, w.y, 3.4);
-      const mt = 128 * dpr, mb = 112 * dpr, ms = 46 * dpr;
+      const mt = 70 * dpr, mb = 112 * dpr, ms = 46 * dpr;
       const inView = s0 && isFinite(s0.x) && s0.z < 1 && s0.x > ms && s0.x < cw - ms && s0.y > mt && s0.y < chh - mb;
       const Rt = N.route, along = Rt && Rt.ok && Rt.left != null && !Rt.air ? Rt.left : d;   // (the same as the guide at the top: along the way)
       const dist = `${w.vague ? '~' : ''}${Math.max(1, Math.round(along / 2) * 2)} LG`;
@@ -296,9 +298,13 @@
         const cx = cw / 2, cy = (mt + chh - mb) / 2;
         let ax = s0 && isFinite(s0.x) ? s0.x - cx : dx, ay = s0 && isFinite(s0.y) ? s0.y - cy : w.y - pe.y;
         if (s0 && s0.z > 1) { ax = -ax; ay = -ay; }
-        const a = Math.atan2(ay, ax), hx = cw / 2 - ms, hy = (chh - mb - mt) / 2;
-        const k = Math.min(hx / Math.max(1e-6, Math.abs(Math.cos(a))), hy / Math.max(1e-6, Math.abs(Math.sin(a))));
-        const ex = cx + Math.cos(a) * k, ey = cy + Math.sin(a) * k, pulse = 0.75 + 0.25 * Math.sin(t * 4);
+        // on an oval inside the screen's edge (clear of its corners), and stepped in from the edge
+        // while it would lie under the panels of the HUD
+        const a = Math.atan2(ay, ax), rx = cw / 2 - 80 * dpr, ry = (chh - mb - mt) / 2 - 10 * dpr;
+        let k = 1;
+        const at = q => [cx + Math.cos(a) * rx * q, cy + Math.sin(a) * ry * q];
+        while (k > 0.45) { const [px, py] = at(k), m = 64 * dpr; if (!(ECHO.UI && ECHO.UI.overHud && ECHO.UI.overHud(px - m, py - m, px + m, py + m, dpr))) break; k -= 0.05; }
+        const [ex, ey] = at(k), pulse = 0.75 + 0.25 * Math.sin(t * 4);
         ctx.translate(ex, ey);
         ctx.save(); ctx.rotate(a);
         ctx.fillStyle = 'rgba(2,12,22,0.7)'; ctx.beginPath(); ctx.arc(0, 0, 24 * dpr, 0, Math.PI * 2); ctx.fill();
@@ -368,7 +374,8 @@
           const on = (o.id || null) === (cur || null) && (o.id || !cur);
           return `<div class="card nav-row ${on ? 'on' : ''}"><div class="nav-ic">${esc(o.icon)}</div><div style="flex:1"><b>${esc(o.label)}</b><div class="dim" style="font-size:13px">${esc(o.where.vague ? 'a rough area — search when you get there · ' : (o.where.name && !o.label.includes(o.where.name) ? o.where.name + ' · ' : ''))}${Math.round(o.d)} leagues ${esc(dirName(Math.atan2(o.where.y - pl.y, o.where.x - pl.x)))}</div></div><div>${on ? '<span class="gold">leading you here</span>' : `<button class="small" data-nav="${k}">Go here</button>`}</div></div>`;
         }).join('')}</div>` : '<p class="dim">Nothing to head for yet. Take a promise from a notice board, a job from someone in town, or choose a road (Tab → Ambitions).</p>'}${cur ? '<div class="row" style="margin-top:12px"><button class="small" data-nav="none">Stop guiding (back to your road)</button></div>' : ''}
-        <div class="row" style="margin-top:8px"><label class="dim"><input type="checkbox" id="nav-trail" ${N.hidden() ? '' : 'checked'}> Show the trail on the ground</label></div>`;
+        <div class="row" style="margin-top:8px"><label class="dim"><input type="checkbox" id="nav-trail" ${N.hidden() ? '' : 'checked'}> Show the trail on the ground</label></div>
+        <div class="row" style="margin-top:4px"><label class="dim"><input type="checkbox" id="nav-guide" ${N.guideOn() ? 'checked' : ''}> Show the guide at the top of the screen</label></div>`;
         body.querySelectorAll('[data-nav]').forEach(b => b.addEventListener('click', () => {
           const v = b.dataset.nav;
           if (v === 'none') pl.tracked = null; else { const o = list[+v]; pl.tracked = o.id; }
@@ -378,7 +385,10 @@
           if (g) UI.toast(`Leading you to ${g.where ? g.where.name || 'it' : 'it'}.`, 'info', 3);
         }));
         const cb = body.querySelector('#nav-trail');
-        if (cb) cb.addEventListener('change', () => { UI.settings.trail = cb.checked; try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ } });
+        const save = () => { try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ } };
+        if (cb) cb.addEventListener('change', () => { UI.settings.trailOn = cb.checked; save(); });
+        const cg = body.querySelector('#nav-guide');
+        if (cg) cg.addEventListener('change', () => { UI.settings.guideOn = cg.checked; save(); });
       };
       render();
     },

@@ -97,6 +97,8 @@
     hud(game) {
       const el = document.getElementById('hud-goal');
       if (!el) return;
+      // (off unless you turn it on, in N · where to?)
+      if (!(ECHO.Nav && ECHO.Nav.guideOn && ECHO.Nav.guideOn())) { if (!el.classList.contains('hidden')) el.classList.add('hidden'); Pu._nav = null; return; }
       if (ECHO.GateWorld && ECHO.GateWorld.hud(game, el)) { Pu._nav = null; el.classList.remove('nav'); return; }
       let N = Pu._nav;
       if (!N || !el.contains(N.dial)) {

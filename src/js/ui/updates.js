@@ -7,6 +7,9 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.12.2', items: [
+      'The guide at the top of the screen and the trail on the ground are gone, for a clearer view. The minimap still draws your way in light and marks where you are headed, and an arrow at the edge of the screen (kept clear of the panels) points to it with how far. Want either back? N · where to? has a switch for each.'
+    ] },
     { v: '0.12.1', items: [
       'The guide at the top of the screen is simpler to follow: instead of a heading tape that slid with the way you faced (which jumps about as you fight, aim and walk), a dial with a gold needle points on the screen the way to go. The view never turns, so the needle up is W, up and to the right is W and D, and so on; north is marked on the dial (at the bottom when the view is turned over a pole). Beside it: how far, to where, and the way.'
     ] },
