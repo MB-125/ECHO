@@ -69,7 +69,7 @@
     level(pl, k) { const xp = P.st(pl)[k].xp; let l = 1; for (let i = 1; i < LV.length; i++) if (xp >= LV[i]) l = i + 1; return l; },
     rank(pl, k) { const l = P.level(pl, k); return CRAFTS[k].ranks[Math.min(4, Math.floor((l - 1) / 2))]; },
     // a craft grows; and the peaceful road is a real road: it earns experience too
-    gain(game, k, xp) {
+    gain(game, k, xp, pm = 1) {
       const pl = game.pl, S = P.st(pl)[k];
       const before = P.level(pl, k);
       S.xp += xp;
@@ -80,7 +80,7 @@
         game.ui.toast(`${CRAFTS[k].icon} ${CRAFTS[k].name} rises to ${after} — ${P.rank(pl, k)}.${perk ? ' ' + perk : ''}`, 'legend', 6);
         if (ECHO.Music) ECHO.Music.stinger('letter');
       }
-      if (ECHO.Prowess) { const ups = ECHO.Prowess.gain(pl, Math.round(xp * 1.3)); for (const u of ups) ECHO.Progress.levelUp(game, u); }
+      if (ECHO.Prowess && pm > 0) { const ups = ECHO.Prowess.gain(pl, Math.round(xp * 1.3 * pm)); for (const u of ups) ECHO.Progress.levelUp(game, u); }
     },
     // ------------------------------------------------------------ foraging
     nodeAt(world, x, y) {

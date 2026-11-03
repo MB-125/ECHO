@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.19.1', items: [
+      'The more you fell and mine, the faster you get. Your swing quickens with every level of Woodcutting or Mining and with practice — every tree you have ever felled and every stone you have ever broken counts, and keeps counting (about 30% quicker after a hundred, 55% after a thousand, 80% after ten thousand) — and each level takes a share of the strokes off (a master needs fewer than half). A tree that takes a beginner about six seconds takes a practised hand under two.',
+      'Rhythm: work one after another and you find a rhythm that quickens you up to 30% more (shown as you start each one); stop for a few seconds and it fades.',
+      'Hold E and you keep going: when one comes down you set straight to the next one in reach, and if you walk on with E held, each tree or stone you come up against comes down in turn.',
+      'At 10, 25, 50, 100, 250, 500 and 1,000 felled (or broken) you are told how much quicker you have become. Your page (K) shows it all: how many you have done, your swing speed, the strokes a tree or boulder takes you now against when you began, and when you will be quicker again.',
+      'A long day at the axe or the pick no longer slows how fast the craft itself grows (only the experience it gives toward your own level tapers off after a few dozen in a day).'
+    ] },
     { v: '0.19.0', items: [
       'You now give off an aura of your strength, and it grows as you do. A novice has a faint ring of light at their feet; by Fighter and Veteran motes rise off you; from Champion runes turn in the ring; a Hero is wrapped in a shell of flame; past level 20 waves of light roll out across the ground; and the strongest are a blaze, with sparks circling them.',
       'It takes the colour of your rank — gold for a Hero, blue for a Warden of the Deep, orange for the Eternal and so on — mixed with the light of your finest relic, and the best of what you wear (epic and legendary pieces) makes it stronger. It burns brighter in a fight, blazes up as you gather a heavy blow, flares when you rise a level, lights the ground round you at night and in the dark places — and goes dark when you crouch to sneak.',

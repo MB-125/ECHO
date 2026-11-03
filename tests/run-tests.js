@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js'
 ];
 
 function loadEcho() {
@@ -1385,6 +1385,18 @@ function main() {
     const ring = camps.map(c => WL.cut.list.filter(e => e.w === c.s.id && Math.hypot(e.x - c.f.x, e.y - c.f.y) < 20).length);
     const old = WL.cut.list.filter(e => e.w != null && WL.day - e.d > 95).length;
     check('a town\'s woodcutters fell the trees round its lumber camp, and the woods grow back', camps.length > 0 && ring.some(n => n >= 6) && ring.every(n => n <= 24) && old === 0, `stumps round each camp: ${ring.join(', ')}`);
+    // the more you do, the quicker you get
+    {
+      const HV = ECHO.Harvest, tree = { k: 'tree' }, crag = { k: 'crag' };
+      const novice = { past: { wood: { xp: 0 }, mine: { xp: 0 } }, stats: {}, inv: { axe: 1 } };
+      const master = { past: { wood: { xp: 1200 }, mine: { xp: 1200 } }, stats: { felled: 1000, mined: 1000 }, inv: { axe: 1 } };
+      const a = HV.plan(novice, tree, true, 0), b = HV.plan(master, tree, true, 0), c = HV.plan(master, tree, true, 5), mid = HV.plan({ past: { wood: { xp: 190 } }, stats: { felled: 50 }, inv: {} }, tree, true, 0);
+      const t = p => p.n * p.per;
+      check('the more trees you fell the faster you fell them: fewer strokes, quicker swings, and a rhythm when you keep at it', t(b) < t(a) / 3 && b.n < a.n && b.per < a.per && t(mid) < t(a) && t(mid) > t(b) && t(c) < t(b), `a tree: ${t(a).toFixed(1)} s at first, ${t(mid).toFixed(1)} s at 50, ${t(b).toFixed(1)} s at 1,000 (${t(c).toFixed(1)} s in rhythm)`);
+      const pr = d => HV.pace({ past: { wood: { xp: 1200 } }, stats: { felled: d } }, true).practice;
+      check('practice never stops counting, though it slows', pr(100) > pr(10) && pr(1000) > pr(100) && pr(10000) > pr(1000) && pr(10000) < 2, [10, 100, 1000, 10000].map(d => pr(d).toFixed(2)).join(' / '));
+      check('a master miner cuts the living rock in a few blows', HV.plan(master, crag, true, 0).n <= 5 && HV.plan(novice, crag, true, 0).n === 10);
+    }
     // the land grows: what was taken moves with it
     const q = W.cut.list[0], qx = q.x, qy = q.y;
     ECHO.Frontier.shift(W, 4, 2); delete W._cutI;
