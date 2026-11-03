@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.19.0', items: [
+      'You now give off an aura of your strength, and it grows as you do. A novice has a faint ring of light at their feet; by Fighter and Veteran motes rise off you; from Champion runes turn in the ring; a Hero is wrapped in a shell of flame; past level 20 waves of light roll out across the ground; and the strongest are a blaze, with sparks circling them.',
+      'It takes the colour of your rank — gold for a Hero, blue for a Warden of the Deep, orange for the Eternal and so on — mixed with the light of your finest relic, and the best of what you wear (epic and legendary pieces) makes it stronger. It burns brighter in a fight, blazes up as you gather a heavy blow, flares when you rise a level, lights the ground round you at night and in the dark places — and goes dark when you crouch to sneak.',
+      'It is not only for show: foes three or more levels beneath you that come inside it are cowed, and their blows land 15% softer (25% if they are ten levels beneath you); those six or more beneath you falter when they first feel it. Elites, lords and the great beasts are not cowed.',
+      'Your character page (K) shows your aura: its strength, what it looks like now, and how far it reaches. Esc → Gameplay sets it to full, subtle or off.'
+    ] },
     { v: '0.18.1', items: [
       'Your blows kill again. What you strike down dies — no more kneeling, no slow-down, no "last breath" count — and that is now the usual way (your world is switched over once, the next time you play).',
       'Taming is something you choose, and quick: beat the beast or monster you are fighting (the one you are locked on, or last struck) below a third of its life — a lord, an eighth — and press E. You hold it down for a moment and it is yours, every time. Only that one calls for E, and only while you fight it, so the prompt no longer pops up for every hurt beast on the field or jumps ahead of everything else E does.',

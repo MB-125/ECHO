@@ -925,7 +925,7 @@ function main() {
   {
     const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite, Uint8Array, Int32Array, Float32Array };
     ctx.globalThis = ctx; vm.createContext(ctx);
-    for (const f of ['core.js', 'sim/gear.js', 'sim/prowess.js', 'game/tame.js', 'game/pack.js', 'game/arcana.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx, { filename: f });
+    for (const f of ['core.js', 'sim/gear.js', 'sim/prowess.js', 'game/tame.js', 'game/pack.js', 'game/arcana.js', 'game/aura.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx, { filename: f });
     const E = ctx.ECHO, T = E.Tame, A = E.Arcana, P = E.Pack, Gr = E.Gear;
     E.Explore = { small: s => ['cave', 'hideout', 'grot'].includes(s.kind) };
     // sizes, and who fits where
@@ -971,6 +971,19 @@ function main() {
     check('the pack spares the watch, soldiers, townsfolk and the yielded, but not outlaws or those who came at you', !P.fairGame(game, { role: 'guard' }) && !P.fairGame(game, { role: 'soldier' }) && !P.fairGame(game, { role: 'villager', npcId: 'b' }) && !P.fairGame(game, { role: 'bandit', yielded: true }) && P.fairGame(game, { role: 'bandit' }) && P.fairGame(game, { npcId: 'a' }) && P.fairGame(game, { role: 'villager', startedFight: true }));
     // relics and the well of mana
     check('a relic of a higher level or rarity is stronger', A.power(20, 'rare') > A.power(10, 'rare') && A.power(20, 'epic') > A.power(20, 'rare'));
+    {
+      // the aura of your strength
+      const Au = E.Aura, items = { w1: { rarity: 'legendary' }, a1: { rarity: 'epic' } };
+      const g = lv => ({ pl: { prowess: { lv }, relics: [] }, world: { items } });
+      const s1 = Au.strength(g(1)), s9 = Au.strength(g(9)), s30 = Au.strength(g(30)), s300 = Au.strength(g(300));
+      const geared = g(30); geared.pl.weapon = 'w1'; geared.pl.armor = 'a1';
+      check('your aura grows with your strength: faint for a novice, a shell of flame for a hero and more, full at level 300 — and the finest of what you wear adds to it', s1 < 0.12 && s9 > 0.4 && s30 > s9 && Math.abs(s300 - 1) < 0.01 && Au.strength(geared) > s30, [s1, s9, s30, s300].map(x => x.toFixed(2)).join(' / '));
+      E.UI = E.UI || {}; E.UI.toast = E.UI.toast || (() => {}); E.Combat = E.Combat || {}; E.Combat.floater = E.Combat.floater || (() => {});
+      const pe = { x: 0, y: 0 }, weak = { x: 2, y: 0, lvl: 5, hp: 10, maxHp: 10 }, elite = { x: 2, y: 1, lvl: 5, elite: true, hp: 10, maxHp: 10 }, even = { x: 1, y: 1, lvl: 29, hp: 10, maxHp: 10 }, far = { x: 40, y: 0, lvl: 5, hp: 10, maxHp: 10 };
+      const game = { pl: { prowess: { lv: 30 }, relics: [] }, world: { items }, pe, ents: [weak, elite, even, far], time: 5, hostileTo: () => true };
+      Au._pT = 0; Au.presence(game, 0.3, s30, 1);
+      check('what is far beneath you is cowed inside your aura (and falters), the strong and your equals are not, and a cowed blow lands softer', weak._cowed > 5 && weak.stagger > 0 && !elite._cowed && !even._cowed && !far._cowed && Au.cowMul(game, weak) === 0.75 && Au.cowMul(game, even) === 1);
+    }
     check('mana grown by use is deep but not bottomless', A.bonus({ arc: { used: 400 } }) === 32 && A.bonus({ arc: { used: 1e9, fight: 1e9 } }) === 300 && A.bonus({}) === 0);
     // draughts
     const pr = k => Gr.potionPrice(Gr.POTIONS[k], 1);

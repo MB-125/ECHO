@@ -788,7 +788,7 @@
         <div style="font-size:13px;margin-top:4px">Power <b class="gold">${pow.total}</b> · sword <b>${pow.melee}</b> a blow · bow <b>${pow.bow}</b> a shot · armour <b>${pow.def}</b></div>
         <div class="dim" style="font-size:12px">From your level: +${Math.round((Pw.dmgMult(pl) - 1) * 100)}% damage, +${Pw.hpBonus(pl)} life, +${Pw.staBonus(pl)} stamina. Strongest foe beaten: ${st.best ? 'level ' + st.best : 'none yet'}.</div>
         <div class="rank-ladder" style="margin-top:4px">${Pw.RANKS.map(r => `<span style="color:${L >= r.lv ? r.color : '#5a5248'}">${L >= r.lv ? '◆' : '◇'} ${esc(r.title)}</span>`).join('')}</div>
-        <div class="dim" style="font-size:12px">You grow by defeating foes. The stronger they are than you, the more you learn; things far beneath you teach you nothing.</div></div></div>${ECHO.Guard ? ECHO.Guard.cardHtml(world, pl) : ''}`;
+        <div class="dim" style="font-size:12px">You grow by defeating foes. The stronger they are than you, the more you learn; things far beneath you teach you nothing.</div></div></div>${ECHO.Aura && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Aura.html(ECHO.Game), 'aura') : ''}${ECHO.Guard ? ECHO.Guard.cardHtml(world, pl) : ''}`;
     },
     // What you carry and wear, drawn so that every upgrade shows.
     equipHtml(world, pl) {

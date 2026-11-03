@@ -372,6 +372,7 @@
       if (from === game.pe && target !== game.pe && (type === 'melee' || type === 'ranged') && ECHO.Arcana) dmg *= ECHO.Arcana.dealt(game, type);
       if (from && from !== game.pe && target !== game.pe && (from.tamed || from.pal || from.isCompanion) && ECHO.Arcana) dmg *= ECHO.Arcana.pets(game);
       if (target._held > game.time && from && (from === game.pe || from.pal || from.tamed || from.isCompanion)) dmg *= 1.33;     // (held in a relic's chains)
+      if (target === game.pe && from && from !== game.pe && ECHO.Aura) dmg *= ECHO.Aura.cowMul(game, from);     // (cowed by your aura)
       if (from === game.pe && target !== game.pe && ECHO.Lore) dmg *= ECHO.Lore.dealt(game, target);
       if (target === game.pe && from && from !== game.pe && ECHO.Lore) dmg *= ECHO.Lore.taken(game, from);
       if (target === game.pe && from !== game.pe && game.pl.mounted && ECHO.Life) dmg = ECHO.Life.hitInSaddle(game, from, dmg);

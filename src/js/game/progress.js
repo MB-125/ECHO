@@ -51,6 +51,7 @@
       ECHO.PlayerCtl.derivedT = 0;
       ECHO.PlayerCtl.computeDerived(game);
       pl.hp = pl.maxHp; pl.stamina = pl.maxSta;
+      if (ECHO.Aura) { ECHO.Aura.refresh(); ECHO.Aura.flare(u.rank ? 4 : 2.5); }
       ECHO.Combat.burst(game.pe.x, game.pe.y, u.rank ? u.rank.color : '#ffe08a', 26, 4, 0.9, 3);
       // a column of light where you stand, a ring rolling out across the ground, and the land lit around you
       const col = u.rank ? u.rank.color : '#ffe08a';

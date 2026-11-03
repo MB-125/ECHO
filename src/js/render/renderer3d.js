@@ -4406,6 +4406,7 @@
       R.updateEntities(game, dt);
       R.updateFx(game, dt);
       R.updateFell(game, dt, room);
+      R.updateAura(game, dt);
       R.updateGlows(game);
       R.updateTownFires(game, room);
       R.updateSecrets(game, room);
@@ -4471,6 +4472,67 @@
           o.g.position.y = o.y0 - 0.25 * u;
           o.pivot.rotation.set(Math.sin(t * 50) * 0.05 * (1 - u), 0, Math.cos(t * 43) * 0.05 * (1 - u));
         }
+      }
+    },
+
+    // The aura of your strength: a disc of light at your feet (a glow, a rim, runes turning,
+    // waves rolling out) and, once you are strong, a shell of flame round you. ECHO.Aura says
+    // how strong, what colour and how bright; this draws it.
+    updateAura(game, dt) {
+      const L = ECHO.Aura && ECHO.Aura.look(), pe = game.pe;
+      if (!R._aura) {
+        if (!L || !L.show) return;
+        const g = new THREE.Group(), t0 = { value: 0 };
+        const uni = () => ({ uC1: { value: new THREE.Color() }, uC2: { value: new THREE.Color() }, uT: t0, uA: { value: 0 }, uS: { value: 0 } });
+        const vs = 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+        const disc = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({ uniforms: uni(), vertexShader: vs, transparent: true, depthWrite: false,
+          fragmentShader: `uniform vec3 uC1; uniform vec3 uC2; uniform float uT; uniform float uA; uniform float uS; varying vec2 vUv;
+            void main() {
+              vec2 p = vUv * 2.0 - 1.0; float r = length(p); if (r > 1.0) discard;
+              float an = atan(p.y, p.x);
+              float core = pow(1.0 - r, 2.6) * 0.42;
+              float rim = smoothstep(0.78, 0.9, r) * smoothstep(1.0, 0.92, r) * (0.6 + 0.4 * sin(an * 6.0 - uT * 2.0));
+              float runes = step(0.35, uS) * step(0.6, fract(an * 3.8197 + uT * 0.12)) * smoothstep(0.6, 0.63, r) * smoothstep(0.68, 0.65, r);
+              float wave = step(0.55, uS) * smoothstep(0.05, 0.0, abs(r - fract(uT * 0.42))) * (1.0 - r) * 1.2;
+              vec3 col = mix(uC1, uC2, 0.5 + 0.5 * sin(an * 2.0 + uT * 0.8));
+              float v = clamp((core + rim * 0.9 + runes * 0.5 + wave) * uA, 0.0, 0.85);
+              gl_FragColor = vec4(mix(col, vec3(1.0), core * 0.5) * 1.1, v);
+            }` }));
+        disc.rotation.x = -Math.PI / 2; disc.renderOrder = 4;
+        const shell = new THREE.Mesh(new THREE.CylinderGeometry(1, 0.82, 1, 28, 1, true).translate(0, 0.5, 0), new THREE.ShaderMaterial({ uniforms: uni(), vertexShader: vs, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+          fragmentShader: `uniform vec3 uC1; uniform vec3 uC2; uniform float uT; uniform float uA; varying vec2 vUv;
+            void main() {
+              float y = vUv.y;
+              float f1 = 0.5 + 0.5 * sin(vUv.x * 43.98 + uT * 5.0 + y * 4.0);
+              float f2 = 0.5 + 0.5 * sin(vUv.x * 18.85 - uT * 3.3 + y * 9.0);
+              float tongues = smoothstep(0.0, 0.75, f1 * f2 * 2.3 - y * 0.8);
+              float fade = pow(1.0 - y, 1.3) * smoothstep(0.0, 0.08, y);
+              float v = clamp((0.4 * fade + tongues * fade * 1.5) * uA * 1.5, 0.0, 0.85);
+              gl_FragColor = vec4(mix(mix(uC1, uC2, y), vec3(1.0), 0.35 * tongues * (1.0 - y)) * 1.15, v);
+            }` }));
+        shell.renderOrder = 5;
+        g.add(disc); g.add(shell); R.scene.add(g);
+        R._aura = { g, disc, shell, t0 };
+      }
+      const A = R._aura;
+      if (!L || !L.show || !pe || pe.dead) { A.g.visible = false; return; }
+      A.g.visible = true;
+      A.t0.value = (A.t0.value + dt) % 1000;
+      const gy = R.standH ? R.standH(pe.x, pe.y) : R.groundH(pe.x, pe.y), s = L.s, a = L.a;
+      A.g.position.set(pe.x, gy, pe.y);
+      for (const m of [A.disc, A.shell]) { m.material.uniforms.uC1.value.set(L.c1); m.material.uniforms.uC2.value.set(L.c2); m.material.uniforms.uS.value = s; }
+      // the disc: wider as you grow
+      const rad = (0.85 + 1.5 * Math.min(1.1, s)) * (1 + L.hold * 0.25);
+      A.disc.position.y = 0.05; A.disc.scale.setScalar(rad);
+      A.disc.material.uniforms.uA.value = a * (0.35 + 0.6 * Math.min(1, s));
+      // the shell of flame: from the rank of Hero on, taller and brighter as you grow
+      const sh = U.clamp((s - 0.4) / 0.35, 0, 1);
+      A.shell.visible = sh > 0.01;
+      if (A.shell.visible) {
+        const pulse = 1 + Math.sin(A.t0.value * 7) * 0.04 + L.hold * 0.25;
+        A.shell.position.y = L.mounted ? 0.75 : 0;
+        A.shell.scale.set((0.5 + 0.18 * s) * pulse, (1.5 + 0.9 * s) * (1 + L.hold * 0.35), (0.5 + 0.18 * s) * pulse);
+        A.shell.material.uniforms.uA.value = a * sh * (L.subtle ? 0.5 : 0.85);
       }
     },
 
