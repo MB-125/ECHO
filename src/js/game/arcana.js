@@ -52,7 +52,7 @@
       desc: (p, t) => `${A.bladeN(t)} ghostly blades circle you for ${10 + t} s and cut whatever comes close, for ${Math.round(p * 0.12 * A.bladeN(t))} twice a second.`,
       pas: 'Focus', pasText: v => `+${v.manaRegen.toFixed(1)} mana a second` },
     bind: { name: 'Beastbinder', icon: '⛓', color: '#ffcf6a', mana: 22, cd: 10, bases: ['torc', 'chain', 'collar'], what: 'Binding', role: 'hold',
-      desc: (p, t) => `Chains of light hold a strong foe still for ${4 + t} s (and break its wind-up); for twenty, no blow of yours can kill it — it falls beaten instead — and it is easier to tame.`,
+      desc: (p, t) => `Chains of light hold a strong foe still for ${4 + t} s (and break its wind-up); while held it takes a third more harm from you. When you are taming (L), for twenty seconds it falls beaten instead of dying.`,
       pas: 'Kinship', pasText: v => `your beasts and companions hit ${Math.round(v.pets * 100)}% harder` },
     star: { name: 'Starfall', icon: '☄', color: '#ffb84a', mana: 50, cd: 14, bases: ['orb', 'star-glass', 'censer'], what: 'Starfall', role: 'blast',
       desc: (p, t) => `${A.starN(t) > 1 ? A.starN(t) + ' stars fall' : 'A star falls'} where the foes are thickest: ${Math.round(p * 2.4)} to everything within ${(3 + 0.4 * t).toFixed(1)} paces, and they burn.`,
@@ -436,7 +436,7 @@
       const pe = game.pe, C = ECHO.Combat;
       const e = plan.target && !plan.target.dead ? plan.target : A.aimed(game, aim, 9);
       if (!e) { C.floater(pe.x, pe.y - 1.2, 'nothing to bind', '#c8c0b0'); return false; }
-      e._bound = game.time + 20;
+      e._bound = game.time + 20; e._held = game.time + 4 + t;
       e.stagger = Math.max(e.stagger || 0, A.big(e) ? (4 + t) * 0.5 : 4 + t); e.state = 'stagger'; e.wcast = null; e.moving = false;
       for (let i = 0; i < 3; i++) C.fx.push({ kind: 'arc', x: pe.x, y: pe.y, x2: e.x + (Math.random() - 0.5) * 0.6, y2: e.y + (Math.random() - 0.5) * 0.6, h: 0.6, t: 0, life: 0.6, color: '#ffcf6a' });
       C.ring(e.x, e.y, (e.r || 0.4) + 1, 'rgba(255,207,106,0.95)', 0.7);

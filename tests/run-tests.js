@@ -933,7 +933,19 @@ function main() {
     check('beasts have sizes: a goblin small, a troll large, a widow and a lair\'s drake huge, a lord at least large', T.sizeOf(goblin) === 'small' && T.sizeOf(troll) === 'large' && T.sizeOf(widow) === 'huge' && T.sizeOf(drake) === 'huge' && T.sizeOf(lord) === 'large');
     const cave = { carved: true, type: 'delve', site: { kind: 'cave' } }, barrow = { carved: true, type: 'delve', site: { kind: 'barrow' } }, gate = { carved: true, type: 'gate' }, house = { type: 'house' };
     check('a cave lets in only the small; a barrow keeps out the huge; a gate\'s world takes any; a house none', T.fits(goblin, cave) && !T.fits(troll, cave) && T.fits(troll, barrow) && !T.fits(drake, barrow) && T.fits(drake, gate) && !T.fits(goblin, house) && T.fits(drake, null));
-    check('how you strike down what could be tamed: last breath by default, the leash of old saves kept', T.mode({}) === 'breath' && T.mode({ leash: true }) === 'leash' && T.mode({ tameMode: 'kill' }) === 'kill');
+    check('your blows kill by default; taming (last breath, or the leash of old saves) is chosen', T.mode({}) === 'kill' && !T.taming({}) && T.mode({ leash: true }) === 'leash' && T.mode({ tameMode: 'breath' }) === 'breath' && T.taming({ tameMode: 'breath' }) && T.ORDER[0] === 'kill');
+    {
+      // on a hunt: the one you fight, beaten low, is tamed with E; one you are not fighting gives no call; a relic's chains spare only when taming
+      E.UI = E.UI || { toast() {} }; E.Interior = E.Interior || { cur: null }; E.Input = E.Input || { mx: 0, my: 0 }; E.PlayerCtl = E.PlayerCtl || { lock: null };
+      E.Combat = E.Combat || { floater() {}, ring() {}, burst() {}, fx: [] };
+      const pl = { pack: [], prowess: { lv: 5 } }, pe = { x: 0, y: 0 };
+      const gob = { species: 'goblin', x: 2, y: 0, hp: 10, maxHp: 100, foe: { name: 'Goblin', look: 'goblin' } }, far = { species: 'spider', x: 4, y: 1, hp: 10, maxHp: 100, foe: { name: 'Spider', look: 'spider' } };
+      const g = { pl, pe, ents: [gob, far], time: 10, lastStruck: gob, lastStruckT: 9, screenToWorld: () => ({ x: 0, y: 0 }), world: { day: 1, minute: 0 } };
+      const its = T.interactables(g);
+      check('to the kill, a beast you are fighting that is beaten low is yours with E — and only that one, and E does not jump to it ahead of everything', its.length === 1 && its[0].tameEnt === gob && its[0].d > 0 && /Tame the goblin/.test(its[0].label), its.map(i => i.label + ' ' + i.d.toFixed(2)).join('; '));
+      const bound = { species: 'goblin', x: 1, y: 0, hp: 0, maxHp: 100, _bound: 30, foe: { name: 'Goblin', look: 'goblin' } };
+      check('to the kill, a beast held in a relic\'s chains still dies', T.onDeath(g, bound, pe) === false && !(bound.subdued > 0));
+    }
     {
       // no more than two of any one kind
       const g2 = { pl: { pack: [{ kind: 'goblin', cat: 'foe' }, { kind: 'goblin', cat: 'foe' }, { kind: 'spider', cat: 'foe' }, { kind: 'goblin', cat: 'foe', lord: true }] } };

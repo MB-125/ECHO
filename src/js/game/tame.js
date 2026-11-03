@@ -1,9 +1,11 @@
 // Taming: any beast, monster or lord of the deep places can be made yours.
 //
-// Knock it down, it kneels, press E: it is yours. Whatever you strike down
-// kneels instead of dying (a beast or monster for 12 seconds before it dies,
-// a lord until it gets up again), and anything beaten below a third of its life
-// (a lord, a tenth) can be taken too. Taming never fails.
+// Your blows kill (that is the default: what you strike down dies). To tame, beat a
+// beast or monster below a third of its life (a lord, an eighth) and press E while you
+// fight it: you hold it down for a moment and it is yours. Taming never fails. If you
+// would rather nothing died by mistake, L switches to taming: what you strike down
+// kneels on its last breath (E tames it, a blow finishes it), or, on the leash, falls
+// beaten and stays down until you choose.
 //
 // What you tame follows you (three at a time; the rest wait at your den until
 // you call them, from the Animals page, U), fights whatever comes at you, grows
@@ -24,20 +26,26 @@
     sameCount(pl, species) { return species ? T.pack(pl).filter(r => r.cat !== 'boss' && !r.lord && r.kind === species).length : 0; },
     full(game, e) { return !!(e && !T.isBoss(e) && e.species && T.sameCount(game.pl, e.species) >= MAX_SAME); },
     reset() { T.chan = null; T.t = 0; },
-    // L: the leash — while it is on, nothing you or yours strike down that can be tamed is killed; it falls beaten
     // How you fight what could be tamed (L cycles):
-    //  'breath' (the default) — a killing blow leaves it on its last breath: it kneels for
-    //     8 seconds, warned, for you to tame (E); strike it again, or let the time run out, and it dies;
-    //  'leash' — it falls beaten and kneels for 25 seconds; nothing you do hurts it; it gets up again;
-    //  'kill' — it dies as it falls.
-    MODES: { breath: { name: 'last breath', col: '#ffe08a', say: 'Last breath: a beast or monster you strike down kneels for 12 seconds before it dies — time to tame it (E). Strike it again to finish it.' }, leash: { name: 'leash', col: '#ffcf6a', say: '⛓ Leash: beasts and monsters you strike down fall beaten and kneel instead of dying, however hard the blow. Nothing you do hurts them while they kneel; tame (E) or Finish (E).' }, kill: { name: 'to the kill', col: '#e0806a', say: 'To the kill: what you strike down dies at once. (L again: last breath.)' } },
-    mode(pl) { return pl.tameMode || (pl.leash ? 'leash' : 'breath'); },
+    //  'kill' (the default) — it dies as it falls; one beaten low can still be tamed with E
+    //     while you fight it (the one you are locked on or last struck);
+    //  'breath' — a killing blow leaves it on its last breath: it kneels for 12 seconds,
+    //     warned, for you to tame (E); strike it again, or let the time run out, and it dies;
+    //  'leash' — it falls beaten and kneels for 25 seconds; nothing you do hurts it; it gets up again.
+    MODES: {
+      kill: { name: 'to the kill', col: '#e0806a', say: 'To the kill (the usual way): what you strike down dies. A beast beaten below a third of its life can still be tamed — press E while you fight it.' },
+      breath: { name: 'taming: last breath', col: '#ffe08a', say: 'Taming — last breath: a beast or monster you strike down kneels for 12 seconds before it dies. E tames it; a blow finishes it at once.' },
+      leash: { name: 'taming: leash', col: '#ffcf6a', say: '⛓ Taming — the leash: beasts and monsters you strike down fall beaten and kneel instead of dying, however hard the blow. Nothing you or yours do hurts them while they kneel: tame (E) or Finish (E).' }
+    },
+    ORDER: ['kill', 'breath', 'leash'],
+    mode(pl) { return pl.tameMode || (pl.leash ? 'leash' : 'kill'); },
+    taming(pl) { return T.mode(pl) !== 'kill'; },
     toggleLeash(game) {
-      const pl = game.pl, order = ['breath', 'leash', 'kill'];
-      pl.tameMode = order[(order.indexOf(T.mode(pl)) + 1) % 3]; pl.leash = pl.tameMode === 'leash';
+      const pl = game.pl, order = T.ORDER;
+      pl.tameMode = order[(order.indexOf(T.mode(pl)) + 1) % order.length]; pl.leash = pl.tameMode === 'leash';
       const M = T.MODES[pl.tameMode];
       UI().toast(`${M.say} (L to change.)`, 'study', 6);
-      ECHO.Combat.floater(game.pe.x, game.pe.y - 1.4, `taming: ${M.name}`, M.col, true);
+      ECHO.Combat.floater(game.pe.x, game.pe.y - 1.4, M.name, M.col, true);
     },
     // a blow on one kneeling on its last breath finishes it (not in the first moment it falls)
     // A blow of yours on one kneeling — on its last breath, beaten on the leash, or a lord
@@ -138,12 +146,20 @@
     update(game, dt) {
       const pe = game.pe, pl = game.pl;
       if (!pe || !pl) return;
-      // a beast that falls under your hand, said once
+      // (once, for a world from before: your blows kill again — taming is something you choose)
+      if (pl.tameV !== 2) {
+        pl.tameV = 2;
+        const was = pl.tameMode || (pl.leash ? 'leash' : 'breath');
+        pl.tameMode = 'kill'; pl.leash = false;
+        if (was !== 'kill') setTimeout(() => UI().toast('Your blows kill now: what you strike down dies. To tame a beast, beat it below a third of its life and press E while you fight it — or press L to switch to taming, where what you strike down kneels instead.', 'study', 10), 1500);
+      }
+      // a beast that falls under your hand, said once — on a hunt, only the one you are fighting
       if ((T._noteT = (T._noteT || 0) - dt) <= 0) {
         T._noteT = 0.25;
-        for (const e of game.ents) if (!e._tameTold && !e.dead && T.can(game, e) && e.hp <= e.maxHp * T.threshold(e) && U.dist(e.x, e.y, pe.x, pe.y) < 14) {
-          e._tameTold = true; ECHO.Combat.floater(e.x, e.y - 1.6 * (e.scale || 1), 'can be tamed — E', '#ffe08a');
-          if (!pl._tameTip) { pl._tameTip = true; UI().toast('A beaten beast can be tamed: press E — from where you stand, no need to come close — and it is yours. Taming never fails. Afraid of killing it by mistake? Press L for the leash: what you strike down falls beaten instead of dying.', 'study', 9); }
+        const taming = T.taming(pl), mine = T.target(game);
+        for (const e of game.ents) if (!e._tameTold && !e.dead && T.can(game, e) && e.hp <= e.maxHp * T.threshold(e) && U.dist(e.x, e.y, pe.x, pe.y) < 14 && (taming || e === mine)) {
+          e._tameTold = true; ECHO.Combat.floater(e.x, e.y - 1.6 * (e.scale || 1), taming ? 'can be tamed — E' : 'E — tame it', '#ffe08a');
+          if (!pl._tameTip2) { pl._tameTip2 = true; UI().toast('A beast beaten below a third of its life can be tamed: press E while you fight it, and in a moment it is yours. Taming never fails. Keep striking and it dies, as anything does. (L switches to taming, if you would rather nothing died by mistake.)', 'study', 9); }
         }
       }
       if ((T._fullT = (T._fullT || 0) - dt) <= 0) {
@@ -197,21 +213,31 @@
       for (const e of game.ents) if (e.pal && !e.dead && !e.pal.out) { e.dead = true; e.vanish = true; ECHO.Combat.burst(e.x, e.y, '#ffe08a', 10, 2, 0.5, 2); }
     },
 
+    // the one you are fighting: the one you are locked on, the last you struck, else none
+    target(game) {
+      const L = ECHO.PlayerCtl && ECHO.PlayerCtl.lock;
+      if (L && !L.dead) return L;
+      const s = game.lastStruck;
+      return s && !s.dead && game.time - (game.lastStruckT || -99) < 8 ? s : null;
+    },
     // ------------------------------------------------------------ taming
     interactables(game) {
       const out = [], pe = game.pe, pl = game.pl;
       if (pl.flying || T.chan) return out;
       let mouse = null; try { mouse = game.screenToWorld(ECHO.Input.mx, ECHO.Input.my); } catch (err) { mouse = null; }
+      const taming = T.taming(pl), mine = taming ? null : T.target(game);
       for (const e of game.ents) {
         if (!T.ready(game, e)) continue;
         const d = U.dist(e.x, e.y, pe.x, pe.y);
         // from a distance: anything you have beaten that you can see (indoors and out are worlds apart)
         if (d > T.REACH || (e.x >= 9000) !== (pe.x >= 9000)) continue;
+        // on a hunt (to the kill), only the one you are fighting, and not from across the field
+        if (!taming && !(e.subdued > 0) && (e !== mine || d > 9)) continue;
         const nm = T.nameOf(e);
         // the one you mean: the one you are locked on, else the one nearest your cursor, else the nearest
         const lock = ECHO.PlayerCtl && ECHO.PlayerCtl.lock === e, dm = mouse ? U.dist(e.x, e.y, mouse.x, mouse.y) : d;
         // first of all you could do here: a beaten beast is what E is for
-        out.push({ kind: 'act', label: T.pack(pl).length >= MAX_KEEP ? `Tame ${nm} — your den is full (U)` : `Tame ${nm}${d > 5 ? ' (from here)' : ''}`, d: -1 + (lock ? 0 : 0.001 + Math.min(dm, d) * 0.001), tameEnt: e, act: () => T.begin(game, e) });
+        out.push({ kind: 'act', label: T.pack(pl).length >= MAX_KEEP ? `Tame ${nm} — your den is full (U)` : `Tame ${nm}${d > 5 ? ' (from here)' : ''}`, d: (taming || e.subdued > 0 ? -1 : 0.12) + (lock ? 0 : 0.001 + Math.min(dm, d) * 0.001), tameEnt: e, act: () => T.begin(game, e) });
         if (e.subdued > 0 && d < 2.5) out.push({ kind: 'act', label: `Finish ${nm}`, d: d * 0.5 + 0.01, act: () => { e.subdued = 0; e._finish = true; ECHO.Combat.kill(e, pe, 'melee', { angle: Math.atan2(e.y - pe.y, e.x - pe.x) }); } });
       }
       return out;
@@ -436,7 +462,7 @@
       // a lord falls beaten, not dead: yours to tame or to finish
       const byYou = from === game.pe || (from && (from.isCompanion || from.pal || from.tamed));
       // on the leash (L), or bound by a relic: a beast or a monster falls beaten instead of dying
-      const held = e._bound > game.time, mode = T.mode(game.pl);
+      const mode = T.mode(game.pl), held = e._bound > game.time && mode !== 'kill';
       // on its last breath (the default): a moment, warned, to tame it before it dies
       if (mode === 'breath' && !held && (from === game.pe || (!from && e.burnFrom === game.pe)) && !e._finish && !T.isBoss(e) && T.can(game, e) && T.pack(game.pl).length < MAX_KEEP) {
         e.hp = Math.max(1, Math.round(e.maxHp * T.threshold(e) * 0.5)); e.subdued = 12; e._lastBreath = true; e._breathAt = game.time; e._breathSay = 13;
@@ -445,7 +471,7 @@
         ECHO.Combat.ring(e.x, e.y, (e.r || 0.4) + 0.9, 'rgba(255,224,138,0.95)', 0.8);
         if (game.slowMo) game.slowMo(0.45, 0.35);
         if (ECHO.Sfx) ECHO.Sfx.play('growl', { pitch: 0.6 });
-        if (!game.pl._breathTip) { game.pl._breathTip = true; UI().toast(`${U.cap(T.nameOf(e))} is on its last breath: it kneels for 12 seconds before it dies. Press E — from where you stand — and it is yours — or strike it again to finish it. (L changes this: the leash spares everything you strike down; "to the kill" spares nothing.)`, 'legend', 9); }
+        if (!game.pl._breathTip) { game.pl._breathTip = true; UI().toast(`${U.cap(T.nameOf(e))} is on its last breath: it kneels for 12 seconds before it dies. Press E — from where you stand — and it is yours — or strike it again to finish it. (You are taming — L changes this: the leash spares everything you strike down; "to the kill", the usual way, lets it die.)`, 'legend', 9); }
         return true;
       }
       if ((mode === 'leash' || held) && (byYou || !from) && !e._finish && !T.isBoss(e) && T.can(game, e)) {

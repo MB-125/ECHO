@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.18.1', items: [
+      'Your blows kill again. What you strike down dies — no more kneeling, no slow-down, no "last breath" count — and that is now the usual way (your world is switched over once, the next time you play).',
+      'Taming is something you choose, and quick: beat the beast or monster you are fighting (the one you are locked on, or last struck) below a third of its life — a lord, an eighth — and press E. You hold it down for a moment and it is yours, every time. Only that one calls for E, and only while you fight it, so the prompt no longer pops up for every hurt beast on the field or jumps ahead of everything else E does.',
+      'If you would rather nothing died by mistake, L still switches to taming: last breath (what you strike down kneels for 12 seconds — E tames it, a blow finishes it) or the leash (it kneels until you choose). The item bar says so while you are taming; on the usual way it shows nothing.',
+      'A Beastbinder relic no longer stops your kills: in the usual way its chains hold a strong foe still and it takes a third more harm from you and your beasts while held; only when you are taming does it make the foe fall beaten instead of dying.'
+    ] },
     { v: '0.18.0', items: [
       'Magical equipment is much stronger now, and you will feel it. Rarity counts for far more: a legendary relic is about three times as strong as a common one of the same level, and its power does more — more leaps for chain lightning, a wider and longer frost nova, a bigger barrier that bursts when it breaks, a blink that leaves a blast behind, a bloom that heals your companions too, more spectral blades, up to three falling stars. Relics you already carry are brought up to the new strength the first time you look at them.',
       'Every relic now gives a gift that is always on while you wear it, free: Stormcaller harder blows with blade and bow, Rimeheart less harm from every blow, Aegis more life, Wayfarer quicker feet, Lifebloom life that comes back even in a fight, Spectral mana that comes back faster, Beastbinder beasts and companions that bite harder, Starfall a deeper well of mana and more spell power.',

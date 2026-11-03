@@ -9,7 +9,7 @@
     ACTIONS: [
       ['w', 'Move up'], ['a', 'Move left'], ['s', 'Move down'], ['d', 'Move right'], [' ', 'Dodge roll'], ['Shift', 'Guard · fly fast'], ['Control', 'Sneak · fly lower'],
       ['q', 'Fire (hold) · dragon dive'], ['r', 'Lock on'], ['e', 'Talk · enter · use · tame'], ['f', 'Study · dragon\'s art'], ['z', 'Relic 1'], ['x', 'Relic 2'], ['c', 'Relic 3'], ['i', 'Relics'],
-      ['1', 'Healing draught'], ['h', 'Eat'], ['g', 'Herbs'], ['b', 'Make camp'], ['v', 'Ride · fly'], ['y', 'Switch animal'], ['u', 'Tamed beasts'], ['o', 'Call your pack'], ['l', 'Taming: breath / leash / kill'],
+      ['1', 'Healing draught'], ['h', 'Eat'], ['g', 'Herbs'], ['b', 'Make camp'], ['v', 'Ride · fly'], ['y', 'Switch animal'], ['u', 'Tamed beasts'], ['o', 'Call your pack'], ['l', 'Kill · tame (last breath) · tame (leash)'],
       ['t', 'Orders for a companion'], ['p', 'Play'], ['Tab', 'Journal'], ['j', 'Guide'], ['m', 'Map'], ['k', 'Character'], ['n', 'Where to?']
     ],
     remap: new Map(), dead: new Set(),
