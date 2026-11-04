@@ -107,13 +107,14 @@
     },
     campStrength(world, camp) {
       let s = 0;
-      for (const id of camp.members) { const n = world.npcs[id]; if (n && n.status === 'alive') s += 10 + n.skill.fight * 0.6 + (n.carry ? 6 : 0); }
+      for (const id of camp.members) { const n = world.npcs[id]; if (n && n.status === 'alive') s += ECHO.Military ? ECHO.Military.power(n) * 0.9 + (n.carry ? 6 : 0) : 10 + n.skill.fight * 0.6 + (n.carry ? 6 : 0); }
       const d = world.factions.ashfang.doctrines;
       if (d.shields) s *= 1.08;
       if (d.bodyguards) s *= 1.05;
       return s;
     },
     settlementStrength(world, s) {
+      if (ECHO.Military) return ECHO.Military.strength(world, s);   // (levels, walls, towers and command: military.js)
       let str = 0;
       for (const n of P().residents(world, s)) {
         if (n.ngAux) str += 40 + n.skill.fight;   // (an auxiliary of the National Guard is worth a squad)
@@ -330,7 +331,7 @@
       const commander = world.npcs[j.army.commander];
       const at = ECHO.Sim.settlement(world, j.to);
       if (!camp || !camp.alive) { Pol.armyGoHome(world, soldiers, at); return; }
-      let atk = U.sum(soldiers.map(n => 12 + n.skill.fight * 0.7)) * (1 + world.factions[j.army.faction].tech.era * 0.08);
+      let atk = ECHO.Military ? ECHO.Military.hostPower(world, j) : U.sum(soldiers.map(n => 12 + n.skill.fight * 0.7)) * (1 + world.factions[j.army.faction].tech.era * 0.08);
       const def = Pol.campStrength(world, camp) * 1.15;
       const win = atk * rng.range(0.7, 1.3) > def * rng.range(0.7, 1.3);
       const bandits = camp.members.map(id => world.npcs[id]);
@@ -367,6 +368,7 @@
 
     armyArrive(world, j) {
       const rng = ECHO.Sim.rngFor(world);
+      if (j.army.type === 'patrol') return ECHO.Military ? ECHO.Military.patrolArrive(world, j) : Pol.armyGoHome(world, j.npcs.map(id => world.npcs[id]).filter(n => n && n.status === 'alive'), ECHO.Sim.settlement(world, j.to));
       if (j.army.type === 'camp') return Pol.battleCamp(world, j, rng);
       return Pol.battleSettlement(world, j, rng);
     },
@@ -465,8 +467,8 @@
       pool.sort((a, b) => (b.wealth + b.renown * 3 + ambition(b)) - (a.wealth + a.renown * 3 + ambition(a)));
       const r = pool[0];
       if (!r) { s.ruler = null; return; }
-      s.ruler = r.id; r.title = 'Reeve'; r.prof = r.prof === 'guard' ? 'guard' : 'reeve';
-      ECHO.Chronicle.add(world, { text: `${P().name(r)} became reeve of ${s.name}.`, kind: 'politics', importance: 1, sid: s.id, npcs: [r.id] });
+      s.ruler = r.id; r.title = ECHO.Military ? ECHO.Military.lordTitle(world, s, r) : 'Reeve'; r.prof = r.prof === 'guard' ? 'guard' : 'reeve';
+      ECHO.Chronicle.add(world, { text: `${P().name(r)} became ${r.title === 'Reeve' ? 'reeve' : r.title === 'Lady' ? 'the lady' : 'the lord'} of ${s.name}.`, kind: 'politics', importance: 1, sid: s.id, npcs: [r.id] });
     },
 
     flipSettlement(world, s, toFaction, how) {
@@ -559,8 +561,25 @@
           if (soldiers.length < 6) continue;
           const targets = world.settlements.filter(s => s.faction === eid);
           if (!targets.length) continue;
+          const Mil = ECHO.Military;
+          // a general picks a fight they can win: near, and weaker than the host they can raise
           const target = targets.reduce((x, y) => ECHO.Sim.roadDistance(world, cap.id, x.id) - Pol.settlementStrength(world, x) * 0.3 < ECHO.Sim.roadDistance(world, cap.id, y.id) - Pol.settlementStrength(world, y) * 0.3 ? x : y);
-          const force = soldiers.sort((x, y) => y.rank - x.rank).slice(0, Math.max(4, soldiers.length - 3));
+          let force;
+          if (Mil) {
+            // the Marshal leads; a third of the garrison stays to hold the capital; the towns
+            // nearby send their levies to join the host
+            const lv = n => Mil.lvOf(n);
+            const ranked = soldiers.sort((x, y) => (y.title === 'Marshal') - (x.title === 'Marshal') || y.rank - x.rank || lv(y) - lv(x));
+            force = ranked.slice(0, Math.max(4, Math.ceil(ranked.length * 0.66)));
+            for (const t of world.settlements) {
+              if (t === cap || t.faction !== f.id || ECHO.Sim.roadDistance(world, cap.id, t.id) > 160) continue;
+              const g = Mil.soldiers(world, t).filter(n => !n.journey && n.id !== t.captain && !n.title).sort((x, y) => lv(y) - lv(x));
+              force.push(...g.slice(0, Math.floor(g.length * 0.4)));
+            }
+            // a host that would break on the walls stays home and waits for a better day
+            const host = U.sum(force.map(n => Mil.power(n))), def = Pol.settlementStrength(world, target);
+            if (host < def * 0.6 && rng.chance(0.75)) continue;
+          } else force = soldiers.sort((x, y) => y.rank - x.rank).slice(0, Math.max(4, soldiers.length - 3));
           const commander = force[0];
           const j = ECHO.Sim.startJourney(world, { kind: 'army', npcs: force.map(n => n.id), from: cap.id, to: target.id, speed: 2.4, army: { faction: f.id, target: target.id, type: 'war', commander: commander.id } });
           if (j) ECHO.Chronicle.add(world, { text: `${P().fullTitle(world, commander)} leads ${force.length} soldiers of ${f.short} toward ${target.name}.`, kind: 'war', importance: 2, sid: cap.id, npcs: [commander.id] });
@@ -577,10 +596,14 @@
         return;
       }
       const enemyF = world.factions[s.faction];
-      let atk = U.sum(soldiers.map(n => 12 + n.skill.fight * 0.7 + n.rank * 6)) * (1 + f.tech.era * 0.08) * (f.doctrines.shields ? 1.05 : 1);
+      let atk = (ECHO.Military ? ECHO.Military.hostPower(world, j) : U.sum(soldiers.map(n => 12 + n.skill.fight * 0.7 + n.rank * 6)) * (1 + f.tech.era * 0.08)) * (f.doctrines.shields ? 1.05 : 1);
       if (ECHO.Civ.has(world, f.id, 'crossbows')) atk *= 1.12;
       const def = Pol.settlementStrength(world, s);
-      const ratio = (atk * rng.range(0.75, 1.25)) / (def * rng.range(0.75, 1.25));
+      let ratio = (atk * rng.range(0.75, 1.25)) / (def * rng.range(0.75, 1.25));
+      // fought in front of you (warfront.js): what happened on the field weighs on the reckoning
+      const live = j.army.live;
+      if (live && live.why === 'broke') ratio = Math.max(ratio * 1.6, 1.15);
+      else if (live && live.why === 'stalemate') ratio *= U.clamp((live.a + 1) / (live.d + 1), 0.6, 1.6);
       const defenders = P().residents(world, s).filter(n => n.prof === 'guard');
       let dA = 0, dD = 0;
       for (const n of soldiers) if (rng.chance(U.clamp(0.25 / ratio, 0.05, 0.6))) { P().kill(world, n, `fell in the battle for ${s.name}`); dA++; }
@@ -599,11 +622,13 @@
             n.home = s.id; n.loc = s.id; n.journey = null; if (!s.residents.includes(n.id)) s.residents.push(n.id);
           }
         });
-        if (s.kind === 'village' && commander && commander.status === 'alive') { s.ruler = commander.id; }
+        if (s.kind === 'village' && commander && commander.status === 'alive' && commander.title !== 'Marshal') { s.ruler = commander.id; }
         Pol.armyGoHome(world, survivors.filter(n => n.home !== s.id), s);
         for (const n of P().residents(world, s)) P().remember(world, n, `saw ${s.name} conquered by ${f.short}`, 'trauma', null, 3);
+        if (ECHO.Military) ECHO.Military.log(world, { sid: s.id, att: f.id, def: enemyF.id, won: true, text: `${f.short} took ${s.name}${commander ? ` (${P().fullTitle(world, commander)})` : ''} — ${dA} attackers and ${dD} defenders fell.` });
       } else {
         ECHO.Chronicle.add(world, { text: `${s.name} held against ${f.short}. ${dA} attackers and ${dD} defenders fell.`, kind: 'war', importance: 2, sid: s.id });
+        if (ECHO.Military) ECHO.Military.log(world, { sid: s.id, att: f.id, def: enemyF.id, won: false, text: `${s.name} held against ${f.short}${commander ? ` under ${P().fullTitle(world, commander)}` : ''} — ${dA} attackers and ${dD} defenders fell.` });
         for (const n of defenders) if (n.status === 'alive') n.renown += 5;
         Pol.armyGoHome(world, survivors, s);
       }

@@ -17,7 +17,7 @@
     GOODS,
     need(world, s) {
       let need = 0;
-      for (const n of ECHO.People.residents(world, s)) need += n.prof === 'child' ? 0.6 : n.prof === 'guard' ? 1.2 : 1;
+      for (const n of ECHO.People.residents(world, s)) need += n.prof === 'child' ? 0.6 : n.prof === 'guard' ? (n.soldier ? 0.35 : 1.2) : 1;   // (the crown feeds its soldiers from its own stores)
       return Math.max(1, need);
     },
     init(world, rng) {

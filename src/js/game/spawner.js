@@ -38,7 +38,7 @@
       for (const e of game.ents) {
         if (e === pe || e.isCompanion || e.dead) continue;
         const d = U.dist(e.x, e.y, pe.x, pe.y);
-        const far = (e.pet && e.mine) || e.gateMon || e.mentor || e.titan ? 999 : e.event || e.siege || e.dragon || e.breach || e.huntB ? 95 : e.type === 'creature' ? 30 : e.type === 'boss' ? 30 : 44;
+        const far = (e.pet && e.mine) || e.gateMon || e.mentor || e.titan ? 999 : e.event || e.siege || e.assault || e.warDef || e.dragon || e.breach || e.huntB ? 95 : e.type === 'creature' ? 30 : e.type === 'boss' ? 30 : 44;
         if (d > far || e.despawnSoon) { e.dead = true; e.vanish = true; if (e.type === 'boss') game.ui.bossBar(null); }
       }
       if (ECHO.Interior.cur) { ECHO.Interior.update(game, 0.5); S.companion(game); return; }
@@ -131,7 +131,8 @@
         // Key people first, then a sampling of everyone else.
         present.sort((a, b) => S.priority(b) - S.priority(a));
         let count = game.ents.filter(e => e.homeSid === s.id && !e.dead).length;
-        const cap = s.kind === 'capital' ? 34 : 26;
+        // (a town with a big garrison shows more of it: soldiers at the gates, on the walls, in the yard)
+        const cap = (s.kind === 'capital' ? 34 : 26) + (ECHO.Military ? Math.min(16, Math.round(ECHO.Military.soldiers(world, s).length * 0.5)) : 0);
         for (const npc of present) {
           if (count >= cap) break;
           if (spawned.has(npc.id) || npc.id === (game.pl.companion)) continue;
@@ -168,14 +169,30 @@
           count++;
         }
         S.popd[s.id] = true;
+        S.bodyguards(game, s);
       }
       // a town you've left behind will be peopled afresh next time
       for (const k in S.popd) { const t = world.settlements.find(x => x.id === k); if (!t || gd(t.x, t.y, pe.x, pe.y) > 46) delete S.popd[k]; }
     },
     popd: {},
     priority(n) {
-      const p = { ruler: 9, reeve: 8, innkeeper: 8, merchant: 7, smith: 7, scholar: 6, priest: 6, guard: 5, inventor: 6, wanderer: 5 }[n.prof] || 1;
+      let p = { ruler: 9, reeve: 8, innkeeper: 8, merchant: 7, smith: 7, scholar: 6, priest: 6, guard: 5, inventor: 6, wanderer: 5 }[n.prof] || 1;
+      if (n.soldier && !n.rank) p = 3.6;                 // (the ranks of the garrison, after the townsfolk who keep it running)
+      if (n.title || n.rank >= 2) p = Math.max(p, 8);    // (its captain, a lord, the Marshal, the Champion)
       return p + (n.carry ? 5 : 0) + (n.namedAfter ? 3 : 0) + Math.random();
+    },
+    // a ruler, a lord or the Marshal never walks alone: two of the garrison keep close by
+    bodyguards(game, s) {
+      const world = game.world;
+      for (const e of game.ents) {
+        if (e.dead || e.homeSid !== s.id || !e.npcId) continue;
+        const n = world.npcs[e.npcId];
+        if (!n || !(n.id === s.ruler || n.prof === 'ruler' || n.title === 'Marshal')) continue;
+        const have = game.ents.filter(o => !o.dead && o.guarding === n.id).length;
+        if (have >= 2) continue;
+        const pool = game.ents.filter(o => !o.dead && o.homeSid === s.id && o.role === 'guard' && !o.guarding && o.npcId !== n.id && !(world.npcs[o.npcId] || {}).title && !((world.npcs[o.npcId] || {}).rank >= 2));
+        for (const g of pool.slice(0, 2 - have)) g.guarding = n.id;
+      }
     },
     makePerson(game, npc, x, y, role) {
       const world = game.world;

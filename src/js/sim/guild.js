@@ -43,7 +43,7 @@
     available(world) { return Gd.members(world).filter(n => Gd.free(world, n)); },
     free(world, n) { return n.status === 'alive' && n.loc && !n.delving && !(n.adv && n.adv.job) && !(n.hurtUntil > world.day) && !(n.jailUntil > world.day) && !n.journey && n.id !== (world.player && world.player.companion); },
     canJoin(world, n) {
-      return n.status === 'alive' && !n.adv && n.loc && PROF[n.prof] && !n.title && !n.rival && !n.ng && !n.ngAux && !n.ngTrainee && !n.captiveAt && !(n.jailUntil > world.day)
+      return n.status === 'alive' && !n.adv && !n.soldier && n.loc && PROF[n.prof] && !n.title && !n.rival && !n.ng && !n.ngAux && !n.ngTrainee && !n.captiveAt && !(n.jailUntil > world.day)
         && n.id !== (world.player && world.player.companion) && P().age(world, n) > 18 && P().age(world, n) < 52 && !P().has(n, 'cowardly')
         && (ECHO.Sim.settlement(world, n.loc) || {}).faction !== 'ashfang';
     },

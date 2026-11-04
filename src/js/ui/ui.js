@@ -163,6 +163,8 @@
       if (UI._inv !== inv) { $('#hud-inv').innerHTML = inv; UI._inv = inv; }
       const rel = ECHO.Arcana ? ECHO.Arcana.bar(game) : '';
       if (UI._rel !== rel) { const rb = $('#hud-relics'); if (rb) rb.innerHTML = rel; UI._rel = rel; }
+      const bat = ECHO.Warfront ? ECHO.Warfront.hud(game) : '';
+      if (UI._bat !== bat) { const bb = $('#hud-battle'); if (bb) bb.innerHTML = bat; UI._bat = bat; }
       if (UI.bossEnt) {
         const e = UI.bossEnt;
         if (e.dead) UI.bossBar(null);
@@ -1255,10 +1257,11 @@
       if (ECHO.Courier) ECHO.Courier.deliver(game, s);
       const body = UI.openPanel(`Notice board — ${s.name}`, '', 'board');
       const render = () => {
-        const tabs = [['pleas', 'Pleas'], ['events', `Great events${ECHO.WorldEvents && ECHO.WorldEvents.active(world).length ? ' (' + ECHO.WorldEvents.active(world).length + ')' : ''}`], ['guild', 'The Guild'], ['jobs', 'Odd jobs'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['coin', 'Spend your coin'], ['affairs', 'Town affairs']];
+        const tabs = [['pleas', 'Pleas'], ['events', `Great events${ECHO.WorldEvents && ECHO.WorldEvents.active(world).length ? ' (' + ECHO.WorldEvents.active(world).length + ')' : ''}`], ['realm', 'Lord & garrison'], ['guild', 'The Guild'], ['jobs', 'Odd jobs'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['coin', 'Spend your coin'], ['affairs', 'Town affairs']];
         let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
         if (tab === 'pleas') html += '<p class="dim">Pleas, bounties and warnings, nailed up by people who will not wait forever. The Guild\'s people read them too: whoever finishes a job first is paid.</p><div class="list" id="pl"></div>';
         else if (tab === 'guild') html += ECHO.Guild ? ECHO.Guild.html(game) : '';
+        else if (tab === 'realm') html += ECHO.Military ? ECHO.Military.html(game, s) : '';
         else if (tab === 'events') html += ECHO.WorldEvents ? ECHO.WorldEvents.html(game, s) : '';
         else if (tab === 'law') {
           const lines = ECHO.Law.summary(world, s);
@@ -1682,6 +1685,7 @@
             const r = f.ruler && world.npcs[f.ruler];
             html += f.type === 'kingdom' ? UI.realmCard(world, f).replace('<h4>The state of', `<h4>${r ? esc(P().fullTitle(world, r)) + ' — ' : ''}`) : `<div class="card"><h4>${esc(f.name)}</h4><div>${r ? esc(P().fullTitle(world, r)) + ' tends the flame.' : ''}</div></div>`;
           }
+          if (ECHO.Military) html += ECHO.Military.realmHtml(game);
           const ward = (pl.wardenOf || []).map(id => ECHO.Sim.settlement(world, id)).filter(Boolean);
           for (const v of ward.filter(v => v.warden === pl.charId)) html += `<div class="card" style="border-color:rgba(255,207,106,0.6)"><h4>${esc(v.name)} — your village</h4><div>${P().residents(world, v).length} people · ${(v.projects || []).filter(x => !x.done).length ? 'works under way' : 'no works under way'}</div><div class="row"><button class="small" data-hold="${v.id}">Send word to the reeve</button></div></div>`;
           html += `<div class="card"><h4>Your standing</h4><div>${pl.knighted ? 'Knight of ' + esc(world.factions[pl.knighted].short) + '. ' : ''}${ward.length ? 'Warden of ' + ward.map(x => esc(x.name)).join(', ') + ' — you receive a share of the dues each season.' : 'You hold no lands.'}</div><div class="dim">Clear a frontier site for the crown and you may name — and keep — the village that rises there.</div></div>`;

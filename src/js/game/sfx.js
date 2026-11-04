@@ -184,6 +184,7 @@
           S.noise(t + 0.05, 1.2, 'lowpass', 900, 100, 0.7, 0.4 * v, 0.01);
           S.tone(t, 2.2, 'sine', 48, 28, 0.35 * v, 0.1);
           break;
+        case 'horn': S.tone(t, 1.5, 'sawtooth', 146 * p, 139 * p, 0.16 * v, 0.14); S.tone(t, 1.5, 'square', 219 * p, 214 * p, 0.05 * v, 0.16); S.tone(t + 0.55, 1.1, 'sawtooth', 196 * p, 192 * p, 0.12 * v, 0.1); break;
         case 'levelup': [523, 659, 784].forEach((f, i) => S.tone(t + i * 0.08, 0.4, 'triangle', f, f, 0.12 * v)); break;
       }
     }

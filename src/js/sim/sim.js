@@ -148,6 +148,8 @@
             if (!world.journeys.includes(j)) continue;
           }
         }
+        // an army in a battle you are watching stands where it is until the battle is done (warfront.js)
+        if (j.hold) { if (world.day * 1440 + world.minute < j.hold) continue; j.hold = 0; }
         let speed = j.speed;
         if (j.kind === 'caravan' && j.meta.fromFaction && ECHO.Civ.has(world, j.meta.fromFaction, 'carriages')) speed *= 1.6;
         j.pos += speed * hours;
@@ -191,6 +193,7 @@
         () => { if (ECHO.Watch) ECHO.Watch.dailyTick(world, rng); },
         () => { ECHO.Politics.dailyTick(world, rng); },
         () => { if (ECHO.Realm) ECHO.Realm.dailyTick(world, rng); },
+        () => { if (ECHO.Military) ECHO.Military.dailyTick(world); },
         () => { if (ECHO.Holding) ECHO.Holding.dailyTick(world, rng); },
         () => { if (ECHO.Explore) ECHO.Explore.dailyTick(world, rng); },
         () => { if (ECHO.Rivals) ECHO.Rivals.dailyTick(world, rng); },

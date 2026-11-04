@@ -402,3 +402,15 @@ details summary { cursor: pointer; color: var(--hc); }
 .aura-card h4 { color: #f4ead2; }
 .aura-bar { height: 6px; border-radius: 4px; margin: 6px 0; background: rgba(0,0,0,0.45); overflow: hidden; }
 .aura-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ac), var(--ac2)); box-shadow: 0 0 10px var(--ac); }
+
+/* ---- the realm at arms (0.20) */
+#hud-battle { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); padding: 6px 14px; border-radius: 10px; font-size: 12.5px; color: #f4ead2;
+  background: rgba(30,6,6,0.72); border: 1px solid rgba(255,110,80,0.55); box-shadow: 0 0 18px rgba(255,70,40,0.25); text-shadow: 0 1px 2px #000; pointer-events: none; white-space: nowrap; z-index: 6; }
+#hud-battle:empty { display: none; }
+.mil .card div { margin: 2px 0; }
+.mil-stars { color: #ffcf6a; letter-spacing: 1px; text-shadow: 0 0 6px rgba(255,200,90,0.45); }
+.lvtag { font-weight: 700; font-size: 0.9em; margin-left: 2px; }
+.mil-host { padding: 3px 0; }
+.mil-host.enemy { color: #ffb0a0; }
+.mil-towns { font-size: 12.5px; line-height: 1.6; }
+.mil-realm h4 { color: #f4ead2; }

@@ -230,6 +230,8 @@
         const a = rnd(12) * Math.PI * 2, r = 3.3 + rnd(13) * 2.4;
         return { x: fx + Math.cos(a) * r, y: fy + Math.sin(a) * r * 0.85, why: 'festival', face: { x: fx, y: fy } };
       }
+      // a battle at the gates: everyone who is not a soldier keeps indoors
+      if (ECHO.Warfront && ECHO.Warfront.alarmAt(s) && npc.prof !== 'guard') return home ? { ...home, why: 'alarm' } : (inn0 => inn0 ? { ...Sched.door(inn0), inside: true, why: 'alarm' } : around(s.x, s.y, 2))(Sched.building(s, 'inn'));
       if (night && !guardNight) return home ? { ...home, why: 'sleep' } : around(s.x, s.y, 2);
       // ---- Aware of their own state and of the world around them.
       const wx = ECHO.Weather ? ECHO.Weather.here(world, s.x, s.y) : null;
@@ -385,6 +387,8 @@
       if (e.rider && ECHO.Riders && ECHO.Riders.think(game, e, npc, dt, target)) return;
       if (e.dq && ECHO.Dilemmas && ECHO.Dilemmas.think(game, e, npc, dt, target)) return;
       if (e.siege && ECHO.Events && ECHO.Events.siegeThink(game, e, npc, dt, target)) return;
+      if (e.assault && ECHO.Warfront && ECHO.Warfront.think(game, e, npc, dt, target)) return;
+      if (e.warDef && ECHO.Warfront && ECHO.Warfront.defThink(game, e, npc, dt, target)) return;
       if (e.listen && e.listen.t > 0 && !target) {
         // listening to the music
         e.listen.t -= dt;
@@ -418,6 +422,8 @@
       if (e.indoor) return Person.indoorIdle(game, e, npc, dt);
       if (e.role === 'traveler' || e.role === 'soldier') return Person.followJourney(game, e, dt);
       if (e.role === 'bandit') return Person.campLife(game, e, npc, dt);
+      // a bodyguard keeps by the one they guard (and stands at the door while they are indoors)
+      if (e.guarding && e.role === 'guard' && Person.bodyguard(game, e, dt)) return;
       // the life of the town: talk, games, crowds, buckets, burials
       if (ECHO.Town && ECHO.Town.think(game, e, npc, dt)) return;
       Person.routine(game, e, npc, dt);
@@ -680,7 +686,7 @@
         if (e.goal.inside) e.hidden = true;
         else Person.settle(game, e, npc, dt);
         // Fidget at the goal (not when they've gone indoors: that made them pop in and out of doors)
-        if (!e.goal.inside && Math.random() < dt * 0.08) e.goal = { x: e.goal.x + (Math.random() - 0.5) * 2.5, y: e.goal.y + (Math.random() - 0.5) * 1.6, inside: e.goal.inside, why: e.goal.why, face: e.goal.face };
+        if (!e.goal.inside && !e.goal.drill && e.goal.why !== 'gate' && Math.random() < dt * 0.08) e.goal = { x: e.goal.x + (Math.random() - 0.5) * 2.5, y: e.goal.y + (Math.random() - 0.5) * 1.6, inside: e.goal.inside, why: e.goal.why, face: e.goal.face };
       } else e.hidden = false;
       // A word now and then about why they're hurrying.
       if (!arrived && e.goal.why && e.sayT <= 0 && game.pe && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 7 && Math.random() < dt * 0.04) {
@@ -714,6 +720,11 @@
     // Arrived somewhere: face something sensible — the person you came to talk
     // to, the stall you're minding, the street — instead of a blank wall.
     settle(game, e, npc, dt) {
+      // the garrison at drill: the same cut, all together, on the sergeant's call
+      if (e.goal && e.goal.drill) {
+        const ph = (game.time + (e.homeSid ? ECHO.hashStr(e.homeSid) % 7 : 0)) % 2.4;
+        if (ph < 0.06 && !(e.attackT > 0)) { e.attackT = e.attackDur = 0.34; e.attackKind = (Math.floor(game.time / 2.4) % 2) ? 'back' : 'fore'; }
+      }
       if (e.goal && e.goal.face) { e.dir = Math.atan2(e.goal.face.y - e.y, e.goal.face.x - e.x); e.flip = Math.cos(e.dir) < 0; return; }
       if ((e._faceT = (e._faceT || 0) - dt) > 0) return;
       e._faceT = 2 + Math.random() * 3;
@@ -767,6 +778,18 @@
       if (ECHO.Ent.travel(world, e, e.goal.x, e.goal.y, e.speed * 0.45, dt)) e.moving = false;
       if ((e.stuck || 0) > 0.8 || e.navFail) { e.navFail = false; e.goal = null; e.path = null; e.stuck = 0; e.moving = false; e.schedT = 2 + Math.random() * 3; } // can't get there: stand a while
       Person.chatter(game, e, npc, dt);
+    },
+
+    bodyguard(game, e, dt) {
+      const lead = game.ents.find(o => o.npcId === e.guarding && !o.dead);
+      if (!lead || lead.indoor) { if (!lead) e.guarding = null; return false; }
+      const side = (ECHO.hashStr(e.npcId || '') % 2) ? 1 : -1;
+      const a = (lead.dir || 0) + Math.PI + side * 0.9, r = lead.hidden ? 1.3 : 1.5;
+      const tx = lead.x + Math.cos(a) * r, ty = lead.y + Math.sin(a) * r;
+      if (e.hidden) { e.hidden = false; e.x = tx; e.y = ty; }
+      if (U.dist(e.x, e.y, tx, ty) > 0.8) ECHO.Ent.travel(game.world, e, tx, ty, e.speed * (U.dist(e.x, e.y, tx, ty) > 4 ? 1 : 0.6), dt);
+      else { e.moving = false; if (lead.hidden) e.dir = Math.atan2(e.y - lead.y, e.x - lead.x); }
+      return true;
     },
 
     followJourney(game, e, dt) {

@@ -4780,11 +4780,20 @@
           }
           continue;
         }
-        if (e.type === 'person' && (hover || (e.carrying && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6))) {
+        // the people who matter (rulers, lords, officers, champions, adventurers) are named, with
+        // their level, as you come near them; soldiers when you are close (or in a battle)
+        const pn = e.type === 'person' && world.npcs[e.npcId], pd = pn ? U.dist(e.x, e.y, game.pe.x, game.pe.y) : 99;
+        const big = pn && (pn.title || pn.rank >= 1 || pn.prof === 'ruler' || (pn.adv && pn.adv.status !== 'retired'));
+        const arm = pn && (e.role === 'guard' || e.role === 'soldier');
+        if (e.type === 'person' && (hover || (e.carrying && pd < 6) || (big && pd < 8) || (arm && pd < 4.5) || ((e.assault || e.warDef) && pd < 15))) {
           const npc = world.npcs[e.npcId];
           if (!npc) continue;
           const col = game.hostileTo(game.pe, e) ? '#ff8a7a' : e.isCompanion ? '#9fe0c8' : '#f0e6d0';
-          text(ECHO.People.fullTitle(world, npc), p.x, ty, col);
+          const L = ECHO.Delvers ? ECHO.Delvers.lv(npc) : (npc.lv || 1), Dl = ECHO.Prowess && ECHO.Prowess.diff ? ECHO.Prowess.diff(L, ECHO.Prowess.level(game.pl)) : null;
+          if (big || arm || hover) {
+            text(`${ECHO.People.fullTitle(world, npc)} · Lv ${L}`, p.x, ty, game.hostileTo(game.pe, e) ? '#ff8a7a' : big && Dl ? Dl.color : col, 'rgba(4,14,26,0.62)', !!big);
+            if (e.hp < e.maxHp && (e.assault || e.warDef || game.hostileTo(game.pe, e))) { const bw = 40 * R.dpr, bh = 3 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw, bh); ctx.fillStyle = e.assault ? '#e05a4a' : '#e0c060'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw * Math.max(0, e.hp / e.maxHp), bh); }
+          } else text(ECHO.People.fullTitle(world, npc), p.x, ty, col);
           const it = e.carrying && world.items[e.carrying];
           if (it) {
             const yours = game.pl && it.history.some(hh => hh.t.includes(game.pl.first + ' ' + game.pl.last));

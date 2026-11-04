@@ -344,10 +344,13 @@
     // and the talent they were born with.
     reach(n) {
       if (n.ng) return 0;                       // (the Guard are what they are)
-      let k = { soldier: 0.62, guard: 0.55, bandit: 0.5, wanderer: 0.5, hunter: 0.45 }[n.prof] || 0.1;
+      let k = { soldier: 0.7, guard: 0.62, bandit: 0.52, wanderer: 0.55, hunter: 0.48, ruler: 0.4 }[n.prof] || 0.1;
+      if (n.soldier) k = Math.max(k, 0.7);      // (the crown's soldiers drill every day)
+      if (n.adv && n.adv.status !== 'retired') k = Math.max(k, 0.7 + Math.min(0.25, (n.adv.fame || 0) / 300));   // (the guild's adventurers, the famous furthest)
       if (n.rival) k = 0.95;
-      if (n.rank >= 2) k += 0.15; else if (n.rank >= 1) k += 0.06;
-      if (n.title) k += 0.05;
+      if (n.rank >= 3) k += 0.25; else if (n.rank >= 2) k += 0.18; else if (n.rank >= 1) k += 0.08;
+      if (n.title === 'Marshal' || n.title === 'Champion') k += 0.25;
+      else if (n.title) k += 0.05;
       k *= 0.65 + Pw.amb(n) * 0.6;
       k *= 0.8 + ((ECHO.hashStr('tal:' + n.id) % 1000) / 1000) * 0.4;
       if (n.ngAux) k = Math.max(k, 0.8);        // (the Guard's auxiliaries train hardest of all)
@@ -384,7 +387,8 @@
         const a = Pw.amb(n), lv = Pw.lvOf(n), T = Pw.aim(world, n, plv);
         let up = 0;
         if (lv < T) { const hs = n.home && (n.prof === 'guard' || n.prof === 'soldier') && ECHO.Sim.settlement(world, n.home), dr = hs && hs.drilled && world.day - hs.drilled < 30 ? 2 : 1;
-          const step = (T - lv) * (0.02 + 0.05 * a) * dr * (n.ngAux ? 1.5 : 1); up = Math.floor(step) + (rng.next() < step - Math.floor(step) ? 1 : 0); }
+          const drill = n.ngAux ? 1.5 : n.prof === 'guard' || n.soldier || n.adv || n.rival ? 1.7 : 1;   // (soldiers and adventurers train and fight every day)
+          const step = (T - lv) * (0.02 + 0.05 * a) * dr * drill; up = Math.floor(step) + (rng.next() < step - Math.floor(step) ? 1 : 0); }
         else if (lv < Pw.MAX_LV && rng.next() < 0.004 + a * 0.01) up = 1;    // (the best keep reaching past it)
         if (up > 0) {
           n.lv = Math.min(Pw.MAX_LV, lv + up);

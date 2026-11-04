@@ -36,6 +36,8 @@
       if (ECHO.Titans) ECHO.Titans.ensure(world);
       if (ECHO.Wildwood) ECHO.Wildwood.ensure(world);
       if (ECHO.Clearing) ECHO.Clearing.ensure(world);
+      if (ECHO.Military) ECHO.Military.ensure(world);
+      if (ECHO.Warfront) ECHO.Warfront.reset();
       if (ECHO.Harvest) ECHO.Harvest.reset();
       if (ECHO.GateWorld) ECHO.GateWorld.reset();
       if (ECHO.Apex) ECHO.Apex.reset(Game);
@@ -189,6 +191,7 @@
       if (ECHO.Pastimes) ECHO.Pastimes.update(Game, dt);
       if (ECHO.Harvest) ECHO.Harvest.update(Game, dt);
       if (ECHO.Aura) ECHO.Aura.tick(Game, dt);
+      if (ECHO.Warfront) ECHO.Warfront.update(Game, dt);
       if (ECHO.Home) ECHO.Home.tick(Game, dt);
       if (ECHO.Tactics) ECHO.Tactics.update(Game, dt);
       if (ECHO.Senses) ECHO.Senses.update(Game, dt);
@@ -386,6 +389,7 @@
       if (sa === 'player' || sb === 'player') {
         const p = sa === 'player' ? b : a;
         if (p.ngWard) return false;
+        if (ECHO.Warfront && ECHO.Warfront.live && ECHO.Warfront.foe(p)) return true;   // (a battle you are in: warfront.js)
         if (p.role === 'bandit') return true;
         if (p.aggro) return true;
         if ((p.role === 'guard' || p.role === 'soldier') && (pl.wanted[p.faction] || 0) > 20) return true;
@@ -467,6 +471,7 @@
     personKilledByPlayer(ent, npc, type, ctx) {
       const world = Game.world, pl = Game.pl;
       Game._lastKillType = type === 'ranged' ? 'arrow' : /fire|flame|burn|spell/.test(type || '') ? 'fire' : 'blade';
+      if (ECHO.Warfront && ECHO.Warfront.onKill(Game, ent, npc)) return;   // (an enemy soldier, in a battle: war, not murder)
       if (npc.faction === 'ashfang' || ent.role === 'bandit') {
         ECHO.Intel.recordKill(world, 'ashfang', { method: type, night: ctx.night, leader: ctx.wasLeader, stealth: ctx.stealth });
         pl.kills['Ashfang outlaws'] = (pl.kills['Ashfang outlaws'] || 0) + 1;
@@ -621,7 +626,7 @@
           const f = world.factions[s.faction];
           const mins = world.day * 1440 + world.minute;
           Game._bannered = Game._bannered || {};
-          if (force || !s.visited || mins - (Game._bannered[s.id] || -1e9) > 360) ECHO.UI.banner(s.name, `${s.kind === 'capital' ? 'Capital of ' + f.short : s.kind === 'temple' ? 'Temple town of ' + f.short : 'Village of ' + f.short}`);
+          if (force || !s.visited || mins - (Game._bannered[s.id] || -1e9) > 360) ECHO.UI.banner(s.name, ECHO.Military ? ECHO.Military.banner(world, s) : `${s.kind === 'capital' ? 'Capital of ' + f.short : s.kind === 'temple' ? 'Temple town of ' + f.short : 'Village of ' + f.short}`);
           Game._bannered[s.id] = mins;
           const fresh = ECHO.Chronicle.learnAt(world, s);
           const big = fresh.filter(e => (e.imp || e.importance || 0) >= 2);

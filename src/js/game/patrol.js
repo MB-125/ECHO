@@ -48,6 +48,10 @@
       if (!P2.pts.length) return null;
       const guards = W().guardsOf(game.world, s).map(n => n.id).sort();
       const i = Math.max(0, guards.indexOf(npc.id));
+      // the watch keeps the streets; the rest of the garrison stands at the gates, walks the
+      // palisade and drills in the yard (military.js)
+      const wN = W().need(game.world, s);
+      if (ECHO.Military && i >= wN && hour >= 6 && hour < 21) { const d = Pt.duty(game, s, P2, i - wN, hour); if (d) return d; }
       // the first watchman of the day keeps the gate
       if (i === 0 && P2.gates.length && hour >= 6 && hour < 21) { const g = P2.gates[Math.floor(game.world.day / 2) % P2.gates.length]; return { x: g.x, y: g.y, why: 'gate', face: { x: g.x + (g.x - s.x), y: g.y + (g.y - s.y) } }; }
       // the rest walk the rounds, spread out along them
@@ -55,6 +59,44 @@
       const k = (Math.floor(game.time / 22) + Math.round(i * n / Math.max(1, guards.length))) % n;
       const p = P2.pts[(i % 2 ? n - k : k) % n];
       return { x: p.x, y: p.y, why: 'patrol' };
+    },
+    duty(game, s, P2, k, hour) {
+      const world = game.world, walls = s.works && s.works.walls, R = s.kind === 'capital' ? 17 : 14.5;
+      const role = k % (walls ? 3 : 2);
+      // pairs at the gates
+      if (role === 0 && P2.gates.length) {
+        const g = P2.gates[Math.floor(k / 2) % P2.gates.length], side = k % 4 < 2 ? 1 : -1;
+        const a = Math.atan2(g.y - s.y, g.x - s.x) + Math.PI / 2;
+        const f = ECHO.Ent.freeSpot(world, g.x + Math.cos(a) * 1.1 * side, g.y + Math.sin(a) * 1.1 * side, 2);
+        if (f) return { x: f.x, y: f.y, why: 'gate', face: { x: g.x + (g.x - s.x), y: g.y + (g.y - s.y) } };
+      }
+      // along the palisade, walking it slowly
+      if (role === 2) {
+        const a = k * 2.39 + Math.floor(game.time / 30) * 0.35, r = R - 1.4;
+        const f = ECHO.Ent.freeSpot(world, s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, 2.5);
+        if (f) return { x: f.x, y: f.y, why: 'wall', face: { x: s.x + Math.cos(a) * (R + 4), y: s.y + Math.sin(a) * (R + 4) } };
+      }
+      // the drill yard: ranks of four in the morning and the afternoon, facing their sergeant
+      const y = P2.yard || (P2.yard = Pt.yard(game, s));
+      if (!y) return null;
+      const drill = (hour >= 7 && hour < 11) || (hour >= 14 && hour < 18);
+      const row = Math.floor(k / 4), col = k % 4;
+      const x = y.x + (col - 1.5) * 1.15 + (drill ? 0 : (ECHO.hash2(k, Math.floor(hour), world.day) - 0.5) * 3), yy = y.y + row * 1.2 + (drill ? 0 : (ECHO.hash2(k, 7, world.day) - 0.5) * 2);
+      return { x, y: yy, why: drill ? 'drill' : 'yard', face: drill ? { x: y.x, y: y.y - 3 } : null, drill };
+    },
+    // an open patch of ground near the keep (or the square) for the garrison to drill on
+    yard(game, s) {
+      const world = game.world, keep = s.buildings.find(b => b.type === 'keep') || s.buildings.find(b => b.type === 'market');
+      const bx = keep ? keep.x + keep.w / 2 : s.x, by = keep ? keep.y + keep.h + 3.5 : s.y + 4;
+      for (let t = 0; t < 24; t++) {
+        const a = t * 1.1, r = t * 0.35;
+        const x = bx + Math.cos(a) * r, y = by + Math.sin(a) * r;
+        let ok = true;
+        for (let dy = 0; dy <= 3 && ok; dy++) for (let dx = -2; dx <= 2 && ok; dx++) if (!ECHO.Ent.fits(world, x + dx, y + dy)) ok = false;
+        if (ok) return { x, y };
+      }
+      const f = ECHO.Ent.freeSpot(world, bx, by, 6);
+      return f ? { x: f.x, y: f.y } : null;
     },
     nightShift(world, s, npc) {
       const w = s.watch;

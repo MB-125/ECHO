@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js'
 ];
 
 function loadEcho() {
@@ -1184,8 +1184,9 @@ function main() {
     reg.eco.wolf = Math.max(reg.eco.wolf, 6);
     const t = Ti.wild(W)[0]; t.x = (reg.x0 + reg.x1) / 2; t.y = (reg.y0 + reg.y1) / 2; t.mig = null;
     const P0 = Mg.push(W, reg);
+    Mg.st(W).list = Mg.st(W).list.filter(x => x.from !== reg.id && x.to !== reg.id);   // (a pack that came in lately would keep them there a while)
     let m = null;
-    for (let d = 0; d < 40 && !m; d++) { reg.eco.wolf = Math.max(reg.eco.wolf, 6); t.x = (reg.x0 + reg.x1) / 2; t.y = (reg.y0 + reg.y1) / 2; ECHO.Sim.dailyTick(W, true); m = Mg.st(W).list.find(x => x.from === reg.id); }
+    for (let d = 0; d < 40 && !m; d++) { reg.eco.wolf = Math.max(reg.eco.wolf, 6); for (const x of Mg.st(W).list) if (x.to === reg.id) x.day = Math.min(x.day, W.day - 30); t.x = (reg.x0 + reg.x1) / 2; t.y = (reg.y0 + reg.y1) / 2; ECHO.Sim.dailyTick(W, true); m = Mg.st(W).list.find(x => x.from === reg.id); }
     check('a great beast in their country drives the wolves out of it', !!m && P0.cause && P0.cause.kind === 'titan' && m.to !== reg.id, m && `${m.head ? '' : ''}${Mg.head(m)} wolves, ${reg.name} → ${W.regions[m.to].name}`);
     for (let d = 0; d < 8 && m && m.arrived == null; d++) ECHO.Sim.dailyTick(W, true);
     check('they arrive, hungry, and the villages there pay for it', !!m && m.arrived != null && W.chronicle.some(c => /strange pack of duskwolves/.test(c.text)));
@@ -1440,6 +1441,60 @@ function main() {
     const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
     check('relics, their strength and what is worn survive a save', W2.items[old.id].rv === 2 && W2.items[old.id].power === old.power && W2.player.relics.length === pl.relics.length);
     delete ECHO.Game;
+  }
+
+  console.log('\nThe realm at arms');
+  {
+    const W = ECHO.generateWorld({ seed: 777, name: 'Arms' }), M = ECHO.Military, P = ECHO.People;
+    const pl = W.player = ECHO.Character.create(W, new ECHO.RNG(5), { first: 'Ser', homeId: W.settlements[0].id });
+    M.ensure(W);
+    const armed = W.settlements.filter(s => M.armed(W, s));
+    const caps = armed.filter(s => s.kind === 'capital'), vils = armed.filter(s => M.tier(W, s) === 'village');
+    const n = s => M.soldiers(W, s).length;
+    check('every town of a crown keeps a garrison, and the capitals keep the biggest', armed.every(s => n(s) >= 1) && caps.every(c => armed.every(s => s.kind === 'capital' || n(c) > n(s))), armed.map(s => `${s.name} ${n(s)}`).join(', '));
+    check('a bigger place keeps more soldiers', !vils.length || caps.every(c => n(c) >= 2.5 * Math.max(...vils.map(n))), `capitals ${caps.map(n).join('/')} · villages ${vils.map(n).join('/')}`);
+    check('soldiers are real people of the town, with names and homes', armed.every(s => M.soldiers(W, s).every(x => x.home === s.id && x.first && W.npcs[x.id] === x)));
+    check('every garrison has its captain; every crown its Marshal and its Champion', armed.every(s => { const c = M.captain(W, s); return c && c.rank >= 2; }) && Object.values(W.factions).filter(f => f.type === 'kingdom').every(f => M.marshal(W, f) && M.marshal(W, f).rank === 3 && M.champion(W, f)),
+      Object.values(W.factions).filter(f => f.type === 'kingdom').map(f => `${P.fullTitle(W, M.marshal(W, f))} / ${P.fullTitle(W, M.champion(W, f))}`).join(' · '));
+    check('a town is held by a lord or a lady, a village by its reeve', armed.every(s => { const r = M.ruler(W, s); if (!r || s.kind === 'capital' || s.kind === 'temple') return true; return M.tier(W, s) === 'village' ? r.title === 'Reeve' : r.title === 'Lord' || r.title === 'Lady'; }));
+    check('walking in, you are told whose town it is and what holds it', /Capital of .* · (King|Queen) .* · \d+ soldiers/.test(M.banner(W, caps[0])), M.banner(W, caps[0]));
+    // a month on: walls, towers, patrols
+    let patrol = 0, home = 0;
+    for (let d = 0; d < 40; d++) { ECHO.Sim.dailyTick(W, true); patrol = Math.max(patrol, (W.journeys || []).filter(j => j.kind === 'army' && j.army.type === 'patrol').length); }
+    check('the crown walls its capital and its towns of size, and puts up watchtowers', caps.every(c => c.works && c.works.walls) && armed.filter(s => M.TIER[M.tier(W, s)].walls).filter(s => s.works && s.works.walls).length >= 2, armed.filter(s => s.works && s.works.walls).map(s => s.name).join(', '));
+    check('in peace, columns of soldiers march between a crown\'s towns', patrol >= 1 && W.chronicle.some(c => /marched a column/.test(c.text)), `${patrol} on the road at once`);
+    check('the stars of a town\'s defence follow its strength', caps.every(c => M.stars(W, c) >= 4) && armed.some(s => M.stars(W, s) <= 3));
+    // the strong keep pace with you
+    const W3 = ECHO.generateWorld({ seed: 4242, name: 'Pace' });
+    const p3 = W3.player = ECHO.Character.create(W3, new ECHO.RNG(9), { first: 'Ada', homeId: W3.settlements[0].id });
+    ECHO.Prowess.st(p3).lv = 80;
+    for (let d = 0; d < 25; d++) ECHO.Sim.dailyTick(W3, true);
+    const ks = Object.values(W3.factions).filter(f => f.type === 'kingdom');
+    const top = Math.max(...ks.map(f => Math.max(M.lvOf(M.marshal(W3, f)), M.lvOf(M.champion(W3, f)))));
+    const sol = W3.settlements.filter(s => M.armed(W3, s)).flatMap(s => M.soldiers(W3, s)), avg = sol.reduce((a, x) => a + M.lvOf(x), 0) / sol.length;
+    check('the realm is no pushover: its Marshals and Champions come near your level, its soldiers half of it and more', top >= 64 && avg >= 32, `you 80 · the best ${top} · soldiers about ${Math.round(avg)}`);
+    // a battle is won by levels, numbers, walls and command
+    const tgt = W3.settlements.find(s => s.faction === 'ashmere' && s.kind !== 'capital') || W3.settlements.find(s => s.faction === 'ashmere');
+    const mk = (lv, k) => Array.from({ length: k }, () => { const x = P.create(W3, new ECHO.RNG(k * 31 + lv), { home: W3.factions.valdren.capital, faction: 'valdren', prof: 'guard', fight: 40 }); x.lv = lv; return x; });
+    const host = (lv, k) => ({ npcs: mk(lv, k).map(x => x.id), army: { faction: 'valdren', commander: null } });
+    const def = M.strength(W3, tgt);
+    const weak = M.hostPower(W3, host(5, 10)), strong = M.hostPower(W3, host(90, 10));
+    check('ten seasoned soldiers are worth far more than ten raw ones, and walls make a town harder to take', strong > weak * 4 && (() => { const had = tgt.works && tgt.works.walls; tgt.works = tgt.works || {}; tgt.works.walls = 0; const a = M.strength(W3, tgt); tgt.works.walls = W3.day; const b = M.strength(W3, tgt); tgt.works.walls = had; return b > a * 1.3; })(), `raw ${Math.round(weak)} · seasoned ${Math.round(strong)} · ${tgt.name} ${Math.round(def)}`);
+    check('the Guild\'s book is for adventurers, not for the crown\'s soldiers', ECHO.Guild.members(W3).every(x => !x.soldier));
+    // an old world, from before the realm took up arms
+    const W4 = ECHO.generateWorld({ seed: 31, name: 'Old' });
+    const p4 = W4.player = ECHO.Character.create(W4, new ECHO.RNG(3), { first: 'Old', homeId: W4.settlements[0].id });
+    ECHO.Prowess.st(p4).lv = 40; p4.gold = 1234;
+    delete W4.mil;
+    for (const id in W4.npcs) { const x = W4.npcs[id]; if (x.soldier) { x.status = 'dead'; x.soldier = 0; } }
+    for (const s of W4.settlements) { delete s.captain; delete s.milTier; s.works = {}; s.residents = s.residents.filter(id => W4.npcs[id].status !== 'dead'); }
+    for (const f of Object.values(W4.factions)) { delete f.marshal; delete f.champion; }
+    const W5 = ECHO.Save.deserialize(ECHO.Save.serialize(W4));
+    let ok = true; try { M.ensure(W5); ECHO.Sim.dailyTick(W5, true); } catch (e) { ok = false; console.log('   ', e.stack); }
+    const cap5 = W5.settlements.find(s => s.kind === 'capital');
+    check('an old save musters its garrisons on load, and your own progress is untouched', ok && M.soldiers(W5, cap5).length >= 10 && M.captain(W5, cap5) && ECHO.Prowess.level(W5.player) === 40 && W5.player.gold === 1234, `${cap5.name}: ${M.soldiers(W5, cap5).length} soldiers`);
+    const W6 = ECHO.Save.deserialize(ECHO.Save.serialize(W5));
+    check('garrisons, officers and battles survive a save', M.soldiers(W6, W6.settlements.find(s => s.kind === 'capital')).length === M.soldiers(W5, cap5).length && W6.mil && W6.mil.musterDay === W5.mil.musterDay && M.captain(W6, W6.settlements.find(s => s.kind === 'capital')));
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);
