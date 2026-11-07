@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.23.3', items: [
+      'Fixed the freeze where the screen filled with red and the game stopped dead. A monster that had grown into a summoner (a spider empress, a broodmother, a goblin king, a bone lord, a rat king…) called up its kind, and what it called up could be born as a summoner too. They called up more the moment they appeared, so in a single frame a floor could fill with twenty thousand spiders. The red was their life bars.',
+      'Now what a monster calls up is born as it is: never in a higher form, and never a summoner itself. There are never more than two dozen called-up creatures about one place, and summoning stops altogether when 160 creatures are about.',
+      'Close the game and open it again if it is frozen now: the swarm is not saved, and the floor comes back as it should. Nothing in your save is lost.'
+    ] },
     { v: '0.23.2', items: [
       'A great beast you have beaten down (Thunderhoof the Storm Elk, Gorehorn, the dragons) can be killed now. Strike it once more as it lies beaten and it dies, and you take its hoard: hide, fangs, gold, gear and relics (and scales, from a dragon). Before, blows did nothing to it and E always bound it, so you could only tame it or watch it get up and leave.',
       'E still binds it if you want it for your own. The prompt now says both: "Bind it — or strike it to finish it".',

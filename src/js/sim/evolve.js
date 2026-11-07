@@ -119,12 +119,12 @@
     },
     // how strong it has become, in levels: what it was born as and everything it has done since
     might(e) { return (e.lvl || 1) + 3 * (e.grown || 0) + 5 * (e.evoKills || 0); },
-    can(e) { return !!e && !e.dead && (e.foe || e.species === 'wolf') && e.type === 'creature' && !e.titan && !e.apexId && !e.marvel && !e.summoner && !e.shard && e.species !== 'hare' && e.species !== 'gnawer'; },
+    can(e) { return !!e && !e.dead && (e.foe || e.species === 'wolf') && e.type === 'creature' && !e.titan && !e.apexId && !e.marvel && !e.summoner && !e.summoned && !e.shard && e.species !== 'hare' && e.species !== 'gnawer'; },
 
     // ------------------------------------------------------------ in the flesh
     // Born: in the form its level has reached (o.evo: a stage it keeps — a named one, one of yours).
     birth(game, e, L, o) {
-      if (!Ev.can(e)) return;
+      if (!Ev.can(e) || (o && o.summoned)) return;   // (what another calls up is born as it is: never a summoner itself)
       const s = o && o.evo != null ? o.evo : (o && (o.nem || o.noEvo)) ? 1 : Ev.stageBorn(e.species, L);
       if (s > 1) Ev.apply(game, e, s, false);
     },

@@ -1750,6 +1750,14 @@ function main() {
     check('the dungeons ask after the guild once a day, and the crowns look through their people once', calls <= 1 && alive <= 2, `guild asked ${calls}× for ${E.Explore.sites(W).length} dungeons; everyone looked through ${alive}× for ${Object.values(W.factions).filter(f => f.type === 'kingdom').length} crowns`);
     // the country round a town, for its people's strength: the same as the danger there, kept for the day
     const s0 = W.settlements[W.settlements.length - 1];
+    // what a monster calls up is born as it is — never a broodmother that calls up broodmothers (that
+    // chain filled a floor with twenty thousand spiders in a second and froze the game)
+    {
+      const Ev = E.Evolve, mk = o => Object.assign({ type: 'creature', species: 'spider', foe: { name: 'Cave spider' }, lvl: 139, hp: 100, maxHp: 100, ab: {} }, o);
+      const free = mk({}), called = mk({ summoned: true });
+      let born = 0; for (let i = 0; i < 40; i++) { const x = mk({ summoned: true }); Ev.birth(null, x, 139, { summoned: true, noEvo: true }); if ((x.evo || 1) > 1 || x.ab.summon) born++; }
+      check('a creature another called up is never born in a higher form, and never grows into a summoner', Ev.can(free) && !Ev.can(called) && born === 0, `${born} of 40 born higher`);
+    }
     check('the danger of a town\'s country is worked out once a day for all who live there', Math.abs(E.Powers.landAt(W, s0.id) - E.Danger.at(W, s0.x, s0.y) * 1.1) < 1e-9 && W._dgSet && W._dgSet.m[s0.id] != null);
   }
 

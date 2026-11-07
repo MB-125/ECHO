@@ -46,6 +46,19 @@
     install() { Object.assign(ECHO.Quests.FOES, DEFS); },
     rng() { return new ECHO.RNG((Math.random() * 4294967295) >>> 0); },
     // A monster of this kind at this danger level.
+    // Room for more of the called-up: fewer than `own` of this one's own, fewer than 24 of anyone's
+    // within 30 paces, and fewer than 160 creatures about all told.
+    SUMMON_NEAR: 24, CREATURE_CAP: 160,
+    canSummon(game, e, own) {
+      let mine = 0, near = 0, all = 0;
+      for (const o of game.ents) {
+        if (o.dead || o.type !== 'creature') continue;
+        all++;
+        if (o.summoner === e) mine++;
+        if ((o.summoner || o.summoned) && Math.abs(o.x - e.x) < 30 && Math.abs(o.y - e.y) < 30) near++;
+      }
+      return mine < own && near < M.SUMMON_NEAR && all < M.CREATURE_CAP;
+    },
     make(game, kind, x, y, level = 1, o = {}) {
       const D = DEFS[kind] || ECHO.Quests.FOES[kind];
       const e = ECHO.Quests.makeFoe(game, kind, x, y, o);
@@ -121,14 +134,17 @@
         const hurt = game.ents.find(o => o !== e && o.foe && !o.dead && o.hp < o.maxHp * 0.6 && U.dist(o.x, o.y, e.x, e.y) < 8);
         if (hurt) { e.abT.heal = ab.heal.cd; hurt.hp = Math.min(hurt.maxHp, hurt.hp + hurt.maxHp * ab.heal.amt); ECHO.Combat.ring(hurt.x, hurt.y, 1.2, 'rgba(140,255,160,0.8)', 0.5); ECHO.Combat.floater(hurt.x, hurt.y - 1, 'healed', '#8fe08a'); e.say = 'Grakk! Up!'; e.sayT = 1; return false; }
       }
-      if (ab.summon && (e.abT.summon || 0) <= 0 && game.ents.filter(o => o.summoner === e && !o.dead).length < ab.summon.n * 2) {
+      // What is called up never calls up more (a summoned broodmother summoning broodmothers filled a
+      // floor with thousands of spiders and froze the game), and there are never more than a couple of
+      // dozen of the called-up about one place, whoever called them.
+      if (ab.summon && !e.summoner && !e.summoned && (e.abT.summon || 0) <= 0 && M.canSummon(game, e, ab.summon.n * 2)) {
         e.abT.summon = ab.summon.cd;
         for (let i = 0; i < ab.summon.n; i++) {
           const a = Math.random() * Math.PI * 2;
           const sp = ECHO.Ent.freeSpot(world, e.x + Math.cos(a) * 2.2, e.y + Math.sin(a) * 2.2, 3);
           if (!sp) continue;
-          const m = M.make(game, ab.summon.kind, sp.x, sp.y, Math.max(1, e.lvl - 1), { noElite: true, aggro: true, delve: e.delve, indoor: e.indoor, questId: e.questId });
-          m.summoner = e; m.floor = e.floor; game.ents.push(m);
+          const m = M.make(game, ab.summon.kind, sp.x, sp.y, Math.max(1, e.lvl - 1), { noElite: true, aggro: true, delve: e.delve, indoor: e.indoor, questId: e.questId, noEvo: true, summoned: true });
+          m.summoner = e; m.summoned = true; m.floor = e.floor; game.ents.push(m);
           ECHO.Combat.burst(sp.x, sp.y, ab.summon.kind === 'skeleton' ? '#9fe8c8' : '#a89070', 10, 3, 0.5, 2);
         }
         e.say = { skeleton: 'Rise. RISE.', spider: '*hiss*', goblin: 'Get \'im, boys!', golemling: '…' }[ab.summon.kind] || '…'; e.sayT = 1.5;
@@ -216,7 +232,7 @@
       ECHO.Combat.ring(e.x, e.y, 3.2, 'rgba(255,90,60,0.9)', 0.6);
       ECHO.Combat.burst(e.x, e.y, '#ff5a3a', 30, 5, 0.9, 3);
       ECHO.UI.banner(P.name, U.cap(e.label || e.foe.name), true);
-      const spawn = (kind, n) => { for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; const sp = ECHO.Ent.freeSpot(game.world, e.x + Math.cos(a) * 2.6, e.y + Math.sin(a) * 2.6, 3); if (!sp) continue; const m = M.make(game, kind, sp.x, sp.y, Math.max(1, e.lvl - 1), { noElite: true, aggro: true, delve: e.delve, indoor: e.indoor, questId: e.questId }); m.summoner = e; m.floor = e.floor; game.ents.push(m); ECHO.Combat.burst(sp.x, sp.y, '#c8a8ff', 10, 3, 0.5, 2); } };
+      const spawn = (kind, n) => { for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; const sp = ECHO.Ent.freeSpot(game.world, e.x + Math.cos(a) * 2.6, e.y + Math.sin(a) * 2.6, 3); if (!sp) continue; const m = M.make(game, kind, sp.x, sp.y, Math.max(1, e.lvl - 1), { noEvo: true, summoned: true, noElite: true, aggro: true, delve: e.delve, indoor: e.indoor, questId: e.questId }); m.summoner = e; m.floor = e.floor; game.ents.push(m); ECHO.Combat.burst(sp.x, sp.y, '#c8a8ff', 10, 3, 0.5, 2); } };
       if (P.summon) spawn(P.summon[0], P.summon[1]);
       if (P.extra) spawn(P.extra[0], P.extra[1]);
       if (ECHO.Music) ECHO.Music.stinger('discover');
