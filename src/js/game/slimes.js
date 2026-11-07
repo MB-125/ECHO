@@ -481,6 +481,145 @@
       return true;
     },
     // ------------------------------------------------------------ it eats
+    // ---- a slime of yours: what it lives for is to grow. It goes out after whatever is hostile round
+    // you, kills it and eats it — and grows, and in time takes its higher forms. When you are hemmed
+    // in, or near the end of your strength, it comes back to fight at your side (pack.js: P.threat).
+    HUNT_R: 26, HUNT_R_BELOW: 20, AID_R: 7,
+    huntable(game, e, o) {
+      if (!o || o === e || o.dead || o.vanish || o.hidden || o.burrowed || o.pal || o.tamed) return false;
+      if (!ECHO.Pack || !ECHO.Pack.hostile(game, o)) return false;
+      // (not the great ones you came for, nor what the story needs)
+      if (o.type === 'boss' || o.titan || o.apexId || o.boss2 || o.giant || o.marvel || o.questId || o.event || o.sovereign) return false;
+      // (nor the one you are bringing down to tame)
+      if (ECHO.Tame && ECHO.Tame.taming && ECHO.Tame.taming(game.pl) && ECHO.Tame.target && ECHO.Tame.target(game) === o) return false;
+      return true;
+    },
+    pickPrey(game, e) {
+      const pe = game.pe, below = ECHO.Pack.below(), R = below ? SL.HUNT_R_BELOW : SL.HUNT_R;
+      const skip = e._preySkip || (e._preySkip = new Map());
+      let best = null, bs = Infinity;
+      for (const o of game.ents) {
+        if (!SL.huntable(game, e, o) || skip.get(o) > game.time) continue;
+        const dp = U.dist(o.x, o.y, pe.x, pe.y); if (dp > R) continue;
+        const d = U.dist(o.x, o.y, e.x, e.y); if (d > 22) continue;
+        if (below && d > 7 && !ECHO.Ent.lineOfSight(game.world, e.x, e.y, o.x, o.y)) continue;   // (below: what it can see, or what is close)
+        // the nearest — and sooner what is already coming at you, or at it
+        const s = d + dp * 0.25 - (o.target === pe ? 4 : 0) - (o.target === e ? 3 : 0);
+        if (s < bs) { bs = s; best = o; }
+      }
+      return best;
+    },
+    // true: it has seen to itself this frame (the pack's plan does not move it)
+    hunt(game, e, dt) {
+      const pe = game.pe, pl = game.pl, world = game.world, P = ECHO.Pack;
+      if (!P || !e.pal || pe.dead || pl.flying || pe.inBoat || (pe.mounted && pe.moving)) { e._prey = null; e._hl = null; e._leapK = 0; return false; }
+      e.sT = e.sT || {};
+      for (const k in e.sT) e.sT[k] -= dt;
+      const dP = U.dist(e.x, e.y, pe.x, pe.y), sc = e.scale || 1;
+      // you hemmed in, or near the end of your strength: back to you — and the pack's fight is its fight
+      if (P.threat) {
+        if (e._meal) e._meal = null;
+        if (!e._aidSaid) {
+          e._aidSaid = true; e._prey = null;
+          C().floater(e.x, e.y - 1.6 * sc, 'comes to your aid!', '#b8ff7a', true);
+          if (!pl._aidTip && ECHO.UI) { pl._aidTip = true; ECHO.UI.toast(`${e.pal.name} leaves its hunt and comes back to fight at your side: you are hemmed in. It goes back to hunting when you are clear.`, 'info', 6); }
+        }
+        if (e._hl) return SL.huntLeap(game, e, dt);
+        if (dP > SL.AID_R) { e.aggro = true; ECHO.Ent.travel(world, e, pe.x, pe.y, (e.speed || 3) * 1.8, dt); e.state = 'chase'; return true; }
+        return false;
+      }
+      e._aidSaid = false;
+      if (e._hl) return SL.huntLeap(game, e, dt);
+      if (e._meal) return SL.meal(game, e, dt);
+      // its prey: still there, still near enough to you?
+      let o = e._prey;
+      if (o && (!SL.huntable(game, e, o) || U.dist(o.x, o.y, pe.x, pe.y) > (P.below() ? SL.HUNT_R_BELOW : SL.HUNT_R) + 6)) o = e._prey = null;
+      if ((e._pickT = (e._pickT || 0) - dt) <= 0 || !o) {
+        e._pickT = 0.6;
+        const n = SL.pickPrey(game, e);
+        if (n && n !== o) { o = e._prey = n; e._preyProg = null; }
+      }
+      if (!o) return false;   // nothing to hunt: it walks with you (ahead of you, below ground)
+      if (!pl._huntTip && ECHO.UI) { pl._huntTip = true; ECHO.UI.toast(`${e.pal.name} goes out hunting: a slime lives to grow. It kills and eats what is hostile round you (and grows, and in time takes its higher forms), and comes back to your side when you are hemmed in.`, 'info', 8); }
+      e.aggro = true; e.target = o;
+      const d = U.dist(e.x, e.y, o.x, o.y), ang = Math.atan2(o.y - e.y, o.x - e.x), reach = P.reach(e, o), spd = e.speed || 3;
+      const cdk = ECHO.Tame && ECHO.Tame.cdMul ? ECHO.Tame.cdMul(e.pal) : 1;
+      // the strike, wound up
+      if (e.state === 'windup') {
+        e.moving = false;
+        if (e.t >= 0.3) {
+          const m = e._wm || 1;
+          e.state = 'attack'; e.t = 0; e.cd = Math.max(0.55, ((e.foe && e.foe.cd) || 1) * 0.75) + Math.random() * 0.2;
+          C().slash(e.x, e.y, ang, reach + 0.2, 1.5, 'rgba(184,255,122,0.75)');
+          if (d <= reach + 0.6) P.hit(game, e, o, m, { stagger: m > 1.5 ? 0.6 : 0, knock: m > 1.5 ? 0.6 : 0.25, heavy: m > 1.5 });
+        }
+        return true;
+      }
+      if (e.state === 'attack' && e.t < 0.2) { e.moving = false; return true; }
+      e.dir = ang; e.flip = Math.cos(ang) < 0;
+      const see = d < 10 && ECHO.Ent.lineOfSight(world, e.x, e.y, o.x, o.y);
+      // acid at what is still far off (it keeps coming as it spits)
+      if (see && !(e.sT.hspit > 0) && d > 3.5) {
+        e.sT.hspit = 3.2 * cdk;
+        C().shoot(e, ang, { kind: 'orb', speed: 12, dmg: e.palDmg * 1.1 * P.mul(game, e, o), life: 1.2, type: 'magic', color: '#8fe05a' });
+      }
+      // the leap
+      if (see && !(e.sT.hleap > 0) && d > 2.4 && d < 9) {
+        e.sT.hleap = 4.5 * cdk;
+        const t0 = Math.min(0.55, 0.3 + d / 30);
+        e._hl = { t: t0, t0, ang, spd: Math.max(6, (d - reach * 0.6) / t0), o };
+        return SL.huntLeap(game, e, dt);
+      }
+      if (d <= reach) {
+        if (e.cd <= 0) { e.state = 'windup'; e.t = 0; e.aim = ang; e.moving = false; e._wm = e.sT.hpow > 0 ? 1 : (e.sT.hpow = 6 * cdk, 2.2); }
+        else e.moving = false;
+        return true;
+      }
+      // to it; what it cannot get to it leaves for a while
+      const pr = e._preyProg;
+      if (!pr || pr.o !== o) e._preyProg = { o, d, t: game.time };
+      else if (d < pr.d - 0.5) { pr.d = d; pr.t = game.time; }
+      else if (game.time - pr.t > 2.5) { e._preySkip.set(o, game.time + 8); e._prey = null; e._preyProg = null; return false; }
+      ECHO.Ent.travel(world, e, o.x, o.y, spd * (d > 6 ? 1.3 : 1.1), dt);
+      e.state = 'chase';
+      return true;
+    },
+    huntLeap(game, e, dt) {
+      const L = e._hl, o = L.o, P = ECHO.Pack;
+      L.t -= dt;
+      e._leapK = U.clamp(1 - L.t / L.t0, 0.01, 0.99);
+      const v = ECHO.Ent.slideBodies(e, Math.cos(L.ang) * L.spd * dt, Math.sin(L.ang) * L.spd * dt);
+      ECHO.Ent.move(game.world, e, v.x, v.y);
+      e.moving = true; e.state = 'chase';
+      if (L.t <= 0 || (o && !o.dead && U.dist(e.x, e.y, o.x, o.y) < (o.r || 0.4) + (e.r || 0.4) + 0.5)) {
+        e._hl = null; e._leapK = 0;
+        const R0 = 1.3 + 0.35 * (e.scale || 1);
+        C().ring(e.x, e.y, R0, 'rgba(160,255,120,0.85)', 0.45); C().burst(e.x, e.y, '#8fe05a', 18, 4, 0.6, 3);
+        if (o && !o.dead && U.dist(e.x, e.y, o.x, o.y) < (o.r || 0.4) + (e.r || 0.4) + 1.4) P.hit(game, e, o, 1.8, { stagger: 0.6, knock: 0.7, heavy: true });
+        for (const x of game.ents) if (x !== o && SL.huntable(game, e, x) && U.dist(x.x, x.y, e.x, e.y) < R0 + (x.r || 0.4)) P.hit(game, e, x, 0.8, { type: 'magic', knock: 0.4 });
+      }
+      return true;
+    },
+    // what one of yours kills, it eats: more to grow on (Tame.onKill)
+    ate(game, e, prey, worth) {
+      if (!e || !e.pal || e.dead || !prey || U.dist(e.x, e.y, prey.x, prey.y) > 4) return;
+      e._meal = { o: prey, t: 0, x: prey.x, y: prey.y, worth };
+    },
+    meal(game, e, dt) {
+      const M = e._meal, r = e.pal;
+      M.t += dt; e.moving = false;
+      if (U.dist(e.x, e.y, M.x, M.y) > 0.4) ECHO.Ent.travel(game.world, e, M.x, M.y, (e.speed || 3) * 1.2, dt);
+      e.state = 'engulf';
+      if (Math.random() < dt * 14) C().fx.push({ kind: 'p', x: M.x + (Math.random() - 0.5), y: M.y - 0.2, vx: 0, vy: -0.6, t: 0, life: 0.5, color: '#8fe05a', size: 2 });
+      if (M.t < 0.9) return true;
+      e._meal = null; e.state = 'idle';
+      if (M.o && M.o.dead) M.o.vanish = true;
+      r.absorbed = (r.absorbed || 0) + 1; e.absorbed = Math.min(6, r.absorbed);
+      e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.12);
+      if (!(e._ateSaidT > game.time)) { e._ateSaidT = game.time + 12; C().floater(e.x, e.y - 1.5 * (e.scale || 1), 'eats it — and grows', '#b8ff7a'); }
+      if (ECHO.Tame) ECHO.Tame.grow(game, r, (M.worth || 1) * 0.6);
+      return true;
+    },
     preyNear(game, e, r) {
       let best = null, bd = r;
       for (const o of game.ents) {

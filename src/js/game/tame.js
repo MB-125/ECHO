@@ -345,6 +345,7 @@
       } finally { if (ECHO.Growth) ECHO.Growth._noAdapt = false; }
       if (!e) return null;
       e.pal = r; e.tamed = true; e.faction = 'player'; e.aggro = false; e.label = r.name; e.lvl = r.lvl; e.home = null;
+      if (r.absorbed) e.absorbed = Math.min(6, r.absorbed);   // (a slime: what it has eaten, still in it)
       if (r.mastery) { e.palDmg = (e.palDmg || 8) * T.mDmg(r); e.maxHp = Math.round(e.maxHp * T.mHp(r)); e.hp = e.maxHp; }
       // the form it has grown into (a beast from an older save takes the one its level has reached)
       if (ECHO.Evolve && r.cat !== 'boss') { ECHO.Evolve.palLoad(r); if (r.evo > 1) { ECHO.Evolve.apply(game, e, r.evo, false); e.hp = e.maxHp; } }
@@ -363,6 +364,8 @@
       r.hp = e.hp / e.maxHp;
       if (e.stagger > 0) { e.stagger -= dt; e.state = 'stagger'; e.moving = false; return true; }
       // the pack mind (pack.js) fights; with nothing to fight, it walks at your side
+      // a slime of yours lives to grow: it hunts on its own, and comes back when you are hemmed in
+      if (e.foe && e.foe.slimeK && ECHO.Slime && ECHO.Slime.hunt(game, e, dt)) return true;
       if (ECHO.Pack) { if (ECHO.Pack.fight(game, e, dt)) return true; e.palFoe = null; e._dash = null; e._leapK = 0; e.state = e.state === 'windup' || e.state === 'attack' ? 'idle' : e.state; return T.follow(game, e, dt); }
       // a foe: what is at you, at it, or what you are fighting
       let f = e.palFoe;
@@ -464,7 +467,7 @@
       if (U.dist(g.x, g.y, pe.x, pe.y) < 1.4) return false;   // (a wall right before you: no way on that way — at your side, then)
       if (dg > 0.9) { ECHO.Ent.travel(world, e, g.x, g.y, spd * (dP > 6 ? 1.4 : 1.1), dt); e.state = 'chase'; }
       else { e.moving = false; e.state = 'idle'; e.dir = g.a; e.flip = Math.cos(g.a) < 0; }
-      if (!e._leadTip && game.pl && !game.pl._leadTip) { game.pl._leadTip = true; e._leadTip = true; UI().toast(`${e.pal.name} goes ahead of you below ground: it falls on what it finds before that reaches you, and the rest of your pack follows it in.`, 'info', 6); }
+      if (!e._leadTip && game.pl && !game.pl._leadTip) { game.pl._leadTip = true; e._leadTip = true; UI().toast(`${e.pal.name} goes ahead of you below ground, hunting: it falls on what it finds before that reaches you.`, 'info', 6); }
       return true;
     },
     // a lord beaten down: it kneels, waiting for you to choose
@@ -545,7 +548,10 @@
       const worth = r => Math.max(1, L * (L >= r.lvl ? 1.5 : 0.6));
       // the one that made the kill learns most; the rest of the pack nearby learn by watching,
       // and they learn from your kills too
-      if (from.pal) { from.pal.kills = (from.pal.kills || 0) + 1; T.grow(game, from.pal, worth(from.pal)); }
+      if (from.pal) {
+        from.pal.kills = (from.pal.kills || 0) + 1; T.grow(game, from.pal, worth(from.pal));
+        if (from.foe && from.foe.slimeK && ECHO.Slime) ECHO.Slime.ate(game, from, e, worth(from.pal));   // (and a slime eats what it kills)
+      }
       if (!from.pal && from !== game.pe) return;
       for (const o of game.ents) if (o.pal && !o.dead && o !== from && U.dist(o.x, o.y, e.x, e.y) < 22) T.grow(game, o.pal, worth(o.pal) * (from.pal ? 0.4 : 0.25));
     },
@@ -687,7 +693,7 @@
         const rest = T.resting(world, r), e = T.live(game, r), st = T.look(game, r);
         const hpF = e ? e.hp / e.maxHp : (rest ? 0.3 : (r.hp == null ? 1 : r.hp)), need = 12 + r.lvl * 4;
         const big = below && !T.fits(r);
-        const status = big && r.out ? '<span class="ember">too big for this place — waiting at the way in</span>' : rest ? `<span class="ember">resting — ${T.restLeft(world, r) != null ? 'back in ' + T.restLeft(world, r) + ' s' : 'back tomorrow'}</span>` : r.out ? (e ? `<span class="gold">with you</span> · ${Math.round(U.dist(e.x, e.y, game.pe.x, game.pe.y))} paces off` : '<span class="gold">with you</span> · on its way') : 'in your den';
+        const status = big && r.out ? '<span class="ember">too big for this place — waiting at the way in</span>' : rest ? `<span class="ember">resting — ${T.restLeft(world, r) != null ? 'back in ' + T.restLeft(world, r) + ' s' : 'back tomorrow'}</span>` : r.out ? (e ? (e._prey && !e._prey.dead ? `<span class="gold">hunting</span> ${esc(e._prey.label || (e._prey.foe && e._prey.foe.name) || 'something')}` : '<span class="gold">with you</span>') + ` · ${Math.round(U.dist(e.x, e.y, game.pe.x, game.pe.y))} paces off` : '<span class="gold">with you</span> · on its way') : 'in your den';
         const pic = T._pics[r.id];
         const tag = r.cat === 'boss' || r.lord ? '♛' : r.elite ? '✦ elite' : '';
         return `<div class="pal-card${r.out && !rest ? ' out' : ''}${rest ? ' rest' : ''}">
@@ -705,7 +711,7 @@
             <div class="row">${r.out ? `<button class="small" data-pal-rest="${r.id}">Send to the den</button>` : `<button class="small" data-pal-call="${r.id}" ${rest ? 'disabled' : ''}>${callLbl(r)}</button>`}<button class="small" data-pal-name="${r.id}">Rename</button><button class="small" data-pal-free="${r.id}">Release</button></div>
           </div></div>`;
       };
-      let h = `<details class="pal-how"${T.pack(pl).length ? '' : ' open'}><summary class="gold">How taming and growing work</summary><p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. <b>You keep at most ${MAX_SAME} of any one kind</b> (lords and great beasts are each one of a kind); a third of a kind you already have fights and falls like any other. They grow by fighting — the one that lands the kill most, the rest of the pack nearby a little, and from your kills too — up to your level; at that height their <b>skills</b> grow instead (mastery ★, up to ${T.MASTERY_MAX}: harder blows, more life, arts sooner, and new skills at ★5, 10, 15, 20 and 30). Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. <b>O</b> calls your strongest at any time; Call on any one brings it (if your side is full, the weakest with you goes home for it). When one is beaten it goes home to rest for about 45 seconds, and the strongest rested one comes in its place. L changes how you strike things down. <b>Size matters below ground:</b> caves, hideouts and grots let only small beasts in; dungeons, crypts and mines keep out the huge (the great beasts of the lairs, widows, wyrms); the worlds beyond the gates take any. Those too big wait at the way in — all but a slime, which pours itself thin and gets in anywhere. <b>Below ground a slime of yours goes first:</b> it walks ahead of you, falls on whatever it finds before it reaches you, and the rest of the pack follows it in.</p></details>`;
+      let h = `<details class="pal-how"${T.pack(pl).length ? '' : ' open'}><summary class="gold">How taming and growing work</summary><p class="dim"><b>How to tame:</b> knock any beast, monster or lord down — it kneels instead of dying — and press <b>E</b>, from where you stand (a golden ring marks which one). It is yours; taming never fails. <b>You keep at most ${MAX_SAME} of any one kind</b> (lords and great beasts are each one of a kind); a third of a kind you already have fights and falls like any other. They grow by fighting — the one that lands the kill most, the rest of the pack nearby a little, and from your kills too — up to your level; at that height their <b>skills</b> grow instead (mastery ★, up to ${T.MASTERY_MAX}: harder blows, more life, arts sooner, and new skills at ★5, 10, 15, 20 and 30). Up to ${MAX_OUT} follow you and fight at your side; the rest wait in your den. <b>O</b> calls your strongest at any time; Call on any one brings it (if your side is full, the weakest with you goes home for it). When one is beaten it goes home to rest for about 45 seconds, and the strongest rested one comes in its place. L changes how you strike things down. <b>Size matters below ground:</b> caves, hideouts and grots let only small beasts in; dungeons, crypts and mines keep out the huge (the great beasts of the lairs, widows, wyrms); the worlds beyond the gates take any. Those too big wait at the way in — all but a slime, which pours itself thin and gets in anywhere. <b>A slime of yours lives to grow:</b> it goes out on its own after whatever is hostile round you, kills it and eats it, and so levels up and takes its higher forms; when you are hemmed in (three at you, or two when you are hurt) or near the end of your strength, it leaves its hunt and comes back to fight at your side. Below ground, with nothing to hunt, it walks ahead of you.</p></details>`;
       if (ECHO.Apex && ECHO.Apex.yHtml) h = ECHO.Apex.yHtml(game) + h;
       if (!pk.length) return h + '<div class="card"><p class="dim">No tamed beasts yet.</p></div>';
       const withYou = pk.filter(r => r.out), den = pk.filter(r => !r.out).sort((a, b) => (T.resting(world, a) - T.resting(world, b)) || b.lvl - a.lvl);

@@ -1695,7 +1695,7 @@ function main() {
     check('a slime you have tamed fights as your beast (its own ways are for the wild ones)', SL.tick(game, mk({ pal: true }), 0.05, 2, 0) === false && SL.always(game, mk({ pal: true }), 0.05) === undefined);
     E.Combat = C0; E.Ent = Ent0; E.Monsters = M0; E.UI = UI0; if (E.Evolve) E.Evolve.check = Ev0;
   }
-  console.log('\nA slime squeezes through, and below ground it leads');
+  console.log('\nA slime squeezes through, leads below ground, and hunts to grow');
   {
     const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite, Uint8Array, Int32Array, Float32Array, Float64Array };
     ctx.globalThis = ctx; vm.createContext(ctx);
@@ -1744,10 +1744,39 @@ function main() {
     const skel = { type: 'creature', species: 'skeleton', foe: { name: 'Skeleton', reach: 1.2 }, x: B + 16.5, y: 4.5, r: 0.36, hp: 50, maxHp: 50, state: 'idle', aggro: false };
     pe.x = B + 4.5; pe.y = 4.5; mine.x = B + 8.5; mine.y = 4.5; wolf.x = B + 3.5; wolf.y = 5.5;
     game.ents = [pe, mine, wolf, skel]; P.reset(); P.tick(game, 0.05);
-    const R = P.plan && P.plan.role.get(mine);
-    check('what it sees ahead, it goes for first — before that has even seen you — and the pack follows it in', !!R && R.lead && R.target === skel && P.plan.focus === skel && P.plan.role.get(wolf).target === skel);
+    check('what it sees ahead, it goes for first — before that has even seen you — and the pack follows it in', SL.pickPrey(game, mine) === skel && !!P.plan && P.plan.focus === skel && P.plan.role.get(wolf).target === skel && !P.plan.role.has(mine));
     skel.x = B + 18.5; mine.x = B + 3; P.reset(); P.tick(game, 0.05);
     check('…what it cannot see, and nothing comes at you, the pack leaves be', !P.plan);
+    // what it lives for: to grow. It hunts on its own, and comes back when you are hemmed in
+    E.Interior.cur = null;   // (out under the sky)
+    const ow = { W: 60, H: 60, seed: 3, tiles: new Uint8Array(3600).fill(E.TILE.GRASS), blocked: new Uint8Array(3600) };
+    game.world = ow; pe.x = 30; pe.y = 30; mine.x = 31; mine.y = 30; mine._sq = 0; mine.r = 0.6; mine.speed = 5; mine.state = 'idle'; mine.t = 0; mine.cd = 0; mine.palDmg = 40; mine.sT = {};
+    mine.pal = { name: 'Glub', kind: 'slime', cat: 'foe', lvl: 40, xp: 0 };
+    const wild = (x, y, o) => Object.assign({ type: 'creature', species: 'troll', foe: { name: 'Cave troll', reach: 1.2 }, x, y, r: 0.4, hp: 400, maxHp: 400, lvl: 38, state: 'idle', aggro: false }, o || {});
+    const prey = wild(44, 30), titan = wild(36, 30, { titan: true, species: 'elk' }), far = wild(30, 62);
+    game.ents = [pe, mine, prey, titan, far]; game.time = 100; P.reset(); P.tick(game, 0.05);
+    check('a slime of yours goes out after what is hostile round you, unasked (not the great ones, not what is too far from you)', SL.pickPrey(game, mine) === prey && !P.threat);
+    const x0 = mine.x; for (let k = 0; k < 20; k++) { game.time += 0.05; mine.t += 0.05; SL.hunt(game, mine, 0.05); }
+    check('…and goes to it on its own, leaping the last of the way', mine.x > x0 + 4 && mine._prey === prey, `at ${mine.x.toFixed(1)}`);
+    // it kills it, and eats it, and grows
+    const xp0 = mine.pal.xp, lv0 = mine.pal.lvl; prey.dead = true; prey.hp = 0; mine._hl = null; mine.x = prey.x - 1; mine.y = prey.y;
+    SL.ate(game, mine, prey, 60);
+    for (let k = 0; k < 25; k++) { game.time += 0.05; SL.hunt(game, mine, 0.05); }
+    check('what it kills it eats — and grows on it (and what it ate shows inside it)', prey.vanish && mine.pal.absorbed === 1 && mine.absorbed === 1 && (mine.pal.lvl > lv0 || mine.pal.xp > xp0));
+    // hemmed in: back it comes
+    const at = (dx, dy) => wild(pe.x + dx, pe.y + dy, { aggro: true, target: pe });
+    mine.x = 44; mine.y = 30; mine._prey = null; mine._meal = null;
+    const ring3 = [at(1.5, 0), at(-1.5, 0), at(0, 1.5)], hunted = wild(50, 30);
+    game.ents = [pe, mine, ...ring3, hunted]; P.reset(); P.tick(game, 0.05);
+    check('three at you and you are hemmed in: the pack — the slime too — is on them', P.threat && !!P.plan && P.plan.role.has(mine));
+    const d0 = Math.hypot(mine.x - pe.x, mine.y - pe.y); for (let k = 0; k < 10; k++) { game.time += 0.05; SL.hunt(game, mine, 0.05); }
+    check('…and the slime leaves its hunt and comes back to your side', Math.hypot(mine.x - pe.x, mine.y - pe.y) < d0 - 2 && !mine._prey);
+    mine.x = pe.x + 3; check('…where the pack\'s plan has it like any other', SL.hunt(game, mine, 0.05) === false);
+    game.ents = [pe, mine, at(1.5, 0)]; game.time += 7; P.t = 0; P.tick(game, 0.05);
+    check('one at you, and you hale: not hemmed in — it hunts on', !P.threat);
+    game.pl.hp = 30; P.t = 0; P.tick(game, 0.05);
+    check('…but near the end of your strength, even one brings it back', P.threat);
+    game.pl.hp = 100; game.world = world; E.Interior.cur = cave;
   }
   console.log('\nFixed danger, more realms, real diplomacy');
   {

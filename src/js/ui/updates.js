@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.27.2', items: [
+      'A slime you have tamed lives to grow. It no longer waits at your heel: it goes out on its own after whatever is hostile round you (up to about twenty-five paces from you, less below ground), even things that have not seen you yet, and kills them. It eats what it kills, which heals it and feeds it more than a kill alone, and what it has eaten shows inside it. So it levels up fast and, in time, takes its higher forms.',
+      'When you are hemmed in (three at you, or two when you are hurt, or even one when you are near the end of your strength) it leaves its hunt and races back to fight at your side with the rest of your pack. Once you are clear for a few seconds it goes back to hunting.',
+      'It leaves alone the great ones (titans, lair lords, giants), the people of the towns, and the beast you are bringing down to tame. Your Animals page shows what it is hunting.',
+      'Below ground, with nothing in sight to hunt, it still walks ahead of you.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.27.1', items: [
       'A slime changes its size to get through. It pours itself thin through any gap, door or passage its body could never pass, and fills out again on the other side. A wild one comes after you through the narrowest ways, and one of yours is never too big for any place below ground, a cave or a grot included, however big it has grown.',
       'Below ground (dungeons, crypts, caves, mines and the worlds beyond the gates) a slime of yours goes first. It walks a few paces ahead of you the way you are going, falls on whatever it sees before that reaches you, and the rest of your pack follows it in. If a wall is right before you, it waits at your side.',

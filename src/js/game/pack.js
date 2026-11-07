@@ -16,7 +16,12 @@
 //    the gates) a slime of yours goes first: it walks ahead of you, falls on
 //    whatever it sees before that reaches you, and the pack follows it in. A
 //    slime is no keeper of distance: it leaps on what it hunts and spits acid as
-//    it closes.
+//    it closes;
+//  · THE HUNT — a slime of yours lives to grow: it is not in the plan at all
+//    but out on its own (slimes.js: hunt), killing and eating what is hostile
+//    round you — until you are HEMMED IN (three at you, two when you are hurt,
+//    one when you are near the end): then P.threat, and it comes back and the
+//    plan has it like any other.
 //
 // And each uses everything it has: what it was born with (venom, webs, charges,
 // slams, bolts, breath, blinks, healing, the howl of a pack, the drain of the
@@ -28,8 +33,15 @@
   const BASE = 1.35;   // what one of yours does is worth more than what it did wild: it fights for you
 
   const P = ECHO.Pack = {
-    plan: null, t: 0, buffT: 0, howlCd: 0, ringT: 0,
-    reset() { P.plan = null; P.t = 0; P.buffT = 0; P.howlCd = 0; },
+    plan: null, t: 0, buffT: 0, howlCd: 0, ringT: 0, threat: false, threatUntil: -1,
+    reset() { P.plan = null; P.t = 0; P.buffT = 0; P.howlCd = 0; P.threat = false; P.threatUntil = -1; },
+    // are you hemmed in? (what brings a hunting slime of yours back to you; it stays six seconds after)
+    hemmed(game, foes) {
+      const pl = game.pl, f = pl.hp / Math.max(1, pl.maxHp);
+      let n = 0;
+      for (const x of foes) if (x.dp < 6 && (x.onUs || x.hitMe || x.o.aggro || P.busy(x.o))) n++;
+      return n >= 3 || (n >= 2 && f < 0.6) || (n >= 1 && f < 0.35);
+    },
     // something struck you or one of yours: marked, and the pack thinks again at once
     alert(game, from, target) {
       if (!from || from === game.pe || from.pal || from.tamed || from.isCompanion) return;
@@ -67,7 +79,7 @@
         big: e.type === 'boss' || !!e.pal && (e.pal.lord || e.pal.cat === 'boss') || (e.scale || 1) >= 1.5
       };
       // a slime: it closes and swallows; its acid is for what runs, not a reason to hang back
-      if (e.foe && e.foe.slimeK) Object.assign(k, { ranged: false, bolt: null, spit: ab.bolt || { color: '#8fe05a' }, leap: true, charge: false, slam: true, drain: true, lead: true });
+      if (e.foe && e.foe.slimeK) Object.assign(k, { ranged: false, bolt: null, spit: ab.bolt || { color: '#8fe05a' }, leap: true, charge: false, slam: true, drain: true, lead: true, hunter: true });
       e._kit = k;
       return k;
     },
@@ -87,12 +99,13 @@
       P.buffT -= dt; P.howlCd -= dt;
       if ((P.t -= dt) > 0) return;
       P.t = 0.3;
-      const pals = P.pals(game), pe = game.pe, pl = game.pl;
-      if (!pals.length || pe.dead) { P.plan = null; return; }
+      const all = P.pals(game), pe = game.pe, pl = game.pl;
+      P.threat = game.time < P.threatUntil;
+      if (!all.length || pe.dead) { P.plan = null; return; }
       const lock = ECHO.PlayerCtl && ECHO.PlayerCtl.lock;
       const struck = game.lastStruck && game.time - (game.lastStruckT || -99) < 5 ? game.lastStruck : null;
       const foes = [], now = game.time, fighting = game.combatT != null && now - game.combatT < 6;
-      const lead = P.leader(game, pals);
+      const lead = P.leader(game, all);
       const AGG = new Set(['fight', 'chase', 'windup', 'attack', 'lunge', 'charge', 'cast', 'hunt', 'stalk', 'strike', 'aim', 'draw']);
       for (const o of game.ents) {
         if (!P.hostile(game, o)) continue;
@@ -108,7 +121,10 @@
         const ab = (o.foe && o.foe.ab) || {};
         foes.push({ o, dp, onUs, hitMe, hitUs, shoots: !!(ab.ranged || ab.bolt || o.archer || o.ranged || (o.role && /archer|crossbow/.test(o.role))) });
       }
-      if (!foes.length) { P.plan = null; return; }
+      if (P.hemmed(game, foes)) { P.threatUntil = game.time + 6; P.threat = true; }
+      // a hunting slime is out on its own — unless you are hemmed in
+      const pals = P.threat ? all : all.filter(p => !P.kit(p).hunter);
+      if (!foes.length || !pals.length) { P.plan = null; return; }
       // the focus: yours first; else what the one ahead of you has gone for (the pack follows it in)
       let focus = lock && foes.find(f => f.o === lock) ? lock : struck && foes.find(f => f.o === struck) ? struck : null;
       let leadOn = null;
