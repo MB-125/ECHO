@@ -313,9 +313,8 @@
     // how strong what lives there is: deadly, always, and worse the deeper
     era(world) { return ECHO.Powers ? ECHO.Powers.era(world, ECHO.Powers.plLv(world)) : (world.player && ECHO.Prowess ? ECHO.Prowess.level(world.player) : 1); },
     level(world, tier) {
-      const e = WW.era(world);
-      const L = tier >= 4 ? Math.max(480, e * 2.4) : tier === 3 ? Math.max(300, e * 1.8) : tier === 2 ? Math.max(150, e * 1.3) : Math.max(70, e * 0.9);
-      return Math.min(1500, Math.round(L));
+      // (fixed: a deep wood is as deadly as it always was, whatever your level — danger.js)
+      return tier >= 4 ? 480 : tier === 3 ? 300 : tier === 2 ? 150 : 70;
     },
     lordAlive(world, w) { return !(w.lord.slain != null && world.day - w.lord.slain < 20); },
 

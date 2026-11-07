@@ -36,6 +36,7 @@
       if (ECHO.Titans) ECHO.Titans.ensure(world);
       if (ECHO.Wildwood) ECHO.Wildwood.ensure(world);
       if (ECHO.Clearing) ECHO.Clearing.ensure(world);
+      if (ECHO.Realms) ECHO.Realms.ensure(world);
       if (ECHO.Military) ECHO.Military.ensure(world);
       if (ECHO.Warfront) ECHO.Warfront.reset();
       if (ECHO.Harvest) ECHO.Harvest.reset();
@@ -652,7 +653,13 @@
         // a region's name, the first time you walk into it (or after a long while away)
         const mins = world.day * 1440 + world.minute;
         Game._rbannered = Game._rbannered || {};
-        if (!s && !force && region && mins - (Game._rbannered[region.id || region.name] || -1e9) > 2880) { Game._rbannered[region.id || region.name] = mins; ECHO.UI.banner(U.cap(region.name), '', true); }
+        if (!s && !force && region && mins - (Game._rbannered[region.id || region.name] || -1e9) > 2880) {
+          Game._rbannered[region.id || region.name] = mins;
+          // and how dangerous it is: fixed, whatever your level (danger.js)
+          const b = ECHO.Danger && ECHO.Danger.band(world, region), me = ECHO.Prowess ? ECHO.Prowess.level(Game.pl) : 1;
+          ECHO.UI.banner(U.cap(region.name), b ? `Danger: ${ECHO.Danger.label(world, region)} — ${ECHO.Danger.phrase(Math.round((b[0] + b[1]) / 2), me)}` : '', true);
+          if (b && !Game.pl._dangerTip) { Game.pl._dangerTip = true; ECHO.UI.toast(`Every land has its own danger, and it does not change with you: the country round the old capitals is gentle, and it grows deadlier the further you go — the hills, swamps and deep forests worse, farmland gentler. What lives somewhere is as strong as that place. Go far when you are ready for it, and come back to find the old meadows as easy as they ever were. (The top of the screen and the map show each land's danger.)`, 'study', 12); }
+        }
       }
       for (const r of world.ruins) if (!r.visited && U.dist(r.x, r.y, pe.x, pe.y) < 7) { r.visited = true; ECHO.UI.banner(U.cap(r.name), 'Ancient ruin'); }
       for (const c of world.camps) if (c.alive && !c.seen && U.dist(c.x, c.y, pe.x, pe.y) < 14) { c.seen = true; ECHO.UI.toast(`You spot the fires of an Ashfang camp: ${c.name}.`, 'warn', 4); }

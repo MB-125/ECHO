@@ -152,6 +152,35 @@
       fem: ['elle', 'ia', 'ine', 'a', 'ys', 'wen'], masc: ['ian', 'el', 'as', 'or', 'in', 'eth'],
       sur: ['mere', 'vale', 'brook', 'fen', 'willow', 'reed', 'lark', 'moss', 'dell']
     },
+    // the peoples of the far lands (realms.js)
+    norren: { // the cold north — clipped, heavy
+      on: ['sk', 'hr', 'bj', 'tj', 'gr', 'v', 'ey', 'sv', 'ra', 'ul', 'kn'],
+      nu: ['a', 'o', 'u', 'ei', 'au', 'y'],
+      co: ['rn', 'ld', 'lf', 'gg', 'k', 'r', 'nd', 'st', ''],
+      fem: ['dis', 'run', 'hild', 'a', 'veig'], masc: ['ulf', 'mar', 'bjorn', 'ar', 'geir', 'ir'],
+      sur: ['frost', 'skald', 'axe', 'fjell', 'wolfsson', 'raven', 'tor', 'helm']
+    },
+    sarrad: { // the dry south — long vowels, warm
+      on: ['s', 'z', 'q', 'h', 'r', 'kh', 'am', 'na', 'ya', 'sh', 'da'],
+      nu: ['a', 'aa', 'i', 'u', 'ei', 'ah'],
+      co: ['r', 'z', 'm', 'n', 'l', 'd', 'sh', ''],
+      fem: ['a', 'ira', 'ina', 'eh', 'ali'], masc: ['im', 'ar', 'ad', 'ul', 'esh', 'an'],
+      sur: ['al-Sahr', 'Dunewalker', 'Sunborn', 'ibn Qadar', 'Saltwind', 'of the Wells', 'Amberveil']
+    },
+    kesh: { // the eastern steppe — short, bright
+      on: ['t', 'k', 'b', 'j', 'ch', 'or', 'ba', 'te', 'ke', 'ar'],
+      nu: ['a', 'e', 'u', 'ai', 'o'],
+      co: ['g', 'n', 'r', 'l', 'k', 'ng', 'ts', ''],
+      fem: ['a', 'ai', 'yn', 'ei', 'gul'], masc: ['an', 'ur', 'ai', 'bek', 'tai', 'ong'],
+      sur: ['of the Thousand Horses', 'Skyrider', 'Windbow', 'Khagan', 'Bluewolf', 'Ironmane']
+    },
+    auren: { // the old western cities — measured, ornate
+      on: ['aur', 'val', 'cas', 'luc', 'mar', 'oct', 'ser', 'tib', 'qu', 'aem'],
+      nu: ['e', 'i', 'a', 'o', 'ia', 'u'],
+      co: ['l', 'n', 'r', 's', 'v', 't', 'll', ''],
+      fem: ['a', 'ia', 'ina', 'illa', 'ea'], masc: ['us', 'ius', 'o', 'an', 'ian', 'en'],
+      sur: ['Aurelian', 'Vasto', 'di Merra', 'Castellan', 'Severin', 'of the Seven Hills', 'Marcellis']
+    },
     lantern: { // the religious order — liturgical
       on: ['aur', 'cel', 'sol', 'ben', 'ma', 'ign', 'lu', 'od', 'pr', 'ev'],
       nu: ['e', 'i', 'a', 'o', 'ae'],

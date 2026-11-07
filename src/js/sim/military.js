@@ -47,6 +47,8 @@
     tier(world, s) {
       if (s.kind === 'capital') return 'capital';
       if (s.kind === 'temple') return 'temple';
+      const fs = world.factions[s.faction];
+      if (fs && fs.capital === s.id && fs.type === 'kingdom') return Mil.civilians(world, s) >= 26 ? 'city' : 'town';   // (a realm's seat keeps a garrison worthy of it)
       const c = Mil.civilians(world, s), raw = c >= 40 ? 'city' : c >= 26 ? 'town' : 'village', was = s.milTier;
       if (was && Mil.TIERS.indexOf(was) > Mil.TIERS.indexOf(raw) && c >= Mil.AT[was] * 0.75) return was;
       return raw;
@@ -206,8 +208,9 @@
       const f = world.factions[s.faction];
       if (!f) return s.name;
       const T = TIER[Mil.tier(world, s)], r = Mil.ruler(world, s), kr = f.ruler && world.npcs[f.ruler];
-      const head = s.kind === 'capital' ? `Capital of ${f.short}` : s.kind === 'temple' ? `Temple town of ${f.short}` : `${T.name} of ${f.short}`;
-      const lord = s.kind === 'capital' ? (kr && kr.status === 'alive' ? P().fullTitle(world, kr) : null) : r ? P().fullTitle(world, r) : null;
+      const seat = f.capital === s.id;
+      const head = s.kind === 'capital' ? `Capital of ${f.short}` : s.kind === 'temple' ? `Temple town of ${f.short}` : seat ? `Seat of the ${f.name.replace(/^the /i, '')}` : `${T.name} of ${f.short}`;
+      const lord = s.kind === 'capital' || seat ? (kr && kr.status === 'alive' ? P().fullTitle(world, kr) : null) : r ? P().fullTitle(world, r) : null;
       if (!Mil.armed(world, s)) return head + (lord ? ' · ' + lord : '');
       const g = Mil.soldiers(world, s).length, st = Mil.stars(world, s);
       return `${head}${lord ? ' · ' + lord : ''} · ${g} soldier${g === 1 ? '' : 's'}${s.works && s.works.walls ? ', walled' : ''} ${'★'.repeat(st)}`;
@@ -322,6 +325,8 @@
     },
     log(world, b) {
       const S = Mil.st(world);
+      // (a battle won counts in the war's reckoning: realms.js)
+      if (ECHO.Realms && b.att && b.def && world.factions[b.att] && world.factions[b.def]) ECHO.Realms.score(world, world.factions[b.won ? b.att : b.def], world.factions[b.won ? b.def : b.att], b.won ? 5 : 4);
       S.battles.push(Object.assign({ d: world.day }, b));
       if (S.battles.length > 40) S.battles.splice(0, S.battles.length - 40);
     },

@@ -338,6 +338,8 @@
         joined.push(s);
       }
       world._graph = null; world._routes = {};
+      // far from the old crowns, the new villages belong to realms of their own (realms.js)
+      if (ECHO.Realms && world.realms) ECHO.Realms.claimNew(world, made);
       return made;
     },
 

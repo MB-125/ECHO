@@ -338,7 +338,20 @@
     // ------------------------------------------------------------ how far each one means to go
     // The age the realm has reached: the strongest anyone in it is (you), or what
     // time alone makes of it (a little each day, up to a point).
-    era(world, plv) { return Math.max(plv || 1, Math.min(60, 1 + (world.day || 0) / 10)); },
+    // The age: how far the world's fighters have come on their own — a tenth of a level a day for
+    // the first sixty, slower after. Fixed danger (danger.js): the rank and file of the realm rise
+    // with the age and with the country they live in (the far lands breed hard people), not with
+    // you; only the few who mean to be the best — the rival adventurers, the Marshals and
+    // Champions, the guild's best, the generals — keep pace with you, so that you always have peers.
+    age(world) { const d = world.day || 0; return d <= 590 ? 1 + d / 10 : Math.min(200, 60 + (d - 590) / 30); },
+    elite(n) { return !!n && (n.rival || n.rank >= 3 || n.title === 'Marshal' || n.title === 'Champion' || (n.adv && n.adv.status !== 'retired' && (n.adv.fame || 0) >= 40)); },
+    era(world, plv, n) {
+      if (!n || !ECHO.Danger) return Math.max(plv || 1, Math.min(60, 1 + (world.day || 0) / 10));
+      const s = n.home && ECHO.Sim.settlement(world, n.home);
+      const land = s ? ECHO.Danger.at(world, s.x, s.y) * 1.1 : 1;
+      const base = Math.max(Pw.age(world), land);
+      return Pw.elite(n) ? Math.max(base, plv || 1) : base;
+    },
     // A person's reach: what share of the age they mean to rise to — their trade
     // (soldiers and guards furthest, hunters and wanderers next, the rival
     // adventurers all the way; townsfolk a little), their rank, their ambition,
@@ -357,7 +370,7 @@
       if (n.ngAux) k = Math.max(k, 0.8);        // (the Guard's auxiliaries train hardest of all)
       return Math.min(1.12, k);
     },
-    aim(world, n, plv) { return Math.min(Pw.MAX_LV, Math.max(ECHO.Delvers ? ECHO.Delvers.baseLv(n) : 1, Math.round(1 + Pw.reach(n) * (Pw.era(world, plv) - 1)))); },
+    aim(world, n, plv) { return Math.min(Pw.MAX_LV, Math.max(ECHO.Delvers ? ECHO.Delvers.baseLv(n) : 1, Math.round(1 + Pw.reach(n) * (Pw.era(world, plv, n) - 1)))); },
     MAX_LV: 1500,
     // A world from before the realm rose with you: it has not stood still while
     // you grew — everyone takes most of the way they would have climbed, at once.

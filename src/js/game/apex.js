@@ -556,9 +556,11 @@
       if (ph === 3) e.ultAt = g.time + 1.8;
       if (UI().bossEnt === e) UI().bossBar(e);
     },
-    // a titan grows with the world: it is never beneath you
+    // A titan is as strong as it is: it does not grow to meet you (the land's danger is fixed —
+    // danger.js). Only the long age wears on: a little stronger each season it lives.
     raise(g, t) {
       if (t.bound) return;
+      if (ECHO.Danger) { const want = Math.round((t.lvl0 || (t.lvl0 = t.lvl)) * (1 + Math.min(0.5, (g.world.day || 0) / 1200))); if (want > t.lvl) t.lvl = Math.min(ECHO.Prowess.MAX || 1500, want); return; }
       // in steps (a tenth of your level each): Gorehorn two steps above you, Nyxathar twenty-one
       const idx = Ti().ORDER.indexOf(t.sp), want = ECHO.Prowess.above(ECHO.Prowess.level(g.pl), 2 + Math.max(0, idx) * 2.1);
       if (want > t.lvl) t.lvl = Math.min(ECHO.Prowess.MAX || 1500, want);

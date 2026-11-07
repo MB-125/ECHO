@@ -319,12 +319,11 @@
       let up = m ? P.learnedLv(world, key) : 0;
       const reg = e.x < 9000 ? ECHO.World.regionAt(world, e.x, e.y) : null, cl = reg ? P.st(world).claims[reg.id] : null, lord = cl ? P.byId(world, cl) : null;
       if (lord && lord.alive && !e.npcId) up += 1 + Math.floor(lord.infl / 15);
-      // out in the open the land grows with the age: once you have outgrown what
-      // lives in it, it meets you at half to nine-tenths of your strength (the
-      // deep places keep the levels they are known for)
-      if (!e.npcId && e.x < 9000 && !e.delve && !e.indoor) {
-        const plv = ECHO.Prowess.level(game.pl), L = Gr.lv(e) + up;
-        if (plv > L + 3) { const T = Math.round(plv * (0.5 + Math.random() * 0.4)); if (T > L) up += T - L; }
+      // out in the open, what lives somewhere is as strong as the place (danger.js) — not as
+      // strong as you: the meadows near the capitals stay gentle, the far country stays deadly
+      if (!e.npcId && e.x < 9000 && !e.delve && !e.indoor && ECHO.Danger) {
+        const D = ECHO.Danger.at(world, e.x, e.y), L = Gr.lv(e) + up;
+        if (D > L + 1) { const T = Math.round(D * (0.85 + Math.random() * 0.3)); if (T > L) up += T - L; }
       }
       if (up > 0) Gr.raise(e, up);
       if (m) {

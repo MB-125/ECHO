@@ -68,7 +68,7 @@
         const sx = pe.x + Math.cos(a) * 26, sy = pe.y + Math.sin(a) * 26;
         const ex = pe.x - Math.cos(a) * 45 + Math.cos(a + Math.PI / 2) * 6, ey = pe.y - Math.sin(a) * 45 + Math.sin(a + Math.PI / 2) * 6;
         if (ECHO.World.isSolid(world, sx, sy) || (ECHO.Water && ECHO.Water.kind(world, sx, sy)) || ECHO.World.isSolid(world, ex, ey)) continue;
-        const lv = Math.max(4, ECHO.Prowess ? ECHO.Prowess.level(game.pl) + 3 : 6);
+        const lv = Math.max(4, ECHO.Danger ? ECHO.Danger.at(world, sx, sy) + 3 : ECHO.Prowess ? ECHO.Prowess.level(game.pl) + 3 : 6);   // (as strong as the country it comes down from)
         const e = ECHO.Monsters.make(game, 'troll', sx, sy, lv, { noElite: true });
         const name = GIANTS[Math.floor(Math.random() * GIANTS.length)];
         e.event = 'giant'; e.giant = true; e.label = `${name} the Hill-Giant`;

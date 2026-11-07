@@ -410,9 +410,11 @@
         if (ruler && ruler !== usurper) { if (rng.chance(0.6)) P().kill(world, ruler, 'executed by the mob'); else { ruler.title = ''; ruler.prof = 'elder'; P().remember(world, ruler, 'lost the throne to the mob', 'trauma', null, 4); } }
         f.taxRate = 0.08;
       } else if (f && f.type === 'kingdom') {
-        const other = s.faction === 'valdren' ? 'ashmere' : 'valdren';
-        const oc = ECHO.Sim.settlement(world, world.factions[other].capital);
-        const otherBetter = !world.factions[other].fallen && oc && oc.hunger < s.hunger - 0.2 && world.factions[other].relations[f.id] < 0;
+        // the nearest other crown, if it is fed better and no friend of this one
+        const oth = Object.values(world.factions).filter(g => g.type === 'kingdom' && !g.fallen && g.id !== f.id && ECHO.Sim.settlement(world, g.capital)).sort((x, y) => { const a = ECHO.Sim.settlement(world, x.capital), b = ECHO.Sim.settlement(world, y.capital); return U.dist(a.x, a.y, s.x, s.y) - U.dist(b.x, b.y, s.x, s.y); })[0];
+        const other = oth ? oth.id : (s.faction === 'valdren' ? 'ashmere' : 'valdren');
+        const oc = world.factions[other] && ECHO.Sim.settlement(world, world.factions[other].capital);
+        const otherBetter = world.factions[other] && !world.factions[other].fallen && oc && oc.hunger < s.hunger - 0.2 && (world.factions[other].relations[f.id] || 0) < 0;
         if (otherBetter) {
           if (ruler && rng.chance(0.5)) P().kill(world, ruler, 'killed by rebels');
           Pol.flipSettlement(world, s, other, 'revolted against ' + f.short + ' and swore to ' + world.factions[other].short);
@@ -427,9 +429,9 @@
     crown(world, f, n, how) {
       const old = f.ruler && world.npcs[f.ruler];
       if (old && old.status !== 'dead' && old !== n) old.title = '';
-      f.ruler = n.id;
+      f.ruler = n.id; f.crowned = world.day || 0;
       n.prof = 'ruler';
-      n.title = f.type === 'order' ? 'High Wick' : n.sex === 'f' ? 'Queen' : 'King';
+      n.title = ECHO.Realms ? ECHO.Realms.rulerTitle(f, n) : f.type === 'order' ? 'High Wick' : n.sex === 'f' ? 'Queen' : 'King';
       n.renown = Math.max(n.renown, 40);
       n.rank = 0;
       const cap = ECHO.Sim.settlement(world, f.capital);
@@ -473,6 +475,8 @@
 
     flipSettlement(world, s, toFaction, how) {
       const from = s.faction;
+      // a town taken in war: the taker counts it, the loser claims it back (realms.js)
+      if (ECHO.Realms && world.factions[from] && world.factions[toFaction] && world.factions[from].atWar && world.factions[from].atWar[toFaction]) { ECHO.Realms.score(world, world.factions[toFaction], world.factions[from], 12); ECHO.Realms.st(world).claims[s.id] = from; }
       s.faction = toFaction;
       for (const n of P().residents(world, s)) {
         if (n.prof === 'guard' && n.faction === from) { n.prof = 'farmer'; n.rank = 0; }
@@ -499,6 +503,7 @@
 
     // ------------------------------------------------------------ Diplomacy & war
     diplomacy(world, rng) {
+      if (ECHO.Realms) return;   // (every power's dealings with every neighbour: realms.js)
       const a = world.factions.valdren, b = world.factions.ashmere;
       if (a.fallen || b.fallen) return;
       const capA = ECHO.Sim.settlement(world, a.capital), capB = ECHO.Sim.settlement(world, b.capital);
@@ -550,7 +555,7 @@
           if (f.id < eid) {
             f.warDays++; e.warDays++;
             const pPeace = 0.004 * f.warDays / 10 + (f.casualties + e.casualties) * 0.0015;
-            if (rng.chance(pPeace)) { Pol.makePeace(world, f, e); continue; }
+            if (!ECHO.Realms && rng.chance(pPeace)) { Pol.makePeace(world, f, e); continue; }   // (with the realms, peace comes with terms: realms.js)
           }
           // Dispatch an army
           if ((world.journeys || []).some(j => j.kind === 'army' && j.army.faction === f.id && j.army.type === 'war')) continue;

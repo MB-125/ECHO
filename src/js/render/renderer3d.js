@@ -1255,7 +1255,7 @@
         builtOne = true;
         if (cur) R.groups.towns.remove(cur.group);
         const group = new THREE.Group();
-        const roof = R.ROOF[s.faction] || R.ROOF.valdren;
+        const fr = world.factions[s.faction], roof = R.ROOF[s.faction] || (fr && fr.banner ? [fr.banner, fr.color] : R.ROOF.valdren);
         const lamps = [], sails = [], smokes = [];
         for (const b of s.buildings) {
           const name = R.MODEL_OF[b.type];

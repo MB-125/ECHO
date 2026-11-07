@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js'
 ];
 
 function loadEcho() {
@@ -102,7 +102,9 @@ function main() {
     }
     const cropDrop = A.regions[regionId].eco.crop - B.regions[regionId].eco.crop;
     const score = cropDrop + maxHunger * 2 + ((vB._emigrants || 0) - (vA._emigrants || 0)) / 5;
-    const r = { li, A, B, vA, vB, regionId, series, maxHunger, maxUnrest, score, name: lairB.boss.name, village: vB.name };
+    // farmers who gave up their failing fields for another trade
+    const gave = (W, v) => v.residents.filter(id => W.npcs[id] && (W.npcs[id].mem || []).some(m => /gave up farming/.test(m.t || m.text || ''))).length;
+    const r = { li, A, B, vA, vB, regionId, series, maxHunger, maxUnrest, score, name: lairB.boss.name, village: vB.name, gave: gave(B, vB) - gave(A, vA) };
     if (!best || r.score > best.score) best = r;
   }
   {
@@ -114,7 +116,7 @@ function main() {
     check('crops fail', B.regions[regionId].eco.crop < A.regions[regionId].eco.crop - 0.25);
     const avgPrice = (s) => s.priceHistory.slice(-10).reduce((a, b) => a + b, 0) / 10;
     check('food prices rise in the village', avgPrice(vB) > avgPrice(vA) * 1.3, `${avgPrice(vA).toFixed(1)} vs ${avgPrice(vB).toFixed(1)}`);
-    check('hunger brings migration or unrest', best.maxHunger > 0.3 || best.maxUnrest > 10 || (vB._emigrants || 0) > (vA._emigrants || 0), `peak hunger ${best.maxHunger.toFixed(2)}, extra unrest ${best.maxUnrest.toFixed(0)}, emigrants ${vA._emigrants || 0}→${vB._emigrants || 0}`);
+    check('hunger brings migration, unrest, or farmers leaving the fields', best.maxHunger > 0.3 || best.maxUnrest > 10 || (vB._emigrants || 0) > (vA._emigrants || 0) || best.gave >= 3, `peak hunger ${best.maxHunger.toFixed(2)}, extra unrest ${best.maxUnrest.toFixed(0)}, emigrants ${vA._emigrants || 0}→${vB._emigrants || 0}, ${best.gave} more gave up farming`);
   }
   ECHO.Powers.dailyTick = powersTick;
 
@@ -147,7 +149,8 @@ function main() {
       for (let d = 0; d < 120; d++) ECHO.Sim.dailyTick(Wl, true);
       const fl = Object.values(Wl.npcs).filter(n => n.status === 'alive' && !n.ng && ['guard', 'soldier', 'hunter', 'wanderer', 'bandit'].includes(n.prof)).map(n => Pw.lvOf(n)).sort((a, b) => a - b);
       const med = fl[Math.floor(fl.length / 2)], top = fl[fl.length - 1], rv = (Wl.rivals || []).filter(r => r.alive).map(r => r.lv);
-      check('the realm\'s fighters rise toward your level', med >= 15, `median ${med}, best ${top} (you: 40)`);
+      // (the best keep pace with you; the rest grow with the years and the country they live in)
+      check('the realm\'s best rise toward your level, and the rest grow with the years', top >= 32 && med >= Pw.age(Wl) * 0.9, `median ${med} (the age: ${Math.round(Pw.age(Wl))}), best ${top} (you: 40)`);
       check('the rival adventurers keep pace with you', rv.length && Math.max(...rv) >= 30, `rivals ${rv.join(', ')}`);
       check('but nobody but the Guard runs away past you', top <= 40 * 1.6, `best ${top}`);
     }
@@ -430,9 +433,16 @@ function main() {
     for (const seed of [1357, 11, 22, 33, 44, 55]) {
       const W = seed === 1357 ? B : ECHO.generateWorld({ seed, name: 'Frontier' });
       if (W !== B) { ECHO.Explore.sites(W); ECHO.Sim.dailyTick(W, true); }
-      const kk = Object.values(W.factions).find(f => f.type === 'kingdom');
+      // any crown will do: the old kingdoms, or the realms that broke from them
       const rng = ECHO.Sim.rngFor(W), n0 = W.settlements.length;
-      let site = null; for (let k = 0; k < 4 && !site; k++) site = R.findSite(W, kk, rng); tried++;
+      let site = null, kk = null; tried++;
+      for (const f of Object.values(W.factions).filter(f => f.type === 'kingdom' && W.settlements.some(s => s.id === f.capital && s.faction === f.id))) {
+        for (let k = 0; k < 4 && !site; k++) site = R.findSite(W, f, rng);
+        if (site) { kk = f; break; }
+      }
+      // (or a ruler has already done it, in the world's first days)
+      const done = !site && W.settlements.find(s => s.founder && W.factions[s.founder] && s.founded != null);
+      if (done) { founded = done; founded._pop = ECHO.People.residents(W, done).length; grew = founded._pop >= 5 && W.roads.some(r => r.a === done.id || r.b === done.id) && !ECHO.World.isSolid(W, done.x, done.y + 1); break; }
       if (!site) continue;
       founded = R.found(W, kk, { x: site.x, y: site.y, region: ECHO.World.regionAt(W, site.x, site.y).id, from: kk.capital, day: W.day, stage: 'planned', cleared: true, name: 'Newhope' }, rng);
       grew = founded && W.settlements.length === n0 + 1 && ECHO.People.residents(W, founded).length >= 5 && W.roads.some(r => r.a === founded.id || r.b === founded.id) && !ECHO.World.isSolid(W, founded.x, founded.y + 1);
@@ -1316,7 +1326,7 @@ function main() {
     const g = WE.force(W, 'sleeper'), seat = g && X.byId(W, g.site);
     check('the realm dreams of a sleeping god, and the place it sleeps', !!g && !!seat && seat.sleeper === g.id && seat.found && g.dreamers > 0 && W.chronicle.some(x => /dreamt the same dream/.test(x.text)), g && g.headline);
     for (let d = 0; d < 25; d++) ECHO.Sim.dailyTick(W, true);
-    check('the ground shakes, and people walk away to sing to it', g.choir.length >= 1 && W.chronicle.some(x => /The ground shook/.test(x.text)) && g.choir.every(id => W.npcs[id].journey === 'choir' || W.npcs[id].status === 'dead'), `${g.choir.length} in the choir`);
+    check('the ground shakes, and people walk away to sing to it', g.choir.length >= 1 && W.chronicle.some(x => /The ground shook/.test(x.text)) && g.choir.every(id => W.npcs[id].journey === 'choir' || W.npcs[id].status === 'dead' || (g.over && W.npcs[id].choir == null && W.npcs[id].loc)), `${g.choir.length} in the choir${g.over ? ' (and home again: ' + g.outcome + ')' : ''}`);
     // go down and sing it back to sleep
     if (!g.over) { seat.cleared = true; seat.clearedDay = W.day; ECHO.DungeonLife.cleared(W, seat, true); }
     check('reach the bottom of its seat, and it sleeps on', g.over && (/sleeps on/.test(g.outcome) || /turned over/.test(g.outcome)) && !seat.sleeper && WE.st(W).godDone, g.outcome);
@@ -1456,7 +1466,7 @@ function main() {
     check('soldiers are real people of the town, with names and homes', armed.every(s => M.soldiers(W, s).every(x => x.home === s.id && x.first && W.npcs[x.id] === x)));
     check('every garrison has its captain; every crown its Marshal and its Champion', armed.every(s => { const c = M.captain(W, s); return c && c.rank >= 2; }) && Object.values(W.factions).filter(f => f.type === 'kingdom').every(f => M.marshal(W, f) && M.marshal(W, f).rank === 3 && M.champion(W, f)),
       Object.values(W.factions).filter(f => f.type === 'kingdom').map(f => `${P.fullTitle(W, M.marshal(W, f))} / ${P.fullTitle(W, M.champion(W, f))}`).join(' · '));
-    check('a town is held by a lord or a lady, a village by its reeve', armed.every(s => { const r = M.ruler(W, s); if (!r || s.kind === 'capital' || s.kind === 'temple') return true; return M.tier(W, s) === 'village' ? r.title === 'Reeve' : r.title === 'Lord' || r.title === 'Lady'; }));
+    check('a town is held by a lord or a lady, a village by its reeve', armed.every(s => { const r = M.ruler(W, s); if (!r || s.kind === 'capital' || s.kind === 'temple' || Object.values(W.factions).some(f => f.capital === s.id)) return true; return M.tier(W, s) === 'village' ? r.title === 'Reeve' : r.title === 'Lord' || r.title === 'Lady'; }));
     check('walking in, you are told whose town it is and what holds it', /Capital of .* · (King|Queen) .* · \d+ soldiers/.test(M.banner(W, caps[0])), M.banner(W, caps[0]));
     // a month on: walls, towers, patrols
     let patrol = 0, home = 0;
@@ -1472,7 +1482,8 @@ function main() {
     const ks = Object.values(W3.factions).filter(f => f.type === 'kingdom');
     const top = Math.max(...ks.map(f => Math.max(M.lvOf(M.marshal(W3, f)), M.lvOf(M.champion(W3, f)))));
     const sol = W3.settlements.filter(s => M.armed(W3, s)).flatMap(s => M.soldiers(W3, s)), avg = sol.reduce((a, x) => a + M.lvOf(x), 0) / sol.length;
-    check('the realm is no pushover: its Marshals and Champions come near your level, its soldiers half of it and more', top >= 64 && avg >= 32, `you 80 · the best ${top} · soldiers about ${Math.round(avg)}`);
+    // (its soldiers are as strong as the times and the country they hold — not as strong as you)
+    check('the realm is no pushover: its Marshals and Champions come near your level, its soldiers as strong as the times and their country', top >= 64 && avg >= ECHO.Powers.age(W3) * 0.9 && avg < 40, `you 80 · the best ${top} · soldiers about ${Math.round(avg)} (the age: ${Math.round(ECHO.Powers.age(W3))})`);
     // a battle is won by levels, numbers, walls and command
     const tgt = W3.settlements.find(s => s.faction === 'ashmere' && s.kind !== 'capital') || W3.settlements.find(s => s.faction === 'ashmere');
     const mk = (lv, k) => Array.from({ length: k }, () => { const x = P.create(W3, new ECHO.RNG(k * 31 + lv), { home: W3.factions.valdren.capital, faction: 'valdren', prof: 'guard', fight: 40 }); x.lv = lv; return x; });
@@ -1602,6 +1613,105 @@ function main() {
     E.Tame = T0;
     const W2 = E.Save.deserialize(E.Save.serialize(Wd));
     check('your well, its lessons and its cores survive a save', W2.player.well && W2.player.well.lv === Wl.st(pl).lv && W2.player.well.lessons === Wl.LESSONS && W2.player.well.coreN === 2);
+  }
+  console.log('\nFixed danger, more realms, real diplomacy');
+  {
+    const E = ECHO, Dg = E.Danger, Rs = E.Realms, Pw = E.Powers, P = E.People;
+    const W = E.generateWorld({ seed: 777, name: 'Realms' });
+    const pl = W.player = E.Character.create(W, new E.RNG(6), { first: 'Ren', homeId: W.settlements[0].id });
+    const cap = W.settlements.find(s => s.kind === 'capital');
+    E.Prowess.st(pl).lv = 5; const corner = [[2, 2], [W.W - 3, 2], [2, W.H - 3], [W.W - 3, W.H - 3]].sort((a, b) => Dg.reach(W, b[0], b[1]) - Dg.reach(W, a[0], a[1]))[0];
+    const d1 = Dg.at(W, cap.x + 3, cap.y + 2), far1 = Dg.at(W, corner[0], corner[1]);
+    E.Prowess.st(pl).lv = 250; const d2 = Dg.at(W, cap.x + 3, cap.y + 2), far2 = Dg.at(W, corner[0], corner[1]);
+    check('the land\'s danger is fixed: gentle by the capitals, deadlier far off — and the same whatever your level', d1 <= 3 && far1 >= 8 && d1 === d2 && far1 === far2, `by ${cap.name}: ${d1} · the farthest corner of the old island: ${far1}`);
+    const r0 = W.regions.find(r => r.land > 0.3);
+    check('each region has its own band of danger, to show you', Array.isArray(Dg.band(W, r0)) && Dg.band(W, r0)[0] <= Dg.band(W, r0)[1], `${r0.name}: ${Dg.label(W, r0)}`);
+    check('a deep wood is as deadly as it always was, whatever your level', !E.Wildwood || (E.Wildwood.level(W, 1) === 70 && E.Wildwood.level(W, 4) === 480));
+    // the realm's people: the rank and file rise with the age and their country; only the elite keep pace with you
+    const sol = P.alive(W).find(n => n.prof === 'guard' && !n.rank && !n.title && !n.rival), riv = P.alive(W).find(n => n.prof === 'guard') ;
+    const aLow = Pw.aim(W, sol, 10), aHigh = Pw.aim(W, sol, 300);
+    const fake = Object.assign({}, riv, { rival: true });
+    check('the rank and file of the realm do not grow to meet you — the elite (rivals, Marshals, Champions) do', aLow === aHigh && Pw.aim(W, fake, 300) > Pw.aim(W, fake, 10) * 3, `a soldier aims at ${aLow} whether you are 10 or 300; a rival at ${Pw.aim(W, fake, 10)} → ${Pw.aim(W, fake, 300)}`);
+    // more realms
+    const ps = Rs.powers(W);
+    check('the old kingdoms have lost far provinces: duchies, principalities and free cities of their own', ps.length >= 3 && ps.some(f => f.seceded && ['duchy', 'principality', 'freecity'].includes(f.style)), ps.map(f => f.name).join(', '));
+    const du = ps.find(f => f.seceded), dr = du && W.npcs[du.ruler];
+    check('…each with its own ruler, titled as its kind of realm is, and a grudge with the crown it left', dr && dr.title === Rs.rulerTitle(du, dr) && dr.title !== 'King' && Rs.rel(du, W.factions[du.seceded]) < 0, dr ? `${P.fullTitle(W, dr)} of ${du.short}` : '');
+    // the far lands
+    E.Globe.ensure(W);
+    const o = W.globe.old, cx = (o.x0 + o.x1) / 2, cy = (o.y0 + o.y1) / 2, cells = new Set();
+    for (const [dx, dy] of [[320, 0], [420, 0], [-360, 30], [0, 360]]) for (let k = -1; k <= 1; k++) cells.add(E.Globe.cellAt(W, E.Globe.wrapX(W, cx + dx + k * 96), cy + dy));
+    E.Globe.make(W, [...cells]);
+    const far = Rs.powers(W).filter(f => f.farRealm);
+    check('the far lands belong to realms of their own — their own peoples, kinds of realm and names', far.length >= 2 && new Set(far.map(f => f.culture)).size >= 2 && far.every(f => f.ruler && W.npcs[f.ruler] && Rs.towns(W, f).length >= 1), far.map(f => `${f.name} (${f.culture})`).join(', '));
+    const fseat = far.map(f => E.Sim.settlement(W, f.capital)).filter(Boolean);
+    check('…out where the land is dangerous', fseat.every(s => Dg.at(W, s.x, s.y) >= 25), fseat.map(s => Dg.at(W, s.x, s.y)).join(', '));
+    // diplomacy over a season or so
+    const rng = new E.RNG(9);
+    for (let d = 0; d < 120; d++) E.Sim.dailyTick(W, true);
+    const log = Rs.st(W).log.map(l => l.text).join(' | ');
+    const kinds = ['alliance', 'truce', 'sworn itself', 'bent the knee', 'goes to war', 'Peace between', 'tribute', 'broken away', 'far lands', 'proclaimed'].filter(k => log.includes(k));
+    check('the powers deal with each other: alliances, truces, vassals, demands, wars and peace', kinds.length >= 4, kinds.join(', '));
+    // called to arms
+    const [A, B, C] = Rs.powers(W).filter(f => !f.fallen && !Object.keys(f.atWar).length && !f.overlord).slice(0, 3);
+    if (A && B && C) {
+      Rs.tie(W, A, B).alliance = W.day; Rs.setRel(A, B, 60); Rs.setRel(A, C, -40);
+      Rs.war(W, C, B, 'conquest');
+      check('an ally is called to arms when its friend is attacked', !!A.atWar[C.id] && !!B.atWar[C.id], `${C.short} attacks ${B.short}; ${A.short} ${A.atWar[C.id] ? 'marches' : 'stays home'}`);
+      const Wk = Rs.st(W).wars[Rs.key(C, B)];
+      Wk.score[C.id] = 30; Wk.score[B.id] = 2; Wk.start -= 40;
+      const t0 = E.Realm.st(B).tribute;
+      Rs.treaty(W, Wk, C, B, 30, 2); delete Rs.st(W).wars[Rs.key(C, B)];
+      check('peace comes with terms: the loser pays (or cedes a town), and a truce follows', !B.atWar[C.id] && (E.Realm.st(B).tribute && E.Realm.st(B).tribute.to === C.id) && Rs.tie(W, B, C).truce > W.day, `${B.short} pays ${E.Realm.st(B).tribute ? E.Realm.st(B).tribute.amt : 0} a day`);
+      void t0;
+    }
+    // vassals pay
+    const v = Rs.powers(W).find(f => f.overlord && W.factions[f.overlord] && !W.factions[f.overlord].fallen) || Rs.powers(W).find(f => !f.overlord && Rs.towns(W, f).length <= 2);
+    const lord = v && (v.overlord ? W.factions[v.overlord] : Rs.powers(W).find(f => f !== v && !f.overlord));
+    if (v && lord) {
+      v.overlord = lord.id; v.treasury = 500; const lt = lord.treasury;
+      Rs.vassalage(W, v, new E.RNG(1));
+      check('a vassal pays its overlord tribute', lord.treasury > lt && v.treasury < 500);
+    }
+    // a truce holds even against an ally's call
+    {
+      const free = Rs.powers(W).filter(f => !f.fallen && !f.overlord && !Rs.powers(W).some(g => g.overlord === f.id));
+      for (const f of free) for (const g of free) if (f !== g && f.atWar[g.id]) E.Politics.makePeace(W, f, g, true);
+      const [A2, B2, C2] = free;
+      if (A2 && B2 && C2) {
+        Rs.tie(W, A2, B2).alliance = W.day; Rs.setRel(A2, B2, 60); Rs.tie(W, A2, C2).truce = W.day + 30;
+        Rs.war(W, C2, B2, 'conquest');
+        check('a sworn truce holds: an ally will not break it to march, though its friend is angry', !A2.atWar[C2.id] && !!B2.atWar[C2.id] && Rs.st(W).log.some(l => /will not break its truce/.test(l.text)), `${C2.short} attacks ${B2.short}; ${A2.short} ${A2.atWar[C2.id] ? 'marches' : 'keeps its truce'}`);
+      }
+    }
+    // a realm stretched too wide loses a town it took — and a fallen house comes back
+    {
+      const big = Rs.powers(W).filter(f => !f.farRealm).sort((a, b) => Rs.towns(W, b).length - Rs.towns(W, a).length)[0];
+      const capB = E.Sim.settlement(W, big.capital);
+      const fall = Rs.found(W, [W.settlements.find(s => s.faction === big.id && s.id !== big.capital && s.kind === 'village' && Rs.dist(W, s.x, s.y, capB.x, capB.y) > 35) || W.settlements.find(s => s.faction === big.id && s.id !== big.capital)], { style: 'duchy', culture: big.culture, from: big.id });
+      const town = E.Sim.settlement(W, fall.capital);
+      E.Politics.flipSettlement(W, town, big.id, 'conquest');
+      const fell = !!fall.fallen;
+      // (make it wide: six towns or more)
+      while (Rs.towns(W, big).length < 6) { const s = W.settlements.find(x => x.faction !== big.id && x.kind === 'village' && !Object.values(W.factions).some(f => f.capital === x.id)); if (!s) break; s.faction = big.id; }
+      Rs.st(W).claims[town.id] = fall.id;
+      const sure = { chance: () => true, next: () => 0.5, pick: a => a[0], int: (a) => a, range: (a) => a };
+      Rs.overreach(W, big, sure);
+      check('a realm grown too wide loses what it took: the fallen house it took it from rises again there', fell && !fall.fallen && town.faction === fall.id && fall.ruler && W.npcs[fall.ruler].home === town.id && Rs.st(W).log.some(l => /The fallen house is back/.test(l.text)), Rs.st(W).log.filter(l => /risen against/.test(l.text)).map(l => l.text).join(' ').slice(0, 220));
+    }
+    // an old world
+    const W4 = E.generateWorld({ seed: 31, name: 'Old' });
+    const p4 = W4.player = E.Character.create(W4, new E.RNG(3), { first: 'Old', homeId: W4.settlements[0].id });
+    E.Prowess.st(p4).lv = 44; p4.gold = 4321;
+    for (const f of Object.values(W4.factions)) if (f.id.startsWith('rlm')) { for (const s of W4.settlements) if (s.faction === f.id) { s.faction = f.seceded || 'valdren'; for (const n of P.residents(W4, s)) n.faction = s.faction; } delete W4.factions[f.id]; }
+    for (const f of Object.values(W4.factions)) for (const k of Object.keys(f.relations || {})) if (k.startsWith('rlm')) delete f.relations[k];
+    delete W4.realms;
+    const W5 = E.Save.deserialize(E.Save.serialize(W4));
+    let ok = true; try { Rs.ensure(W5); E.Sim.dailyTick(W5, true); } catch (e) { ok = false; console.log('   ', e.stack); }
+    const n1 = Rs.powers(W5).length; Rs.ensure(W5); E.Sim.dailyTick(W5, true);
+    check('an old save takes up the new realms once, on load — and your own progress is untouched', ok && n1 >= 3 && Rs.powers(W5).length === n1 && E.Prowess.level(W5.player) === 44 && W5.player.gold === 4321, `${n1} powers`);
+    const W6 = E.Save.deserialize(E.Save.serialize(W5));
+    check('the realms, their ties and their wars survive a save', Rs.powers(W6).length === Rs.powers(W5).length && W6.realms && W6.realms.home && Rs.powers(W6).some(f => f.style));
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

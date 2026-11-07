@@ -49,7 +49,7 @@
           let spot = null;
           for (let t = 0; t < 30 && !spot; t++) { const a = Math.random() * 6.28, r = 5 + Math.random() * 4; const x = pe.x + Math.cos(a) * r, y = pe.y + Math.sin(a) * r; if (ECHO.Water.kind(world, x, y) === 'deep') spot = { x, y }; }
           if (spot) {
-            const e = ECHO.Monsters.make(game, 'drowner', spot.x, spot.y, Math.max(1, Math.min(6, lv - 1)), { noElite: true });
+            const e = ECHO.Monsters.make(game, 'drowner', spot.x, spot.y, ECHO.Danger ? ECHO.Danger.at(world, spot.x, spot.y) : Math.max(1, Math.min(6, lv - 1)), { noElite: true });
             e.lurker = true; e.aquatic = true; e.hidden = true; e.lurk = { st: 'under', t: 0 };
             game.ents.push(e);
           }

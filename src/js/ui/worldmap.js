@@ -189,7 +189,7 @@
           sx += x; sy += y; n++;
           if (ECHO.Game.explored(x, y)) seen++;
         }
-        if (n && (WM.revealed(pl) || seen / n > 0.3)) out.push({ name: r.name, x: sx / n, y: sy / n, land: ECHO.Lands ? ECHO.Lands.of(world, r) : null });
+        if (n && (WM.revealed(pl) || seen / n > 0.3)) out.push({ name: r.name, x: sx / n, y: sy / n, land: ECHO.Lands ? ECHO.Lands.of(world, r) : null, danger: ECHO.Danger ? ECHO.Danger.band(world, r) : null });
       }
       return out;
     },
@@ -499,7 +499,7 @@
       body.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { WM.tab = b.dataset.tab; WM.side(game, c); }));
       // ---- find a place by name (Enter: the first)
       const fin = body.querySelector('#map-find'), found = body.querySelector('#map-found');
-      const places = () => WM.feats.concat(WM.regions.map(r => ({ layer: 'regions', kind: 'region', x: r.x, y: r.y, name: U.cap(r.name), color: '#efe3c8', sub: 'A region' })));
+      const places = () => WM.feats.concat(WM.regions.map(r => ({ layer: 'regions', kind: 'region', x: r.x, y: r.y, name: U.cap(r.name), color: '#efe3c8', sub: r.danger ? `A region · danger level ${r.danger[0]}${r.danger[1] !== r.danger[0] ? '–' + r.danger[1] : ''}` : 'A region' })));
       let hits = [];
       const go = f => { fin.blur(); found.innerHTML = ''; fin.value = f.name; if (f.kind !== 'region') WM.select(game, f); WM.flyTo(game, f.x, f.y, globe() ? Math.min(WM.G.dist, 1.6) : Math.max(V.z, 5)); };
       fin.addEventListener('keydown', ev => {
@@ -743,7 +743,7 @@
       g.textAlign = 'center'; g.textBaseline = 'middle';
       if (WM.layers.regions && V.z >= 1.6 && V.z < 9) {
         const font = `italic ${Math.round(U.clamp(V.z * 3.4, 11, 19))}px "Cormorant Garamond", Georgia, serif`;
-        for (const r of WM.regions) { const p = WM.toScreen(c, r.x, r.y); if (r.land && r.land.roster) (WM._later = WM._later || []).push({ text: r.land.short, x: p.x, y: p.y + Math.round(U.clamp(V.z * 3.4, 11, 19)) * 0.95, font: `600 ${Math.round(U.clamp(V.z * 2.6, 9, 14))}px Inter, system-ui, sans-serif`, fill: r.land.col, stroke: 'rgba(20,14,8,0.7)', pri: 0 }); (WM._later = WM._later || []).push({ text: U.cap(r.name).toUpperCase().split('').join(String.fromCharCode(8202)), x: p.x, y: p.y, font, fill: 'rgba(58,42,24,0.66)', stroke: 'rgba(236,226,196,0.5)', pri: 0 }); }
+        for (const r of WM.regions) { const p = WM.toScreen(c, r.x, r.y); if (r.land && r.land.roster) (WM._later = WM._later || []).push({ text: r.land.short, x: p.x, y: p.y + Math.round(U.clamp(V.z * 3.4, 11, 19)) * 0.95, font: `600 ${Math.round(U.clamp(V.z * 2.6, 9, 14))}px Inter, system-ui, sans-serif`, fill: r.land.col, stroke: 'rgba(20,14,8,0.7)', pri: 0 }); (WM._later = WM._later || []).push({ text: U.cap(r.name).toUpperCase().split('').join(String.fromCharCode(8202)), x: p.x, y: p.y, font, fill: 'rgba(58,42,24,0.66)', stroke: 'rgba(236,226,196,0.5)', pri: 0 }); if (r.danger && V.z >= 2.2) { const me = ECHO.Prowess ? ECHO.Prowess.level(ECHO.Game.pl) : 1, D = ECHO.Danger.word(r.danger[1], me); (WM._later = WM._later || []).push({ text: `Lv ${r.danger[0]}${r.danger[1] !== r.danger[0] ? '–' + r.danger[1] : ''}`, x: p.x, y: p.y - Math.round(U.clamp(V.z * 3.4, 11, 19)) * 1.05, font: `700 ${Math.round(U.clamp(V.z * 2.4, 9, 13))}px Inter, system-ui, sans-serif`, fill: D.color, stroke: 'rgba(20,14,8,0.8)', pri: 0 }); } }
       }
       // the way there: the planned route, or a straight line if there is none yet
       const goal = ECHO.Purpose && ECHO.Purpose.current(game);

@@ -157,7 +157,8 @@
       const s = game.currentSid ? ECHO.Sim.settlement(world, game.currentSid) : null;
       const reg = game.currentRegion;
       const land = ECHO.Lands && !ECHO.Interior.cur ? ECHO.Lands.at(world, game.pe.x, game.pe.y) : null;
-      set('#hud-place', (s ? `${s.name} · ${reg ? U.cap(reg.name) : ''}` : (reg ? U.cap(reg.name) : '')) + (land ? ` · ${land.short}` : ''));
+      const dz = ECHO.Danger && !ECHO.Interior.cur && !(ECHO.GateWorld && ECHO.GateWorld.cur) ? ECHO.Danger.at(world, game.pe.x, game.pe.y) : null;
+      set('#hud-place', [s && s.name, reg && U.cap(reg.name), land && land.short, dz != null && `danger ${dz}`].filter(Boolean).join(' · '));
       const w = world.items[pl.weapon];
       const inv = `<span>${w ? esc(w.name) : 'Bare hands'}</span><span>Arrows <b>${pl.inv.arrows}</b></span><span>Food <b>${pl.inv.food + (pl.inv.meat || 0)}</b></span><span>Herbs <b>${pl.inv.herbs}</b></span>${Object.entries(ECHO.Gear.POTIONS).filter(([id]) => (pl.potions || {})[id] > 0).map(([id, P0]) => `<span style="color:${P0.color}">${P0.key}·${P0.short} <b>${pl.potions[id]}</b></span>`).join('')}${Object.entries(pl.buffs || {}).filter(([k, v]) => v > 0 && ECHO.Gear.POTIONS[k]).map(([k, v]) => `<span style="color:${ECHO.Gear.POTIONS[k].color}">✦${ECHO.Gear.POTIONS[k].short} ${Math.ceil(v)}s</span>`).join('')}${ECHO.Arcana ? ECHO.Arcana.hud(game) : ''}${ECHO.Mending ? ECHO.Mending.hud(game) : ''}${pl.flying && ECHO.Apex && ECHO.Apex.airHud ? ECHO.Apex.airHud(game) : ''}${ECHO.Tame ? (m => m === 'leash' ? '<span style="color:#ffcf6a" title="L: what you strike down kneels instead of dying">⛓ taming: leash</span>' : m === 'breath' ? '<span style="color:#ffe08a" title="L: what you strike down kneels on its last breath">✦ taming: last breath</span>' : '') (ECHO.Tame.mode(pl)) : ''}<span>Crowns <b>${Math.floor(pl.gold)}</b></span>${pl.companion && world.npcs[pl.companion] ? `<span>With <b>${esc(world.npcs[pl.companion].first)}</b></span>` : ''}${pl.inv.starshard ? `<span style="color:#bfe8ff">✦ <b>${pl.inv.starshard}</b></span>` : ''}${ECHO.Letters && ECHO.Letters.unread(world).length ? `<span class="gold">✉ <b>${ECHO.Letters.unread(world).length}</b> (J)</span>` : ''}`;
       if (UI._inv !== inv) { $('#hud-inv').innerHTML = inv; UI._inv = inv; }
@@ -1687,6 +1688,7 @@
             const r = f.ruler && world.npcs[f.ruler];
             html += f.type === 'kingdom' ? UI.realmCard(world, f).replace('<h4>The state of', `<h4>${r ? esc(P().fullTitle(world, r)) + ' — ' : ''}`) : `<div class="card"><h4>${esc(f.name)}</h4><div>${r ? esc(P().fullTitle(world, r)) + ' tends the flame.' : ''}</div></div>`;
           }
+          if (ECHO.Realms) html += UI.safe(() => ECHO.Realms.html(game), 'powers');
           if (ECHO.Military) html += ECHO.Military.realmHtml(game);
           const ward = (pl.wardenOf || []).map(id => ECHO.Sim.settlement(world, id)).filter(Boolean);
           for (const v of ward.filter(v => v.warden === pl.charId)) html += `<div class="card" style="border-color:rgba(255,207,106,0.6)"><h4>${esc(v.name)} — your village</h4><div>${P().residents(world, v).length} people · ${(v.projects || []).filter(x => !x.done).length ? 'works under way' : 'no works under way'}</div><div class="row"><button class="small" data-hold="${v.id}">Send word to the reeve</button></div></div>`;
