@@ -35,7 +35,7 @@
       if (!k) return game.ui.toast('You have nothing to eat. Buy bread at a market or a hot meal at an inn, pick berries (E by a bush), or hunt a hare or deer for meat — then cook it at a campfire (B).', 'warn', 7);
       C.eat(game, k);
     },
-    eat(game, k) {
+    eat(game, k, quiet) {
       const pl = game.pl, F = FOODS[k]; C.init(pl);
       if (!F || !(pl.inv[k] > 0)) return;
       pl.inv[k]--;
@@ -46,6 +46,12 @@
       pl.fed = Math.min(100, pl.fed + F.fed);
       if (F.warm) pl.warmth = Math.min(100, pl.warmth + F.warm);
       if (F.hearty) pl.hearty = Math.max(pl.hearty || 0, F.hearty);
+      if (quiet) {
+        // (eaten for you: a word over your head, and the tip about cooking only once)
+        if (game.pe) ECHO.Combat.floater(game.pe.x, game.pe.y - 1.5, `ate ${F.name}`, '#e8d9a0');
+        if (F.raw && !pl._rawTip) { pl._rawTip = true; game.ui.toast(`You ate ${F.name}. Cooked over a fire it would do you far more good (B to make camp).`, 'info', 5); }
+        return;
+      }
       game.ui.toast(F.raw ? `You chew ${F.name}. (It would do you far more good cooked over a fire — B to make camp.)` : `You eat ${F.name}.${F.hearty ? ' Warm to your toes.' : ''}`, 'info', F.raw ? 4 : 2);
     },
     // stamina comes back faster fed and warm, slower hungry or cold
@@ -112,8 +118,10 @@
       if (pl.fed < 5 && pl.hp > pl.maxHp * 0.5) pl.hp = Math.max(pl.maxHp * 0.5, pl.hp - 0.15 * dt);
       C.warn(game, 'chilled', pl.warmth < 40, `You're getting cold${ex.why.length ? ' — ' + ex.why.join(', ') : ''}. Find a fire, a roof, or make camp (B).`);
       C.warn(game, 'freezing', pl.warmth < 20, 'You\'re freezing. Your strength won\'t come back and the cold is starting to hurt. Get to a fire.');
-      C.warn(game, 'hungry', pl.fed < 25, 'You\'re hungry. (H to eat; cooked food does you most good.)');
-      C.warn(game, 'starving', pl.fed < 5, (C.ORDER.some(k => pl.inv[k] > 0) ? 'You\'re starving — press H to eat what you carry.' : 'You\'re starving, and you have no food. Buy bread at a market or a meal at an inn, pick berries, or hunt and cook meat at a campfire (B).'));
+      // (you eat by yourself when you are hungry: the warning is for when there is nothing to eat, or you turned that off)
+      const selfFed = ECHO.Auto && ECHO.Auto.on('autoCare') && C.ORDER.some(k => pl.inv[k] > 0);
+      C.warn(game, 'hungry', pl.fed < 25 && !selfFed, C.ORDER.some(k => pl.inv[k] > 0) ? 'You\'re hungry. (H to eat; cooked food does you most good.)' : 'You\'re hungry, and you carry nothing to eat. Buy bread at a market or a meal at an inn, pick berries, or hunt and cook (B).');
+      C.warn(game, 'starving', pl.fed < 5 && !selfFed, (C.ORDER.some(k => pl.inv[k] > 0) ? 'You\'re starving — press H to eat what you carry.' : 'You\'re starving, and you have no food. Buy bread at a market or a meal at an inn, pick berries, or hunt and cook meat at a campfire (B).'));
       // the campfire burns down
       const f = C.fire;
       if (f) {

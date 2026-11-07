@@ -7,6 +7,15 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.24.0', items: [
+      'You look after yourself now, with no key needed. Hungry, you eat what you carry, the best of it first (a stew or a roast before bread, raw meat last), a bite at a time until you are fed. Badly hurt, you drink the healing draught that best fits your wounds. With none left, you drink a mending tonic or a second-wind cordial, or use a salve or herbs.',
+      'Poisoned, burning, webbed or rooted, you drink a purging tincture. With a fever, you chew herbs. Out of breath in a fight, you drink a second-wind cordial.',
+      'In a hard fight (a lord, a great beast, an elite, or a foe your match or more), you drink your fighting draughts by yourself: might, stoneskin, heartroot, fireward against fire and spells, and bloodwine when you are hurt. Phoenix tears are never drunk for you: carried, they still break by themselves when a blow would kill you.',
+      'Both can be turned off in Esc → Gameplay ("Look after yourself" and "Draughts in hard fights"). The keys still work by hand: H eats, 1 drinks a healing draught, 2–0 the rest.',
+      'Herbs are gone from the bar at the foot of the screen, and from the controls. They are still in your bag for brewing draughts and stews, and are chewed for you to break a fever. The food count now includes everything you can eat, cooked or not.',
+      'The controls card (F1) is clearer: one short line per key, grouped Move, Fight, Do and Pages, with nothing running past the edge. A "Done for you" note says what happens by itself. The strip of key hints for new players is shorter too.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.23.4', items: [
       'E no longer gets stuck on "Tame … — your den is full". When there is no room to tame a beast (your den is full, or you keep all you may of its kind), its prompt never takes E from a door, a chest, a person or anything else; it only shows when there is nothing else here.',
       'A beaten beast behind a wall or a shut door no longer offers to be tamed "from here": you have to be able to see it.',

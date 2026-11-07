@@ -164,7 +164,7 @@
     },
     help() {
       const el = Scr.show(`${Scr.logo()}<div class="panel-inner" style="margin:0 auto"><div class="panel-body prose" style="font-size:18px">
-<b>Controls.</b> WASD to move. Left mouse strikes, right mouse draws and looses the bow (hold to draw), Q casts flame (hold to pour more into it — at your peril). Shift raises your guard; tap it just as a blow lands for a perfect guard. Space dodges. R (or the middle mouse button) locks onto a foe so you always face it; press again to release. Hold Ctrl to sneak (you must sneak to strike someone who isn't your enemy). F studies a creature. E interacts. H eats, G uses herbs. Tab opens the journal, M the map, N "where to?" (pick what to head for — a golden trail on the ground leads the way), K your character, Esc the menu.
+<b>Controls.</b> WASD to move. Left mouse strikes, right mouse draws and looses the bow (hold to draw), Q casts flame (hold to pour more into it — at your peril). Shift raises your guard; tap it just as a blow lands for a perfect guard. Space dodges. R (or the middle mouse button) locks onto a foe so you always face it; press again to release. Hold Ctrl to sneak (you must sneak to strike someone who isn't your enemy). F studies a creature. E interacts. You eat when you are hungry and drink a healing draught when you are badly hurt by yourself (H and 1 still do it by hand; Esc → Gameplay turns it off). Tab opens the journal, M the map, N "where to?" (pick what to head for — a golden trail on the ground leads the way), K your character, Esc the menu.
 
 <b>The world.</b> Everyone in ECHO is a real, persistent person who lives whether or not you're watching. Kingdoms grow hungry and go to war. Outlaws raid and take captives. Merchants chase profit and flee danger. Beasts multiply or starve. Your actions ripple — but no one will tell you which ripple was yours.
 
@@ -305,6 +305,10 @@
           <div class="row"><span style="min-width:190px">Pause when you switch away</span>${opt('autoPause', 'on', 'On', 'on')}${opt('autoPause', 'off', 'Off', 'on')}</div>
           <div class="row"><span style="min-width:190px">Screen shake</span>${opt('shake', 'full', 'Full', 'full')}${opt('shake', 'gentle', 'Gentle', 'full')}${opt('shake', 'off', 'Off', 'full')}</div>
           <div class="row"><span style="min-width:190px">Damage numbers</span>${opt('dmgNums', 'on', 'On', 'on')}${opt('dmgNums', 'off', 'Off', 'on')}</div>
+          <div class="row"><span style="min-width:190px">Look after yourself</span>${opt('autoCare', 'on', 'On', 'on')}${opt('autoCare', 'off', 'Off', 'on')}</div>
+          <div class="dim" style="margin:-2px 0 6px">On: you eat when hungry, drink a healing draught when badly hurt, and cure poison, fire, webs and fever by yourself.</div>
+          <div class="row"><span style="min-width:190px">Draughts in hard fights</span>${opt('autoBuff', 'on', 'On', 'on')}${opt('autoBuff', 'off', 'Off', 'on')}</div>
+          <div class="dim" style="margin:-2px 0 6px">On: against a lord, a great beast, an elite or a foe your match, you drink might, stoneskin and the rest by yourself.</div>
           <div class="row"><span style="min-width:190px">Your aura</span>${opt('aura', 'full', 'Full', 'full')}${opt('aura', 'subtle', 'Subtle', 'full')}${opt('aura', 'off', 'Off', 'full')}</div>
           <div class="row"><span style="min-width:190px">See through what hides you</span>${opt('seeThrough', 'on', 'On', 'on')}${opt('seeThrough', 'off', 'Off', 'on')}</div>
           <div class="row"><span style="min-width:190px">Name tags in a fight</span>${opt('labels', 'compact', 'The nearest', 'compact')}${opt('labels', 'all', 'All', 'compact')}</div>

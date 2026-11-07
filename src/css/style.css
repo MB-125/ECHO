@@ -200,6 +200,8 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 #hud-help .hh-title span { font-size: 11px; font-weight: 400; color: rgba(240,230,208,0.55); }
 #hud-help .hh-group { margin: 6px 0 2px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: rgba(230,192,106,0.75); }
 #hud-help .hh-row { display: grid; grid-template-columns: 90px 1fr; align-items: center; margin: 2px 0; }
+#hud-help .hh-auto { font-size: 11px; line-height: 1.4; color: rgba(240,230,208,0.8); margin: 2px 0 1px; }
+#hud-help .hh-auto i { display: block; font-style: normal; opacity: 0.6; margin-top: 3px; }
 #hud-help .hh-row b { font-weight: 400; display: flex; gap: 3px; flex-wrap: nowrap; }
 #hud-help .hh-row span { margin-right: 6px; color: rgba(240,230,208,0.85); }
 #hud-help kbd { font-family: var(--pixel); font-size: 11px; min-width: 18px; text-align: center; padding: 1px 5px; background: rgba(240,230,208,0.14); border: 1px solid rgba(240,230,208,0.35); border-bottom-width: 2px; border-radius: 3px; color: #fff6dc; }
@@ -208,7 +210,8 @@ table.grid td { padding: 6px; border-bottom: 1px solid #2a2219; }
 #hud-help.clipped { overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 34px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 34px), transparent); }
 #hud-help-tab { position: relative; display: inline-block; margin-top: 8px; padding: 3px 8px; font-size: 12px; color: rgba(240,230,208,0.7); background: rgba(14,11,8,0.4); border: 1px solid rgba(230,192,106,0.25); border-radius: 3px; text-shadow: 0 1px 0 #000; }
 @media (max-height: 640px) { #hud-help { font-size: 11px; } #hud-help .hh-group { margin-top: 3px; } }
-#hud-help .hh-row span { white-space: nowrap; }
+#hud-help .hh-row span { white-space: normal; line-height: 1.25; overflow-wrap: anywhere; }   /* (a long line wraps inside the card, never past its edge) */
+#hud-help .hh-row { grid-template-columns: 84px minmax(0, 1fr); }
 
 /* ---------- Market wares ---------- */
 .market-top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }

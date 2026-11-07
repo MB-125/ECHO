@@ -333,7 +333,7 @@
     // ------------------------------------------------------------ first-time tips
     TIPS: {
       dungeon: 'Dungeons go down floor by floor — the deeper, the stronger the monsters and the better the loot. Stairs lead down once you find them; the door always leads back out. Bring food (H) and herbs (G).',
-      poison: 'Poisoned! It wears off — or eat (H) or use herbs (G) to outlast it. Guard (Shift) against things with venom.',
+      poison: 'Poisoned! It wears off — and a purging tincture, if you carry one, is drunk for you when it bites deep. Guard (Shift) against things with venom.',
       web: 'Webbed — you are slowed. Fire burns webs; keep moving and roll (Space) clear.',
       weak: 'That hit hard — this monster is weak to it. The guide (J) lists what you have learned about each monster.',
       resist: 'It shrugs that off. Try another weapon — fire (Q), heavy blows (hold the mouse) or arrows. The guide (J) knows its weaknesses.',
@@ -344,7 +344,7 @@
       trap: 'A trap! Watch the floor in the passages — plates glow just before they fire. Roll (Space) across them.',
       key: 'The iron door needs a key. One of the monsters on this floor carries it — look for the Keybearer.',
       drowner: 'Drowners live in deep water. A trail of bubbles gives them away; they rise beside whoever comes into the water, or stands too close to the edge, and sink away when hurt. They cannot follow you onto land.',
-      lowhp: 'You are badly hurt. Back off, eat (H) or use herbs (G). Dying to monsters costs a thread of fate.'
+      lowhp: 'You are badly hurt. Back off. A healing draught is drunk for you when you are this low, if you carry one (buy them at an apothecary). Dying to monsters costs a thread of fate.'
     },
     tip(game, k) {
       const pl = game.pl;

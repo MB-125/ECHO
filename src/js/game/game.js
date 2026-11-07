@@ -195,6 +195,7 @@
       if (ECHO.Warfront) ECHO.Warfront.update(Game, dt);
       if (ECHO.Evolve) ECHO.Evolve.tick(Game, dt);
       if (ECHO.Well) ECHO.Well.tick(Game, dt);
+      if (ECHO.Auto) ECHO.Auto.tick(Game, dt);
       if (ECHO.Slime) ECHO.Slime.rareTick(Game, dt);
       if (ECHO.Home) ECHO.Home.tick(Game, dt);
       if (ECHO.Tactics) ECHO.Tactics.update(Game, dt);

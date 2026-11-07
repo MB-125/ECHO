@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/nav.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/nav.js', 'game/auto.js'
 ];
 
 function loadEcho() {
@@ -1759,6 +1759,26 @@ function main() {
       check('a creature another called up is never born in a higher form, and never grows into a summoner', Ev.can(free) && !Ev.can(called) && born === 0, `${born} of 40 born higher`);
     }
     check('the danger of a town\'s country is worked out once a day for all who live there', Math.abs(E.Powers.landAt(W, s0.id) - E.Danger.at(W, s0.x, s0.y) * 1.1) < 1e-9 && W._dgSet && W._dgSet.m[s0.id] != null);
+  }
+
+  console.log('\nLooking after yourself');
+  {
+    const E = ECHO, AU = E.Auto, did = [];
+    const keepPC = E.PlayerCtl, keepCamp = E.Camp, keepUI = E.UI;
+    E.PlayerCtl = { drinkT: 0, drinkHeal: () => did.push('heal'), drink: (g, id) => did.push(id), useHerbs: () => did.push('herbs') };
+    E.Camp = { ORDER: ['stew', 'food'], init() {}, eat: (g, k) => did.push('eat:' + k) };
+    const pe = { x: 50, y: 50 }, pl = { hp: 100, maxHp: 100, fed: 80, stamina: 50, maxSta: 50, inv: { food: 3, herbs: 0 }, potions: {}, buffs: {} };
+    const game = { pl, pe, time: 100, combatT: null, ents: [pe], hostileTo: () => true };
+    const tick = () => { AU.t = 0; AU.eatT = 0; did.length = 0; AU.tick(game, 0.3); return did.slice(); };
+    pl.fed = 20; const a = tick();
+    pl.fed = 80; pl.hp = 25; pl.potions.greater = 1; const b = tick();
+    pl.hp = 100; game.combatT = 99; game.ents.push({ x: 52, y: 50, type: 'boss', aggro: true, lvl: 50 }); pl.potions.might = 1; const c = tick();
+    E.UI = { settings: { autoCare: 'off', autoBuff: 'off' } }; pl.hp = 25; pl.fed = 20; const d = tick();
+    E.PlayerCtl = keepPC; E.Camp = keepCamp; if (keepUI) E.UI = keepUI; else delete E.UI;
+    check('hungry, you eat what you carry, the best first', a.join() === 'eat:food', a.join());
+    check('badly hurt, you drink a healing draught', b.join() === 'heal', b.join());
+    check('in a hard fight, you drink your fighting draughts', c.join() === 'might', c.join());
+    check('all of it can be turned off', d.length === 0, d.join() || 'nothing');
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);
