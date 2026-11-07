@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.28.1', items: [
+      'Your beasts now defend you against the town watch and the realm\'s soldiers. Before, they would never touch a guard or a soldier, even one cutting you down, so when the guards came for you your beasts just stood by.',
+      'Now any guard or soldier who strikes you or one of your beasts, or is swinging at you, is fair game to your pack, and a hunting slime of yours comes back for them too. A guard who only comes to arrest you, a warden of the Guard, and anyone who has yielded are still left alone, and so are townsfolk.',
+      'What your beasts kill still counts as your own doing. Cutting down the watch adds to the price on your head, just as it would by your own hand.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.28.0', items: [
       'Mana, bought straight. The arcanist in every market now keeps a case of mana rings and amulets, sold for crowns alone and never for less than 1,000,000, whatever the town.',
       'A ring brings your mana back faster. They run from the Ring of the Spring (1,000,000 crowns: 2% of all your mana back every second, and 15 more) through the Wellspring, the Deep Current and the Tide, up to the Ring of the Endless Sea (50,000,000: 16% every second, and 600 more).',

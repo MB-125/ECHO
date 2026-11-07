@@ -981,6 +981,14 @@ function main() {
     // the pack falls only on fair game among people
     const game = { world: { npcs: { a: { faction: 'ashfang' }, b: { faction: 'crown' } } } };
     check('the pack spares the watch, soldiers, townsfolk and the yielded, but not outlaws or those who came at you', !P.fairGame(game, { role: 'guard' }) && !P.fairGame(game, { role: 'soldier' }) && !P.fairGame(game, { role: 'villager', npcId: 'b' }) && !P.fairGame(game, { role: 'bandit', yielded: true }) && P.fairGame(game, { role: 'bandit' }) && P.fairGame(game, { npcId: 'a' }) && P.fairGame(game, { role: 'villager', startedFight: true }));
+    {
+      // …but the watch and the realm's soldiers fighting you are fought: your beasts defend you
+      const pe = { type: 'player' }, pal = { pal: {} }, g2 = { world: game.world, pe, time: 100 };
+      const hit = { role: 'guard', _hitPlT: 95 }, hitPal = { role: 'soldier', _hitPalT: 97 }, swing = { role: 'guard', target: pe, state: 'windup' }, atPal = { role: 'soldier', target: pal, state: 'attack' };
+      const walking = { role: 'guard', target: pe, state: 'chase' }, long = { role: 'guard', _hitPlT: 85 }, ward = { role: 'guard', ngWard: true, _hitPlT: 99 }, gave = { role: 'guard', yielded: true, _hitPlT: 99 };
+      check('a guard or soldier who strikes you or one of your beasts, or swings at you, your beasts fight', P.fairGame(g2, hit) && P.fairGame(g2, hitPal) && P.fairGame(g2, swing) && P.fairGame(g2, atPal));
+      check('…but not one only coming to arrest you, one who struck long ago, a warden of the Guard, or one who has yielded', !P.fairGame(g2, walking) && !P.fairGame(g2, long) && !P.fairGame(g2, ward) && !P.fairGame(g2, gave));
+    }
     // relics and the well of mana
     check('a relic of a higher level or rarity is stronger', A.power(20, 'rare') > A.power(10, 'rare') && A.power(20, 'epic') > A.power(20, 'rare'));
     {

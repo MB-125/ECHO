@@ -54,13 +54,25 @@
       if (!(o && !o.dead && !o.hidden && !o.vanish && o !== pe && !o.tamed && !o.pal && !o.isCompanion && !(o.subdued > 0) && !(ECHO.Tame.chan && ECHO.Tame.chan.e === o) && game.hostileTo(pe, o))) return false;
       return o.type !== 'person' || P.fairGame(game, o);
     },
-    // People are not beasts' prey. Your beasts fall only on outlaws, and on those who came at you
-    // first — never on townsfolk, the watch or the soldiers of the realm (whose deaths would be
-    // laid at your door as murder, and turn every town against you).
+    // People are not beasts' prey. Your beasts fall only on outlaws, on those who came at you first,
+    // and on ANYONE who is fighting you or yours right now — the watch and the soldiers of the realm
+    // too, once they have struck you or one of yours, or are swinging at you (their deaths are still
+    // laid at your door, as if your own hand did it). Townsfolk going about their day, and a guard who
+    // only comes to arrest you, they leave be.
     fairGame(game, o) {
-      if (o.ngWard || o.role === 'guard' || o.role === 'soldier' || o.role === 'captive' || o.yielded) return false;
+      if (o.ngWard || o.role === 'captive' || o.yielded) return false;
+      if (P.onUs(game, o)) return true;
+      if (o.role === 'guard' || o.role === 'soldier') return false;
       const npc = o.npcId && game.world.npcs[o.npcId];
       return o.role === 'bandit' || !!(npc && npc.faction === 'ashfang') || !!o.startedFight || !!o.dqFoe;
+    },
+    // fighting you or yours, now: struck you or one of your beasts in the last ten seconds, or winding up
+    // a blow (a shot, a spell) at you or at one of them
+    onUs(game, o) {
+      const now = game.time, t = o.target;
+      if ((o._hitPlT != null && now - o._hitPlT < 10) || (o._hitPalT != null && now - o._hitPalT < 10)) return true;
+      const ours = !!t && (t === game.pe || !!t.pal || !!t.isCompanion);
+      return ours && (o.state === 'windup' || o.state === 'attack' || o.state === 'lunge' || P.busy(o));
     },
     busy(o) { return o.state === 'windup' || o.state === 'cast' || o.state === 'charge' || o.state === 'lunge' || !!o.wcast || !!o.gcast; },
 
