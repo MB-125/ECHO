@@ -273,6 +273,7 @@
       const base = T.isBoss(e) ? (e.label || kindName).replace(/^the /i, '').split(',')[0] : `${NAMES[Math.floor(Math.random() * NAMES.length)]} the ${kindName}`;
       const r = { id: 'pal' + (++pl.palSeq || (pl.palSeq = 1)), cat, kind: cat === 'boss' ? null : e.species, name: U.cap(base), lvl, scale: e.scale || 1, elite: e.elite || null, out: T.out(pl).length < MAX_OUT, hp: 0.6, xp: 0, kills: 0, day: world.day, boss: cat === 'boss' ? { ...e.boss, memory: undefined, lairId: e.lair ? e.lair.id : null } : null, was: e.label || kindName, lord: !!T.isBoss(e) };
       r.lvlT = lvl;
+      if (e.evo > 1) { r.evo = e.evo; r.scale = (e.scale || 1) / (1 + 0.1 * (e.evo - 1)); }   // (it keeps the form it had; its size is made again from it)
       pk.push(r);
       pl.tames = (pl.tames || 0) + 1;
       // what it was, out in the world
@@ -327,7 +328,7 @@
           const FM = ECHO.Prowess.foeMul(r.lvl);
           e.maxHp = e.hp = Math.round(e.maxHp * FM.hp); e.palDmg = ((ECHO.SPECIES[r.kind] || {}).dmg || 8) * FM.dmg; e.lvl = r.lvl;
         } else {
-          e = ECHO.Monsters.DEFS[r.kind] ? ECHO.Monsters.make(game, r.kind, sp.x, sp.y, r.lvl, { noElite: true }) : ECHO.Quests.makeFoe(game, r.kind, sp.x, sp.y, {});
+          e = ECHO.Monsters.DEFS[r.kind] ? ECHO.Monsters.make(game, r.kind, sp.x, sp.y, r.lvl, { noElite: true, evo: 1 }) : ECHO.Quests.makeFoe(game, r.kind, sp.x, sp.y, {});
           e.palDmg = (e.foe.dmg || 8) * (e.dmgMul || 1);
           if (r.elite) { e.elite = r.elite; const X = ECHO.Monsters.ELITE.find(z => z.k === r.elite); if (X) { if (X.hp) e.maxHp = Math.round(e.maxHp * X.hp); if (X.dmg) e.palDmg *= X.dmg; if (X.scale) e.scale *= X.scale; } }
           e.boss2 = false; e.ab = {};
@@ -337,6 +338,8 @@
       if (!e) return null;
       e.pal = r; e.tamed = true; e.faction = 'player'; e.aggro = false; e.label = r.name; e.lvl = r.lvl; e.home = null;
       if (r.mastery) { e.palDmg = (e.palDmg || 8) * T.mDmg(r); e.maxHp = Math.round(e.maxHp * T.mHp(r)); e.hp = e.maxHp; }
+      // the form it has grown into (a beast from an older save takes the one its level has reached)
+      if (ECHO.Evolve && r.cat !== 'boss') { ECHO.Evolve.palLoad(r); if (r.evo > 1) { ECHO.Evolve.apply(game, e, r.evo, false); e.hp = e.maxHp; } }
       e.r = Math.min(e.r || 0.4, 0.6);
       void look;
       return e;
@@ -539,6 +542,7 @@
             ECHO.Combat.floater(e.x, e.y - 1.8 * (e.scale || 1), `▲ ${r.name} · level ${r.lvl}${T.atCap(game, r) ? ' · its height' : ''}`, '#9fe08a', true);
             ECHO.Combat.ring(e.x, e.y, 1.4, 'rgba(160,240,140,0.9)', 0.5);
           }
+          if (ECHO.Evolve) ECHO.Evolve.palGrew(game, r, e);   // (high enough, and it takes its higher form)
           continue;
         }
         // at its height: its skills grow instead
@@ -645,7 +649,7 @@
           <div class="pal-pic" data-palpic="${r.id}"${pic ? ' data-done="1"' : ''}>${pic ? `<img src="${pic}" alt="">` : '<span class="pal-ph">🐾</span>'}<span class="pal-lv">Lv ${r.lvl}${r.mastery ? " ★" + r.mastery : ""}</span>${tag ? `<span class="pal-tag gold">${tag}</span>` : ''}</div>
           <div class="pal-body">
             <div class="pal-head"><h4>${esc(r.name)}</h4></div>
-            <div class="pal-sub">${esc(T.kindOf(r))} · ${T.sizeOf(r)}${r.was && r.was !== r.name ? ' · once ' + esc(r.was) : ''} · tamed day ${r.day}</div>
+            <div class="pal-sub">${esc(T.kindOf(r))}${ECHO.Evolve && r.kind && r.cat !== 'boss' ? ` · ${esc(ECHO.Evolve.name(r.kind, ECHO.Evolve.palLoad(r) || 1))}${(r.evo || 1) < 4 ? ` <span class="dim">(evolves at Lv ${ECHO.Evolve.gates(r.kind)[(r.evo || 1) + 1]})</span>` : ' <span class="gold">(its highest form)</span>'}` : ''} · ${T.sizeOf(r)}${r.was && r.was !== r.name ? ' · once ' + esc(r.was) : ''} · tamed day ${r.day}</div>
             <div class="pal-bar"><span>Life</span>${bar(hpF, hpF > 0.5 ? '#9fe08a' : hpF > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hpF * 100)}%</span></div>
             ${T.atCap(game, r) ? `<div class="pal-bar"><span>Mastery</span>${bar((r.mastery || 0) >= T.MASTERY_MAX ? 1 : (r.xp || 0) / T.needM(r), '#ffd86a')}<span>${(r.mastery || 0) >= T.MASTERY_MAX ? 'full' : Math.floor(r.xp || 0) + '/' + T.needM(r)}</span></div>
             <div class="pal-skill">★ ${r.mastery || 0}/${T.MASTERY_MAX} · at its height (level ${T.cap(game, r)}): its skills grow · +${Math.round((T.mDmg(r) - 1) * 100)}% harm, +${Math.round((T.mHp(r) - 1) * 100)}% life, arts ${Math.round((1 - T.cdMul(r)) * 100)}% sooner</div>` : `<div class="pal-bar"><span>Growth</span>${bar((r.xp || 0) / need, '#8fb8ff')}<span>${Math.floor(r.xp || 0)}/${need}</span></div>

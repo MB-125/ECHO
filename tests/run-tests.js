@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js'
 ];
 
 function loadEcho() {
@@ -1495,6 +1495,51 @@ function main() {
     check('an old save musters its garrisons on load, and your own progress is untouched', ok && M.soldiers(W5, cap5).length >= 10 && M.captain(W5, cap5) && ECHO.Prowess.level(W5.player) === 40 && W5.player.gold === 1234, `${cap5.name}: ${M.soldiers(W5, cap5).length} soldiers`);
     const W6 = ECHO.Save.deserialize(ECHO.Save.serialize(W5));
     check('garrisons, officers and battles survive a save', M.soldiers(W6, W6.settlements.find(s => s.kind === 'capital')).length === M.soldiers(W5, cap5).length && W6.mil && W6.mil.musterDay === W5.mil.musterDay && M.captain(W6, W6.settlements.find(s => s.kind === 'capital')));
+  }
+  console.log('\nMonsters evolve');
+  {
+    const Ev = ECHO.Evolve;
+    check('every kind has a ladder of higher forms', ['goblin', 'skeleton', 'wolf', 'spider', 'troll', 'cultist', 'golemling'].every(k => new Set([1, 2, 3, 4].map(s => Ev.name(k, s))).size === 4), ['goblin', 'skeleton', 'wolf'].map(k => [1, 2, 3, 4].map(s => Ev.name(k, s)).join(' → ')).join(' | '));
+    check('a kind with no forms of its own still grows greater, dread and elder', /^Greater /.test(Ev.name('frosthound', 2)) && /^Elder /.test(Ev.name('frosthound', 4)), Ev.name('frosthound', 2) + ' / ' + Ev.name('frosthound', 4));
+    const g1 = Ev.gates('goblin'), g4 = Ev.gates('hollowking');
+    check('the thresholds rise with how strong a kind is to begin with', g1[2] < g1[3] && g1[3] < g1[4] && g4[2] > g1[2], `goblin ${g1.slice(2).join('/')} · hollow king ${g4.slice(2).join('/')}`);
+    let low = 0, mid = 0, high = 0;
+    for (let i = 0; i < 400; i++) { const r = i / 400; if (Ev.stageBorn('goblin', 8, r) > 1) low++; if (Ev.stageBorn('goblin', 14, r) > 1) mid++; if (Ev.stageBorn('goblin', 40, r) >= 3) high++; }
+    check('the weak are born in their first form; a few at a threshold take the next; nearly all well past it', low === 0 && mid > 40 && mid < 260 && high > 200, `Lv 8 ${low}/400 · Lv 14 ${mid}/400 · Lv 40 third form ${high}/400`);
+    // a monster grows in a fight and evolves where it stands
+    const e = { type: 'creature', species: 'goblin', foe: { name: 'Goblin', vis: { show: ['dagger'], cloth: '#3a5a2a' }, dmg: 9, tier: 1 }, hp: 50, maxHp: 50, scale: 1, r: 0.4, lvl: 6, ab: {} };
+    const G = { pl: { first: 'A', evoSeen: null }, pe: null, ents: [], world: {} };
+    const hp0 = e.maxHp;
+    e.grown = 3; e.evoKills = 1;
+    const went = Ev.check(G, e);
+    check('one that grows in a fight and kills evolves then and there: bigger, tougher, new ways to fight', went && e.evo >= 2 && e.label === Ev.name('goblin', e.evo) && e.maxHp > hp0 && e.scale > 1 && e.growDmg > 1 && e.gateXp > 1 && e.foe.vis.show.includes('helm') && e.foe.vis.show.includes('dagger'), `${e.label}: hp ${hp0}→${e.maxHp}, size ×${e.scale.toFixed(2)}`);
+    e.evoKills = 6; Ev.check(G, e);
+    check('…and keeps on to its highest form, calling up its own kind round it', e.evo >= 3 && e.ab.summon && e.ab.summon.kind === 'goblin' && G.pl.evoSeen.goblin === e.evo, e.label);
+    check('the bestiary names only the forms you have seen', /Hobgoblin/.test(Ev.ladder('goblin', 2)) && /\?\?\?/.test(Ev.ladder('goblin', 2)) && !/Goblin king/.test(Ev.ladder('goblin', 2)));
+    // the named ones evolve day by day
+    const W = ECHO.generateWorld({ seed: 919, name: 'Evo' });
+    W.player = ECHO.Character.create(W, new ECHO.RNG(2), { first: 'Ivo', homeId: W.settlements[0].id });
+    ECHO.Prowess.st(W.player).lv = 90;
+    const Pw = ECHO.Powers;
+    ECHO.Sim.dailyTick(W, true);
+    let r = Pw.alive(W).find(x => x.kind !== 'bandit');
+    if (!r) { const st = Pw.st(W); r = st.list && st.list[0]; }
+    let named = false;
+    if (r) {
+      r.lv = Math.max(r.lv, Ev.gates(r.kind)[3] + 1);
+      for (let d = 0; d < 3; d++) ECHO.Sim.dailyTick(W, true);
+      named = (r.evo || 1) >= 3 && W.chronicle.some(c => /evolved/.test(c.text));
+    }
+    check('the named ones (the Rising powers) evolve as they climb, and the realm hears of it', named, r ? `${Pw.short(r)} — ${Ev.name(r.kind, r.evo || 1)} at level ${r.lv}` : 'no named one');
+    // your own beasts
+    const pal = { id: 'p1', cat: 'foe', kind: 'skeleton', name: 'Rattle', lvl: 40 };
+    check('a tamed beast from an older save takes the form its level has reached', Ev.palLoad(pal) === Ev.stageAt('skeleton', 40) && pal.evo >= 3, Ev.name('skeleton', pal.evo));
+    const pal2 = { id: 'p2', cat: 'foe', kind: 'wolf', name: 'Fang', lvl: 11, evo: 1 };
+    const G2 = { pl: { first: 'A', last: 'B' }, pe: { x: 0, y: 0 }, ents: [], world: W, ui: { banner() {} } };
+    pal2.lvl = Ev.gates('wolf')[2];
+    check('your beasts evolve as they rise with you', Ev.palGrew(G2, pal2, null) && pal2.evo === 2 && Ev.name('wolf', 2) === 'Dire wolf');
+    const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
+    check('the forms the named ones have taken survive a save', !r || (Pw.byId(W2, r.id) || {}).evo === r.evo);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

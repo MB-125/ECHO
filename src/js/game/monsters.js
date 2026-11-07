@@ -66,6 +66,7 @@
       }
       if (e.r) e.r = 0.36 * Math.min(1.6, e.scale);
       if (ECHO.Growth && !o.nem) ECHO.Growth.adapt(game, e);   // (what its kind has learned of you)
+      if (ECHO.Evolve) ECHO.Evolve.birth(game, e, L, o);      // (strong enough, and it is born in a higher form)
       return e;
     },
 

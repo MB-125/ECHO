@@ -209,6 +209,7 @@
         const gap = plv - r.lv;
         if (rng.chance(gap > 0 ? U.clamp(0.3 + gap * 0.035, 0.3, 0.9) : 0.05)) Pw.levelUp(world, r, gap > 0 ? Math.max(1, Math.round(gap * 0.05)) : 1, rng);
         r.hp = Math.min(1, (r.hp == null ? 1 : r.hp) + 0.35);
+        if (ECHO.Evolve) ECHO.Evolve.nemCheck(world, r);   // (strong enough, and it takes its higher form)
         // ---- and to count for more
         r.infl = Math.min(150, r.infl + (0.25 + r.fol * 0.08 + (r.amb === 'dominion' ? 0.6 : 0)) * (r.infl > 60 ? 0.4 : 1));
         if (r.fol < Math.min(8, 2 + Math.floor(r.lv / 4)) && rng.chance(0.12 + (r.amb === 'dominion' ? 0.14 : 0))) r.fol++;

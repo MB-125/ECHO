@@ -500,7 +500,7 @@
     // how strong a thing was, for what it carries: 1 the common run, 2 an elite, 3 a lord of
     // the deep places (or a beast that has grown fat beyond a gate), 4 a lair's beast, a deep
     // wood's lord, a titan, 5 a sovereign beyond a gate
-    might(e) { return e.sovereign ? 5 : (e.lord || e.type === 'boss' || e.titan) ? 4 : (e.boss2 || e.apexId) ? 3 : e.elite ? 2 : 1; },
+    might(e) { const m = e.sovereign ? 5 : (e.lord || e.type === 'boss' || e.titan) ? 4 : (e.boss2 || e.apexId) ? 3 : e.elite ? 2 : 1; return e.evo >= 4 ? Math.max(m, 3) : e.evo >= 3 ? Math.max(m, 2) : m; },   // (an evolved monster carries better)
     rarityFor(rng, level, might, delve) {
       const boost = [0, 0, 10, 24, 40, 60][might] + (delve ? 8 : 0);
       const r = ECHO.Gear.rollRarity(rng, level, boost);

@@ -7,6 +7,15 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.21.0', items: [
+      'Monsters evolve. Every kind has higher forms and takes them as it grows stronger: a goblin becomes a hobgoblin, a goblin chief, a goblin king; a skeleton a skeleton warrior, a death knight, a bone lord; a duskwolf a dire wolf, a shadowfang, the great wolf; a giant rat a rat brute, a plague rat, a rat king; a cultist a cult adept, a zealot, a dark prophet; and so for every kind (those without forms of their own grow greater, dread and elder).',
+      'Each form is bigger, harder to kill and hits harder. It fights with something new (a charge, a slam, a bolt, its own kind called up round it), glows and throws off sparks in the colour of its form, carries better loot and is worth more experience to beat.',
+      'What makes a monster evolve: its level (the stronger ones are born in their higher forms: a few at a threshold, nearly all of them well past it), growing in the middle of a fight, killing (one of the townsfolk, one of your beasts, another monster) and beating you. When it crosses the threshold in front of you it evolves where it stands: a pillar of light, a ring, ✦ EVOLVES ✦, and it comes back at you healed and in its new shape.',
+      'The thresholds rise with how strong a kind is to begin with (a goblin first evolves at level 12, a hollow king at 24), and the bestiary (J) shows every kind\'s ladder of forms, naming the ones you have seen.',
+      'The named ones evolve too: the Rising powers take their higher forms as they climb day by day (and the realm hears of it), and come at you in them.',
+      'Your own tamed beasts evolve as they rise with you. A banner and a deed in the chronicle mark it, the Animals page shows each beast\'s form and the level of its next one, and a beast from an older save takes the form its level has already reached.',
+      'Your save carries straight over. Evolution keeps nothing new but a stage number on the named monsters and your tamed beasts.'
+    ] },
     { v: '0.20.0', items: [
       'The realm takes up arms. Every town of a kingdom (and of the Order) keeps a garrison, and the bigger the place the more soldiers it keeps: a village a handful, a town ten or so, a city more, a capital twenty-five or thirty, and more again in a time of war. Soldiers are real people of the town: recruited from the country round about when the garrison is short, fed and paid by the crown, retired to the fields in peacetime when there are too many, promoted, and killed in battle.',
       'Leaders and commanders you can find. Every garrison has a captain (its best soldier), and a sergeant for every six; every kingdom has a Marshal who leads its armies and a Champion, the best fighter in the realm. A capital is the seat of its king or queen; a town of size is held by a lord or a lady; a village by its reeve. Rulers, lords and the Marshal walk with two bodyguards.',

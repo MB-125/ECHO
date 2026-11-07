@@ -192,6 +192,7 @@
       if (ECHO.Harvest) ECHO.Harvest.update(Game, dt);
       if (ECHO.Aura) ECHO.Aura.tick(Game, dt);
       if (ECHO.Warfront) ECHO.Warfront.update(Game, dt);
+      if (ECHO.Evolve) ECHO.Evolve.tick(Game, dt);
       if (ECHO.Home) ECHO.Home.tick(Game, dt);
       if (ECHO.Tactics) ECHO.Tactics.update(Game, dt);
       if (ECHO.Senses) ECHO.Senses.update(Game, dt);

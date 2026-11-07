@@ -2127,8 +2127,8 @@
       if (e.shape) {
         const Fd = e.foe || {}, em = e.rage ? '#ff3a0a' : Fd.em || null;
         const glow = () => { for (const m of inst.mats) if (m.emissive) m.emissive.set(em || '#000000').multiplyScalar(e.rage ? 0.8 : 0.45); };
-        if (e.shape === 'rat') { M.recolor(inst, 'rat', e.elite ? '#4a2a2a' : '#5a4a42'); inst.root.scale.setScalar(1.15 * (e.scale || 1)); }
-        else if (e.shape === 'hound') { M.recolor(inst, 'fur', Fd.col || '#2a2a2a'); M.recolor(inst, 'eyeglow', Fd.em || '#ff3a2a'); M.show(inst, 'horn', !!e.elite); glow(); inst.root.scale.setScalar(1.05 * (e.scale || 1)); }
+        if (e.shape === 'rat') { M.recolor(inst, 'rat', e.evo >= 3 ? '#2a1a1e' : e.elite || e.evo >= 2 ? '#4a2a2a' : '#5a4a42'); inst.root.scale.setScalar(1.15 * (e.scale || 1)); }
+        else if (e.shape === 'hound') { M.recolor(inst, 'fur', Fd.col || '#2a2a2a'); M.recolor(inst, 'eyeglow', Fd.em || '#ff3a2a'); M.show(inst, 'horn', !!e.elite || e.evo >= 3); glow(); inst.root.scale.setScalar(1.05 * (e.scale || 1)); }
         else if (e.shape === 'drake') { for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false); M.recolor(inst, 'drake', Fd.col || '#5a1a0a'); M.recolor(inst, 'drakebelly', Fd.belly || '#ff8a3a'); glow(); inst.root.scale.setScalar(e.scale || 1); }
         else if (e.shape === 'stag') { M.recolor(inst, 'stag', Fd.col || '#1a1420'); M.recolor(inst, 'cloth2', '#0e0a12'); M.recolor(inst, 'darkwood', Fd.em || '#c86aff'); M.recolor(inst, 'white', '#2a2030'); M.recolor(inst, 'eyeglow', Fd.em || '#c86aff'); for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false); M.show(inst, 'antlers', true); glow(); inst.root.scale.setScalar(0.52 * (e.scale || 1)); }
         else { inst.root.scale.setScalar(e.scale || 1); if (inst.mats && Fd.em) for (const m of inst.mats) if (m.emissive && !(m.userData && m.userData.keep)) m.emissive.set(e.rage ? '#ff3a0a' : Fd.em).multiplyScalar(e.rage ? 0.5 : 0.18); }
@@ -2190,12 +2190,13 @@
         const base = { wolf: 'fur', dog: 'fur', gnawer: 'rat', hare: 'hare' }[e.species];
         if (e.species === 'fox') { M.recolor(inst, 'fur', e.coat || '#c0642a'); M.recolor(inst, 'eyeglow', '#1a1410'); for (const m of inst.mats) if (m.emissive) m.emissive.set('#000000'); M.show(inst, 'horn', false); inst.root.scale.setScalar(0.5); return; }
         if (e.species === 'dog') { M.recolor(inst, 'fur', e.coat || '#8a5a32'); M.recolor(inst, 'eyeglow', '#1a1410'); for (const m of inst.mats) if (m.emissive) m.emissive.set('#000000'); M.show(inst, 'horn', false); inst.root.scale.setScalar(0.66 * (e.small || 1)); return; }
-        const tint = e.rare === 'golden' ? '#e8c040' : e.winter ? '#eef2f8' : e.mutation === 'mirrorback' ? '#b8c4d4' : e.mutation === 'emberfur' ? '#a8502a' : e.strain === 'Ashen' ? '#8e8e8a' : e.strain === 'Ironhide' ? '#5a4632' : null;
+        const tint = e.evoTint ? e.evoTint : e.rare === 'golden' ? '#e8c040' : e.winter ? '#eef2f8' : e.mutation === 'mirrorback' ? '#b8c4d4' : e.mutation === 'emberfur' ? '#a8502a' : e.strain === 'Ashen' ? '#8e8e8a' : e.strain === 'Ironhide' ? '#5a4632' : null;
         if (tint) M.recolor(inst, base, tint);
         if (e.mutation === 'paleshade') for (const m of inst.mats) { m.transparent = true; m.opacity = 0.5; }
-        M.show(inst, 'horn', e.mutation === 'glasshorn');
+        M.show(inst, 'horn', e.mutation === 'glasshorn' || e.evo >= 3);
         inst.root.scale.setScalar((e.species === 'wolf' ? 1.05 : 1.15) * (e.scale || 1));
-        if ((e.beast || e.scale > 1.2) && !e.winter) M.recolor(inst, base, '#2e2a30');
+        if ((e.beast || e.scale > 1.2) && !e.winter && !e.evoTint) M.recolor(inst, base, '#2e2a30');
+        if (e.evo >= 2) { M.recolor(inst, 'eyeglow', e.evo >= 4 ? '#c86aff' : '#ff6a2a'); for (const m of inst.mats) if (m.emissive && m.name === 'eyeglow') m.emissive.set(e.evo >= 4 ? '#c86aff' : '#ff6a2a'); }
         return;
       }
       if (e.type === 'boss') {
@@ -4785,7 +4786,7 @@
         const pn = e.type === 'person' && world.npcs[e.npcId], pd = pn ? U.dist(e.x, e.y, game.pe.x, game.pe.y) : 99;
         const big = pn && (pn.title || pn.rank >= 1 || pn.prof === 'ruler' || (pn.adv && pn.adv.status !== 'retired'));
         const arm = pn && (e.role === 'guard' || e.role === 'soldier');
-        if (e.type === 'person' && (hover || (e.carrying && pd < 6) || (big && pd < 8) || (arm && pd < 4.5) || ((e.assault || e.warDef) && pd < 15))) {
+        if (e.type === 'person' && (hover || (e.carrying && pd < 6) || (big && pd < 8) || (arm && pd < 3) || ((e.assault || e.warDef) && pd < 15))) {
           const npc = world.npcs[e.npcId];
           if (!npc) continue;
           const col = game.hostileTo(game.pe, e) ? '#ff8a7a' : e.isCompanion ? '#9fe0c8' : '#f0e6d0';

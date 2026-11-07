@@ -73,6 +73,7 @@
       }
       if (e.nem) { const r = Pw().byId(world, e.nem); if (r) { r.lv = Math.max(r.lv, L + 1); } }
       else if (e.grown >= 2 && !e.npcId) Gr.promote(game, e, 'grew');
+      if (ECHO.Evolve && !e.npcId) ECHO.Evolve.check(game, e);   // (grown enough, and it evolves where it stands)
     },
 
     // ------------------------------------------------------------ learning, blow by blow
@@ -120,6 +121,8 @@
       // a monster that kills one of the people (or one of yours) is remembered
       if (!from.npcId && (target.npcId || target.isCompanion || target.pet) && !from.nem && (target.isCompanion || target.pet || Math.random() < 0.5)) Gr.promote(game, from, 'kill', target);
       if (from.nem) { const r = Pw().byId(world, from.nem); if (r) { r.kills++; r.infl += 1; } }
+      // a kill that counts (one of the people, one of yours, another monster) is a step toward its higher form
+      if (ECHO.Evolve && !from.npcId && !from.dead && (target.npcId || target.isCompanion || target.pet || target.tamed || target.foe || target.species === 'wolf')) { from.evoKills = (from.evoKills || 0) + 1; ECHO.Evolve.check(game, from); }
       // and a person who kills one of the named things is made by it
       if (from.npcId && target.nem) { const n = world.npcs[from.npcId]; if (n) { n.renown = (n.renown || 0) + 15; n.honors = (n.honors || []).concat([`slew ${target.label || 'a named beast'}`]).slice(-4); } }
     },
@@ -129,6 +132,7 @@
       const world = game.world, key = Gr.key(from);
       if (key) { const m = Pw().mem(world, key); m.beat++; m.lv += 0.6; }
       Gr.gain(game, from, Gr.need(Gr.lv(from)) * 1.5);
+      if (ECHO.Evolve && !from.npcId && !from.dead) { from.evoKills = (from.evoKills || 0) + 2; ECHO.Evolve.check(game, from); }   // (beating you is the surest way up)
       if (from.nem) {
         const r = Pw().byId(world, from.nem);
         if (r) { r.beatYou++; r.met++; r.infl += 5; r.amb = r.amb === 'power' ? 'power' : 'vengeance'; Pw().levelUp(world, r, 1); Pw().tell(world, r, `${Pw().short(r)} beat ${game.pl.first} ${game.pl.last} and lived to boast of it.`, 2); }
@@ -200,6 +204,7 @@
       e.resist = e.resist || {};
       for (const t in r.resist) e.resist[t] = (e.resist[t] || 0) + r.resist[t];
       e.nem = r.id; e.label = Pw().label(r); e.nemInfl = r.infl;
+      if (ECHO.Evolve) { ECHO.Evolve.nemCheck(world, r); if ((r.evo || 1) > 1) ECHO.Evolve.apply(game, e, r.evo, false); }   // (in the form it has grown into)
       e.hp = Math.max(e.maxHp * 0.3, e.maxHp * (r.hp == null ? 1 : r.hp));
       e._iq = 0.85;
       if (r.met > 0 || r.amb === 'vengeance') { e.aggro = true; e.target = game.pe; }
@@ -346,7 +351,7 @@
       else h += `<div class="list">${live.map(r => {
         const arts = r.learned.map(k => P.ARTS[k].name), hard = Object.keys(r.resist).filter(t => r.resist[t] > 0.05).map(t => ({ melee: 'the blade', ranged: 'arrows', fire: 'fire', magic: 'spells' }[t]));
         return `<div class="card"><h4>${esc(P.short(r))}${r.title ? ` <span class="gold">· ${esc(r.title)}</span>` : ''}</h4>
-          <div style="font-size:13px"><b style="color:${lvCol(r.lv)}">Level ${r.lv}</b> ${esc(P.kindOne(r.kind))} · ${where(r)}</div>
+          <div style="font-size:13px"><b style="color:${lvCol(r.lv)}">Level ${r.lv}</b> ${esc(ECHO.Evolve && (r.evo || 1) > 1 ? ECHO.Evolve.name(r.kind, r.evo).replace(/^the /i, '').toLowerCase() + ' (evolved)' : P.kindOne(r.kind))} · ${where(r)}</div>
           <div class="dim" style="font-size:13px">It ${esc(P.wantWord(r))}. Influence ${Math.round(r.infl)}${r.fol ? ` · a warband of ${r.fol}` : ''}${r.kills ? ` · ${r.kills} killed` : ''}${r.beatYou ? ` · has beaten you ${r.beatYou > 1 ? r.beatYou + ' times' : 'once'}` : r.met ? ' · has fought you' : ''}.</div>
           ${arts.length || hard.length ? `<div style="font-size:13px">${arts.length ? `Has learned ${esc(arts.join(', '))}. ` : ''}${hard.length ? `Hardened against ${esc(hard.join(' and '))}.` : ''}</div>` : ''}
           ${r.story.length ? `<div class="dim" style="font-size:12px">${r.story.slice(-3).map(s => `Day ${s.d}: ${esc(s.t)}`).join('<br>')}</div>` : ''}</div>`;
