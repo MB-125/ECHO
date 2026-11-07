@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/nav.js', 'game/auto.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
 
 function loadEcho() {
@@ -1779,6 +1779,49 @@ function main() {
     check('badly hurt, you drink a healing draught', b.join() === 'heal', b.join());
     check('in a hard fight, you drink your fighting draughts', c.join() === 'might', c.join());
     check('all of it can be turned off', d.length === 0, d.join() || 'nothing');
+  }
+
+  console.log('\nThe arsenal of the realm');
+  {
+    const E = ECHO, A = E.Arsenal, W = E.generateWorld({ seed: 2525, name: 'Arms' });
+    const pl = W.player = W.player || { charId: 'c-a', first: 'Ivo', last: 'Steel', alive: true, known: [], accepted: [], inv: {}, items: [], skills: {}, x: 50, y: 50 };
+    pl.wanted = pl.wanted || {}; pl.prowess = { lv: 1, xp: 0, kills: 0, best: 0 }; pl.renown = 0;
+    const small = s => ['town', 'village'].includes(E.Military.tier(W, s));
+    const f = A.powers(W).find(x => E.Sim.settlement(W, x.capital) && W.settlements.some(s => s.faction === x.id && s.id !== x.capital && small(s)));
+    const age = E.Powers.age(W);
+    check('a realm with no foe it knows of keeps pace with the age', A.target(W, f) <= Math.round(age * 0.85) + 1, `research toward ${A.target(W, f)}, age ${age.toFixed(1)}`);
+    // a hero known across the world: every crown arms against them, and an old world arms at once
+    pl.prowess.lv = 300; pl.renown = 120;
+    W.arsenal = null; for (const id in W.npcs) W.npcs[id].armed = 0;
+    A.ensure(W);
+    const R = A.rs(W, f), cap = E.Sim.settlement(W, f.capital);
+    const reach = A.reach(W, f);
+    check('a world from before arms at once against a hero known everywhere (as far as its size lets it)', Math.abs(R.lv - 300 * 0.95 * reach) <= 2 && reach > 0.75 && A.tier(W, f.id) >= A.WARDS, `research ${R.lv}, ${A.tierName(A.tier(W, f.id))}, reach ${reach.toFixed(2)}`);
+    const avg = s => { const xs = E.People.residents(W, s).filter(n => A.fighter(n) && n.title !== 'Marshal' && n.title !== 'Champion').map(n => E.Delvers.lv(n)); return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0; };
+    const vil = W.settlements.filter(s => s.faction === f.id && s.id !== cap.id && small(s)).sort((a, b) => avg(b) - avg(a))[0];
+    const aC = avg(cap), aV = avg(vil);
+    check('the capital\'s garrison is trained near the full of it, a small town\'s less', aC >= R.lv * 0.85 && aV > 0 && aC > aV * 1.2, `capital ${Math.round(aC)}, ${E.Military.tier(W, vil)} ${Math.round(aV)}`);
+    // spill their blood: they arm twice as fast, and past you
+    const p0 = A.pace(W, f, { harm: 0 }), t0 = A.target(W, f);
+    A.harmed(W, f.id, E.People.residents(W, cap).find(n => A.fighter(n)));
+    const p1 = A.pace(W, f, R), t1 = A.target(W, f);
+    check('a realm whose blood you have spilled arms against you twice as fast, and further', (p1 >= p0 * 1.9 || p1 === 0.2) && Math.abs(t1 - 300 * 1.05 * reach) <= 2 && t1 > t0, `pace ${p0.toFixed(3)} → ${p1.toFixed(3)}, toward ${t0} → ${t1}`);
+    // the research rises a day at a time, and a new tier of arms is told in the chronicle
+    R.lv = 259; R.tierSaid = A.tierAt(259);
+    const before = W.chronicle.length;
+    E.Arsenal.dailyTick(W, E.makeRng ? E.makeRng(5) : null);
+    const said = W.chronicle.slice(before).find(c => /academies and forges/.test(c.text));
+    check('the research rises day by day, and a new tier of arms is told', R.lv > 259 && R.lv <= t1 && said && /aetherplate/.test(said.text), said ? said.text.slice(0, 110) : `research ${R.lv}`);
+    // worn: what a capital soldier of a sunsteel realm is, against one of iron
+    const n = E.People.residents(W, cap).find(x => A.fighter(x) && x.prof !== 'child');
+    const mk = () => ({ role: 'guard', hp: 1000, maxHp: 1000, gear: {}, resist: null, dmgMul: 1 });
+    const keep = R.lv, game = { world: W };
+    R.lv = 420; const e1 = mk(); E.Arms.outfit(game, e1, n);
+    R.lv = 10; const e0 = mk(); E.Arms.outfit(game, e0, n); R.lv = keep;
+    check('a crown\'s soldier wears its arms: more life, harder blows, steel and spells turned, a ward', e1.maxHp > 2.5 * e0.maxHp && e1.dmgMul > 1.8 && e1.resist.melee >= 0.3 && e1.resist.magic >= 0.25 && e1.ward && e1.ward.max > 0 && !e0.ward && e0.armsName === 'Iron', `life ${e0.maxHp} → ${e1.maxHp}, blows ×${e1.dmgMul.toFixed(2)}, ward ${e1.ward && e1.ward.max}, ${e1.armsName}`);
+    // and it keeps: the arsenal comes back from a save, and a world without one makes it fresh
+    const back = JSON.parse(JSON.stringify(W.arsenal));
+    check('the arsenal keeps with the world, and an old save without one is armed, not reset', back.realms[f.id].lv === R.lv && back.armed != null, `research ${back.realms[f.id].lv}`);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

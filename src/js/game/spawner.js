@@ -38,7 +38,7 @@
       for (const e of game.ents) {
         if (e === pe || e.isCompanion || e.dead) continue;
         const d = U.dist(e.x, e.y, pe.x, pe.y);
-        const far = (e.pet && e.mine) || e.gateMon || e.mentor || e.titan ? 999 : e.event || e.siege || e.assault || e.warDef || e.dragon || e.breach || e.huntB ? 95 : e.type === 'creature' ? 30 : e.type === 'boss' ? 30 : 44;
+        const far = (e.pet && e.mine) || e.gateMon || e.mentor || e.titan ? 999 : e.event || e.siege || e.assault || e.warDef || e.dragon || e.breach || e.huntB || e.hunter || e.reinf ? 95 : e.type === 'creature' ? 30 : e.type === 'boss' ? 30 : 44;
         if (d > far || e.despawnSoon) { e.dead = true; e.vanish = true; if (e.type === 'boss') game.ui.bossBar(null); }
       }
       if (ECHO.Interior.cur) { ECHO.Interior.update(game, 0.5); S.companion(game); return; }
@@ -233,6 +233,7 @@
         if (w && w.kind !== 'bow') { e.gear.bow = false; e.gear.crossbow = false; e.gear.spear = w.wclass === 'spear'; }
       }
       void f;
+      if (ECHO.Arms) ECHO.Arms.outfit(game, e, npc);   // (the realm's arms: its research, worn)
       if (ECHO.Growth) ECHO.Growth.adapt(game, e);
       return e;
     },

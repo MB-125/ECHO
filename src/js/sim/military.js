@@ -216,7 +216,8 @@
       const lord = s.kind === 'capital' || seat ? (kr && kr.status === 'alive' ? P().fullTitle(world, kr) : null) : r ? P().fullTitle(world, r) : null;
       if (!Mil.armed(world, s)) return head + (lord ? ' · ' + lord : '');
       const g = Mil.soldiers(world, s).length, st = Mil.stars(world, s);
-      return `${head}${lord ? ' · ' + lord : ''} · ${g} soldier${g === 1 ? '' : 's'}${s.works && s.works.walls ? ', walled' : ''} ${'★'.repeat(st)}`;
+      const arms = ECHO.Arsenal && (f.type === 'kingdom' || f.type === 'order') ? ECHO.Arsenal.tierName(ECHO.Arsenal.tier(world, f.id)).toLowerCase() + ' arms' : '';
+      return `${head}${lord ? ' · ' + lord : ''} · ${g} soldier${g === 1 ? '' : 's'}${arms ? ' in ' + arms : ''}${s.works && s.works.walls ? ', walled' : ''} ${'★'.repeat(st)}`;
     },
     // a town of size has a lord or a lady; a village a reeve
     lords(world, s) {
@@ -359,6 +360,7 @@
         <div class="card mil-head"><h4>${esc(s.name)} · ${esc(T.name)} of ${esc(f ? f.short : '')}</h4>
           <div>${f && f.capital === s.id ? `Seat of ${who(kr)}` : `Held for ${who(kr)} by ${who(ruler)}`}</div>
           <div>Captain of the garrison: ${who(Mil.captain(world, s))}</div>
+          ${f && ECHO.Arsenal && (f.type === 'kingdom' || f.type === 'order') ? `<div>Arms of the realm: ${ECHO.Arsenal.line(world, f)} · this garrison is trained to <b>level ${ECHO.Arsenal.soldierLv(world, { faction: f.id, home: s.id, rank: 0 })}</b></div>` : ''}
           ${f ? `<div>Marshal of ${esc(f.short)}: ${who(Mil.marshal(world, f))} · Champion: ${who(Mil.champion(world, f))}</div>` : ''}
         </div>
         <div class="card"><h4>The garrison <span class="mil-stars">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</span></h4>

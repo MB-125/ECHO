@@ -192,7 +192,7 @@
       const def = e.species && ECHO.Monsters && ECHO.Monsters.DEFS[e.species];
       const known = def && pl.bestiary && pl.bestiary[e.species];
       const gap = L - me;
-      const key = [e.id, Math.round(e.hp / e.maxHp * 50), me].join('|');
+      const key = [e.id, Math.round(e.hp / e.maxHp * 50), me, e.ward ? Math.round(e.ward.hp / e.ward.max * 10) : ''].join('|');
       if (Pg._tgt === key) return;
       Pg._tgt = key;
       el.classList.remove('hidden'); document.getElementById('hud').classList.add('has-target');
@@ -200,6 +200,7 @@
         <div class="tl"><span style="color:${D.color}">Lv ${L}</span> · <span style="color:${RK.color}">${e.titan ? (e.flies ? 'Dragon' : 'Great beast') + (e.ph > 1 ? (e.ph === 2 ? ' · enraged' : ' · desperate') : '') : RK.name}</span> · <span style="color:${D.color}">${'☠'.repeat(D.skulls)}${D.skulls ? ' ' : ''}${D.word}</span></div>
         <div class="tb"><i style="width:${Math.max(0, Math.round(e.hp / e.maxHp * 100))}%;background:${D.color}"></i></div>
         <div class="td"><b>${U.fmt(Math.max(0, Math.ceil(e.hp)))} / ${U.fmt(e.maxHp)}</b> life · ${gap > 0 ? `${gap} level${gap > 1 ? 's' : ''} above you` : gap < 0 ? `${-gap} level${gap < -1 ? 's' : ''} below you` : 'your equal'} · worth ~${U.fmt(Pw().xpFor(pl, e))} xp</div>
+        ${e.armsTier > 0 ? `<div class="tw" style="color:${e.armsCol}">⚙ ${esc(e.armsName)} arms of ${esc((game.world.factions[e.armsFid] || {}).short || 'the crown')}${e.mage ? ' · battle-mage' : ''}${e.ward ? ` · ward ${e.ward.hp > 0 ? U.fmt(Math.ceil(e.ward.hp)) : 'broken'}` : ''}${e.hunter ? ' · <span class="ember">hunting you</span>' : ''}</div>` : ''}
         ${known ? `<div class="tw">Weak: ${esc(def.weak)}</div>` : def ? '<div class="tw dim">Kill one to learn its weakness (J → bestiary)</div>' : ''}${e.foe && e.foe.slimeK && !e.pal ? `<div class="tw" style="color:#b8ff7a">◉ A slime — far stronger than its level: it heals, drinks your mana and splits. Fire stops its healing.${e.rareSlime ? ' Rare: the reward for beating or taming it is huge.' : ''}</div>` : ''}`;
     },
     nameOf(game, e) {

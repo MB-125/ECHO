@@ -194,6 +194,7 @@
         () => { ECHO.Politics.dailyTick(world, rng); },
         () => { if (ECHO.Realm) ECHO.Realm.dailyTick(world, rng); },
         () => { if (ECHO.Military) ECHO.Military.dailyTick(world); },
+        () => { if (ECHO.Arsenal) ECHO.Arsenal.dailyTick(world, rng); },
         () => { if (ECHO.Realms) ECHO.Realms.dailyTick(world, rng); },
         () => { if (ECHO.Holding) ECHO.Holding.dailyTick(world, rng); },
         () => { if (ECHO.Explore) ECHO.Explore.dailyTick(world, rng); },

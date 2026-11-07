@@ -546,6 +546,7 @@
           <div>${r ? `<b>${esc(P().fullTitle(world, r))}</b>` : '<span class="dim">no ruler</span>'}${seat ? ` · seat ${esc(seat.name)}` : ''} · ${ts.length} town${ts.length === 1 ? '' : 's'}${f.type === 'kingdom' ? ` · strength ${Math.round(Rs.might(world, f))}` : ''}${band != null ? ` · its people about level ${Math.round(Math.max(ECHO.Powers ? ECHO.Powers.age(world) : 1, band * 1.1) * 0.6)}` : ''}</div>
           ${ties.length ? `<div style="font-size:13px">${ties.join(' · ')}</div>` : '<div class="dim" style="font-size:13px">At peace, bound to no one.</div>'}
           ${pact.length ? `<div class="dim" style="font-size:12px">${pact.join(' · ')}</div>` : ''}
+          ${ECHO.Arsenal && !f.fallen ? `<div style="font-size:12px">Arms: ${ECHO.Arsenal.line(world, f)}</div>` : ''}
           <div style="font-size:12px">To you: <span style="color:${sw[1]}">${sw[0]}</span>${pl.knighted === f.id ? ' · <span class="gold">you are its knight</span>' : ''}</div></div>`;
       };
       // the relations between the neighbours, at a glance

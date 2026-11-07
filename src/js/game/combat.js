@@ -376,7 +376,7 @@
       if (from === game.pe && target !== game.pe && ECHO.Lore) dmg *= ECHO.Lore.dealt(game, target);
       if (target === game.pe && from && from !== game.pe && ECHO.Lore) dmg *= ECHO.Lore.taken(game, from);
       if (target === game.pe && from !== game.pe && game.pl.mounted && ECHO.Life) dmg = ECHO.Life.hitInSaddle(game, from, dmg);
-      if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken() * (ECHO.Gear ? ECHO.Gear.taken(world, game.pl, type) : 1) * (ECHO.Companions ? ECHO.Companions.shield(game) : 1);
+      if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken() * (ECHO.Gear && !src.pure ? ECHO.Gear.taken(world, game.pl, type) : 1) * (ECHO.Companions ? ECHO.Companions.shield(game) : 1);
       if (target === game.pe && from && from !== game.pe && ECHO.Director && ECHO.Director.mercy(game)) dmg *= 0.82;
       dmg = Math.max(1, Math.round(dmg));
       // Your own fire can hurt you badly, but never below 15% of your life.
@@ -389,6 +389,8 @@
       // the wardens of the Guard give ground, but are not brought down
       if (target.ngWard) { dmg = Math.max(0, Math.min(Math.round(dmg * 0.35), Math.floor(target.hp - 1))); if (dmg <= 0) return 0; }
       if (target.titan && ECHO.Apex) { dmg = Math.round(ECHO.Apex.preDamage(game, target, dmg, src)); if (dmg <= 0) return 0; }
+      // a soldier's ward (the realm's arms, arsenal.js) takes the blows first
+      if (target.ward && target.ward.hp > 0 && target !== game.pe && ECHO.Arms) { dmg = ECHO.Arms.wardTake(game, target, dmg); if (dmg <= 0) return 0; }
       const wasStaggered = target.stagger > 0;
       if (ECHO.Aware && from) ECHO.Aware.hurtBy(target, from, dmg);
       if (target.pal && ECHO.Tame) { dmg = Math.max(1, Math.round(ECHO.Tame.guard(game, target, dmg))); }

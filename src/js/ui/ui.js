@@ -150,7 +150,7 @@
       if (UI._th !== th) { UI._th = th; $('#hud-tech').innerHTML = th; }
       const wanted = Object.entries(pl.wanted || {}).filter(([, v]) => v > 20).map(([f]) => world.factions[f].short);
       const ban = Object.entries(pl.banished || {}).filter(([, d]) => d > world.day).map(([f]) => world.factions[f] ? world.factions[f].short : f);
-      set('#hud-wanted', [wanted.length ? 'Wanted by ' + wanted.join(', ') : '', ban.length ? 'Banished from ' + ban.join(', ') : '', pl.sick ? 'Sick: ' + pl.sick.name : ''].filter(Boolean).join(' · '));
+      set('#hud-wanted', [wanted.length ? 'Wanted by ' + wanted.join(', ') : '', ban.length ? 'Banished from ' + ban.join(', ') : '', ECHO.Arms ? ECHO.Arms.hudLine(game) : '', pl.sick ? 'Sick: ' + pl.sick.name : ''].filter(Boolean).join(' · '));
       set('#hud-time', T.clock(world.minute));
       const wx = ECHO.Weather ? ECHO.Weather.here(world, pl.x, pl.y) : null;
       set('#hud-date', T.fmtDate(world.day) + (wx && !ECHO.Interior.cur ? ' · ' + ECHO.Weather.word(wx) : ''));

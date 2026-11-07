@@ -581,7 +581,9 @@
           if (e.readPlan && ECHO.Wits && ECHO.Wits.hold(game, e, dt)) return;
           e.state = 'attack'; e.t = 0;
           if (archer && !e.meleeWind) {
-            ECHO.Combat.shoot(e, (ECHO.Aware ? ECHO.Aware.lead(game, e, target, e.gear.crossbow ? 17 : 13, e.aimAngle) : e.aimAngle) + (Math.random() - 0.5) * 0.12 * (e.aimMul || 1), { kind: e.gear.crossbow ? 'bolt' : 'arrow', speed: e.gear.crossbow ? 17 : 13, dmg: Math.max(5 + skill * 0.11 + (e.gear.crossbow ? 4 : 0), (e.wdmg || 0) * (0.55 + skill / 220)) * (e.dmgMul || 1), life: 1.3, type: 'ranged' });
+            // (a battle-mage of the realm casts a bolt from a wand: magic, and coloured as its arms are)
+            if (e.mage) ECHO.Combat.shoot(e, (ECHO.Aware ? ECHO.Aware.lead(game, e, target, 12, e.aimAngle) : e.aimAngle) + (Math.random() - 0.5) * 0.08, { kind: 'orb', speed: 12, dmg: Math.max(6 + skill * 0.13, (e.wdmg || 0) * (0.6 + skill / 200)) * (e.dmgMul || 1) * 1.15, life: 1.4, type: 'magic', color: e.armsCol || '#b89aff' });
+            else ECHO.Combat.shoot(e, (ECHO.Aware ? ECHO.Aware.lead(game, e, target, e.gear.crossbow ? 17 : 13, e.aimAngle) : e.aimAngle) + (Math.random() - 0.5) * 0.12 * (e.aimMul || 1), { kind: e.gear.crossbow ? 'bolt' : 'arrow', speed: e.gear.crossbow ? 17 : 13, dmg: Math.max(5 + skill * 0.11 + (e.gear.crossbow ? 4 : 0), (e.wdmg || 0) * (0.55 + skill / 220)) * (e.dmgMul || 1), life: 1.3, type: 'ranged' });
           } else {
             const reach = spear ? 2.1 : 1.25;
             // a sellsword's every third blow, once learned, cleaves wide

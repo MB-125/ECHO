@@ -38,6 +38,8 @@
       if (ECHO.Clearing) ECHO.Clearing.ensure(world);
       if (ECHO.Realms) ECHO.Realms.ensure(world);
       if (ECHO.Military) ECHO.Military.ensure(world);
+      if (ECHO.Arsenal) ECHO.Arsenal.ensure(world);
+      if (ECHO.Arms) ECHO.Arms.reset && ECHO.Arms.reset();
       if (ECHO.Warfront) ECHO.Warfront.reset();
       if (ECHO.Harvest) ECHO.Harvest.reset();
       if (ECHO.GateWorld) ECHO.GateWorld.reset();
@@ -196,6 +198,7 @@
       if (ECHO.Evolve) ECHO.Evolve.tick(Game, dt);
       if (ECHO.Well) ECHO.Well.tick(Game, dt);
       if (ECHO.Auto) ECHO.Auto.tick(Game, dt);
+      if (ECHO.Arms) ECHO.Arms.tick(Game, dt);
       if (ECHO.Slime) ECHO.Slime.rareTick(Game, dt);
       if (ECHO.Home) ECHO.Home.tick(Game, dt);
       if (ECHO.Tactics) ECHO.Tactics.update(Game, dt);
@@ -431,6 +434,7 @@
       if (pl.deputy && pl.deputy.faction === npc.faction) ECHO.Watch.dismiss(world, pl, 'for laying hands on the people they swore to protect');
       const f = npc.faction;
       const heat = kind === 'murder' ? 90 : 35;
+      if (kind === 'murder' && ECHO.Arsenal) ECHO.Arsenal.harmed(world, f, npc);   // (the realm arms against you in earnest)
       // one attack is one crime: later blows add to it, a death turns it to murder
       const prev = target._crimeRec && ECHO.Law.crimes(world).find(c => c.id === target._crimeRec && c.status === 'open');
       if (prev) {
@@ -500,6 +504,15 @@
         const s2 = ECHO.World.nearestSettlement(world, ent.x, ent.y);
         ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} cut down ${ECHO.People.name(npc)}, a thief running from the watch${s2 ? ' in ' + s2.name : ''}. Some say it was more than a purse deserved.`, importance: 1, x: ent.x, y: ent.y, rep: -2, tag: 'cruel' });
         ECHO.Character.behave(pl, 'cruelty', 0.5);
+        return;
+      }
+      // A hunter the crown sent after you, cut down where it found you: no new price on your head (they
+      // came for you), but the realm takes note, and arms the harder against you.
+      if (ent.hunter) {
+        if (ECHO.Arsenal) ECHO.Arsenal.harmed(world, npc.faction, npc);
+        const fh = world.factions[npc.faction];
+        ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} cut down ${ECHO.People.name(npc)}, one of the hunters ${fh ? fh.name : 'the crown'} had sent to find ${pl.first}.`, importance: 1, x: ent.x, y: ent.y, rep: -1, tag: 'fight' });
+        ECHO.Character.behave(pl, 'aggression', 0.2);
         return;
       }
       // They came at you first: a killing, but not a murder.
