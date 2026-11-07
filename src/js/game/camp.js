@@ -144,6 +144,7 @@
       else if (pl.fed < 25) bits.push('<span class="cold">Hungry</span>');
       else if (pl.fed > 70) bits.push('<span class="fed">Well fed</span>');
       if (pl.hearty > 0) bits.push('<span class="fed">Hearty</span>');
+      if (ECHO.Well) { const f = ECHO.Well.feedHud(game); if (f) bits.push(f); }
       const html = bits.join('');
       if (el._h !== html) { el.innerHTML = html; el._h = html; }
     },
@@ -202,6 +203,7 @@
         ch.push({ label: 'Make a herb stew', sub: meat && herbs ? '1 meat + 1 bundle of herbs: heals most, warms you through' : 'needs 1 meat and 1 bundle of herbs', disabled: !(meat && herbs), onPick: () => { pl.inv.meat--; pl.inv.herbs--; pl.inv.stew = (pl.inv.stew || 0) + 1; f.cookT = 6; ECHO.Character.train(pl, 'endurance', 0.1); game.ui.toast('A pot of stew, thick with herbs. (H to eat.)', 'info', 3); setTimeout(() => C.open(game), 0); } });
       }
       if (!f.out && ECHO.Pastimes) ch.push({ label: 'Cook a recipe…', sub: 'pies, soups, cakes, salves', onPick: () => ECHO.Pastimes.cookMenu(game, 'by your fire', () => C.open(game)) });
+      if (ECHO.Well && !f.out) { const Ws = ECHO.Well.st(pl); ch.push({ label: 'Meditate an hour', sub: `your mana full, and your well deeper (well ${Ws.lv}: ${Math.round(Ws.xp)} / ${ECHO.Well.need(Ws.lv)})`, onPick: () => ECHO.Well.meditate(game, 1) }); }
       ch.push({ label: night ? 'Sleep until morning' : 'Rest a few hours', sub: f.out ? 'cold, without a fire' : C.watchman(game) ? `${C.watchman(game).first} will keep watch` : 'alone — keep one eye open', onPick: () => C.rest(game, night ? 'dawn' : 3) });
       if (ECHO.Homestead) ch.push(...ECHO.Homestead.campChoices(game));
       ch.push({ label: 'Put out the fire and break camp', sub: 'kick dirt over it', onPick: () => { C.fire = null; game.ui.toast('You scatter the ashes.', 'info', 2); } });

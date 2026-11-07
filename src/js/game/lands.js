@@ -19,11 +19,11 @@
     forgotten: { name: 'the Forgotten Kingdom', short: 'Forgotten Kingdom', col: '#c8b48a', tag: 'Ruined towns and broken walls of a kingdom no one remembers — and its dead still keep the watch.',
       roster: [['skeleton', 3], ['skelarcher', 2], ['ghoul', 1], ['wraith', 1]] },
     blighted: { name: 'the Blighted Lands', short: 'Blighted Lands', col: '#9ab84a', tag: 'Marsh and rot, poisoned by what lives in it — the beasts here are not what they were.', harsh: true,
-      roster: [['rothound', 3], ['slime', 2], ['ghoul', 1]] },
+      roster: [['rothound', 3], ['ghoul', 2]] },
     celestial: { name: 'the Celestial Highlands', short: 'Celestial Highlands', col: '#bfa8ff', tag: 'High hills under islands of rock that float in the sky — storm wisps and sun-children ride the wind.',
       roster: [['stormwisp', 3], ['sunling', 2], ['golemling', 1]] },
     abyssal: { name: 'the Abyssal Depths', short: 'Abyssal Depths', col: '#8a7ab8', tag: 'Rough hills over caverns that go down for ever — what lives below comes up at night.',
-      roster: [['giantrat', 2], ['golemling', 2], ['spider', 1], ['slime', 1]], night: true },
+      roster: [['giantrat', 2], ['golemling', 2], ['spider', 1]], night: true },
     heart: { name: 'the Heartlands', short: 'Heartlands', col: '#e6c06a', tag: 'Fields, roads and towns: as safe as the realm gets.', roster: null }
   };
   const TT = () => ECHO.TILE;

@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js'
 ];
 
 function loadEcho() {
@@ -1540,6 +1540,68 @@ function main() {
     check('your beasts evolve as they rise with you', Ev.palGrew(G2, pal2, null) && pal2.evo === 2 && Ev.name('wolf', 2) === 'Dire wolf');
     const W2 = ECHO.Save.deserialize(ECHO.Save.serialize(W));
     check('the forms the named ones have taken survive a save', !r || (Pw.byId(W2, r.id) || {}).evo === r.evo);
+  }
+  console.log('\nSlimes, the strongest and the rarest; your mana well');
+  {
+    const E = ECHO, SL = E.Slime, Wl = E.Well, Ev = E.Evolve;
+    E.Combat = E.Combat || {}; for (const k of ['floater', 'ring', 'burst', 'puff', 'shoot', 'slash']) E.Combat[k] = E.Combat[k] || (() => {}); E.Combat.fx = E.Combat.fx || [];
+    E.UI = E.UI || {}; E.UI.toast = E.UI.toast || (() => {}); E.UI.banner = E.UI.banner || (() => {});
+    // the strongest: what a slime is, against the other things of its tier and above
+    const D = { slime: { name: 'Slime', hp: 230, dmg: 20 }, troll: { hp: 150, dmg: 18 } };
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'js', 'game', 'monsters.js'), 'utf8');
+    const def = k => { const m = src.match(new RegExp('\\n\\s+' + k + ': \\{ name: [^\\n]*hp: (\\d+), dmg: (\\d+)[^\\n]*')); return m ? { hp: +m[1], dmg: +m[2], line: m[0] } : null; };
+    const sl = def('slime'), tr = def('troll'), og = def('ogre'), sg = def('slimeling'), gb = def('goblin');
+    check('a slime is the strongest thing of its kind there is: more life than a cave troll or an ogre chieftain\'s two-thirds, a harder blow than a troll', sl && tr && sl.hp >= tr.hp * 1.4 && sl.dmg >= tr.dmg && sl.hp >= og.hp * 0.66, `slime ${sl.hp}/${sl.dmg} · troll ${tr.hp}/${tr.dmg} · ogre ${og.hp}/${og.dmg}`);
+    check('…it heals, drinks mana, spits acid, swallows, splits — and shrugs off blades and arrows', /slimeHeal/.test(sl.line) && /manadrain/.test(sl.line) && /bolt/.test(sl.line) && /slam/.test(sl.line) && /split/.test(sl.line) && /melee: 0\.5/.test(sl.line) && /ranged: 0\.6/.test(sl.line));
+    check('even a slimeling, a piece of one, is a match for a goblin several times over', sg.hp >= gb.hp * 2.5 && /slimeHeal/.test(sg.line));
+    check('a slime is ranked a champion and a slimeling an elite (worth far more to beat)', E.Prowess.foeRank({ species: 'slime', type: 'creature' }) === 'champion' && E.Prowess.foeRank({ species: 'slimeling', type: 'creature', shard: true }) === 'elite');
+    // the highest potential
+    check('slimes have the highest potential: six forms, the first of them early, each a bigger step', Ev.max('slime') === 6 && Ev.max('goblin') === 4 && Ev.gates('slime')[2] <= Ev.gates('goblin')[2] && Ev.step('slime').hp > Ev.step('goblin').hp && Ev.name('slime', 6) === 'Primordial ooze', [1, 2, 3, 4, 5, 6].map(s => Ev.name('slime', s)).join(' → '));
+    // the rarest: no place keeps them
+    const rosters = [...Object.values(E.Explore.DELVES || {}), ...Object.values(E.Explore.DUNGEONS || {})].flatMap(d => [...(d.roster || []), ...(d.deep || [])]);
+    check('no deep place keeps slimes among its own', rosters.length > 10 && !rosters.some(r => SL.is(r[0])), `${rosters.length} roster entries`);
+    let hits = 0;
+    const room = { id: 1 }, free = () => [{ x: 1, y: 1 }], tag = e => e, game0 = { ents: [], pl: {}, world: {} };
+    const M0 = E.Monsters; E.Monsters = { make: (g, k, x, y, L) => ({ species: k, x, y, lvl: L, foe: { name: 'Slime' }, label: null }) };
+    for (let i = 0; i < 4000; i++) if (SL.rareInDungeon(game0, {}, 0, 5, [room], free, tag, 0)) hits++;
+    E.Monsters = M0;
+    check('one turns up on a floor of a deep place only a few times in a hundred', hits > 4000 * 0.02 && hits < 4000 * 0.07 && game0.ents.every(e => e.rareSlime && e.gateXp >= 3), `${(hits / 40).toFixed(1)}% of floors`);
+    check('out in the wild, about once an hour or two of wandering', SL.WILD_P > 0.005 && SL.WILD_P < 0.03, `${(SL.WILD_P * 100).toFixed(1)}% a minute`);
+    // your mana well
+    const Wd = E.generateWorld({ seed: 6262, name: 'Well' });
+    const pl = Wd.player = E.Character.create(Wd, new E.RNG(3), { first: 'Ilse', homeId: Wd.settlements[0].id });
+    pl.maxMana = 60; pl.mana = 60;
+    const g = { world: Wd, pl, pe: { x: 0, y: 0 }, ents: [] };
+    const b0 = Wl.bonus(pl);
+    E.Prowess.st(pl).lv = 41;
+    check('your mana grows with your level (two more a level) — an old save has it all at once', Wl.bonus(pl) - b0 === 80 && !pl.well === false);
+    const ups = Wl.gain(g, 2000);
+    check('everything you spend deepens your well, a level at a time', ups >= 5 && Wl.st(pl).lv === ups && Wl.bonus(pl) >= 80 + ups * Wl.PER_WELL, `2,000 mana spent → well ${Wl.st(pl).lv}`);
+    const c0 = Wl.bonus(pl), a = Wl.core(g, { lv: 30, evo: 3, big: true, x: 0, y: 0 }), a2 = Wl.core(g, { lv: 5, evo: 1, big: false, x: 0, y: 0 });
+    check('a slime\'s core deepens your mana for good — a rare one\'s far more than a piece\'s', a >= 10 && a2 >= 1 && a > a2 && Wl.bonus(pl) >= c0 + a + a2, `rare core +${a}, a piece's +${a2}`);
+    pl.gold = 100000;
+    const p1 = Wl.lessonPrice(pl); Wl.lesson(g); const p2 = Wl.lessonPrice(pl);
+    for (let i = 0; i < 20; i++) Wl.lesson(g);
+    check('the arcanist teaches you to hold more — dearer each lesson, twelve in all', p2 > p1 && Wl.st(pl).lessons === Wl.LESSONS && typeof Wl.lesson(g) === 'string');
+    pl.maxMana = 100; const r1 = Wl.regen(pl); pl.maxMana = 400; const r2 = Wl.regen(pl);
+    check('the deeper the well, the faster it fills', r2 > r1 * 2, `${r1.toFixed(1)} → ${r2.toFixed(1)} a second`);
+    // a slime of yours feeds on your mana
+    pl.pack = [{ id: 'p1', cat: 'foe', kind: 'slime', name: 'Glub', lvl: 30, evo: 3, out: true }, { id: 'p2', cat: 'foe', kind: 'wolf', name: 'Fang', lvl: 30, out: true }];
+    const T0 = E.Tame; E.Tame = { pack: p => p.pack, resting: () => false, live: () => null };
+    pl.maxMana = 300; pl.mana = 300;
+    const u = SL.upkeep(pl.pack[0]);
+    SL.feed(g, 10);
+    const drank = 300 - pl.mana;
+    check('a tamed slime feeds on your mana all the time it is out (and only it: your other beasts do not)', Math.abs(drank - u * 10) < 0.01 && SL.rate() === u, `${u.toFixed(2)} mana a second at level 30, third form`);
+    check('a stronger, more evolved slime costs more to keep', SL.upkeep({ lvl: 80, evo: 5 }) > SL.upkeep({ lvl: 30, evo: 3 }) * 2);
+    pl.pack[0].out = false; pl.mana = 300; SL.feed(g, 10);
+    check('resting at your den, it takes a quarter', Math.abs((300 - pl.mana) - u * 2.5) < 0.01);
+    pl.pack[0].out = true; pl.mana = 0;
+    for (let i = 0; i < 40; i++) SL.feed(g, 1);
+    check('with no mana to feed on it starves, and in the end slips back to your den', pl.pack[0].out === false);
+    E.Tame = T0;
+    const W2 = E.Save.deserialize(E.Save.serialize(Wd));
+    check('your well, its lessons and its cores survive a save', W2.player.well && W2.player.well.lv === Wl.st(pl).lv && W2.player.well.lessons === Wl.LESSONS && W2.player.well.coreN === 2);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

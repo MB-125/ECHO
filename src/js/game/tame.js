@@ -276,6 +276,7 @@
       if (e.evo > 1) { r.evo = e.evo; r.scale = (e.scale || 1) / (1 + 0.1 * (e.evo - 1)); }   // (it keeps the form it had; its size is made again from it)
       pk.push(r);
       pl.tames = (pl.tames || 0) + 1;
+      if (ECHO.Slime) ECHO.Slime.onTame(game, r, e);
       // what it was, out in the world
       if (e.nem && ECHO.Powers) { const rec = ECHO.Powers.byId(world, e.nem); if (rec && rec.alive) ECHO.Powers.die(world, rec, `tamed by ${pl.first} ${pl.last}`, `${ECHO.Powers.short(rec)} was beaten and tamed by ${pl.first} ${pl.last}, and runs at their side now.`); if (ECHO.Growth) ECHO.Growth.spawned.delete(e.nem); }
       if (e.lair && e.boss) { e.boss.alive = false; e.boss.tamed = true; UI().bossBar(null); }
@@ -519,7 +520,7 @@
       { at: 30, k: 'apex', name: 'Apex', d: '+20% harm and life on top of all the rest' }
     ],
     MASTERY_MAX: 30,
-    cap(game, r) { return Math.min(ECHO.Prowess.MAX, Math.max(ECHO.Prowess.level(game.pl), r.lvlT || r.lvl0 || 1)); },
+    cap(game, r) { return Math.min(ECHO.Prowess.MAX, Math.max(ECHO.Slime && r && r.cat !== 'boss' && ECHO.Slime.is(r.kind) ? ECHO.Slime.capOf(game, r) : ECHO.Prowess.level(game.pl), r.lvlT || r.lvl0 || 1)); },
     atCap(game, r) { return r.lvl >= T.cap(game, r); },
     need(r) { return 12 + r.lvl * 4; },
     needM(r) { return Math.round(T.need(r) * (1 + (r.mastery || 0) * 0.15)); },
@@ -529,6 +530,7 @@
     cdMul(r) { const m = (r && r.mastery) || 0; return Math.max(0.5, 1 - 0.015 * m) * (T.has(r, 'swift') ? 0.75 : 1); },
     grow(game, r, amount) {
       if (!r || !(amount > 0)) return;
+      if (ECHO.Slime && r.cat !== 'boss' && ECHO.Slime.is(r.kind)) amount *= 1.5;   // (a slime grows faster than anything)
       r.xp = (r.xp || 0) + amount;
       const e = game.ents.find(o => o.pal === r && !o.dead);
       for (let guard = 0; guard < 64; guard++) {
@@ -649,7 +651,7 @@
           <div class="pal-pic" data-palpic="${r.id}"${pic ? ' data-done="1"' : ''}>${pic ? `<img src="${pic}" alt="">` : '<span class="pal-ph">🐾</span>'}<span class="pal-lv">Lv ${r.lvl}${r.mastery ? " ★" + r.mastery : ""}</span>${tag ? `<span class="pal-tag gold">${tag}</span>` : ''}</div>
           <div class="pal-body">
             <div class="pal-head"><h4>${esc(r.name)}</h4></div>
-            <div class="pal-sub">${esc(T.kindOf(r))}${ECHO.Evolve && r.kind && r.cat !== 'boss' ? ` · ${esc(ECHO.Evolve.name(r.kind, ECHO.Evolve.palLoad(r) || 1))}${(r.evo || 1) < 4 ? ` <span class="dim">(evolves at Lv ${ECHO.Evolve.gates(r.kind)[(r.evo || 1) + 1]})</span>` : ' <span class="gold">(its highest form)</span>'}` : ''} · ${T.sizeOf(r)}${r.was && r.was !== r.name ? ' · once ' + esc(r.was) : ''} · tamed day ${r.day}</div>
+            <div class="pal-sub">${esc(T.kindOf(r))}${ECHO.Evolve && r.kind && r.cat !== 'boss' ? ` · ${esc(ECHO.Evolve.name(r.kind, ECHO.Evolve.palLoad(r) || 1))}${(r.evo || 1) < ECHO.Evolve.max(r.kind) ? ` <span class="dim">(evolves at Lv ${ECHO.Evolve.gates(r.kind)[(r.evo || 1) + 1]})</span>` : ' <span class="gold">(its highest form)</span>'}` : ''} · ${T.sizeOf(r)}${r.was && r.was !== r.name ? ' · once ' + esc(r.was) : ''} · tamed day ${r.day}</div>
             <div class="pal-bar"><span>Life</span>${bar(hpF, hpF > 0.5 ? '#9fe08a' : hpF > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hpF * 100)}%</span></div>
             ${T.atCap(game, r) ? `<div class="pal-bar"><span>Mastery</span>${bar((r.mastery || 0) >= T.MASTERY_MAX ? 1 : (r.xp || 0) / T.needM(r), '#ffd86a')}<span>${(r.mastery || 0) >= T.MASTERY_MAX ? 'full' : Math.floor(r.xp || 0) + '/' + T.needM(r)}</span></div>
             <div class="pal-skill">★ ${r.mastery || 0}/${T.MASTERY_MAX} · at its height (level ${T.cap(game, r)}): its skills grow · +${Math.round((T.mDmg(r) - 1) * 100)}% harm, +${Math.round((T.mHp(r) - 1) * 100)}% life, arts ${Math.round((1 - T.cdMul(r)) * 100)}% sooner</div>` : `<div class="pal-bar"><span>Growth</span>${bar((r.xp || 0) / need, '#8fb8ff')}<span>${Math.floor(r.xp || 0)}/${need}</span></div>

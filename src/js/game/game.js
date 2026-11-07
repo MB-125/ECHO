@@ -193,6 +193,8 @@
       if (ECHO.Aura) ECHO.Aura.tick(Game, dt);
       if (ECHO.Warfront) ECHO.Warfront.update(Game, dt);
       if (ECHO.Evolve) ECHO.Evolve.tick(Game, dt);
+      if (ECHO.Well) ECHO.Well.tick(Game, dt);
+      if (ECHO.Slime) ECHO.Slime.rareTick(Game, dt);
       if (ECHO.Home) ECHO.Home.tick(Game, dt);
       if (ECHO.Tactics) ECHO.Tactics.update(Game, dt);
       if (ECHO.Senses) ECHO.Senses.update(Game, dt);
@@ -553,6 +555,7 @@
           continue;
         }
         l.taken = true;
+        if (l.kind === 'slimecore' && ECHO.Well) { ECHO.Well.core(Game, l); continue; }
         if (l.kind === 'gold') pl.gold += l.qty;
         else pl.inv[l.kind] = (pl.inv[l.kind] || 0) + l.qty;
         const mat = ECHO.Gear && ECHO.Gear.MATS[l.kind];

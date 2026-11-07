@@ -42,8 +42,9 @@
     giantrat: [F('Rat brute'), F('Plague rat', { ab: { poison: { dps: 3, dur: 5 } } }), F('Rat king', { ab: { summon: { kind: 'giantrat', n: 3, cd: 11 } } })],
     spider: [F('Cave hunter'), F('Broodmother', { ab: { summon: { kind: 'spider', n: 2, cd: 14 } } }), F('Spider empress', { ab: { summon: { kind: 'spider', n: 3, cd: 12 } } })],
     queen: [F('the Brood Queen'), F('the Spider Empress'), F('the Mother of Webs')],
-    slime: [F('Ooze'), F('Great slime'), F('Slime king', { ab: { slam: { cd: 8, r: 2.4, dmg: 1 } } })],
-    slimeling: [F('Slime'), F('Great slime'), F('Slime king')],
+    // the slimes go furthest of all: six forms, and the last of them older than the world
+    slime: [F('Ooze', { em: '#1a4a10', ab: { bolt: { color: '#8fe05a', dmg: 1.6, cd: 3, type: 'magic' } } }), F('Great slime', { em: '#2a6a10', ab: { summon: { kind: 'slimeling', n: 2, cd: 14 } } }), F('Slime king', { em: '#4a8a10', ab: { slam: { cd: 6, r: 3, dmg: 1.4 } } }), F('Slime emperor', { em: '#0a6a5a', ab: { teleport: { cd: 7 } } }), F('Primordial ooze', { em: '#8a7a10', ab: { summon: { kind: 'slime', n: 1, cd: 20 } } })],
+    slimeling: [F('Slime', { em: '#1a4a10', ab: { bolt: { color: '#8fe05a', dmg: 1.4, cd: 3.4, type: 'magic' } } }), F('Great slime', { em: '#2a6a10' }), F('Slime king', { em: '#4a8a10', ab: { slam: { cd: 7, r: 2.6, dmg: 1.2 } } }), F('Slime emperor', { em: '#0a6a5a' }), F('Primordial ooze', { em: '#8a7a10' })],
     troll: [F('Troll brute'), F('Troll warlord', { show: ['helm'], ab: { charge: { cd: 9 } } }), F('Troll king', { show: ['crown', 'cape'], ab: { frenzy: true } })],
     ogre: [F('the Ogre Warlord', { show: ['helm', 'cape', 'sword'] }), F('the Ogre King', { show: ['crown', 'cape', 'sword'] }), F('the Ogre Tyrant', { show: ['crown', 'cape', 'sword'] })],
     wraith: [F('Dread wraith'), F('Banshee', { ab: { bolt: { color: '#bfe8ff', dmg: 1.3, cd: 3.2, type: 'magic' } } }), F('Wraith lord', { show: ['robe', 'hood', 'crown'], ab: { summon: { kind: 'wraith', n: 1, cd: 16 } } })],
@@ -63,19 +64,26 @@
   const PRE = ['Greater', 'Dread', 'Elder'];
   // what every form brings, over the one before it (and its colour, for the glow round it)
   const STEP = { hp: 0.15, dmg: 0.08, scale: 0.1, xp: 0.3 };
-  const COL = [null, null, '#ffb060', '#ff6a3a', '#c86aff'];
-  const EM = [null, null, '#2a1406', '#5a1a06', '#4a106a'];
+  const COL = [null, null, '#ffb060', '#ff6a3a', '#c86aff', '#5affc8', '#ffe08a'];
+  const EM = [null, null, '#2a1406', '#5a1a06', '#4a106a', '#0a5a4a', '#6a5a0a'];
+  // the slimes: the highest potential of anything that lives — six forms, the first of them
+  // early, and every one a bigger step than any other kind takes
+  const SLIMES = new Set(['slime', 'slimeling']);
+  const SLIME_STEP = { hp: 0.3, dmg: 0.15, scale: 0.12, xp: 0.4 };
+  const GATES = { slime: [0, 0, 10, 22, 45, 90, 160], slimeling: [0, 0, 8, 20, 42, 85, 150] };
 
   const Ev = ECHO.Evolve = {
-    CHAINS, STEP, COL, MAX: 4,
+    CHAINS, STEP, COL, MAX: 4, SLIMES,
+    max(kind) { return SLIMES.has(kind) ? 6 : 4; },
+    step(kind) { return SLIMES.has(kind) ? SLIME_STEP : STEP; },
     def(kind) { return (ECHO.Quests && ECHO.Quests.FOES && ECHO.Quests.FOES[kind]) || (ECHO.Monsters && ECHO.Monsters.DEFS && ECHO.Monsters.DEFS[kind]) || null; },
     tier(kind) { const D = Ev.def(kind); return (D && D.tier) || TIER[kind] || 3; },
     baseName(kind) { const D = Ev.def(kind); return kind === 'wolf' ? 'Duskwolf' : D ? D.name : U.cap(String(kind || 'beast')); },
     // the levels at which a kind takes its second, third and fourth forms
-    gates(kind) { const g = 9 + 3 * Ev.tier(kind); return [0, 0, g, Math.round(g * 2.5), Math.round(g * 6)]; },
+    gates(kind) { if (GATES[kind]) return GATES[kind]; const g = 9 + 3 * Ev.tier(kind); return [0, 0, g, Math.round(g * 2.5), Math.round(g * 6)]; },
     // the form a kind takes at stage s (1 is what it is born as)
     form(kind, s) {
-      s = U.clamp(s | 0 || 1, 1, Ev.MAX);
+      s = U.clamp(s | 0 || 1, 1, Ev.max(kind));
       const base = Ev.baseName(kind);
       if (s === 1) return { n: base, s: 1 };
       const c = CHAINS[kind] && CHAINS[kind][s - 2];
@@ -94,15 +102,15 @@
     // its whole ladder, for the bestiary (only what you have seen is named)
     ladder(kind, seen) {
       const G = Ev.gates(kind);
-      return [1, 2, 3, 4].map(s => s === 1 ? Ev.name(kind, 1) : (seen || 1) >= s ? `${Ev.name(kind, s)} (Lv ${G[s]}+)` : `??? (Lv ${G[s]}+)`).join(' → ');
+      return Array.from({ length: Ev.max(kind) }, (_, i) => i + 1).map(s => s === 1 ? Ev.name(kind, 1) : (seen || 1) >= s ? `${Ev.name(kind, s)} (Lv ${G[s]}+)` : `??? (Lv ${G[s]}+)`).join(' → ');
     },
     // the stage a level alone has reached for certain (the named and your own beasts)
-    stageAt(kind, L) { const G = Ev.gates(kind); let s = 1; while (s < Ev.MAX && L >= G[s + 1]) s++; return s; },
+    stageAt(kind, L) { const G = Ev.gates(kind), M = Ev.max(kind); let s = 1; while (s < M && L >= G[s + 1]) s++; return s; },
     // the stage a monster born at level L is born in: a few at a threshold, nearly all half as far again past it
     stageBorn(kind, L, rnd) {
       const G = Ev.gates(kind), r = rnd == null ? Math.random() : rnd;
       let s = 1;
-      for (let k = 2; k <= Ev.MAX; k++) {
+      for (let k = 2; k <= Ev.max(kind); k++) {
         if (L < G[k]) break;
         const p = U.clamp((L - G[k]) / (0.6 * G[k]) + 0.25, 0, 1);
         if (r < p) s = k; else break;
@@ -123,11 +131,11 @@
     // It has grown, killed or beaten someone: past the threshold, it evolves where it stands.
     check(game, e) {
       if (!Ev.can(e) || e.pal || e.tamed) return false;
-      const G = Ev.gates(e.species), m = Ev.might(e), s0 = e.evo || 1;
+      const G = Ev.gates(e.species), m = Ev.might(e), s0 = e.evo || 1, M = Ev.max(e.species);
       let s = s0;
-      while (s < Ev.MAX && m >= G[s + 1]) s++;
+      while (s < M && m >= G[s + 1]) s++;
       // a monster that has done enough to be noticed always takes at least its next form
-      if (s === s0 && s0 < Ev.MAX && ((e.grown || 0) + (e.evoKills || 0) * 1.5 >= 3 * s0)) s = s0 + 1;
+      if (s === s0 && s0 < M && ((e.grown || 0) + (e.evoKills || 0) * 1.5 >= 3 * s0)) s = s0 + 1;
       if (s <= s0) return false;
       Ev.apply(game, e, s, true);
       if (e.nem && ECHO.Powers) { const r = ECHO.Powers.byId(game.world, e.nem); if (r && (r.evo || 1) < s) { r.evo = s; ECHO.Powers.tell(game.world, r, `${ECHO.Powers.short(r)} evolved in the middle of a fight: it is ${Ev.a(Ev.name(r.kind, s))} now.`, 2); } }
@@ -152,7 +160,7 @@
         e.foe = nd;
       }
       if (Fm.tint) e.evoTint = Fm.tint;
-      const ratio = k => (1 + STEP[k] * (s - 1)) / (1 + STEP[k] * (s0 - 1));
+      const SP = Ev.step(kind), ratio = k => (1 + SP[k] * (s - 1)) / (1 + SP[k] * (s0 - 1));
       const hk = ratio('hp');
       e.maxHp = Math.round(e.maxHp * hk);
       e.hp = live ? Math.min(e.maxHp, e.hp * hk + e.maxHp * 0.35) : Math.min(e.maxHp, e.hp * hk);

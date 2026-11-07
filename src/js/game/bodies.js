@@ -100,7 +100,7 @@
         for (let i = 0; i < 2; i++) {
           const sp = ECHO.Ent.freeSpot(game.world, pe.x + (Math.random() - 0.5) * 8, pe.y + (Math.random() - 0.5) * 8, 4);
           if (!sp || U.dist(sp.x, sp.y, pe.x, pe.y) < 3) continue;
-          const m = ECHO.Monsters.make(game, i ? 'slimeling' : 'slime', sp.x, sp.y, lvl, { noElite: true });
+          const m = ECHO.Monsters.make(game, i ? 'giantrat' : 'spider', sp.x, sp.y, lvl, { noElite: true });
           m.delve = L.site.id; m.indoor = true; m.floor = L.depth; m.aggro = true; m.target = pe; m.spawned = true;
           game.addEnt(m);
         }

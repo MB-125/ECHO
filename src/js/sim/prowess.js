@@ -109,8 +109,10 @@
       if (e.type === 'boss') return 'great';
       if (e.nem) return (e.nemInfl || 0) >= 25 ? 'lord' : 'champion';   // one of the named
       if (e.boss2) return 'lord';
+      if (e.species === 'slime') return 'champion';      // (the strongest thing that crawls)
+      if (e.species === 'slimeling' && !e.summoner) return 'elite';
       if (e.summoner || e.shard) return 'minion';
-      if (e.species === 'giantrat' || e.species === 'slimeling') return 'minion';
+      if (e.species === 'giantrat') return 'minion';
       if (e.beast || e.isLeader || (e.foe && e.foe.elite) || (e.label && /leader|chief|mother/i.test(e.label))) return 'champion';
       if (e.elite) return 'elite';
       return 'common';

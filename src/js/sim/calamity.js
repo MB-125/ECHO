@@ -28,7 +28,7 @@
 
   // what lives in the ground where one of them fell, by its element
   const SCAR_ROSTER = {
-    fire: [['cinderhound', 4], ['golemling', 1]], frost: [['frosthound', 4], ['wraith', 1]], venom: [['rothound', 3], ['slime', 2]],
+    fire: [['cinderhound', 4], ['golemling', 1]], frost: [['frosthound', 4], ['wraith', 1]], venom: [['rothound', 4], ['ghoul', 1]],
     storm: [['stormwisp', 4], ['wraith', 1]], sun: [['sunling', 4], ['golemling', 1]], void: [['voidshade', 4], ['wraith', 1]],
     earth: [['slaggolem', 2], ['golemling', 3]]
   };

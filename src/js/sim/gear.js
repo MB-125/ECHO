@@ -14,6 +14,7 @@
     rattail: { name: 'rat tails', value: 2, tier: 1, color: '#a88a7a' },
     trinket: { name: 'goblin trinkets', value: 6, tier: 1, color: '#d8b84a' },
     gel: { name: 'slime gel', value: 5, tier: 1, color: '#8fe0a0' },
+    slimecore: { name: 'slime core', value: 0, tier: 5, color: '#b8ff7a' },   // (drunk where it is picked up: well.js)
     claw: { name: 'ghoul claws', value: 8, tier: 2, color: '#b8c8a8' },
     silk: { name: 'spider silk', value: 9, tier: 2, color: '#f4f4ff' },
     venom: { name: 'venom sacs', value: 11, tier: 2, color: '#9fe05a' },

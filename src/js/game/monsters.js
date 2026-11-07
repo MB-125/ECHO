@@ -18,8 +18,12 @@
     giantrat: { name: 'Giant rat', hp: 24, dmg: 6, speed: 4.3, reach: 0.9, wind: 0.3, cd: 0.9, tier: 1, shape: 'rat', scale: 1.7, ab: { pack: true }, loot: [['rattail', 0.6, 1, 1]], gold: [0, 2], desc: 'Big as a dog and twice as hungry.', weak: 'Anything. There are just a lot of them.' },
     spider: { name: 'Cave spider', hp: 40, dmg: 8, speed: 4.4, reach: 1.1, wind: 0.32, cd: 1.1, tier: 2, shape: 'spider', scale: 1, ab: { poison: { dps: 2.5, dur: 6 }, web: { cd: 6 } }, resist: { fire: -0.3 }, loot: [['silk', 0.6, 1, 2], ['venom', 0.25, 1, 1]], gold: [0, 3], desc: 'Fast, venomous, and it spits webs that slow you.', weak: 'Fire burns them and their webs.' },
     queen: { name: 'the Spider Queen', hp: 260, dmg: 15, speed: 3.6, reach: 1.6, wind: 0.5, cd: 1.3, tier: 3, shape: 'spider', scale: 2.4, boss: true, ab: { poison: { dps: 4, dur: 6 }, web: { cd: 4 }, summon: { kind: 'spider', n: 2, cd: 14 } }, resist: { fire: -0.2, ranged: 0.15 }, loot: [['queensilk', 1, 1, 2], ['venom', 1, 2, 3], ['silk', 1, 3, 5]], gold: [40, 90], desc: 'The mother of the nest, as big as a cart.', weak: 'Burn the brood; keep moving; never stand in her webs.' },
-    slime: { name: 'Slime', hp: 46, dmg: 7, speed: 2.2, reach: 1.0, wind: 0.55, cd: 1.5, tier: 1, shape: 'slime', scale: 1, ab: { split: { kind: 'slimeling', n: 2 } }, resist: { melee: 0.25, ranged: 0.35, fire: -0.3 }, loot: [['gel', 0.8, 1, 2]], gold: [0, 2], desc: 'Cut it and there are two of it.', weak: 'Fire. Blades only make more.' },
-    slimeling: { name: 'Slimeling', hp: 16, dmg: 4, speed: 3.0, reach: 0.8, wind: 0.4, cd: 1.2, tier: 1, shape: 'slime', scale: 0.55, resist: { fire: -0.3 }, loot: [['gel', 0.3, 1, 1]], gold: [0, 0], desc: 'A small piece of a slime, still angry.', weak: 'Anything.' },
+    // The slimes are the strongest things that live (slimes.js): whatever its level, a slime is
+    // one of the hardest things in the realm to kill. It heals as you cut it, drinks your mana
+    // with every blow, spits acid, swallows what stands too close, splits when it dies — and the
+    // pieces crawl back together. Fire stops it healing for a while. It is slow: you can walk away.
+    slime: { name: 'Slime', hp: 230, dmg: 20, speed: 2.2, reach: 1.1, wind: 0.55, cd: 1.5, tier: 1, shape: 'slime', scale: 1, slimeK: true, ab: { split: { kind: 'slimeling', n: 2 }, slimeHeal: 0.006, manadrain: 0.5, bolt: { color: '#8fe05a', dmg: 1.4, cd: 4, type: 'magic' }, slam: { cd: 8, r: 2.2, dmg: 1.3 } }, resist: { melee: 0.5, ranged: 0.6, magic: 0.4, fire: -0.2 }, loot: [['gel', 1, 2, 4]], gold: [4, 12], desc: 'The oldest thing in the dark, and the strongest, whatever its size: it heals as you cut it, drinks your mana with every blow, spits acid, swallows what stands too close and splits when it dies — and the pieces crawl back together. Tamed, it feeds on your mana for ever.', weak: 'Fire stops it healing for a while. Kill the pieces before they meet. It is slow: you can walk away.' },
+    slimeling: { name: 'Slimeling', hp: 80, dmg: 12, speed: 3.0, reach: 0.9, wind: 0.4, cd: 1.2, tier: 1, shape: 'slime', scale: 0.55, slimeK: true, ab: { slimeHeal: 0.005, manadrain: 0.3 }, resist: { melee: 0.35, ranged: 0.45, magic: 0.3, fire: -0.2 }, loot: [['gel', 0.6, 1, 2]], gold: [1, 4], desc: 'A piece of a slime, and still a slime: it heals, it drinks your mana, and two of them that meet become a slime again.', weak: 'Fire. Kill the pieces apart.' },
     troll: { name: 'Cave troll', hp: 150, dmg: 18, speed: 2.6, reach: 1.7, wind: 0.75, cd: 1.8, tier: 3, scale: 1.55, ab: { regen: 4, slam: { cd: 7, r: 2.6, dmg: 1.2 } }, resist: { melee: 0.15, fire: -0.5 }, vis: { cloth: '#4a3a2a', cloth2: '#2a2018', skin: '#6a8a5a', hair: '#3a3a2a', show: [], f2d: 'hue-rotate(80deg) brightness(0.8)' }, loot: [['trollhide', 0.7, 1, 2]], gold: [5, 20], desc: 'Heals as fast as you can cut it — unless it burns.', weak: 'Fire stops it healing. Dodge the slam.' },
     ogre: { name: 'the Ogre Chieftain', hp: 320, dmg: 24, speed: 2.8, reach: 2.0, wind: 0.8, cd: 1.9, tier: 3, scale: 1.85, boss: true, ab: { slam: { cd: 6, r: 3.2, dmg: 1.3 }, charge: { cd: 9 }, frenzy: true }, resist: { melee: 0.1 }, vis: { cloth: '#5a4a3a', cloth2: '#3a2a20', skin: '#b88a6a', hair: '#2a1a10', show: ['helm', 'cape', 'sword'], f2d: 'sepia(0.5) brightness(0.9)' }, loot: [['tusk', 1, 2, 3], ['trollhide', 0.6, 1, 2]], gold: [60, 120], desc: 'Huge, strong, and it charges.', weak: 'Sidestep the charge; strike while it recovers.' },
     wraith: { name: 'Wraith', hp: 52, dmg: 12, speed: 3.2, reach: 1.3, wind: 0.5, cd: 1.5, tier: 3, ab: { teleport: { cd: 6 }, drain: 0.5 }, resist: { melee: 0.35, ranged: 0.5, fire: -0.35 }, vis: { cloth: '#2a2a40', cloth2: '#1a1a2a', skin: '#bfe8ff', hair: '#bfe8ff', show: ['robe', 'hood'], em: '#20304a', opacity: 0.62, f2d: 'grayscale(1) brightness(1.4) hue-rotate(180deg) opacity(0.7)' }, loot: [['ecto', 0.7, 1, 2]], gold: [2, 12], desc: 'It steps through the dark and drinks your life.', weak: 'Fire. Steel bites poorly; arrows hardly at all.' },
@@ -74,6 +78,7 @@
     // Returns true when the monster spent this frame on an ability.
     tick(game, e, dt, d, ang) {
       const ab = e.ab, world = game.world, pe = game.pe;
+      if (e.foe && e.foe.slimeK && ECHO.Slime && ECHO.Slime.tick(game, e, dt, d, ang)) return true;
       if ((e.wab || (e.foe && e.foe.wab)) && ECHO.Deepwood && ECHO.Deepwood.ability(game, e, dt, d, ang)) return true;
       if ((e.gab || (e.foe && e.foe.gab)) && ECHO.GateWorld && ECHO.GateWorld.ability(game, e, dt, d, ang)) return true;
       if (!ab) return false;
@@ -188,6 +193,7 @@
       if (!from || !from.ab) return;
       if (from.ab.poison && dmg > 0) { pl.poisonT = from.ab.poison.dur; pl.poisonDps = Math.max(pl.poisonDps || 0, from.ab.poison.dps * Math.min(1 + (from.lvl - 1) * 0.2, ECHO.Prowess.expect(from.lvl || 1).hp / 52)); ECHO.Combat.floater(game.pe.x, game.pe.y - 1.1, 'poisoned', '#9fe05a'); M.tip(game, 'poison'); }
       if (from.ab.drain && dmg > 0) { from.hp = Math.min(from.maxHp, from.hp + dmg * from.ab.drain); ECHO.Combat.floater(from.x, from.y - 1, 'drains', '#bfe8ff'); }
+      if (from.ab.manadrain && dmg > 0 && ECHO.Slime) ECHO.Slime.drink(game, from, dmg);
       const a = pl.armor && world.items[pl.armor];
       if (a && a.affix === 'thorns' && dmg > 0) ECHO.Combat.damage(from, Math.max(2, dmg * 0.3), { type: 'melee', from: game.pe, angle: Math.atan2(from.y - game.pe.y, from.x - game.pe.x), knock: 0.05 });
     },
@@ -235,6 +241,7 @@
     slowMul() { const pl = ECHO.Game.pl; return pl && pl.rootT > 0 ? 0.06 : pl && pl.slowT > 0 ? 0.55 : 1; },
     // Resistances and weaknesses, and a word about them the first time.
     resist(game, target, type, dmg, from) {
+      if (type === 'fire' && target.foe && target.foe.slimeK) target._fireT = game.time + 3;   // (fire stops a slime healing)
       const r = target.resist && target.resist[type];
       if (!r) return dmg;
       if (from === game.pe && Math.random() < 0.3) ECHO.Combat.floater(target.x, target.y - 1.2, r > 0.3 ? 'resists' : r < -0.1 ? 'weak!' : '', r > 0 ? '#c8c0b0' : '#ffcf5a');
@@ -287,10 +294,11 @@
       if (e.ab && e.ab.split && !e.shard) for (let i = 0; i < e.ab.split.n; i++) {
         const sp = ECHO.Ent.freeSpot(world, e.x + (r() - 0.5) * 1.5, e.y + (r() - 0.5) * 1.5, 2);
         if (!sp) continue;
-        const m = M.make(game, e.ab.split.kind, sp.x, sp.y, L, { noElite: true, aggro: true, delve: e.delve, indoor: e.indoor, questId: e.questId });
-        m.shard = true; m.floor = e.floor; game.ents.push(m);
+        const m = M.make(game, e.ab.split.kind, sp.x, sp.y, L, { noElite: true, aggro: true, delve: e.delve, indoor: e.indoor, questId: e.questId, evo: Math.max(1, (e.evo || 1) - 1) });
+        m.shard = true; m.floor = e.floor; m.lineage = e.lineage || e.id || ('s' + Math.random()); m.gen = e.gen || 0; m.bornT = game.time; game.ents.push(m);
       }
       if (e.ab && e.ab.split) M.tip(game, 'split');
+      if (D.slimeK && ECHO.Slime) ECHO.Slime.onKill(game, e);   // (the rarest thing there is: a huge reward)
     },
     dropGear(game, x, y, level, boost, where) {
       const world = game.world, rng = M.rng();

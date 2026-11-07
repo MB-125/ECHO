@@ -414,3 +414,8 @@ details summary { cursor: pointer; color: var(--hc); }
 .mil-host.enemy { color: #ffb0a0; }
 .mil-towns { font-size: 12.5px; line-height: 1.6; }
 .mil-realm h4 { color: #f4ead2; }
+
+/* ---- slimes and the mana well (0.22) */
+#hud-body .slimefeed { color: #b8ff7a; }
+.well-card { border-color: rgba(122,184,255,0.45) !important; }
+.well-bar i { background: linear-gradient(90deg, #3a6ad8, #7ab8ff) !important; }

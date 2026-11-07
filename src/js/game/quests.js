@@ -37,6 +37,7 @@
       e.cd = Math.max(0, (e.cd || 0) - dt); e.t += dt;
       if (e.stagger > 0) { e.stagger -= dt; e.state = 'stagger'; return; }
       if (e.state === 'stagger') e.state = 'chase';
+      if (F.slimeK && ECHO.Slime) { ECHO.Slime.always(game, e, dt); if (e.dead) return; }
       if (e.gateMon && ECHO.GateWorld && ECHO.GateWorld.think(game, e, dt)) return;
       if (e.wood && ECHO.Deepwood && ECHO.Deepwood.think(game, e, dt)) return;
       const d = U.dist(e.x, e.y, pe.x, pe.y);
@@ -340,7 +341,9 @@
       const last = depth >= L.floors - 1;
       X().level(world, site);
       const lvl = X().floorLevel(site, depth);
-      const roster = (site.roster || def.roster || [[def.foes, 1]]).concat(depth >= 1 ? def.deep || [] : []);
+      let roster = (site.roster || def.roster || [[def.foes, 1]]).concat(depth >= 1 ? def.deep || [] : []);
+      // (no slime is ever one of a place's own: they are the rarest things there are — slimes.js)
+      if (ECHO.Slime) { const r2 = roster.filter(r => !ECHO.Slime.is(r[0])); roster = r2.length ? r2 : [['giantrat', 1]]; }
       const pick = () => { const tot = roster.reduce((a, r) => a + r[1], 0); let r = Math.random() * tot; for (const [k, w] of roster) { r -= w; if (r <= 0) return k; } return roster[0][0]; };
       const tag = e => { e.delve = site.id; e.indoor = true; e.floor = depth; if (DL) DL.band(site, e, e.species); return e; };
       const wolf = (x, y, boss) => { const e = ECHO.Spawner.makeCreature(game, 'wolf', x, y, null, 'den'); const FM = ECHO.Prowess.foeMul(lvl); e.lvl = lvl; e.hp = e.maxHp = Math.round(e.maxHp * FM.hp * (boss ? 3 : 1)); e.dmgMul = (e.dmgMul || 1) * FM.dmg * (boss ? 1.7 : 1); if (boss) { e.scale = 1.5; e.label = 'the Den-Mother'; e.boss2 = true; } return tag(e); };
@@ -365,6 +368,8 @@
           game.ents.push(e);
         }
       }
+      // now and then, very rarely: a slime, somewhere on the floor
+      if (ECHO.Slime) ECHO.Slime.rareInDungeon(game, site, depth, lvl, G.rooms.filter(r => r !== G.entrance), free, tag, BASE);
       // behind the iron door: the lord, or the guards of the stair
       const fr = L.farRoom, fs = free(fr);
       if (last) {
