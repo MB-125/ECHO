@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.23.4', items: [
+      'E no longer gets stuck on "Tame … — your den is full". When there is no room to tame a beast (your den is full, or you keep all you may of its kind), its prompt never takes E from a door, a chest, a person or anything else; it only shows when there is nothing else here.',
+      'A beaten beast behind a wall or a shut door no longer offers to be tamed "from here": you have to be able to see it.',
+      'On the leash (L) with your den full, the leash spares nothing: what you strike down dies, since there is nowhere to put it. You are told once, and making room (U) brings the leash back.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.23.3', items: [
       'Fixed the freeze where the screen filled with red and the game stopped dead. A monster that had grown into a summoner (a spider empress, a broodmother, a goblin king, a bone lord, a rat king…) called up its kind, and what it called up could be born as a summoner too. They called up more the moment they appeared, so in a single frame a floor could fill with twenty thousand spiders. The red was their life bars.',
       'Now what a monster calls up is born as it is: never in a higher form, and never a summoner itself. There are never more than two dozen called-up creatures about one place, and summoning stops altogether when 160 creatures are about.',

@@ -233,11 +233,16 @@
         if (d > T.REACH || (e.x >= 9000) !== (pe.x >= 9000)) continue;
         // on a hunt (to the kill), only the one you are fighting, and not from across the field
         if (!taming && !(e.subdued > 0) && (e !== mine || d > 9)) continue;
+        // not through a wall or a shut door: what you cannot see is not yours to tame from here
+        if (d > 2.5 && ECHO.Ent && ECHO.Ent.clearLine && !ECHO.Ent.clearLine(game.world, pe.x, pe.y, e.x, e.y, 0.1)) continue;
         const nm = T.nameOf(e);
         // the one you mean: the one you are locked on, else the one nearest your cursor, else the nearest
         const lock = ECHO.PlayerCtl && ECHO.PlayerCtl.lock === e, dm = mouse ? U.dist(e.x, e.y, mouse.x, mouse.y) : d;
-        // first of all you could do here: a beaten beast is what E is for
-        out.push({ kind: 'act', label: T.pack(pl).length >= MAX_KEEP ? `Tame ${nm} — your den is full (U)` : `Tame ${nm}${d > 5 ? ' (from here)' : ''}`, d: (taming || e.subdued > 0 ? -1 : 0.12) + (lock ? 0 : 0.001 + Math.min(dm, d) * 0.001), tameEnt: e, act: () => T.begin(game, e) });
+        // first of all you could do here: a beaten beast is what E is for — unless there is no room
+        // for it (your den is full, or you keep all you may of its kind): then it never takes E from
+        // a door, a chest or anyone else; only when there is nothing else here does E say so
+        const noRoom = T.pack(pl).length >= MAX_KEEP || T.full(game, e);
+        out.push({ kind: 'act', label: T.pack(pl).length >= MAX_KEEP ? `Tame ${nm} — your den is full (U)` : T.full(game, e) ? `Tame ${nm} — you keep all you may of its kind (U)` : `Tame ${nm}${d > 5 ? ' (from here)' : ''}`, d: noRoom ? 40 + d : (taming || e.subdued > 0 ? -1 : 0.12) + (lock ? 0 : 0.001 + Math.min(dm, d) * 0.001), tameEnt: e, act: () => T.begin(game, e) });
         if (e.subdued > 0 && d < 2.5) out.push({ kind: 'act', label: `Finish ${nm}`, d: d * 0.5 + 0.01, act: () => { e.subdued = 0; e._finish = true; ECHO.Combat.kill(e, pe, 'melee', { angle: Math.atan2(e.y - pe.y, e.x - pe.x) }); } });
       }
       return out;
@@ -478,7 +483,13 @@
         if (!game.pl._breathTip) { game.pl._breathTip = true; UI().toast(`${U.cap(T.nameOf(e))} is on its last breath: it kneels for 12 seconds before it dies. Press E — from where you stand — and it is yours — or strike it again to finish it. (You are taming — L changes this: the leash spares everything you strike down; "to the kill", the usual way, lets it die.)`, 'legend', 9); }
         return true;
       }
-      if ((mode === 'leash' || held) && (byYou || !from) && !e._finish && !T.isBoss(e) && T.can(game, e)) {
+      // (on the leash with no room left to tame it, there is no sparing it for nothing: it dies)
+      const room = T.pack(game.pl).length < MAX_KEEP && !T.full(game, e);
+      if ((mode === 'leash' || held) && !room && (byYou || !from) && !e._finish && !T.isBoss(e) && T.can(game, e) && !game.pl._fullTip) {
+        game.pl._fullTip = true;
+        setTimeout(() => UI().toast('Your den is full, so the leash spares nothing now: what you strike down dies. Make room (U) to tame again.', 'warn', 7), 300);
+      }
+      if ((mode === 'leash' || held) && room && (byYou || !from) && !e._finish && !T.isBoss(e) && T.can(game, e)) {
         e.hp = Math.max(1, Math.round(e.maxHp * T.threshold(e) * 0.5)); e.subdued = 25; e.aggro = false; e.state = 'stagger'; e.burn = 0; e.venomT = 0; e.wcast = null; e._kneelAt = game.time;
         ECHO.Combat.floater(e.x, e.y - 1.8 * (e.scale || 1), 'beaten — tame it (E)', '#ffe08a', true);
         ECHO.Combat.ring(e.x, e.y, (e.r || 0.4) + 0.8, 'rgba(255,224,138,0.9)', 0.6);
