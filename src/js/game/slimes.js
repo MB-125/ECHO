@@ -72,6 +72,7 @@
       if (nx > 0.6 && e.pal && !(e._sqSaidT > game.time)) { e._sqSaidT = game.time + 25; ECHO.Combat.floater(e.x, e.y - 1.2 * (e.scale || 1), 'squeezes through', '#b8ff7a'); }
     },
     always(game, e, dt) {
+      if (!Number.isFinite(e.hp) || !Number.isFinite(e.maxHp)) { if (!Number.isFinite(e.maxHp) || e.maxHp <= 0) e.maxHp = 1000; e.hp = e.maxHp * 0.5; }   // (mended, never unkillable)
       SL.squeeze(game, e, dt);
       if (e.pal || e.dead) return;
       if (!e.home0) e.home0 = { x: e.x, y: e.y };
@@ -673,9 +674,10 @@
       e.scale = Math.min(2.6, (e.scale || 1) * 1.03);
       // a trait, once each
       const sp = p.species || (p.foe && p.foe.shape) || '', t = SL.TRAITS[sp] || (p.elem === 'fire' || (p.foe && p.foe.shape === 'drake') ? 'fire-eater' : null);
-      e.traits = e.traits || [];
-      if (t && !e.traits.includes(t)) {
-        e.traits.push(t);
+      // (its gifts: not "traits", which is the hide of an evolved beast — see Combat.damage)
+      e.gifts = e.gifts || [];
+      if (t && !e.gifts.includes(t)) {
+        e.gifts.push(t);
         e.ab = e.ab || {}; e.resist = e.resist || {};
         if (t === 'venom') e.ab.poison = { dps: 3 + Math.min(40, L1 * 0.2), dur: 5 };
         else if (t === 'a troll\'s healing') e.ab.slimeHeal = (e.ab.slimeHeal || 0.01) + 0.004;

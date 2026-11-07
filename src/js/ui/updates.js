@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.27.3', items: [
+      'Fixed: a slime whose life read NaN and could not be killed however much you struck it. When a wild slime ate another monster it noted what it had taken from it, and that note had the same name as the toughened hide of an evolved beast. Your blows (steel and fire) then read the note as a hide, came out as no number at all, and turned its life into NaN. What it eats is now kept apart, and every blow now always comes out as a real number.',
+      'A safety net besides: any creature whose life has gone bad (not a number) is mended the moment it is struck, so nothing can ever again be left unkillable.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.27.2', items: [
       'A slime you have tamed lives to grow. It no longer waits at your heel: it goes out on its own after whatever is hostile round you (up to about twenty-five paces from you, less below ground), even things that have not seen you yet, and kills them. It eats what it kills, which heals it and feeds it more than a kill alone, and what it has eaten shows inside it. So it levels up fast and, in time, takes its higher forms.',
       'When you are hemmed in (three at you, or two when you are hurt, or even one when you are near the end of your strength) it leaves its hunt and races back to fight at your side with the rest of your pack. Once you are clear for a few seconds it goes back to hunting.',

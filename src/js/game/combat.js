@@ -273,7 +273,10 @@
     damage(target, amount, src) {
       const game = G();
       const world = game.world;
-      if (target.dead || amount <= 0 || target.submerged) return 0;
+      if (target.dead || !(amount > 0) || target.submerged) return 0;
+      // (a life that has gone bad — not a number — is mended, so nothing is ever left unkillable)
+      if (!Number.isFinite(target.maxHp) || target.maxHp <= 0) target.maxHp = Number.isFinite(target.hp) && target.hp > 0 ? target.hp : 100;
+      if (!Number.isFinite(target.hp)) target.hp = target.maxHp * 0.5;
       if (target === game.pe && game.pl.flying) return 0;   // on a dragon's back, nothing on the ground can reach you
       if (target === game.pe && (game.defeating || game.pl.capture)) return 0;
       if (target.iframes > 0) { if (target === game.pe) { C.floater(target.x, target.y - 0.8, 'dodged', '#9fd3ff'); if (src.from && src.from !== game.pe) ECHO.Tech.onDodgedHit(game); } return 0; }
@@ -344,10 +347,10 @@
         if (target.gear.fireward) dmg *= 0.35;
         if (target === game.pe && game.pl.wetT > 0) dmg *= 0.7; // soaked through
         if (target._inWater) dmg *= 0.75;
-        if (target.traits) dmg *= 1 - target.traits.fireRes;
+        if (target.traits) dmg *= 1 - (target.traits.fireRes || 0);
       }
-      if (type === 'melee' && target.traits) dmg *= 1 - target.traits.hide * 0.7;
-      if (type === 'ranged' && target.traits && Math.random() < target.traits.speed * 0.6) { C.floater(target.x, target.y - 0.7, 'evaded', '#cfcfcf'); return 0; }
+      if (type === 'melee' && target.traits) dmg *= 1 - (target.traits.hide || 0) * 0.7;
+      if (type === 'ranged' && target.traits && Math.random() < (target.traits.speed || 0) * 0.6) { C.floater(target.x, target.y - 0.7, 'evaded', '#cfcfcf'); return 0; }
       if (type === 'ranged' && target.mutation === 'mirrorback' && Math.random() < 0.5) { C.floater(target.x, target.y - 0.7, 'glanced off', '#dfe8ff'); return 0; }
       // Boss armor adapted to how it was hurt before
       if (target.type === 'boss') {
@@ -378,6 +381,7 @@
       if (target === game.pe && from !== game.pe && game.pl.mounted && ECHO.Life) dmg = ECHO.Life.hitInSaddle(game, from, dmg);
       if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken() * (ECHO.Gear && !src.pure ? ECHO.Gear.taken(world, game.pl, type) : 1) * (ECHO.Companions ? ECHO.Companions.shield(game) : 1);
       if (target === game.pe && from && from !== game.pe && ECHO.Director && ECHO.Director.mercy(game)) dmg *= 0.82;
+      if (!Number.isFinite(dmg)) dmg = amount;   // (never a blow that is not a number)
       dmg = Math.max(1, Math.round(dmg));
       // Your own fire can hurt you badly, but never below 15% of your life.
       if (target === game.pe && (from === game.pe || (!from && type !== 'drown'))) { const floor = Math.max(1, target.maxHp * 0.15); if (target.hp - dmg < floor) dmg = Math.max(0, Math.floor(target.hp - floor)); }

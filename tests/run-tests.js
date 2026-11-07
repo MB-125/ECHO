@@ -1131,6 +1131,17 @@ function main() {
     const loot = [{ x: 5, y: 5, kind: 'gold', qty: 9 }, { x: 5.3, y: 5.2, kind: 'bonedust', qty: 2 }, { x: 4.8, y: 5.1, kind: 'gel', qty: 1 }, { x: 5.1, y: 4.9, kind: 'item', itemId: 's' }, { x: 5.2, y: 5.4, kind: 'rattail', qty: 3 }, { x: 9, y: 5, kind: 'gold', qty: 1 }];
     const L = E.Progress.lootLabels({ pe: { x: 5, y: 6 }, world, loot });
     check('spoils lying together make one list: the best thing first, the rest summed up, and a heap apart labelled apart', L.length === 4 && L[0].text.startsWith('Fine sword') && L[0].line === 0 && /and 3 more/.test(L[2].text) && L[3].text === '1 crown');
+    // a life is always a number: a body carrying a list where the hide of an evolved beast is looked for
+    // (a slime that had eaten, before 0.27.3) takes a real blow, and one whose life went bad is mended and can die
+    E.Game = { world: { items: {} }, pe: { type: 'player' }, pl: {}, time: 0, hitStop() {}, punch() {}, shake() {}, light() {} };
+    const atk = { type: 'creature', x: 0, y: 0, dir: 0 };
+    const sl = { type: 'creature', species: 'slime', foe: { slimeK: true }, x: 1, y: 0, dir: Math.PI, hp: 1000, maxHp: 1000, gear: {}, traits: ['bone', 'venom'] };
+    let n1, n2;
+    try { C.damage(sl, 100, { type: 'melee', from: atk, angle: 0 }); n1 = sl.hp; C.damage(sl, 100, { type: 'fire', from: atk, angle: 0 }); n2 = sl.hp; } catch (err) { n1 = 'threw: ' + err.message; }
+    check('a blow on a body with no hide to read is still a number, and lands', Number.isFinite(n1) && n1 < 1000 && Number.isFinite(n2) && n2 < n1, `${n1} → ${n2}`);
+    const bad = { type: 'creature', species: 'slime', foe: { slimeK: true }, x: 1, y: 0, dir: Math.PI, hp: NaN, maxHp: 800, gear: {} };
+    try { C.damage(bad, 100, { type: 'melee', from: atk, angle: 0 }); } catch (err) { bad.err = err.message; }
+    check('a life gone bad (not a number) is mended when struck, so it can be killed', Number.isFinite(bad.hp) && bad.hp < 800, `${bad.hp} ${bad.err || ''}`);
   }
 
   console.log('\nThe round world');
@@ -1690,7 +1701,7 @@ function main() {
     check('it hunts down the other things of the place to eat', SL.preyNear(game, g0, 6) === troll && SL.preyNear(game, g0, 6) !== pe);
     SL.startDevour(game, g0, troll); for (let k = 0; k < 40 && g0.state === 'devour'; k++) SL.devour(game, g0, 0.05);
     check('what it eats makes it stronger: a level or more, more life, a harder blow, bigger', troll.dead && g0.absorbed === 1 && g0.lvl > 40 && g0.maxHp > 10000 && g0.dmgMul > 2 && g0.scale > 1.15, `level ${g0.lvl}, life ${g0.maxHp}`);
-    check('…and it takes something of what it ate (a troll: its healing)', (g0.traits || []).includes('a troll\'s healing') && g0.ab.slimeHeal > 0.006);
+    check('…and it takes something of what it ate (a troll: its healing)', (g0.gifts || []).includes('a troll\'s healing') && g0.ab.slimeHeal > 0.006);
     // a slime of yours fights your way, not its own
     check('a slime you have tamed fights as your beast (its own ways are for the wild ones)', SL.tick(game, mk({ pal: true }), 0.05, 2, 0) === false && SL.always(game, mk({ pal: true }), 0.05) === undefined);
     E.Combat = C0; E.Ent = Ent0; E.Monsters = M0; E.UI = UI0; if (E.Evolve) E.Evolve.check = Ev0;
