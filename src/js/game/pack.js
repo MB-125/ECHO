@@ -11,7 +11,12 @@
 //  · COVER — when you are badly hurt the toughest beast stands at your side and
 //    takes part of every blow meant for you;
 //  · RETREAT — a beast near the end of its strength falls back behind you to
-//    lick its wounds while the others hold the line.
+//    lick its wounds while the others hold the line;
+//  · THE LEAD — below ground (dungeons, crypts, caves, mines, the worlds beyond
+//    the gates) a slime of yours goes first: it walks ahead of you, falls on
+//    whatever it sees before that reaches you, and the pack follows it in. A
+//    slime is no keeper of distance: it leaps on what it hunts and spits acid as
+//    it closes.
 //
 // And each uses everything it has: what it was born with (venom, webs, charges,
 // slams, bolts, breath, blinks, healing, the howl of a pack, the drain of the
@@ -61,8 +66,20 @@
         howl: !!(ab.pack || sp === 'wolf' || e.shape === 'hound'), regen: !!ab.regen, frenzy: !!ab.frenzy,
         big: e.type === 'boss' || !!e.pal && (e.pal.lord || e.pal.cat === 'boss') || (e.scale || 1) >= 1.5
       };
+      // a slime: it closes and swallows; its acid is for what runs, not a reason to hang back
+      if (e.foe && e.foe.slimeK) Object.assign(k, { ranged: false, bolt: null, spit: ab.bolt || { color: '#8fe05a' }, leap: true, charge: false, slam: true, drain: true, lead: true });
       e._kit = k;
       return k;
+    },
+
+    // below ground, where the way is narrow and what waits in it waits in the dark
+    below() { const L = ECHO.Interior && ECHO.Interior.cur; return !!(L && (L.carved || L.type === 'gate')); },
+    // the one that goes first: the strongest slime of yours with you (not one nearly spent)
+    leader(game, pals) {
+      if (!P.below()) return null;
+      let best = null;
+      for (const p of pals || P.pals(game)) if (P.kit(p).lead && p.hp > p.maxHp * 0.3 && (!best || (p.lvl || 0) > (best.lvl || 0))) best = p;
+      return best;
     },
 
     // ------------------------------------------------------------ the plan
@@ -75,6 +92,7 @@
       const lock = ECHO.PlayerCtl && ECHO.PlayerCtl.lock;
       const struck = game.lastStruck && game.time - (game.lastStruckT || -99) < 5 ? game.lastStruck : null;
       const foes = [], now = game.time, fighting = game.combatT != null && now - game.combatT < 6;
+      const lead = P.leader(game, pals);
       const AGG = new Set(['fight', 'chase', 'windup', 'attack', 'lunge', 'charge', 'cast', 'hunt', 'stalk', 'strike', 'aim', 'draw']);
       for (const o of game.ents) {
         if (!P.hostile(game, o)) continue;
@@ -84,13 +102,22 @@
         const hitMe = o._hitPlT != null && now - o._hitPlT < 8, hitUs = o._hitPalT != null && now - o._hitPalT < 8;
         const onUs = o.target === pe || !!(o.target && (o.target.pal || o.target.isCompanion));
         const angry = !!o.aggro || AGG.has(o.state);
-        if (!(hitMe || hitUs || o === lock || o === struck || (dp < 16 && (onUs || angry && (fighting || dp < 10))) || dp < 7)) continue;
+        // (and what the one ahead of you sees: it does not wait for it to come)
+        const seen = !!lead && dp < 20 && U.dist(o.x, o.y, lead.x, lead.y) < 10 && ECHO.Ent.lineOfSight(game.world, lead.x, lead.y, o.x, o.y);
+        if (!(hitMe || hitUs || o === lock || o === struck || seen || (dp < 16 && (onUs || angry && (fighting || dp < 10))) || dp < 7)) continue;
         const ab = (o.foe && o.foe.ab) || {};
         foes.push({ o, dp, onUs, hitMe, hitUs, shoots: !!(ab.ranged || ab.bolt || o.archer || o.ranged || (o.role && /archer|crossbow/.test(o.role))) });
       }
       if (!foes.length) { P.plan = null; return; }
-      // the focus: yours first
+      // the focus: yours first; else what the one ahead of you has gone for (the pack follows it in)
       let focus = lock && foes.find(f => f.o === lock) ? lock : struck && foes.find(f => f.o === struck) ? struck : null;
+      let leadOn = null;
+      if (lead) {
+        let bd = 14;
+        for (const f of foes) { const d = U.dist(f.o.x, f.o.y, lead.x, lead.y); if (d < bd) { bd = d; leadOn = f.o; } }
+        if (focus && U.dist(focus.x, focus.y, lead.x, lead.y) < 14) leadOn = focus;
+        if (!focus && leadOn) focus = leadOn;
+      }
       if (!focus) {
         let bs = Infinity;
         for (const f of foes) { const s = f.dp - (f.hitMe ? 6 : 0) - (f.o.target === pe ? 4 : 0) - (P.busy(f.o) && f.o.target === pe ? 3 : 0); if (s < bs) { bs = s; focus = f.o; } }
@@ -104,6 +131,8 @@
       }
       // the spent fall back
       if (pals.length >= 2) for (const p of [...free]) if (p.hp < p.maxHp * 0.25 && !p._retreatDone) { role.set(p, { kind: 'retreat' }); free.delete(p); }
+      // the lead: first in, on what it found
+      if (lead && leadOn && free.has(lead)) { role.set(lead, { kind: 'focus', target: leadOn, lead: true }); free.delete(lead); }
       // guards: what else is at your throat
       const threats = foes.filter(f => f.o !== focus && f.dp < 4.5 && (f.o.target === pe || P.busy(f.o))).sort((a, b) => a.dp - b.dp);
       for (const t of threats) {
@@ -141,7 +170,8 @@
         const key = R.kind + (R.target ? ':' + (R.target.id || R.target.label || R.target.species) : '');
         if (p._roleKey === key) continue;
         p._roleKey = key;
-        if (R.hunt) P.say(p, 'hunts the shooter', '#ffc87a');
+        if (R.lead) { if (!(p._leadSaidT > game.time)) { p._leadSaidT = game.time + 6; P.say(p, 'leads the attack', '#b8ff7a'); } }
+        else if (R.hunt) P.say(p, 'hunts the shooter', '#ffc87a');
         else if (R.kind === 'guard' && !R.self) P.say(p, 'guards you', '#ffe08a');
         else if (R.kind === 'focus' && R.target === lock && p._lastFocus !== lock) P.say(p, 'on your mark', '#ffa05a');
         if (R.kind === 'focus') p._lastFocus = R.target;
@@ -187,10 +217,18 @@
       // a dash under way
       if (e._dash) {
         const D = e._dash; D.t -= dt;
+        if (D.leap) e._leapK = U.clamp(1 - D.t / D.t0, 0.01, 0.99);
         { const v = ECHO.Ent.slideBodies(e, Math.cos(D.ang) * D.spd * dt, Math.sin(D.ang) * D.spd * dt); ECHO.Ent.move(world, e, v.x, v.y); }
         if (Math.random() < dt * 30) C().fx.push({ kind: 'p', x: e.x, y: e.y - 0.3, vx: 0, vy: 0, t: 0, life: 0.3, color: '#ffe08a', size: 2 });
         if (D.t <= 0 || (D.o && U.dist(e.x, e.y, D.o.x, D.o.y) < (D.o.r || 0.4) + (e.r || 0.4) + 0.6)) {
           e._dash = null;
+          if (D.leap) {
+            // down on it, and a splash of acid round where it lands
+            e._leapK = 0;
+            const R0 = 1.3 + 0.35 * (e.scale || 1);
+            C().ring(e.x, e.y, R0, 'rgba(160,255,120,0.85)', 0.45); C().burst(e.x, e.y, '#8fe05a', 18, 4, 0.6, 3); game.shake(0.1);
+            for (const f of (P.plan ? P.plan.foes : [])) if (f.o !== D.o && !f.o.dead && U.dist(f.o.x, f.o.y, e.x, e.y) < R0 + (f.o.r || 0.4)) P.hit(game, e, f.o, 0.8, { type: 'magic', knock: 0.4 });
+          }
           if (D.o && U.dist(e.x, e.y, D.o.x, D.o.y) < (D.o.r || 0.4) + (e.r || 0.4) + 1.4) { P.hit(game, e, D.o, D.mul, { knock: 0.7, stagger: D.stagger || 0.4, heavy: true }); C().burst(D.o.x, D.o.y, '#ffe08a', 10, 3, 0.4, 2); }
         }
         e.moving = true; e.state = 'chase';
@@ -337,6 +375,17 @@
         use('blink', 6);
         const fa = Math.atan2(o.y - pe.y, o.x - pe.x), sp = ECHO.Ent.freeSpot(world, o.x + Math.cos(fa) * 1.1, o.y + Math.sin(fa) * 1.1, 2);
         if (sp) { C().burst(e.x, e.y, '#c8a8ff', 10, 2, 0.4, 2); e.x = sp.x; e.y = sp.y; C().burst(e.x, e.y, '#c8a8ff', 10, 2, 0.4, 2); P.hit(game, e, o, 1.5, { stagger: 0.4 }); return true; }
+      }
+      // a slime: acid at what is still far off (it keeps coming as it spits), then the leap
+      if (K.spit && ready('spit') && d > 3.5 && d < 10) {
+        use('spit', 3.2);
+        C().shoot(e, ang, { kind: 'orb', speed: 12, dmg: e.palDmg * 1.1 * P.mul(game, e, o), life: 1.2, type: 'magic', color: K.spit.color || '#8fe05a' });
+      }
+      if (K.leap && ready('leap') && d > 2.4 && d < 9 && ECHO.Ent.lineOfSight(world, e.x, e.y, o.x, o.y)) {
+        use('leap', 4.5);
+        const t0 = Math.min(0.55, 0.3 + d / 30);
+        e._dash = { t: t0, t0, ang, spd: Math.max(6, (d - P.reach(e, o) * 0.6) / t0), o, mul: 1.8, stagger: 0.6, leap: true };
+        return true;
       }
       if (K.charge && ready('charge') && d > 3 && d < 10) {
         use('charge', 7);

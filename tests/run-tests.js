@@ -1695,6 +1695,60 @@ function main() {
     check('a slime you have tamed fights as your beast (its own ways are for the wild ones)', SL.tick(game, mk({ pal: true }), 0.05, 2, 0) === false && SL.always(game, mk({ pal: true }), 0.05) === undefined);
     E.Combat = C0; E.Ent = Ent0; E.Monsters = M0; E.UI = UI0; if (E.Evolve) E.Evolve.check = Ev0;
   }
+  console.log('\nA slime squeezes through, and below ground it leads');
+  {
+    const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite, Uint8Array, Int32Array, Float32Array, Float64Array };
+    ctx.globalThis = ctx; vm.createContext(ctx);
+    for (const f of ['core.js', 'world/worldgen.js', 'sim/gear.js', 'sim/prowess.js', 'game/entities.js', 'game/slimes.js', 'game/tame.js', 'game/pack.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx, { filename: f });
+    const E = ctx.ECHO, SL = E.Slime, T = E.Tame, P = E.Pack, Ent = E.Ent;
+    // a floor below: a room, a passage one pace wide, a room
+    const B = 9000, W = 22, H = 9, blocked = new Uint8Array(W * H).fill(1);
+    const open = (x0, y0, x1, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) blocked[y * W + x] = 0; };
+    open(1, 1, 6, 7); open(7, 4, 13, 4); open(14, 1, 20, 7);
+    E.Interior = { BASE: B, cur: { carved: true, type: 'delve', site: { kind: 'cave' }, W, H, blocked }, isSolid(x, y) { const c = this.cur; if (!c) return true; const lx = Math.floor(x - B), ly = Math.floor(y); return lx < 0 || ly < 0 || lx >= c.W || ly >= c.H || c.blocked[ly * c.W + lx] === 1; }, tile() { return E.TILE.FLOOR || E.TILE.GRASS; } };
+    E.Explore = { small: s => ['cave', 'hideout', 'grot'].includes(s.kind) };
+    E.Combat = { fx: [], floater() {}, ring() {}, burst() {}, shoot() {}, slash() {}, damage(o, d) { o.hp -= d; return d; } };
+    E.UI = { toast() {} }; E.PlayerCtl = { lock: null };
+    const world = { W: 200, H: 150, seed: 1, tiles: new Uint8Array(200 * 150), blocked: new Uint8Array(200 * 150) };
+    const pe = { type: 'player', x: B + 3.5, y: 4.5, r: 0.33, dir: 0, hp: 100, maxHp: 100 };
+    const game = { world, time: 0, pe, pl: { pack: [], prowess: { lv: 50 }, hp: 100, maxHp: 100, _leadTip: true }, ents: [], combatT: null, light() {}, shake() {}, hostileTo: (a, b) => (a === pe || a.pal) !== (b === pe || !!b.pal) };
+    const walk = (e, tx, ty, secs, sq) => { let minR = e.r; for (let t = 0; t < secs; t += 0.05) { game.time += 0.05; if (sq) SL.squeeze(game, e, 0.05); Ent.travel(world, e, tx, ty, e.speed, 0.05); minR = Math.min(minR, e.r); } return minR; };
+    const big = () => ({ type: 'creature', species: 'slime', foe: { slimeK: true, reach: 1.5, name: 'Slime' }, x: B + 5.2, y: 4.5, r: 0.6, scale: 2, speed: 4.5, dir: 0, hp: 100, maxHp: 100 });
+    const ogre = { ...big(), species: 'ogre', foe: { reach: 1.5, name: 'Ogre' } };
+    walk(ogre, B + 17.5, 4.5, 8, false);
+    check('a body as wide as a great slime cannot pass a passage one pace wide', ogre.x < B + 7.6, `stopped at ${(ogre.x - B).toFixed(1)}`);
+    const s = big(), minR = walk(s, B + 17.5, 4.5, 8, true);
+    check('a slime pours itself thin and goes through', s.x > B + 14 && minR < 0.3, `reached ${(s.x - B).toFixed(1)}, as thin as r ${minR.toFixed(2)}`);
+    for (let t = 0; t < 2; t += 0.05) { game.time += 0.05; s.moving = false; SL.squeeze(game, s, 0.05); }
+    check('…and fills out again where there is room', Math.abs(s.r - 0.6) < 1e-6 && !(s._sq > 0.01));
+    check('…and while it is thin it takes little room among other bodies', (() => { const o = big(); o._sq = 1; o.r = 0.22; return Ent.bodyR(o) < 0.35; })());
+    // in anywhere, and in the way of nobody of yours
+    const rec = { kind: 'slime', scale: 2.5, cat: 'foe' }, cave = E.Interior.cur;
+    check('however big it has grown, a slime of yours gets in anywhere (a cave lets in only the small)', T.sizeOf(rec) === 'huge' && T.fits(rec, cave) && !T.fits({ kind: 'troll', scale: 1.6, cat: 'foe' }, cave));
+    const mine = { ...big(), pal: { name: 'Glub', lvl: 40 }, tamed: true, lvl: 40 };
+    check('a slime of yours flows round you and your pack; a wild one does not', Ent.flows(mine, pe) && Ent.flows(mine, { pal: {} }) && !Ent.flows(big(), pe));
+    // it fights up close, and goes first below ground
+    const K = P.kit(mine);
+    check('a slime of yours is no keeper of distance: it leaps in and spits acid as it closes', !K.ranged && K.leap && K.spit && K.lead);
+    const wolf = { type: 'creature', species: 'wolf', foe: { name: 'Wolf', reach: 1.1 }, pal: { name: 'Fang', lvl: 60 }, tamed: true, lvl: 60, x: B + 2.5, y: 4.5, r: 0.4, hp: 100, maxHp: 100 };
+    mine.x = B + 2.5; mine.y = 3.5; mine.r = 0.6; mine._sq = 0;
+    game.ents = [pe, mine, wolf];
+    check('below ground your slime leads (even with a stronger beast along); under the sky it does not', P.leader(game) === mine && (() => { const c = E.Interior.cur; E.Interior.cur = null; const r = P.leader(game); E.Interior.cur = c; return r === null; })());
+    // ahead of you, along the way you go, never through a wall
+    T._head = null; pe.x = B + 2.5; pe.y = 4.5; T.heading(game); pe.x = B + 3.5; T.heading(game);
+    const g = T.leadSpot(game, mine);
+    check('with nothing to fight it walks a few paces ahead of you, the way you are going', g.x > pe.x + 1.5 && Math.abs(g.y - pe.y) < 0.01 && g.x < B + 7.9, `${(g.x - B).toFixed(1)},${g.y.toFixed(1)} (you at ${(pe.x - B).toFixed(1)})`);
+    pe.x = B + 5.5; pe.y = 2.5; T._head = { x: pe.x, y: pe.y, a: 0 }; const g2 = T.leadSpot(game, mine);
+    check('…but never past a wall', g2.x < B + 7 && g2.x > pe.x && !E.Interior.isSolid(g2.x, g2.y), `${(g2.x - B).toFixed(1)}`);
+    // and it does not wait for what it sees to come
+    const skel = { type: 'creature', species: 'skeleton', foe: { name: 'Skeleton', reach: 1.2 }, x: B + 16.5, y: 4.5, r: 0.36, hp: 50, maxHp: 50, state: 'idle', aggro: false };
+    pe.x = B + 4.5; pe.y = 4.5; mine.x = B + 8.5; mine.y = 4.5; wolf.x = B + 3.5; wolf.y = 5.5;
+    game.ents = [pe, mine, wolf, skel]; P.reset(); P.tick(game, 0.05);
+    const R = P.plan && P.plan.role.get(mine);
+    check('what it sees ahead, it goes for first — before that has even seen you — and the pack follows it in', !!R && R.lead && R.target === skel && P.plan.focus === skel && P.plan.role.get(wolf).target === skel);
+    skel.x = B + 18.5; mine.x = B + 3; P.reset(); P.tick(game, 0.05);
+    check('…what it cannot see, and nothing comes at you, the pack leaves be', !P.plan);
+  }
   console.log('\nFixed danger, more realms, real diplomacy');
   {
     const E = ECHO, Dg = E.Danger, Rs = E.Realms, Pw = E.Powers, P = E.People;

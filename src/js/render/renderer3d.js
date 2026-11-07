@@ -3056,12 +3056,13 @@
       Object.assign(parts, { gel: body, glint, wet, base, heart, nuc, halo, pupil, veins, bubbles, debris, shine, gelM: gel, heartM, nucM, col: c });
     },
     animateSlime(game, e, v, dt) {
-      const P = v.inst.parts, T = R.time, mv = v.mv || 0, s = v.sl || (v.sl = { sq: 0, sqV: 0, wob: 0, pud: e.puddle ? 1 : 0, pod: 0, eng: 0, hp: e.hp, look: 0 });
+      const P = v.inst.parts, T = R.time, mv = v.mv || 0, s = v.sl || (v.sl = { sq: 0, sqV: 0, wob: 0, pud: e.puddle ? 1 : 0, pod: 0, eng: 0, hp: e.hp, look: 0, thin: 0 });
       // what it is doing, eased
       const want = (k, x, rate) => { s[k] += (x - s[k]) * Math.min(1, dt * rate); };
       want('pud', e.puddle && !e.dead ? 1 : 0, 2.5);
       want('pod', e.state === 'windup' || e.state === 'attack' ? 1 : e.state === 'vwind' ? 0.45 : 0, 12);
       want('eng', e.state === 'engulf' ? 1 : 0, 6);
+      want('thin', e._sq || 0, 9);   // (poured thin through a gap: long and narrow, a little taller)
       const crouch = e.state === 'pwind' ? Math.min(1, e.t / Math.max(0.05, e.windEnd || 0.4)) : 0;
       const lk = e._leapK || 0, air = lk > 0 && lk < 1 ? Math.sin(lk * Math.PI) : 0;
       // a spring under it: the surge, the crouch, the landing
@@ -3073,7 +3074,7 @@
       // struck: it quivers
       if (e.hp < s.hp - e.maxHp * 0.002) s.wob = Math.min(1.2, s.wob + 0.6);
       s.hp = e.hp; s.wob = Math.max(0, s.wob - dt * 1.6);
-      const wob = s.wob, pud = s.pud, eng = s.eng, sq = s.sq;
+      const wob = s.wob, pud = s.pud, eng = s.eng, sq = s.sq, thin = s.thin, tz = 1 - 0.58 * thin, tx = 1 + 0.75 * thin, ty = 1 + 0.18 * thin;
       const sy = (0.9 + sq) * (1 - 0.75 * pud) * (1 + 0.28 * eng), spread = (1 - sq * 0.6) * (1 + 0.45 * pud) * (1 + 0.22 * eng);
       const stretch = 1 + 0.16 * surge * mv + 0.25 * air;
       const ph = v.bob || 0, pod = s.pod;
@@ -3088,15 +3089,15 @@
         let x = ux * r * spread, z = uz * r * spread, y = uy * r * sy;
         // its weight: the foot spreads wide and flat on the ground
         if (uy < 0) { const f = 1 + 0.22 * (-uy) * (1 + pud); x *= f; z *= f; y *= 0.55; }
-        x *= stretch;
-        y += 0.5 * sy * 0.55;
+        x *= stretch * tx; z *= tz;
+        y = (y + 0.5 * sy * 0.55) * ty;
         pos.setXYZ(i, x, Math.max(0.005, y), z);
       }
       pos.needsUpdate = true;
       P.gel.geometry.computeVertexNormals();
       P.gel.geometry.computeBoundingSphere();
-      const top = 0.5 * sy * 1.55, mid = top * 0.48;
-      P.heart.position.set(0.02, mid * 0.9, 0); P.heart.scale.set(spread * stretch * 0.95, sy * 1.3, spread * 0.95);
+      const top = 0.5 * sy * 1.55 * ty, mid = top * 0.48;
+      P.heart.position.set(0.02, mid * 0.9, 0); P.heart.scale.set(spread * stretch * tx * 0.95, sy * 1.3 * ty, spread * tz * 0.95);
       // the nucleus: it watches what it hunts (glancing about when it hunts nothing), and pulses as it thinks
       const thinking = e.state === 'pwind' || e.state === 'vwind' || (e.watchUntil && !e.watched) ? 1 : 0;
       const pulse = 1 + 0.12 * Math.sin(T * (thinking ? 14 : 3.2) + ph) + 0.25 * thinking;
@@ -3109,19 +3110,19 @@
       // bubbles: up through it, and round again
       for (const b of P.bubbles) {
         const u = b.userData, k = (u.ph + T * u.sp) % 1;
-        b.position.set(Math.cos(u.a + T * 0.3) * u.r * spread, 0.06 + k * top * 0.85, Math.sin(u.a + T * 0.3) * u.r * spread);
+        b.position.set(Math.cos(u.a + T * 0.3) * u.r * spread * tx, 0.06 + k * top * 0.85, Math.sin(u.a + T * 0.3) * u.r * spread * tz);
         b.visible = pud < 0.6;
       }
       // what it has eaten, turning slowly as it dissolves
       const eaten = Math.min(P.debris.length, e.absorbed || 0);
-      P.debris.forEach((d, k) => { d.visible = k < eaten && pud < 0.6; if (!d.visible) return; const u = d.userData; d.position.set(Math.cos(u.a + T * 0.15) * u.r * spread, u.y * sy / 0.68, Math.sin(u.a + T * 0.15) * u.r * spread); d.rotation.set(T * u.s, T * u.s * 0.7, k); });
+      P.debris.forEach((d, k) => { d.visible = k < eaten && pud < 0.6; if (!d.visible) return; const u = d.userData; d.position.set(Math.cos(u.a + T * 0.15) * u.r * spread * tx, u.y * sy / 0.68, Math.sin(u.a + T * 0.15) * u.r * spread * tz); d.rotation.set(T * u.s, T * u.s * 0.7, k); });
       P.shine.position.set(-0.08 * spread, top * 0.97, 0.1 * spread); P.shine.visible = pud < 0.8;
       P.glint.position.set(0.1 * spread * stretch, top * 0.86, 0.2 * spread); P.glint.visible = pud < 0.8;
       // (the wet ground stays put as it leaps; it is wider as it pools)
-      P.wet.position.y = 0.012 - air * (1.1 + 0.35 * (e.scale || 1)) / Math.max(0.3, e.scale || 1); P.wet.scale.setScalar(spread * stretch * (1 + 0.3 * pud));
+      P.wet.position.y = 0.012 - air * (1.1 + 0.35 * (e.scale || 1)) / Math.max(0.3, e.scale || 1); P.wet.scale.set(spread * stretch * tx * (1 + 0.3 * pud), spread * tz * (1 + 0.3 * pud), 1);
       // its colour: its form's (and fire on it, the flash of a blow, the tell of what it means to do)
       const m = P.gelM, burn = e.burn > 0;
-      m.opacity = (0.84 - 0.22 * pud + 0.06 * eng) * (v.faded ? 0.5 : 1);
+      m.opacity = (0.9 - 0.22 * pud + 0.06 * eng) * (v.faded ? 0.5 : 1);
       P.heartM.opacity = (0.62 - 0.32 * pud) * (v.faded ? 0.5 : 1);
       // (what it means to do shows as a green flicker through it: the crouch, the acid, the strike)
       const tell = e.state === 'windup' || e.state === 'pwind' || e.state === 'vwind';

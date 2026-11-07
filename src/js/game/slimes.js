@@ -44,7 +44,35 @@
     apexLv(game, L) { const pl = game.pl, me = pl && ECHO.Prowess ? ECHO.Prowess.level(pl) : 1; return Math.min(ECHO.Prowess.MAX || 1500, Math.max(L, Math.round(me * 1.04 + 3))); },
 
     // ------------------------------------------------------------ always, in or out of a fight
+    // ---- it changes its size to get through: a slime pours itself thin through a gap, a door or a
+    // narrow way that its body could never pass, and fills out again on the other side.
+    // e._sq: 0 its full size … 1 as thin as it goes; e._r0 its own size; e.r the room it takes now.
+    SQ_R: 0.22,
+    squeeze(game, e, dt) {
+      const world = game.world, Ent = ECHO.Ent;
+      if (e.dead || !Ent || !Ent.blockedAt) return;
+      if (!(e._sq > 0.01)) e._r0 = e.r || 0.4;            // (its own size, while it is at it: it may grow)
+      const r0 = e._r0, rMin = Math.min(r0, SL.SQ_R);
+      if (r0 <= rMin + 0.02) { e._sq = 0; return; }
+      const at = (x, y, r) => { const r1 = e.r; e.r = r; const b = Ent.blockedAt(world, e, x, y); e.r = r1; return b; };
+      if ((e._sqT = (e._sqT || 0) - dt) <= 0) {
+        e._sqT = 0.12;
+        const a = e.dir || 0, ca = Math.cos(a), sa = Math.sin(a);
+        // no room for all of it where it is, or the way it is going narrows: thin
+        let tight = at(e.x, e.y, r0);
+        if (!tight && (e.moving || (e.stuck || 0) > 0.2)) for (let t = 0.3; t <= 1.5 && !tight; t += 0.3) tight = at(e.x + ca * t, e.y + sa * t, r0) && !at(e.x + ca * t, e.y + sa * t, rMin);
+        e._sqWant = tight || (e.stuck || 0) > 0.5 ? 1 : 0;
+      }
+      const want = e._sqWant || 0, cur = e._sq || 0;
+      let nx = want > cur ? Math.min(want, cur + dt * 4) : Math.max(want, cur - dt * 1.6);
+      let r = r0 + (rMin - r0) * nx;
+      // filling out again only where there is room for it
+      if (r > e.r + 1e-4 && at(e.x, e.y, r)) { nx = cur; r = e.r; }
+      e._sq = nx; e.r = r;
+      if (nx > 0.6 && e.pal && !(e._sqSaidT > game.time)) { e._sqSaidT = game.time + 25; ECHO.Combat.floater(e.x, e.y - 1.2 * (e.scale || 1), 'squeezes through', '#b8ff7a'); }
+    },
     always(game, e, dt) {
+      SL.squeeze(game, e, dt);
       if (e.pal || e.dead) return;
       if (!e.home0) e.home0 = { x: e.x, y: e.y };
       const ab = e.ab || {};

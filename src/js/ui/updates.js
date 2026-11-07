@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.27.1', items: [
+      'A slime changes its size to get through. It pours itself thin through any gap, door or passage its body could never pass, and fills out again on the other side. A wild one comes after you through the narrowest ways, and one of yours is never too big for any place below ground, a cave or a grot included, however big it has grown.',
+      'Below ground (dungeons, crypts, caves, mines and the worlds beyond the gates) a slime of yours goes first. It walks a few paces ahead of you the way you are going, falls on whatever it sees before that reaches you, and the rest of your pack follows it in. If a wall is right before you, it waits at your side.',
+      'A slime of yours fights up close everywhere now. It leaps on what it hunts, splashing acid round where it lands, and spits acid at what is still far off as it closes, instead of hanging back behind you to shoot. It flows round you and the rest of your pack, so it never blocks your way in a narrow passage.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.27.0', items: [
       'Slimes are the apex of the world now: the strongest and the cleverest thing that lives. Level for level a slime has more life than a titan, hits harder than any great boss and shrugs off half of every blade, arrow and spell. It heals as you cut it and drinks your mana with its blows. One is always born a little above you, however strong you are.',
       'It is fast and it hunts. It moves in surges, each one faster than you can run, and notices you from nearly twice as far as other monsters. From up to eight paces it crouches and leaps: a green mark shows where it will land, and it aims where you are going, not where you are. Landing on you, it swallows you whole. Inside it you are held while acid eats you and it drinks your mana; strike it from inside and it spits you out sooner.',

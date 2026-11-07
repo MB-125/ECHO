@@ -243,7 +243,8 @@
       return M;
     },
     pathCost(world, e, avoid) {
-      const r = U.clamp((e.r || 0.34) * 0.85, 0.22, 0.6), W = world.W || 200;
+      // (a slime plans as thin as it can pour itself: it squeezes through what it finds)
+      const r = e.foe && e.foe.slimeK ? 0.2 : U.clamp((e.r || 0.34) * 0.85, 0.22, 0.6), W = world.W || 200;
       const fitsAt = (x, y) => !ECHO.World.isSolid(world, x, y) && Ent.fits(world, x, y, r);
       const memo = Ent.spotMemo(world, Math.round(r * 40) / 40), spots = memo.spot, edges = memo.edge;
       // somewhere on this tile a body this size can stand (the middle, or past a trunk to one side)
@@ -448,6 +449,7 @@
     // How much room a body takes among other bodies: what it looks like, not the narrow
     // circle it threads between trees with (a great ogre is as wide as it is drawn).
     bodyR(e) {
+      if (e._sq > 0.02) return Math.max(e.r || 0.2, 0.34 * (e.scale || 1) * (1 - 0.7 * e._sq));   // (a slime poured thin takes little room)
       if (e._bodyR != null && e._bodyRS === e.scale) return e._bodyR;
       let r = e.r || 0.33;
       if (e.titan && ECHO.Apex && ECHO.Apex.bodyR) r = Math.max(r, ECHO.Apex.bodyR(e) * 0.8);
@@ -456,6 +458,11 @@
       return r;
     },
     pathBudget: 3,
+    // a slime of yours flows round you and round the rest of your pack: it never blocks the way, nor they it
+    flows(a, b) {
+      const s = o => o.pal && o.foe && o.foe.slimeK;
+      return (s(a) && (b.type === 'player' || b.pal)) || (s(b) && (a.type === 'player' || a.pal));
+    },
     separate(ents, dt) {
       // Bodies do not pass through one another: each pushes the other out of the room it takes,
       // the bigger shoving the smaller.
@@ -468,6 +475,7 @@
           const b = ents[j];
           if (b.dead || b.hidden || b.ghost || b.seated || b.burrowed || (b.sleeping && b.indoor)) continue;
           if ((a.alt || 0) > 1 || (b.alt || 0) > 1) continue;
+          if ((a.pal || b.pal) && Ent.flows(a, b)) continue;
           const rb = Ent.bodyR(b), reach = ra + rb;
           const dx = b.x - a.x, dy = b.y - a.y;
           if (Math.abs(dx) > reach || Math.abs(dy) > reach) continue;
@@ -500,6 +508,7 @@
       const re = Ent.bodyR(e);
       for (const o of ents) {
         if (o === e || o.dead || o.hidden || o.ghost || o.seated || o.burrowed || (o.alt || 0) > 1) continue;
+        if ((e.pal || o.pal) && Ent.flows(e, o)) continue;
         const ox = o.x - e.x, oy = o.y - e.y, lim = re + Ent.bodyR(o);
         if (Math.abs(ox) > lim + 0.5 || Math.abs(oy) > lim + 0.5) continue;
         if (Math.hypot(ox - mx, oy - my) >= lim * 0.92) continue;
