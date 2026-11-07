@@ -25,7 +25,7 @@
   const SMART = {
     goblin: 0.65, shaman: 0.6, warlord: 0.9, cultist: 0.6, necromancer: 0.7, hollowking: 1, ogre: 0.45, troll: 0.25,
     ghoul: 0.3, wraith: 0.5, spider: 0.15, queen: 0.35, giantrat: 0, skeleton: 0.08, skelarcher: 0.1,
-    brigand: 0.8, chief: 1, wight: 0.2, king: 0.5
+    brigand: 0.8, chief: 1, wight: 0.2, king: 0.5, slime: 1, slimeling: 0.9
   };
   // who can plant a boot in a shield
   const KICKERS = new Set(['goblin', 'warlord', 'cultist', 'ogre', 'troll', 'brigand', 'chief', 'king', 'ghoul']);

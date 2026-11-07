@@ -100,14 +100,14 @@
         m.seen[type] = (m.seen[type] || 0) + share;
         if (!target._memo) { target._memo = true; m.n++; }
       }
-      // whatever keeps hurting it, it learns to meet — if it has the wits
-      if ((ECHO.Aware ? ECHO.Aware.iq(target) : 0.5) < 0.3) return;
+      // whatever keeps hurting it, it learns to meet — if it has the wits (a slime learns its own way: slimes.js)
+      if ((ECHO.Aware ? ECHO.Aware.iq(target) : 0.5) < 0.3 || (target.foe && target.foe.slimeK)) return;
       const L = target._learn || (target._learn = {});
       L[type] = (L[type] || 0) + share;
       if (L[type] > 0.45 && !L['_' + type]) {
         L['_' + type] = true;
         target.resist = target.resist || {};
-        target.resist[type] = Math.min(0.5, (target.resist[type] || 0) + 0.12);
+        target.resist[type] = Math.max(target.resist[type] || 0, Math.min(0.5, (target.resist[type] || 0) + 0.12));
         target._iq = Math.min(1, ECHO.Aware.iq(target) + 0.1);
         ECHO.Combat.floater(target.x, target.y - 1.3, { melee: 'learns to meet your blade', ranged: 'learns to turn your arrows', fire: 'learns to bear your fire', magic: 'learns to shrug off your spells' }[type], '#ffcf8a');
       }

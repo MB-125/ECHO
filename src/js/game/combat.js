@@ -401,8 +401,10 @@
       target.hurtT = 0.18;
       target.hurtDir = src.angle != null ? src.angle : target.hurtDir;
       // Stagger interrupts whatever the target was winding up.
-      if (src.stagger && target !== game.pe && (target.type !== 'boss' || src.heavy)) {
-        const st = target.type === 'boss' ? src.stagger * 0.5 : src.stagger;
+      // (a slime's gel swallows a blow: only a true heavy blow shakes it (not the end of a combo), and nothing stops it mid-leap or with you inside it)
+      const gel = target.foe && target.foe.slimeK && !target.pal;
+      if (src.stagger && target !== game.pe && (gel ? src.guardbreak && !/^(pounce|engulf|devour)$/.test(target.state) : target.type !== 'boss' || src.heavy)) {
+        const st = target.type === 'boss' || gel ? src.stagger * 0.5 : src.stagger;
         target.stagger = Math.max(target.stagger || 0, st);
         if (target.species === 'wolf' && (target.state === 'windup' || target.state === 'lunge')) { target.state = 'retreat'; target.t = 0; }
         if (target.type === 'boss' && st > 0.3) C.floater(target.x, target.y - 2, 'staggered', '#ffe08a');

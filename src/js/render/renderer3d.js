@@ -2973,6 +2973,11 @@
           pivot.rotation.y = (k - 1.5) * 0.35 * side;
           parts.legs.push(pivot);
         }
+      } else if (e.foe && e.foe.slimeK) {
+        R.slimeBody(e, root, mats, parts);
+        // (only the gel itself casts a shadow: nothing inside it)
+        root.traverse(o => { if (o.isMesh) o.castShadow = o === parts.gel; });
+        return { root, mats, parts };
       } else {
         const col = Fd.col || (e.species === 'slimeling' ? '#9fe8a0' : e.elite ? '#e8c84a' : '#6fd08a');
         const skin = mat(col, 0.72); skin.emissive = new THREE.Color(Fd.em || '#0e3a1a'); if (Fd.em) skin.emissive.multiplyScalar(0.25);
@@ -2983,8 +2988,150 @@
       root.traverse(o => { if (o.isMesh) o.castShadow = true; });
       return { root, mats, parts };
     },
+    // ---------------------------------------------------------------- the slime: a living gel
+    // A thick, clear, glossy gel that sags under its own weight and spreads at the foot, ripples
+    // over its skin, gathers and surges as it moves, reaches out a limb to strike, crouches flat
+    // before it leaps and stretches in the air, swells round what it swallows, and lies flat as a
+    // puddle when it is left alone. Inside it: a denser heart, a glowing nucleus that turns to
+    // watch you (and pulses as it thinks), bubbles rising, and what is left of what it has eaten.
+    SLIME_COL: [null, '#14a870', '#0f8a5a', '#22a83c', '#3ea81a', '#0b98a8', '#c08a18'],
+    slimeBody(e, root, mats, parts) {
+      const sp = e.species === 'slimeling', Fd = e.foe || {}, evo = e.evo || 1;
+      const col = Fd.col || R.SLIME_COL[Math.min(6, evo)] || '#56c86a', c = new THREE.Color(col).offsetHSL(0, 0.12, -0.03);
+      const gel = new THREE.MeshStandardMaterial({ color: c, roughness: 0.12, metalness: 0.0, transparent: true, opacity: 0.9, depthWrite: false, emissive: c.clone().multiplyScalar(0.08) });
+      gel.userData.a0 = 0.9; gel.userData.keep = true; mats.push(gel);
+      // (thick at the edges where you look through more of it, clear in the middle where you see into it; a wet rim of light)
+      const rim = { value: c.clone().lerp(new THREE.Color('#ffffff'), 0.35) }, deep = { value: c.clone().multiplyScalar(0.55) };
+      gel.customProgramCacheKey = () => 'slimegel';
+      gel.onBeforeCompile = (sh) => {
+        sh.uniforms.uRim = rim; sh.uniforms.uDeep = deep;
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform vec3 uRim;\nuniform vec3 uDeep;')
+          .replace('#include <output_fragment>', `{
+            float fr = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 2.0);
+            diffuseColor.a = clamp(diffuseColor.a * (0.78 + 0.3 * fr), 0.0, 0.97);
+            outgoingLight = mix(outgoingLight, uDeep + outgoingLight * 0.35, (1.0 - fr) * 0.4);
+            outgoingLight += uRim * fr * fr * 0.35;
+          }
+          #include <output_fragment>`);
+      };
+      const heartM = new THREE.MeshStandardMaterial({ color: c.clone().multiplyScalar(0.42), roughness: 0.4, transparent: true, opacity: 0.62, depthWrite: false, emissive: c.clone().multiplyScalar(0.05) });
+      heartM.userData.a0 = 0.62; heartM.userData.keep = true; mats.push(heartM);
+      // the skin: a sphere pulled about every frame
+      const geo = new THREE.SphereGeometry(0.5, 30, 20), pos = geo.attributes.position, base = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i++) { base[i * 3] = pos.getX(i) / 0.5; base[i * 3 + 1] = pos.getY(i) / 0.5; base[i * 3 + 2] = pos.getZ(i) / 0.5; }
+      geo.attributes.position.setUsage(THREE.DynamicDrawUsage);
+      const body = new THREE.Mesh(geo, gel); body.renderOrder = 3; body.castShadow = true; root.add(body);
+      const heart = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 12), heartM); heart.renderOrder = 2; root.add(heart);
+      // the nucleus: it glows, it pulses, and the dark of it turns toward you
+      const nucM = new THREE.MeshBasicMaterial({ color: Fd.em ? new THREE.Color(Fd.em).lerp(new THREE.Color('#ffffff'), 0.55) : '#e8ffb0', transparent: true, opacity: 0.95 });
+      const nuc = new THREE.Mesh(new THREE.SphereGeometry(0.085, 12, 9), nucM); root.add(nuc);
+      const haloM = new THREE.MeshBasicMaterial({ color: nucM.color, transparent: true, opacity: 0.12, depthWrite: false, blending: THREE.AdditiveBlending });
+      const halo = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 9), haloM); nuc.add(halo);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), new THREE.MeshBasicMaterial({ color: '#0a1408' })); pupil.position.set(-0.062, 0.008, 0); nuc.add(pupil);
+      // threads of light from it, through the gel (it thinks)
+      const veinM = new THREE.MeshBasicMaterial({ color: nucM.color, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending });
+      const veins = [];
+      for (let k = 0; k < 6; k++) {
+        const g = new THREE.CylinderGeometry(0.004, 0.01, 0.16, 4); g.translate(0, 0.08, 0);
+        const vn = new THREE.Mesh(g, veinM); vn.rotation.set(Math.cos(k * 2.1) * 1.2, k * 1.05, Math.sin(k * 1.7) * 1.2); nuc.add(vn); veins.push(vn);
+      }
+      // bubbles rising through it
+      const bubM = new THREE.MeshBasicMaterial({ color: '#f0fff0', transparent: true, opacity: 0.45, depthWrite: false });
+      const bubbles = [];
+      for (let k = 0; k < (sp ? 4 : 8); k++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.018 + (k % 3) * 0.009, 6, 4), bubM); b.userData = { a: k * 2.39, r: 0.08 + (k * 0.37 % 1) * 0.22, ph: k * 0.37 % 1, sp: 0.18 + (k % 4) * 0.05 }; root.add(b); bubbles.push(b); }
+      // what is left of what it has eaten: bones, a tooth, a bit of armour
+      const boneM = new THREE.MeshStandardMaterial({ color: '#d8d0b8', roughness: 0.6, transparent: true, opacity: 0.7, depthWrite: false });
+      const debris = [];
+      for (let k = 0; k < 6; k++) { const d = new THREE.Mesh(k % 3 === 2 ? new THREE.BoxGeometry(0.07, 0.05, 0.05) : new THREE.CylinderGeometry(0.012, 0.016, 0.16 + (k % 2) * 0.06, 5), boneM); d.visible = false; d.userData = { a: k * 1.9, r: 0.1 + (k % 3) * 0.06, y: 0.12 + (k % 4) * 0.05, s: 0.3 + k * 0.11 }; root.add(d); debris.push(d); }
+      // a wet shine on its back
+      const shine = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 6), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.32, depthWrite: false, blending: THREE.AdditiveBlending }));
+      shine.scale.set(1.5, 0.35, 0.9); root.add(shine);
+      const glint = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 5), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending }));
+      root.add(glint);
+      // (it is wet: a dark sheen on the ground beneath it, where it has been sitting)
+      const wetTex = R.slimeWetTex || (R.slimeWetTex = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'); const gr = g.createRadialGradient(32, 32, 4, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.7)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(cv); })());
+      const wetM = new THREE.MeshBasicMaterial({ color: c.clone().multiplyScalar(0.16), map: wetTex, transparent: true, opacity: 0.55, depthWrite: false });
+      wetM.userData.a0 = 0.55; wetM.userData.keep = true;
+      const wet = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), wetM); wet.rotation.x = -Math.PI / 2; wet.position.y = 0.012; wet.renderOrder = 1; root.add(wet);
+      Object.assign(parts, { gel: body, glint, wet, base, heart, nuc, halo, pupil, veins, bubbles, debris, shine, gelM: gel, heartM, nucM, col: c });
+    },
+    animateSlime(game, e, v, dt) {
+      const P = v.inst.parts, T = R.time, mv = v.mv || 0, s = v.sl || (v.sl = { sq: 0, sqV: 0, wob: 0, pud: e.puddle ? 1 : 0, pod: 0, eng: 0, hp: e.hp, look: 0 });
+      // what it is doing, eased
+      const want = (k, x, rate) => { s[k] += (x - s[k]) * Math.min(1, dt * rate); };
+      want('pud', e.puddle && !e.dead ? 1 : 0, 2.5);
+      want('pod', e.state === 'windup' || e.state === 'attack' ? 1 : e.state === 'vwind' ? 0.45 : 0, 12);
+      want('eng', e.state === 'engulf' ? 1 : 0, 6);
+      const crouch = e.state === 'pwind' ? Math.min(1, e.t / Math.max(0.05, e.windEnd || 0.4)) : 0;
+      const lk = e._leapK || 0, air = lk > 0 && lk < 1 ? Math.sin(lk * Math.PI) : 0;
+      // a spring under it: the surge, the crouch, the landing
+      const surge = e.aggro && mv > 0.3 ? (e._surge || 0) : 0;
+      const goal = -0.32 * crouch + 0.22 * air - 0.12 * surge * mv;
+      s.sqV += ((goal - s.sq) * 70 - s.sqV * 9) * dt; s.sq += s.sqV * dt;
+      if (v._air && !air) { s.sqV -= 3.2; s.wob = 1; }   // (it lands: it splashes flat and wobbles)
+      v._air = air > 0.05;
+      // struck: it quivers
+      if (e.hp < s.hp - e.maxHp * 0.002) s.wob = Math.min(1.2, s.wob + 0.6);
+      s.hp = e.hp; s.wob = Math.max(0, s.wob - dt * 1.6);
+      const wob = s.wob, pud = s.pud, eng = s.eng, sq = s.sq;
+      const sy = (0.9 + sq) * (1 - 0.75 * pud) * (1 + 0.28 * eng), spread = (1 - sq * 0.6) * (1 + 0.45 * pud) * (1 + 0.22 * eng);
+      const stretch = 1 + 0.16 * surge * mv + 0.25 * air;
+      const ph = v.bob || 0, pod = s.pod;
+      const A = P.base, pos = P.gel.geometry.attributes.position, n = pos.count;
+      for (let i = 0; i < n; i++) {
+        const ux = A[i * 3], uy = A[i * 3 + 1], uz = A[i * 3 + 2];
+        // ripples over the skin, and the quiver of a blow
+        let r = 0.5 * (1 + 0.032 * Math.sin(3.1 * ux * 3.14 + T * 2.3 + ph) + 0.026 * Math.sin(4 * uz * 3.14 - T * 3.1) + 0.018 * Math.sin(5.3 * uy * 3.14 + T * 4.2 + ph) + wob * 0.07 * Math.sin(T * 26 + uy * 7 + ux * 4));
+        // the limb it strikes with, out of its front (−x)
+        const fwd = -ux;
+        if (pod > 0.01 && fwd > 0.5 && uy > -0.4) { const q = (fwd - 0.5) / 0.5; r += 0.5 * pod * 0.75 * q * q * q; }
+        let x = ux * r * spread, z = uz * r * spread, y = uy * r * sy;
+        // its weight: the foot spreads wide and flat on the ground
+        if (uy < 0) { const f = 1 + 0.22 * (-uy) * (1 + pud); x *= f; z *= f; y *= 0.55; }
+        x *= stretch;
+        y += 0.5 * sy * 0.55;
+        pos.setXYZ(i, x, Math.max(0.005, y), z);
+      }
+      pos.needsUpdate = true;
+      P.gel.geometry.computeVertexNormals();
+      P.gel.geometry.computeBoundingSphere();
+      const top = 0.5 * sy * 1.55, mid = top * 0.48;
+      P.heart.position.set(0.02, mid * 0.9, 0); P.heart.scale.set(spread * stretch * 0.95, sy * 1.3, spread * 0.95);
+      // the nucleus: it watches what it hunts (glancing about when it hunts nothing), and pulses as it thinks
+      const thinking = e.state === 'pwind' || e.state === 'vwind' || (e.watchUntil && !e.watched) ? 1 : 0;
+      const pulse = 1 + 0.12 * Math.sin(T * (thinking ? 14 : 3.2) + ph) + 0.25 * thinking;
+      P.nuc.position.set(-0.05, mid * 1.05 + 0.02 * Math.sin(T * 1.7 + ph), 0.015 * Math.sin(T * 1.1 + ph));
+      P.nuc.scale.setScalar(pulse * (e.species === 'slimeling' ? 0.8 : 1));
+      if (!e.aggro) s.look = Math.sin(T * 0.6 + ph) * 0.9 + Math.sin(T * 1.9 + ph * 2) * 0.3; else s.look *= Math.max(0, 1 - dt * 6);
+      P.nuc.rotation.y = s.look;
+      P.halo.material.opacity = 0.08 + 0.16 * thinking + 0.04 * Math.sin(T * 5 + ph);
+      for (let k = 0; k < P.veins.length; k++) P.veins[k].scale.y = 0.6 + 0.6 * Math.max(0, Math.sin(T * (thinking ? 9 : 2.4) + k * 1.3 + ph));
+      // bubbles: up through it, and round again
+      for (const b of P.bubbles) {
+        const u = b.userData, k = (u.ph + T * u.sp) % 1;
+        b.position.set(Math.cos(u.a + T * 0.3) * u.r * spread, 0.06 + k * top * 0.85, Math.sin(u.a + T * 0.3) * u.r * spread);
+        b.visible = pud < 0.6;
+      }
+      // what it has eaten, turning slowly as it dissolves
+      const eaten = Math.min(P.debris.length, e.absorbed || 0);
+      P.debris.forEach((d, k) => { d.visible = k < eaten && pud < 0.6; if (!d.visible) return; const u = d.userData; d.position.set(Math.cos(u.a + T * 0.15) * u.r * spread, u.y * sy / 0.68, Math.sin(u.a + T * 0.15) * u.r * spread); d.rotation.set(T * u.s, T * u.s * 0.7, k); });
+      P.shine.position.set(-0.08 * spread, top * 0.97, 0.1 * spread); P.shine.visible = pud < 0.8;
+      P.glint.position.set(0.1 * spread * stretch, top * 0.86, 0.2 * spread); P.glint.visible = pud < 0.8;
+      // (the wet ground stays put as it leaps; it is wider as it pools)
+      P.wet.position.y = 0.012 - air * (1.1 + 0.35 * (e.scale || 1)) / Math.max(0.3, e.scale || 1); P.wet.scale.setScalar(spread * stretch * (1 + 0.3 * pud));
+      // its colour: its form's (and fire on it, the flash of a blow, the tell of what it means to do)
+      const m = P.gelM, burn = e.burn > 0;
+      m.opacity = (0.84 - 0.22 * pud + 0.06 * eng) * (v.faded ? 0.5 : 1);
+      P.heartM.opacity = (0.62 - 0.32 * pud) * (v.faded ? 0.5 : 1);
+      // (what it means to do shows as a green flicker through it: the crouch, the acid, the strike)
+      const tell = e.state === 'windup' || e.state === 'pwind' || e.state === 'vwind';
+      if (!(e.hurtT > 0) && !burn) m.emissive.copy(P.col).multiplyScalar(tell ? (Math.sin(T * 30) > 0 ? 0.9 : 0.45) : 0.06 + 0.08 * thinking + 0.3 * (e.state === 'engulf' ? 1 : 0));
+      // in the air
+      v.yOff = air * (1.1 + 0.35 * (e.scale || 1));
+    },
     animateProc(game, e, v, dt) {
       const P = v.inst.parts, mv = v.mv || 0;
+      if (P.gel) { R.animateSlime(game, e, v, dt); v.tell = 0; return; }
       v.tell = e.state === 'windup' || e.state === 'cast' || e.state === 'slam' ? 1 : 0;
       if (P.legs) { const ph = R.time * 18; P.legs.forEach((g, i) => { g.rotation.z = e.dead ? 0.6 : Math.sin(ph + i * 1.7) * 0.35 * mv; }); if (P.abd) P.abd.position.y = 0.36 + Math.sin(R.time * 3) * 0.015; v.yOff = 0; }
       if (P.blob) { const q = Math.sin(R.time * (mv > 0.5 ? 9 : 3) + v.bob); P.blob.scale.set(1 + q * 0.08, 1 - q * 0.1, 1 + q * 0.08); v.yOff = mv > 0.5 ? Math.abs(Math.sin(R.time * 9)) * 0.08 : 0; }
@@ -3270,7 +3417,7 @@
           else root.rotation.x = fall * (v.bob > 3 ? 1 : -1);
           root.position.y = gy + 0.1 + Math.sin(k * Math.PI) * 0.25 - Math.max(0, (e.deathT || 0) - 1) * 0.08;
           const op = Math.max(0, 1 - Math.max(0, (e.deathT || 0) - 1.5) / 1.5);
-          for (const m of v.inst.mats) { if (op < 1) { m.transparent = true; m.opacity = op; } }
+          for (const m of v.inst.mats) { if (op < 1) { m.transparent = true; m.opacity = op * ((m.userData && m.userData.a0) || 1); } }
         } else root.rotation.x = 0;
         // hurt flash (white-hot then red), attack tells, burning
         const flash = e.hurtT > 0 ? (e.hurtT > 0.12 ? 2 : 1) : 0;
@@ -3337,8 +3484,9 @@
       });
     },
     fadeView(v, a) {
-      if (a < 0.995) { for (const m of v.inst.mats) { m.transparent = true; m.opacity = a; } v.faded = true; }
-      else if (v.faded) { for (const m of v.inst.mats) { m.transparent = false; m.opacity = 1; } v.faded = false; }
+      // (a see-through thing — a slime's gel — keeps the clearness it was made with)
+      if (a < 0.995) { for (const m of v.inst.mats) { m.transparent = true; m.opacity = a * ((m.userData && m.userData.a0) || 1); } v.faded = true; }
+      else if (v.faded) { for (const m of v.inst.mats) { const a0 = m.userData && m.userData.a0; m.transparent = !!a0; m.opacity = a0 || 1; } v.faded = false; }
     },
 
     // ---------------------------------------------------------------- effects

@@ -922,8 +922,10 @@ function main() {
     game.time += 5; foe._tgPick = null;
     const t = E.Aware.target(game, foe, pe);
     check('a clever foe goes for the wounded healer before you', t === mender);
-    const slime = { type: 'creature', species: 'slime', foe: {}, aggro: true, x: 1.6, y: 0, r: 0.4, hp: 30, maxHp: 30, gear: {} };
-    check('a slime just goes for whatever is nearest', E.Aware.target(game, slime, pe) === comp || E.Aware.target(game, slime, pe) === pe);
+    const rat = { type: 'creature', species: 'giantrat', foe: {}, aggro: true, x: 1.6, y: 0, r: 0.4, hp: 30, maxHp: 30, gear: {} };
+    check('a mindless thing just goes for whatever is nearest', E.Aware.target(game, rat, pe) === comp || E.Aware.target(game, rat, pe) === pe);
+    const slime = { type: 'creature', species: 'slime', foe: { slimeK: true }, aggro: true, x: 1.6, y: 0, r: 0.4, hp: 30, maxHp: 30, gear: {} };
+    check('a slime is the cleverest thing that lives: it picks out the wounded healer too', E.Aware.iq(slime) === 1 && E.Aware.target(game, slime, pe) === mender);
     // aiming ahead
     const archer = { ...foe, x: 0, y: 6 }; pe._vx = 4; pe._vy = 0;
     const a = E.Aware.lead(game, archer, pe, 13, -Math.PI / 2), ax = Math.cos(a);
@@ -1614,6 +1616,85 @@ function main() {
     const W2 = E.Save.deserialize(E.Save.serialize(Wd));
     check('your well, its lessons and its cores survive a save', W2.player.well && W2.player.well.lv === Wl.st(pl).lv && W2.player.well.lessons === Wl.LESSONS && W2.player.well.coreN === 2);
   }
+  console.log('\nThe slime: the strongest thing that lives, and the cleverest');
+  {
+    const E = ECHO, SL = E.Slime, P = E.Prowess;
+    const C0 = E.Combat, Ent0 = E.Ent, M0 = E.Monsters, Ev0 = E.Evolve && E.Evolve.check, UI0 = E.UI;
+    const hurt = [];
+    E.Combat = { fx: [], floater() {}, ring() {}, burst() {}, puff() {}, decal() {}, shoot() {}, telegraph(o) { return { ...o }; }, damage(o, d, src) { o.hp -= d; hurt.push({ o, d, type: src && src.type }); return d; } };
+    E.Ent = { freeSpot: (w, x, y) => ({ x, y }), lineOfSight: () => true, travel: (w, e, x, y, sp, dt) => { const d = Math.hypot(x - e.x, y - e.y); if (d > 1e-3) { const s = Math.min(d, sp * dt); e.x += (x - e.x) / d * s; e.y += (y - e.y) / d * s; } } };
+    E.UI = Object.assign({}, UI0 || {}, { toast() {}, banner() {} });
+    if (E.Evolve) E.Evolve.check = () => {};
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'js', 'game', 'monsters.js'), 'utf8');
+    const line = k => (src.match(new RegExp('\\n\\s+' + k + ': \\{ name: [^\\n]*')) || [''])[0];
+    const num = (l, k) => +((l.match(new RegExp('\\b' + k + ': (-?[\\d.]+)')) || [])[1]);
+    const sl = line('slime'), og = line('ogre'), gl = line('golem');
+    // stronger than anything of its level, a titan included
+    const L = 60, slHp = num(sl, 'hp') * P.foeMul(L).hp, tiHp = 1500 * 1.15 * P.foeMul(L, true).hp;
+    check('level for level, a slime has more life than a titan, and four times a great boss\'s', slHp > tiHp && num(sl, 'hp') >= num(og, 'hp') * 4 && num(sl, 'hp') >= num(gl, 'hp') * 3.5, `level ${L}: slime ${Math.round(slHp)} · titan ${Math.round(tiHp)}`);
+    check('…hits harder than any great boss, and is quick (faster than you run)', num(sl, 'dmg') >= num(og, 'dmg') * 1.6 && num(sl, 'speed') >= 5 && num(sl, 'cd') < 1);
+    check('…and shrugs off half of every blade, arrow and spell — but fire bites it deep', num(sl, 'melee') >= 0.5 && num(sl, 'ranged') >= 0.6 && num(sl, 'magic') >= 0.5 && num(sl, 'fire') < 0);
+    check('one is always born above you', SL.apexLv({ pl: { prowess: { lv: 40 } } }, 8) === 45 && SL.apexLv({ pl: { prowess: { lv: 596 } } }, 8) > 596 && SL.apexLv({ pl: { prowess: { lv: 1 } } }, 8) >= 8 && SL.apexLv({ pl: { prowess: { lv: 1500 } } }, 8) <= (P.MAX || 1500));
+    check('and its danger reads far past its level', SL.dangerLv({ lvl: 40, evo: 3, absorbed: 2 }) >= 120, `${SL.dangerLv({ lvl: 40, evo: 3, absorbed: 2 })}`);
+    // a little world for it to fight in
+    const mk = (o) => Object.assign({ type: 'creature', species: 'slime', foe: { slimeK: true, dmg: 44, reach: 1.5, speed: 5.2, name: 'Slime' }, lvl: 40, dmgMul: 2, hp: 10000, maxHp: 10000, x: 0, y: 0, r: 0.4, scale: 1.15, speed: 5.2, ab: { slimeHeal: 0.006, manadrain: 0.35 }, resist: { melee: 0.55, ranged: 0.65, magic: 0.5, fire: -0.2 }, sT: {}, cd: 0, t: 0, state: 'chase', aggro: true }, o || {});
+    const pe = { type: 'player', x: 6, y: 0, r: 0.33, hp: 5000, maxHp: 5000 };
+    const game = { time: 0, world: {}, pe, pl: { mana: 400, _slimeTip2: true, _slimeWatchTip: true, _engulfTip: true, _learnTip: true }, ents: [], hostileTo: (a, b) => (a === pe) !== (b === pe) };
+    // it heals — but not where fire has touched it
+    const h = mk({ hp: 5000 }); game.ents = [h, pe];
+    SL.always(game, h, 1);
+    const healed = h.hp - 5000; h.hp = 5000; h._fireT = game.time + 3; SL.always(game, h, 1);
+    check('it heals as you cut it — and fire stops its healing', healed >= 50 && h.hp === 5000, `+${Math.round(healed)} a second`);
+    // the first time it sees you, it watches you: the moment to leave
+    const w = mk({ rareSlime: true, home0: { x: 0, y: 0 } }); game.ents = [w, pe]; pe.x = 10;
+    const busy = SL.tick(game, w, 0.1, 10, 0);
+    check('the first time it sees you it stops and watches you — your moment to leave', busy === true && w.watchUntil > game.time && !w.watched);
+    game.time += 4; SL.tick(game, w, 0.1, 10, 0);
+    check('…and then it comes', w.watched === true);
+    const w2 = mk({ rareSlime: true, home0: { x: 0, y: 0 } }); game.ents = [w2, pe]; pe.x = 10;
+    SL.tick(game, w2, 0.1, 10, 0); pe.x = 15; game.time += 1; SL.tick(game, w2, 0.1, 15, 0);
+    check('…unless you back away while it watches: then it lets you go', w2.aggro === false && !w2.watched && w2._calm > game.time);
+    // the leap: it lands on you, and swallows you
+    const j = mk({ watched: true }); game.ents = [j, pe]; pe.x = 6; pe.y = 0; pe.hp = 5000; hurt.length = 0;
+    SL.tick(game, j, 0.05, 6, 0);
+    check('from far off it gathers itself to leap at you (and marks where it means to land)', j.state === 'pwind' && j.leap && Math.abs(j.leap.x1 - 6) < 0.6);
+    for (let i = 0; i < 80 && j.state !== 'engulf'; i++) { game.time += 0.05; j.t += 0.05; SL.tick(game, j, 0.05, Math.hypot(pe.x - j.x, pe.y - j.y), 0); }
+    const land = hurt.find(x => x.o === pe);
+    check('it lands on you, hard — and swallows you whole', land && land.d >= 44 * 2 * 1.5 && j.state === 'engulf', land ? `${Math.round(land.d)} on landing` : 'missed');
+    // swallowed: rooted, acid, your mana drunk; strike it from inside and it spits you out sooner
+    const m0 = game.pl.mana; let t = 0; hurt.length = 0;
+    for (; t < 1 && j.state === 'engulf'; t += 0.05) { game.time += 0.05; SL.tick(game, j, 0.05, 0, 0); }
+    check('inside it, you are held fast while acid eats you and it drinks your mana', game.pl.rootT > 0 && hurt.filter(x => x.o === pe && x.type === 'magic').length >= 2 && game.pl.mana < m0);
+    const left = j.eng.dur; for (let k = 0; k < 3; k++) SL.felt(game, j, 'melee', 10);
+    check('…but strike it from inside and it spits you out the sooner', j.eng.dur < left - 0.5);
+    for (let k = 0; k < 60 && j.state === 'engulf'; k++) { game.time += 0.05; SL.tick(game, j, 0.05, 0, 0); }
+    check('…and in the end it spits you out', j.state === 'chase' && !j.eng);
+    // it learns what hurts it
+    const l = mk(); l._slLearnT = 0.01; SL.felt(game, l, 'melee', 500); SL.learn(game, l, 0.1);
+    check('it learns what you hurt it with most, and hardens to it', Math.abs(l.resist.melee - 0.62) < 1e-6 && l.learned && l.learned.steel === 62);
+    for (let k = 0; k < 20; k++) { l._slLearnT = 0.01; SL.felt(game, l, 'melee', 500); SL.learn(game, l, 0.1); }
+    const r0 = { ...l.resist }; l._slLearnT = 0.01; SL.felt(game, l, 'melee', 250); SL.felt(game, l, 'magic', 250); SL.learn(game, l, 0.1);
+    for (let k = 0; k < 20; k++) { l._slLearnT = 0.01; SL.felt(game, l, 'fire', 500); SL.learn(game, l, 0.1); }
+    check('…never past what can still hurt it, and fire least of all; change how you fight and it has nothing to learn', l.resist.melee === SL.CAP.melee && r0.magic === l.resist.magic && l.resist.fire <= SL.CAP.fire && SL.CAP.fire < 0.5, JSON.stringify(l.resist));
+    // badly hurt: a piece of itself to hold you, and away
+    const made = [];
+    E.Monsters = { canSummon: () => true, make: (g, k, x, y, Lv, o) => { const s = { species: k, x, y, lvl: Lv, ...o }; made.push(s); return s; } };
+    const r = mk({ hp: 2500, watched: true }); game.ents = [r, pe]; pe.x = 2;
+    SL.tick(game, r, 0.05, 2, 0);
+    check('badly hurt, it tears off two pieces of itself to hold you and slides away to heal', r.retreat && made.length === 2 && made.every(s => s.species === 'slimeling' && s.summoned) && game.ents.filter(o => o.decoy).length === 2);
+    const x0 = r.x; for (let k = 0; k < 20; k++) { game.time += 0.05; SL.tick(game, r, 0.05, Math.abs(pe.x - r.x), 0); }
+    check('…away from you, and healing fast as it goes', r.x < x0 - 1);
+    // it eats other monsters, and grows
+    const g0 = mk({ lvl: 40, maxHp: 10000, hp: 6000, dmgMul: 2 }), troll = { type: 'creature', species: 'troll', foe: { name: 'Cave troll' }, lvl: 30, x: 1, y: 0, r: 0.4, hp: 100, maxHp: 100 };
+    game.ents = [g0, troll, pe]; pe.x = 30;
+    check('it hunts down the other things of the place to eat', SL.preyNear(game, g0, 6) === troll && SL.preyNear(game, g0, 6) !== pe);
+    SL.startDevour(game, g0, troll); for (let k = 0; k < 40 && g0.state === 'devour'; k++) SL.devour(game, g0, 0.05);
+    check('what it eats makes it stronger: a level or more, more life, a harder blow, bigger', troll.dead && g0.absorbed === 1 && g0.lvl > 40 && g0.maxHp > 10000 && g0.dmgMul > 2 && g0.scale > 1.15, `level ${g0.lvl}, life ${g0.maxHp}`);
+    check('…and it takes something of what it ate (a troll: its healing)', (g0.traits || []).includes('a troll\'s healing') && g0.ab.slimeHeal > 0.006);
+    // a slime of yours fights your way, not its own
+    check('a slime you have tamed fights as your beast (its own ways are for the wild ones)', SL.tick(game, mk({ pal: true }), 0.05, 2, 0) === false && SL.always(game, mk({ pal: true }), 0.05) === undefined);
+    E.Combat = C0; E.Ent = Ent0; E.Monsters = M0; E.UI = UI0; if (E.Evolve) E.Evolve.check = Ev0;
+  }
   console.log('\nFixed danger, more realms, real diplomacy');
   {
     const E = ECHO, Dg = E.Danger, Rs = E.Realms, Pw = E.Powers, P = E.People;
@@ -1656,6 +1737,7 @@ function main() {
     const [A, B, C] = Rs.powers(W).filter(f => !f.fallen && !Object.keys(f.atWar).length && !f.overlord).slice(0, 3);
     if (A && B && C) {
       Rs.tie(W, A, B).alliance = W.day; Rs.setRel(A, B, 60); Rs.setRel(A, C, -40);
+      { const t = Rs.tie(W, A, C); t.truce = 0; delete t.alliance; }   // (no truce of their own to keep it out: that is checked below)
       Rs.war(W, C, B, 'conquest');
       check('an ally is called to arms when its friend is attacked', !!A.atWar[C.id] && !!B.atWar[C.id], `${C.short} attacks ${B.short}; ${A.short} ${A.atWar[C.id] ? 'marches' : 'stays home'}`);
       const Wk = Rs.st(W).wars[Rs.key(C, B)];

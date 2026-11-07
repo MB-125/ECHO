@@ -187,7 +187,7 @@
       const e = Pg.target, pl = game.pl;
       if (!e || e.dead || ECHO.UI.paused() || (ECHO.UI.bossEnt === e)) { if (Pg._tgt !== '') { Pg._tgt = ''; el.classList.add('hidden'); document.getElementById('hud').classList.remove('has-target'); } return; }
       // (a slime is far stronger than its level says: its danger is reckoned as if it were well above it)
-      const L = Pw().foeLevel(e), me = Pw().level(pl), D = Pw().diff(e.foe && e.foe.slimeK && !e.pal ? Math.round(L * 1.6 + 8 + 4 * ((e.evo || 1) - 1)) : L, me), rk = Pw().foeRank(e), RK = Pw().FOE_RANK[rk];
+      const L = Pw().foeLevel(e), me = Pw().level(pl), D = Pw().diff(e.foe && e.foe.slimeK && !e.pal ? (ECHO.Slime ? ECHO.Slime.dangerLv(e) : L) : L, me), rk = Pw().foeRank(e), RK = Pw().FOE_RANK[rk];
       const name = Pg.nameOf(game, e);
       const def = e.species && ECHO.Monsters && ECHO.Monsters.DEFS[e.species];
       const known = def && pl.bestiary && pl.bestiary[e.species];
@@ -201,7 +201,7 @@
         <div class="tb"><i style="width:${Math.max(0, Math.round(e.hp / e.maxHp * 100))}%;background:${D.color}"></i></div>
         <div class="td"><b>${U.fmt(Math.max(0, Math.ceil(e.hp)))} / ${U.fmt(e.maxHp)}</b> life · ${gap > 0 ? `${gap} level${gap > 1 ? 's' : ''} above you` : gap < 0 ? `${-gap} level${gap < -1 ? 's' : ''} below you` : 'your equal'} · worth ~${U.fmt(Pw().xpFor(pl, e))} xp</div>
         ${e.armsTier > 0 ? `<div class="tw" style="color:${e.armsCol}">⚙ ${esc(e.armsName)} arms of ${esc((game.world.factions[e.armsFid] || {}).short || 'the crown')}${e.mage ? ' · battle-mage' : ''}${e.ward ? ` · ward ${e.ward.hp > 0 ? U.fmt(Math.ceil(e.ward.hp)) : 'broken'}` : ''}${e.hunter ? ' · <span class="ember">hunting you</span>' : ''}</div>` : ''}
-        ${known ? `<div class="tw">Weak: ${esc(def.weak)}</div>` : def ? '<div class="tw dim">Kill one to learn its weakness (J → bestiary)</div>' : ''}${e.foe && e.foe.slimeK && !e.pal ? `<div class="tw" style="color:#b8ff7a">◉ A slime — far stronger than its level: it heals, drinks your mana and splits. Fire stops its healing.${e.rareSlime ? ' Rare: the reward for beating or taming it is huge.' : ''}</div>` : ''}`;
+        ${known ? `<div class="tw">Weak: ${esc(def.weak)}</div>` : def ? '<div class="tw dim">Kill one to learn its weakness (J → bestiary)</div>' : ''}${e.foe && e.foe.slimeK && !e.pal ? `<div class="tw" style="color:#b8ff7a">◉ A slime — the strongest and cleverest thing that lives: it heals, drinks your mana, learns your blows, leaps and swallows. Fire stops its healing.${e.absorbed ? ` It has eaten ${e.absorbed}${e.traits && e.traits.length ? ` and taken their ${e.traits.join(', ')}` : ''}.` : ''}${e.learned && Object.keys(e.learned).length ? ` Learned to resist: ${Object.keys(e.learned).join(', ')}.` : ''}${e.rareSlime ? ' Rare: the reward for beating or taming it is huge.' : ''}</div>` : ''}`;
     },
     nameOf(game, e) {
       if (e.type === 'boss' && e.boss) return `${e.boss.name} ${e.boss.title || ''}`.trim();

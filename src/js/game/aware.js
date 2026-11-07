@@ -20,15 +20,15 @@
 //     breath before it comes again.
 //   · And the ones with voices say so: "Move!", "Get the healer!",
 //     "Cover me!" — so you can read what they mean to do.
-// How well each does all this depends on what it is: a slime notices almost
+// How well each does all this depends on what it is: a skeleton notices almost
 // nothing, a wolf a fair amount, a veteran sergeant most things, a warden of
-// the Guard everything. Nobody is perfect: a slow mind reacts late, or not at
+// the Guard and a slime everything. Nobody is perfect: a slow mind reacts late, or not at
 // all.
 (function () {
   const { U } = ECHO;
   const C = () => ECHO.Combat;
   // things that don't think about where they stand
-  const MINDLESS = new Set(['slime', 'slimeling', 'golem', 'golemling', 'skeleton', 'skelarcher', 'giantrat', 'gnawer']);
+  const MINDLESS = new Set(['golem', 'golemling', 'skeleton', 'skelarcher', 'giantrat', 'gnawer']);
   const FEARLESS = new Set(['skeleton', 'skelarcher', 'wight', 'king', 'slime', 'slimeling', 'golem', 'golemling', 'wraith', 'hollowking', 'necromancer']);
   // states in which a body is committed and cannot step away
   const COMMITTED = new Set(['windup', 'attack', 'lunge', 'cast', 'charge', 'strike', 'feint', 'stagger', 'yield', 'subdued', 'roar']);
@@ -44,7 +44,7 @@
   const Aw = ECHO.Aware = {
     teles: [], sayT: 0,
     // ------------------------------------------------------------ the mind behind the eyes
-    // 0 (a slime) to 1 (a warden of the Guard): how much it notices, and how fast.
+    // 0 (a skeleton) to 1 (a warden of the Guard, a slime): how much it notices, and how fast.
     iq(e) {
       if (e._iq != null) return e._iq;
       let q = 0.45;
@@ -52,6 +52,7 @@
       else if (e.isCompanion) q = 0.78 + Math.min(0.17, (e.compLv || 1) * 0.008);
       else if (e.tamed) q = 0.75;
       else if (e.titan || e.type === 'boss') q = 0;            // titans and great beasts fight their own way
+      else if (e.foe && e.foe.slimeK) q = 1;                   // (a slime: the cleverest thing that lives)
       else if (e.species && MINDLESS.has(e.species)) q = 0.12;
       else if (e.foe) {
         const D = ECHO.Monsters && ECHO.Monsters.DEFS[e.species];

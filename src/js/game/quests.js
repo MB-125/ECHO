@@ -37,12 +37,12 @@
       e.cd = Math.max(0, (e.cd || 0) - dt); e.t += dt;
       if (e.stagger > 0) { e.stagger -= dt; e.state = 'stagger'; return; }
       if (e.state === 'stagger') e.state = 'chase';
-      if (F.slimeK && ECHO.Slime) { ECHO.Slime.always(game, e, dt); if (e.dead) return; }
+      if (F.slimeK && ECHO.Slime) { if (ECHO.Slime.always(game, e, dt) === true) return; if (e.dead) return; }
       if (e.gateMon && ECHO.GateWorld && ECHO.GateWorld.think(game, e, dt)) return;
       if (e.wood && ECHO.Deepwood && ECHO.Deepwood.think(game, e, dt)) return;
       const d = U.dist(e.x, e.y, pe.x, pe.y);
       const hostile = !pe.dead && !game.pl.capture && !game.defeating;
-      const range = e.indoor ? 14 : 9;
+      const range = (e.indoor ? 14 : 9) * (F.slimeK ? 1.8 : 1);   // (a slime notices everything)
       const sees = hostile && (e.aggro || !ECHO.Stealth ? (d < range || e.aggro) && (d < 3 || ECHO.Ent.lineOfSight(world, e.x, e.y, pe.x, pe.y)) : d < range * 1.8 && ECHO.Stealth.perceive(game, e, d, range));
       // lose sight of you long enough (hidden, or far) and they have to search
       if (e.aggro && !e.giant && !e.boss2 && !e.event && hostile && ECHO.Senses) {
@@ -50,9 +50,9 @@
         if (los && d < 16) e.lastSeen = { x: pe.x, y: pe.y, t: game.time };
         else if (e.lastSeen && game.time - e.lastSeen.t > (ECHO.PlayerCtl.sneaking ? 3 : 7)) { e.aggro = false; e.sus = 0.4; ECHO.Senses.lost(game, e, e.lastSeen.x, e.lastSeen.y); e.lastSeen = null; return; }
       }
-      if (sees && !e.aggro) { e.search = null; e.aggro = true; for (const o of game.ents) if (o !== e && o.foe && !o.aggro && !o.dead && o.floor === e.floor && (!e.gateMon || o.species === e.species) && U.dist(o.x, o.y, e.x, e.y) < (e.ab && e.ab.pack ? (e.gateMon ? 8 : 12) : 7)) o.aggro = true; if (ECHO.Tactics && !e.giant) ECHO.Tactics.shout(game, e, pe); }
+      if (sees && !e.aggro && !(F.slimeK && e._calm > game.time && d > 5 && e.hp >= e.maxHp * 0.97)) { e.search = null; e.aggro = true; for (const o of game.ents) if (o !== e && o.foe && !o.aggro && !o.dead && o.floor === e.floor && (!e.gateMon || o.species === e.species) && U.dist(o.x, o.y, e.x, e.y) < (e.ab && e.ab.pack ? (e.gateMon ? 8 : 12) : 7)) o.aggro = true; if (ECHO.Tactics && !e.giant) ECHO.Tactics.shout(game, e, pe); }
       if (e.rout && ECHO.Tactics) { ECHO.Tactics.flee(game, e, dt); return; }
-      if (!e.aggro || !hostile || d > 22) {
+      if (!e.aggro || !hostile || d > (F.slimeK ? 34 : 22)) {
         e.state = 'idle'; e.moving = false;
         if (e.search && ECHO.Senses && ECHO.Senses.search(game, e, dt)) return;
         // something moved over there: go and look
