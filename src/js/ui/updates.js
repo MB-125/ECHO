@@ -7,6 +7,14 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.28.0', items: [
+      'Mana, bought straight. The arcanist in every market now keeps a case of mana rings and amulets, sold for crowns alone and never for less than 1,000,000, whatever the town.',
+      'A ring brings your mana back faster. They run from the Ring of the Spring (1,000,000 crowns: 2% of all your mana back every second, and 15 more) through the Wellspring, the Deep Current and the Tide, up to the Ring of the Endless Sea (50,000,000: 16% every second, and 600 more).',
+      'An amulet lets you hold more mana. They run from the Amulet of the Cup (1,000,000 crowns: 30% more, and 300 more) through the Basin, the Cistern and the Lake, up to the Amulet of the Sea (50,000,000: 225% more, and 8,000 more).',
+      'You wear one ring and one amulet, from the moment you buy them. A better one takes yours in part payment, at half what it cost. What you wear shows with your sword and armour on your character page (K), and on your mana card.',
+      'It is also the easy way to keep a slime of yours fed: it drinks your mana every second, and a ring pays for that.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.27.3', items: [
       'Fixed: a slime whose life read NaN and could not be killed however much you struck it. When a wild slime ate another monster it noted what it had taken from it, and that note had the same name as the toughened hide of an evolved beast. Your blows (steel and fire) then read the note as a hide, came out as no number at all, and turned its life into NaN. What it eats is now kept apart, and every blow now always comes out as a real number.',
       'A safety net besides: any creature whose life has gone bad (not a number) is mended the moment it is struck, so nothing can ever again be left unkillable.',

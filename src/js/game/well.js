@@ -104,14 +104,16 @@
     },
     html(game) {
       const pl = game.pl, s = W.st(pl), sl = ECHO.Slime ? ECHO.Slime.mine(pl) : [], rate = ECHO.Slime ? ECHO.Slime.rate() : 0;
-      const base = 60 + Math.round(pl.skills.flame * 1.2), regen = 2.6 + pl.skills.flame / 40 + W.regen(pl) + (ECHO.Arcana ? ECHO.Arcana.regenBonus(pl) : 0);
+      const base = 60 + Math.round(pl.skills.flame * 1.2), regen = 2.6 + pl.skills.flame / 40 + W.regen(pl) + (ECHO.Arcana ? ECHO.Arcana.regenBonus(pl) : 0) + (ECHO.ManaWear ? ECHO.ManaWear.regen(pl) : 0);
+      const MW = ECHO.ManaWear, ring = MW && MW.worn(pl, 'ring'), amu = MW && MW.worn(pl, 'amulet');
       const pct = Math.round(Math.min(1, s.xp / W.need(s.lv)) * 100);
       return `<div class="card well-card"><h4>◈ Your mana · <span style="color:#7ab8ff">${Math.round(pl.maxMana)}</span> <span class="dim" style="font-size:12px">· ${regen.toFixed(1)} a second</span></h4>
         <div class="aura-bar well-bar"><i style="width:${pct}%"></i></div>
         <div style="font-size:13px">Your well: <b class="gold">${s.lv}</b> <span class="dim">(${Math.round(s.xp)} / ${W.need(s.lv)} to the next; each is +${W.PER_WELL} mana and faster regaining)</span></div>
         <div class="dim" style="font-size:12px">${base} from yourself and the flame · +${W.levelBonus(pl)} from your level · +${s.lv * W.PER_WELL} from the well · +${s.lessons * W.PER_LESSON} from ${s.lessons} lesson${s.lessons === 1 ? '' : 's'} · +${Math.round(s.cores)} from ${s.coreN} slime core${s.coreN === 1 ? '' : 's'}${ECHO.Arcana && ECHO.Arcana.bonus(pl) ? ` · +${Math.round(ECHO.Arcana.bonus(pl))} from relics` : ''}.</div>
         ${sl.length ? `<div style="font-size:13px;color:#b8ff7a">Your slime${sl.length > 1 ? 's' : ''} (${sl.map(r => r.name).join(', ')}) feed${sl.length > 1 ? '' : 's'} on it: <b>−${rate.toFixed(1)}</b> mana a second now${rate > regen ? ' <span class="ember">— more than comes back: deepen your well, or rest one at your den</span>' : ''}.</div>` : ''}
-        <div class="dim" style="font-size:12px">To deepen it: spend mana (spells, relics, a slime you keep) · meditate by your campfire (B, then E by the fire) · take the arcanist's lessons in any market (${s.lessons}/${W.LESSONS}) · drink the cores of slimes · and rise in level.</div></div>`;
+        ${MW ? `<div style="font-size:13px">${amu ? `<span style="color:${amu.col}">◈ ${amu.name}</span>: hold ${Math.round(amu.pct * 100)}% more, +${MW.fmt(amu.flat)}` : '<span class="dim">◈ no mana amulet</span>'} · ${ring ? `<span style="color:${ring.col}">◍ ${ring.name}</span>: +${MW.fmt(MW.regen(pl))} a second` : '<span class="dim">◍ no mana ring</span>'}</div>` : ''}
+        <div class="dim" style="font-size:12px">To deepen it: spend mana (spells, relics, a slime you keep) · meditate by your campfire (B, then E by the fire) · take the arcanist's lessons in any market (${s.lessons}/${W.LESSONS}) · drink the cores of slimes · and rise in level. <b style="color:#7ab8ff">Or buy it straight:</b> the arcanist in any market sells mana rings (it comes back faster) and amulets (you hold more), from ${MW ? MW.fmt(MW.MIN) : '1,000,000'} crowns.</div></div>`;
     },
     marketHtml(pl) {
       const s = W.st(pl), done = s.lessons >= W.LESSONS, c = W.lessonPrice(pl);

@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
 
 function loadEcho() {
@@ -1789,6 +1789,24 @@ function main() {
     check('…but near the end of your strength, even one brings it back', P.threat);
     game.pl.hp = 100; game.world = world; E.Interior.cur = cave;
   }
+  console.log('\nMana, bought straight: rings and amulets');
+  {
+    const MW = ECHO.ManaWear;
+    const all = [1, 2, 3, 4, 5].flatMap(n => [['ring', n], ['amulet', n]]);
+    check('every mana ring and amulet costs a million crowns at the least — even where prices are lowest', all.every(([k, n]) => MW.price(k, n, 0.4) >= 1000000 && MW.price(k, n) >= 1000000) && MW.price('ring', 1, 0.4) === 1000000);
+    const pl = { gold: 999999, mana: 100, maxMana: 1000 };
+    const game = { pl, pe: null };
+    check('a million is a million: with a crown less, nothing is sold', typeof MW.buy(game, 'ring', 1) === 'string' && pl.gold === 999999 && MW.worn(pl, 'ring') === null);
+    check('an old save wears nothing, and nothing in its mana changes', MW.regen({ maxMana: 1000 }) === 0 && MW.maxMana({}, 1000) === 1000);
+    pl.gold = 5000000;
+    const r1 = MW.buy(game, 'ring', 1);
+    check('bought, a ring is worn at once: a share of all your mana back every second, and a stream on top', typeof r1 === 'object' && pl.gold === 4000000 && MW.worn(pl, 'ring').name === 'Ring of the Spring' && Math.abs(MW.regen(pl) - (1000 * 0.02 + 15)) < 1e-9);
+    check('a better one takes yours in part payment, at half what it cost', MW.cost(pl, 'ring', 2) === 2500000 && typeof MW.buy(game, 'ring', 2) === 'object' && pl.gold === 1500000 && pl.manaGear.ring === 2);
+    check('…and you cannot buy what you wear, or worse', /wearing/.test(MW.why(pl, 'ring', 2)) && /better/.test(MW.why(pl, 'ring', 1)));
+    pl.gold = 1000000; MW.buy(game, 'amulet', 1);
+    check('an amulet lets you hold more: a share more, and a store on top', pl.gold === 0 && MW.maxMana(pl, 1000) === 1600);
+  }
+
   console.log('\nFixed danger, more realms, real diplomacy');
   {
     const E = ECHO, Dg = E.Danger, Rs = E.Realms, Pw = E.Powers, P = E.People;

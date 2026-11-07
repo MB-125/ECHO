@@ -585,6 +585,7 @@
           ${UI.safe(() => UI.apothecaryHtml(pl, am), 'apothecary')}
           ${ECHO.Arcana ? UI.safe(() => ECHO.Arcana.marketHtml(world, pl, s, am), 'arcanist') : ''}
           ${ECHO.Well ? UI.safe(() => `<div class="wares">${ECHO.Well.marketHtml(pl)}</div>`, 'mana lessons') : ''}
+          ${ECHO.ManaWear ? UI.safe(() => ECHO.ManaWear.marketHtml(pl, am), 'arcanist\'s case') : ''}
           ${UI.safe(() => UI.stablesHtml(pl, s), 'stables')}
           ${(pl.inv.starshard || 0) + (pl.inv.whitehide || 0) > 0 ? `<h4 class="ware-h">Rare things</h4><div class="wares">
             ${pl.inv.starshard ? `<div class="ware"><div class="ware-ic">✦</div><div class="ware-main"><div class="ware-top"><b>Star-iron shard</b><span class="gold">they pay ${rare.star}</span></div><div class="ware-use">A smith can forge it into your blade; a priest knows other uses.</div><div class="ware-meta">You have <b>${pl.inv.starshard}</b></div><div class="row"><button class="small" data-rare="starshard">Sell 1</button></div></div></div>` : ''}
@@ -613,6 +614,11 @@
             if (r.n) UI.toast(`Sold ${r.n} piece${r.n > 1 ? 's' : ''} of gear for ${r.total} crowns.`, 'info', 4);
           }
           if (d.keep) UI.toggleKeep(pl, d.keep);
+          if (d.mwbuy && ECHO.ManaWear) {
+            const [kind, n] = d.mwbuy.split(':'), r = ECHO.ManaWear.buy(ECHO.Game, kind, +n, am);
+            if (typeof r === 'string') UI.toast(r, 'warn', 4);
+            else { s.wealth = (s.wealth || 0) + Math.round(r.cost * 0.02); ECHO.Sfx.play('coin'); UI.toast(`${r.item.name} is yours, and on you now: ${ECHO.ManaWear.line(kind, r.item)}. (${Math.round(pl.maxMana)} mana now.)`, 'legend', 6); }
+          }
           if (d.welllesson && ECHO.Well) { const why = ECHO.Well.lesson(ECHO.Game); if (why) UI.toast(why, 'warn', 3); else { s.wealth = (s.wealth || 0) + 20; ECHO.Sfx.play('coin'); UI.toast(`The arcanist shows you how to hold more: +${ECHO.Well.PER_LESSON} mana for good (${pl.maxMana} now).`, 'study', 5); } }
           if (d.sellgear) { const it = world.items[d.sellgear]; if (it && !ECHO.Gear.worn(pl, it.id)) { const got = UI.gearPrice(world, pl, s, it); pl.items = pl.items.filter(x => x !== it.id); it.holder = null; it.history.push({ d: world.day, t: `sold at the market in ${s.name}` }); pl.gold += got; ECHO.Sfx.play('coin'); UI.toast(`Sold ${it.name} for ${got} crowns.`, 'info', 3); } }
           if (d.picks) { const c = Math.round(9 * am); if (pl.gold >= c) { pl.gold -= c; pl.inv.lockpick = (pl.inv.lockpick || 0) + 3; s.wealth += c; ECHO.Sfx.play('coin'); } }
@@ -801,7 +807,7 @@
       const look = ECHO.Progress.lookOf(world, pl);
       const slot = (it, what) => `<div class="gear-slot">${GA.img(it)}<div>${it ? `<b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}</b><div style="font-size:13px">${esc(Gr.line(it))}</div><div class="dim" style="font-size:12px">${Gr.honeCost(it) ? `A smith can take it to +${(it.plus || 0) + 1}.` : 'Upgraded as far as it goes.'}</div>` : `<span class="dim">No ${what}.</span>`}</div></div>`;
       return `<h3 class="gold">Equipment</h3><div class="gear-slots"><img class="gear-doll" src="${GA.doll(look, pl.look && pl.look.skin || '#e0ac85', pl.look && pl.look.hair || '#4a3020')}" alt="">
-        <div>${slot(world.items[pl.weapon], 'sword')}${slot(world.items[pl.bow], 'bow')}${slot(pl.armor && world.items[pl.armor], 'armour')}</div></div>`;
+        <div>${slot(world.items[pl.weapon], 'sword')}${slot(world.items[pl.bow], 'bow')}${slot(pl.armor && world.items[pl.armor], 'armour')}${ECHO.ManaWear ? UI.safe(() => ECHO.ManaWear.equipHtml(pl), 'mana jewellery') : ''}</div></div>`;
     },
     stablesHtml(pl, s) {
       const L = ECHO.Life;

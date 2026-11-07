@@ -44,6 +44,7 @@
         wellfed: charm('wellfed')
       };
       if (ECHO.Arcana) ECHO.Arcana.applyDerived(game, PC.derived);
+      if (ECHO.ManaWear) PC.derived.maxMana = ECHO.ManaWear.maxMana(pl, PC.derived.maxMana);   // (a mana amulet)
       if (ECHO.Lore) PC.derived.maxHp = Math.round(PC.derived.maxHp * ECHO.Lore.lifeMul(pl));
       pl.maxHp = PC.derived.maxHp; pl.maxSta = PC.derived.maxSta; pl.maxMana = PC.derived.maxMana;
       pl.hp = Math.min(pl.hp, pl.maxHp);
@@ -361,7 +362,7 @@
       if (!pe.swimming && !pe.blocking && PC.dodgeT <= 0 && pe.cd <= 0.05) pl.stamina = Math.min(pl.maxSta, pl.stamina + (pe.wading ? 0.6 : 1) * (26 + pl.skills.endurance * 0.15) * dt * (D.wellfed ? 1.4 : 1) * (pl.buffs && pl.buffs.wind > 0 ? 2 : 1) * (ECHO.Camp ? ECHO.Camp.regenMul(pl) : 1));
       if (pe.blocking) pl.stamina = Math.max(0, pl.stamina - 3 * dt * D.blockMul);
       if (ECHO.Arcana) { ECHO.Arcana.measure(game); ECHO.Arcana.tick(game, dt); }
-      pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40 + (ECHO.Arcana ? ECHO.Arcana.regenBonus(pl) : 0) + (ECHO.Well ? ECHO.Well.regen(pl) : 0)) * dt);
+      pl.mana = Math.min(pl.maxMana, pl.mana + (2.6 + pl.skills.flame / 40 + (ECHO.Arcana ? ECHO.Arcana.regenBonus(pl) : 0) + (ECHO.Well ? ECHO.Well.regen(pl) : 0) + (ECHO.ManaWear ? ECHO.ManaWear.regen(pl) : 0)) * dt);
       if (ECHO.Arcana) ECHO.Arcana.after(game);
       if (game.time - (game.lastHurtTime || -99) > 8 && !pl.sick) pl.hp = Math.min(pl.maxHp, pl.hp + 0.5 * dt);
       if (D.relicRegen > 0 && pl.hp > 0) pl.hp = Math.min(pl.maxHp, pl.hp + D.relicRegen * dt);     // (Verdance: even in a fight)
