@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.23.2', items: [
+      'A great beast you have beaten down (Thunderhoof the Storm Elk, Gorehorn, the dragons) can be killed now. Strike it once more as it lies beaten and it dies, and you take its hoard: hide, fangs, gold, gear and relics (and scales, from a dragon). Before, blows did nothing to it and E always bound it, so you could only tame it or watch it get up and leave.',
+      'E still binds it if you want it for your own. The prompt now says both: "Bind it — or strike it to finish it".',
+      'The blow that knocks it down doesn\'t count: the kill only comes from a blow a moment later, so the rest of a combo can\'t decide for you. Your companions\' and beasts\' blows never finish it; only yours do.',
+      'Taming on the leash (L) still means taming: then your blows do nothing to it and it waits for you to bind it.',
+      'If you already keep four beasts, the choice to make room now also offers "Finish it".'
+    ] },
     { v: '0.23.1', items: [
       'Smoother play, above all on a big round world. The game no longer stalls for a moment when the world changes somewhere.',
       'The map: when the land changed (a site dug, a village founded, a wood grown, a house built), the whole world map used to be painted again, which on a round world took a second or more. Now only the part that changed is painted again. After loading, the map is painted around you first and the rest a little at a time.',

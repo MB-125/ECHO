@@ -613,7 +613,7 @@
           t.seen = true;
           const sp = Ti().sp(t), D = ECHO.Prowess.diff(t.lvl, ECHO.Prowess.level(pl));
           UI().banner(`${t.name} ${t.title}`, `${sp.flies ? 'A dragon' : 'A great beast'} · level ${t.lvl} · ${ECHO.Calamity ? ECHO.Calamity.label(t) : ''}${t.mig ? ' · on the move' : ' · this is its range'}`, false);
-          if (!A.told.first) { A.told.first = true; setTimeout(() => UI().toast(`${sp.desc} ${D.skulls >= 2 ? 'It is far beyond you — stay off its range.' : 'Beat it down and you can bind it: it will fight for you' + (sp.flies ? ', and carry you through the sky.' : '.')}`, D.skulls >= 2 ? 'warn' : 'legend', 8), 900); }
+          if (!A.told.first) { A.told.first = true; setTimeout(() => UI().toast(`${sp.desc} ${D.skulls >= 2 ? 'It is far beyond you — stay off its range.' : 'Beat it down and you can bind it (E): it will fight for you' + (sp.flies ? ', and carry you through the sky' : '') + '. Or strike it once more as it lies beaten, and it dies.'}`, D.skulls >= 2 ? 'warn' : 'legend', 8), 900); }
         }
         // its young about the roost, as you come close
         if (d < 34 && !A.broodNear(game, t)) A.brood(game, t);
@@ -1045,7 +1045,18 @@
         if (e.hp - dmg <= 1) { A.spent(game, e); return Math.max(0, e.hp - 1); }
         return dmg;
       }
-      if (e.state === 'subdued') return 0;
+      if (e.state === 'subdued') {
+        // Beaten down, it is yours to choose: E binds it, a blow of yours finishes it (not in the very
+        // moment it falls, so the rest of a combo doesn't decide for you; not on the leash — L — which
+        // means you mean to tame; never a blow of your companions or your beasts)
+        if (src && src.from === game.pe && game.time - (e._subAt || 0) > 0.8) {
+          const t0 = Ti().byId(game.world, e.titan);
+          if (ECHO.Tame && ECHO.Tame.mode(game.pl) === 'leash') {
+            if (!e._leashSay || game.time - e._leashSay > 1.5) { e._leashSay = game.time; ECHO.Combat.floater(e.x, e.y - 2.2, 'on the leash — L to fight to the kill', '#ffcf6a'); }
+          } else if (t0) A.finish(game, e, t0);
+        }
+        return 0;
+      }
       const now = game.time, t = Ti().byId(game.world, e.titan), sp = t ? t.sp : '', pe = game.pe;
       const say = (txt, col) => { if (!e._sayT || now - e._sayT > 0.8) { e._sayT = now; ECHO.Combat.floater(e.x, e.y - 1.5 - Math.max(0, e.alt), txt, col || '#c8c0b0'); } };
       if ((e.inv || 0) > now) { say('unyielding'); return 0; }
@@ -1087,12 +1098,12 @@
     },
     subdue(game, e) {
       const t = Ti().byId(game.world, e.titan);
-      e.state = 'subdued'; e.atk = null; e.aggro = false; e.altGoal = 0; e.subT = 50; e.moving = false;
+      e.state = 'subdued'; e.atk = null; e.aggro = false; e.altGoal = 0; e.subT = 50; e.moving = false; e._subAt = game.time;
       e.castId = (e.castId || 0) + 1; e.busyUntil = 0; e.charging = null; e.shield = null; e.burrowed = false; e.alt = Math.max(0, e.alt); if (A.held && A.held.e === e) A.held = null;
       if (e.alt > 0.5) { e.alt = 0; game.shake(0.8); ECHO.Combat.burst(e.x, e.y, '#8d8576', 40, 6, 0.9, 3); }
       ECHO.Combat.floater(e.x, e.y - 2.5, `${t ? t.name : 'It'} is beaten!`, '#ffe08a', true);
       if (ECHO.Music) ECHO.Music.stinger('discover');
-      UI().toast(`${t.name} lies in the dust, beaten. Bind it (E) and it is yours (${Ti().bound(game.world).length}/${Ti().MAX_BOUND}) — or finish it. It will not stay down long.`, 'legend', 9);
+      UI().toast(`${t.name} lies in the dust, beaten. Bind it (E) and it is yours (${Ti().bound(game.world).length}/${Ti().MAX_BOUND}) — or strike it once more to finish it. It will not stay down long.`, 'legend', 9);
     },
     subdued(game, e, t, dt) {
       e.moving = false; e.altGoal = 0;
@@ -1111,8 +1122,7 @@
         const d = U.dist(e.x, e.y, pe.x, pe.y), t = Ti().byId(game.world, e.titan);
         if (!t) continue;
         if (e.state === 'subdued' && d < e.r + 3) {
-          out.push({ kind: 'act', label: `Bind ${t.name} — make it yours (${Ti().bound(game.world).length}/${Ti().MAX_BOUND})`, d: d * 0.4, act: () => A.bind(game, e, t) });
-          out.push({ kind: 'act', label: `Finish ${t.name}`, d: d * 0.4 + 0.3, act: () => A.finish(game, e, t) });
+          out.push({ kind: 'act', label: `Bind ${t.name} — make it yours (${Ti().bound(game.world).length}/${Ti().MAX_BOUND}) · or strike it to finish it`, d: d * 0.4, act: () => A.bind(game, e, t) });
         }
         if (e.tamed && e.flies && e.alt < 0.5 && d < e.r + 2.5 && !pl.mounted) out.push({ kind: 'act', label: `Climb onto ${t.name} and fly (V)`, d: d * 0.6, act: () => A.mount(game, e) });
         if (e.tamed && e.alt < 0.5 && d < e.r + 3 && ECHO.Partner && !(e.pt && e.pt.intent === 'fight')) out.push({ kind: 'act', label: `Stroke ${t.name}'s neck`, d: d * 0.6 + 0.2, act: () => ECHO.Partner.pet(game, e, t) });
@@ -1129,7 +1139,7 @@
       const world = game.world, pl = game.pl;
       if (!Ti().canBind(world)) {
         const mine = Ti().bound(world);
-        return UI().modal({ title: 'You can keep four', html: `<p>You already keep ${mine.length} beasts. Set one free to make room for ${esc(t.name)} — it goes back to its old range.</p>`, choices: mine.map(b => ({ label: `Set ${b.name} free`, sub: `${Ti().sp(b).flies ? 'Dragon' : 'Great beast'} · level ${b.lvl}`, onPick: () => { if (pl.beastOut === b.id) A.dismiss(game); Ti().release(world, b, pl); A.bind(game, e, t); } })).concat([{ label: 'Leave it', onPick: () => {} }]) });
+        return UI().modal({ title: 'You can keep four', html: `<p>You already keep ${mine.length} beasts. Set one free to make room for ${esc(t.name)} — it goes back to its old range.</p>`, choices: mine.map(b => ({ label: `Set ${b.name} free`, sub: `${Ti().sp(b).flies ? 'Dragon' : 'Great beast'} · level ${b.lvl}`, onPick: () => { if (pl.beastOut === b.id) A.dismiss(game); Ti().release(world, b, pl); A.bind(game, e, t); } })).concat([{ label: `Finish ${t.name}`, sub: 'Kill it and take its hoard', onPick: () => { if (!e.dead && e.state === 'subdued') A.finish(game, e, t); } }, { label: 'Leave it', onPick: () => {} }]) });
       }
       const saved = ECHO.Calamity ? ECHO.Calamity.stoppedBy(world, t, pl, 'bound') : [];
       Ti().bind(world, t, pl);
