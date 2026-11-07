@@ -32,6 +32,8 @@
     // A few small things made here rather than in Blender: what is left of a felled tree.
     procedural() {
       const mat = (name, hex) => { const m = new THREE.MeshStandardMaterial({ color: new THREE.Color(hex).convertSRGBToLinear() }); m.name = name; return m; };
+      // (the houses and halls of the other peoples: render/townmodels.js)
+      if (M.townModels) { try { M.townModels(mat); } catch (err) { console.error('model: town models', err); } }
       if (!M.scenes.stump) {
         const g = new THREE.Group(), bark = mat('bark', '#5a4330'), cut = mat('cutwood', '#d8b684'), ring = mat('heart', '#a27a4a');
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.19, 0.26, 9), bark); trunk.position.y = 0.13; g.add(trunk);

@@ -313,6 +313,7 @@
       else if (t === TILE.FOREST || t === TILE.TREE) s += 0.5;
       else if (t === TILE.SAND || t === TILE.HILL) s += 0.2;
       else if (t === TILE.WATER) s += 0.1;
+      else if (t === TILE.FARM || t === TILE.ROAD) s += 0.3;   // (fields and a road nearby: good land, not taken land)
       else s -= 1.2;
     }
     return s;
@@ -441,6 +442,9 @@
       }
     }
     s.farmTiles = farm;
+    // and then laid out again in the way of the people who hold it (world/townstyle.js): the same
+    // buildings and the same fields, along its own streets
+    if (ECHO.TownStyle) ECHO.TownStyle.replan(world, s);
   }
 
   function roadCost(world) {

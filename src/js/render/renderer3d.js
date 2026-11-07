@@ -1016,7 +1016,9 @@
       for (let yy = y0 - 1; yy <= y1; yy++) for (let xx = x0 - 1; xx <= x1; xx++) {
         const yc = Math.max(0, Math.min(world.H - 1, yy)), xw = world.globe ? ((xx % world.W) + world.W) % world.W : Math.max(0, Math.min(world.W - 1, xx));
         const ii = yc * world.W + xw, t = world.tiles[ii];
-        tmp.copy(C(tileColor(t, season, xw, yc, world.seed)));
+        // (a town's paving in its people's stone; beaten earth on the steppe and in the north)
+        const pv = t === TILE.PLAZA && ECHO.TownStyle ? ECHO.TownStyle.paveAt(world, xw, yc) : null;
+        tmp.copy(C(pv ? pv.col : tileColor(t, season, xw, yc, world.seed)));
         tmp.multiplyScalar(0.93 + hash(xw, yc, world.seed + 2) * 0.14);
         const trl = world._trail ? world._trail[ii] : 0, dwt = world._wd ? world._wd[ii] : 0;
         if (trl) tmp.lerp(C(dwt ? '#3e3528' : '#9a8258'), (dwt ? 0.75 : 0.82) * (0.88 + hash(xw, yc, world.seed + 4) * 0.24));
@@ -1053,7 +1055,8 @@
         const a = R.cornerH(x, y), b = R.cornerH(x + 1, y), c2 = R.cornerH(x, y + 1), d = R.cornerH(x + 1, y + 1);
         if (a > groundTop) groundTop = a;
         const V = [[x, a, y], [x, c2, y + 1], [x + 1, b, y], [x + 1, b, y], [x, c2, y + 1], [x + 1, d, y + 1]];
-        const kd = KIND[t] || 0;
+        let kd = KIND[t] || 0;
+        if (t === TILE.PLAZA && ECHO.TownStyle) { const pv = ECHO.TownStyle.paveAt(world, x, y); if (pv && pv.earth) kd = 2; }
         for (let i = 0; i < 6; i++) {
           kind[o / 3] = kd;
           pos[o] = V[i][0]; pos[o + 1] = V[i][1]; pos[o + 2] = V[i][2];
@@ -1249,7 +1252,7 @@
         }
         if (cur0 && R.frameNo % 15 !== (s.id.length + s.x | 0) % 15 && cur0.key) continue;   // look for changes now and then, not every frame
         const fac = world.factions[s.faction];
-        const key = [s.faction, fac ? fac.tech.era : 0, s.buildings.length, s.buildings.filter(b => b.legend).length, s.buildings.filter(b => b.fac).map(b => b.fac.state[0]).join(''), s.works && s.works.walls ? 'W' : ''].join('|');
+        const key = [s.faction, fac ? fac.tech.era : 0, s.buildings.length, s.buildings.filter(b => b.legend).length, s.buildings.filter(b => b.fac).map(b => b.fac.state[0]).join(''), s.works && s.works.walls ? 'W' : '', s.style || '', s.reach || 0].join('|');
         const cur = R.towns[s.id];
         if (cur && cur.key === key) continue;
         if (builtOne && !R.firstFrame) continue;
@@ -1258,10 +1261,15 @@
         const group = new THREE.Group();
         const fr = world.factions[s.faction], roof = R.ROOF[s.faction] || (fr && fr.banner ? [fr.banner, fr.color] : R.ROOF.valdren);
         const lamps = [], sails = [], smokes = [];
+        // the way its people build (render/townmodels.js, world/townstyle.js): their houses, stone, roofs
+        const TSt = ECHO.TownStyle, A = TSt && s.style ? TSt.arch(s) : null;
+        const pal = A ? Object.assign({}, A.pal, { roof: A === TSt.ARCH[s.faction] ? roof[0] : TSt.roof(world, s), banner: roof[1], band: fr && fr.color ? fr.color : '#c84a3a', dome: A.domes ? A.domes[ECHO.hashStr(s.id) % A.domes.length] : A.pal.awning }) : null;
         for (const b of s.buildings) {
-          const name = R.MODEL_OF[b.type];
+          let name = (A && TSt.model(s, b)) || R.MODEL_OF[b.type];
+          if (name && !ECHO.Models.scenes[name]) name = R.MODEL_OF[b.type];
           if (!name) continue;
-          const colors = { roof: b.legend && b.type === 'house' ? '#5a5a6e' : roof[0], banner: roof[1] };
+          const colors = pal ? Object.assign({}, pal) : { roof: roof[0], banner: roof[1] };
+          if (b.legend && b.type === 'house') colors.roof = '#5a5a6e';
           const lost = b.fac && (b.fac.state === 'burned' || b.fac.state === 'ruined');
           if (lost) Object.assign(colors, { wood: '#2a221c', darkwood: '#1c1814', plaster: '#3e3832', roof: '#24201d', canvas: '#3a3632', trunk: '#2a2018', stone: '#4a4640', rock: '#5a5650' });
           if (b.fac) smokes.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, lost, kind: b.type, b });
@@ -1279,7 +1287,7 @@
             }
           }
           if (b.type === 'lamp' && fac && fac.tech.era >= 4) colors.glow = fac.tech.path === 'arcane' ? '#bfe8ff' : '#fff0a0';
-          if (fac && fac.tech.era >= 2 && (b.type === 'house' || b.type === 'inn')) colors.wall = '#b8b0a2';
+          if (fac && fac.tech.era >= 2 && (b.type === 'house' || b.type === 'inn') && (!A || A === TSt.ARCH.valdren)) colors.wall = '#b8b0a2';
           const baked = ECHO.Models.bake(name, colors);
           if (!baked) continue;
           const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
@@ -1295,8 +1303,12 @@
           }
           if (b.type === 'lamp') lamps.push({ x: cx, y: cy, era: fac ? fac.tech.era : 0, arcane: fac && fac.tech.path === 'arcane' });
         }
+        // what stands in its streets and gardens: trees of its country, braziers, lanterns, standards (one mesh)
+        if (A) R.townDecor(world, s, group, pal, lamps, fac);
+        // its walls, once the crown has paid for them: in its own stone (or stakes, or hedges, or standards)
+        if (s.works && s.works.walls && A && A.walls !== 'stakes') R.townWalls(world, s, group, A, pal);
         // a palisade, once the crown has paid for one: a ring of sharpened stakes with gaps for the roads
-        if (s.works && s.works.walls) {
+        else if (s.works && s.works.walls) {
           const rad = s.kind === 'capital' ? 17 : 14.5, n = Math.round(rad * 2 * Math.PI / 0.55);
           const geo = R._stakeGeo || (R._stakeGeo = new THREE.CylinderGeometry(0.09, 0.13, 1.9, 5).translate(0, 0.95, 0));
           const mat = R._stakeMat || (R._stakeMat = new THREE.MeshStandardMaterial({ color: C('#6a4a2c'), roughness: 0.95, flatShading: true }));
@@ -1317,6 +1329,98 @@
         }
         R.groups.towns.add(group);
         R.towns[s.id] = { key, group, lamps, sails, smokes };
+      }
+    },
+
+    // the decor of a styled town, merged into a mesh for each of its parts
+    townDecor(world, s, group, pal, lamps, fac) {
+      const list = ECHO.TownStyle.decor(world, s);
+      if (!list.length) return;
+      const parts = { base: [], glow: [], window: [] };
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+      for (const d of list) {
+        const nm = d.k === 'totem' ? 'npost' : d.k === 'awning' ? 'stall' : d.k;
+        if (!ECHO.Models.scenes[nm]) continue;
+        const baked = ECHO.Models.bake(nm, nm === 'palm' || nm === 'cypress' || nm === 'pine' || nm === 'willow' || nm === 'oak' || nm === 'bush' ? {} : pal);
+        if (!baked) continue;
+        q.setFromAxisAngle(up, ECHO.hash2(Math.floor(d.x * 7), Math.floor(d.y * 7), 91) * Math.PI * 2);
+        sc.set(d.s || 1, d.s || 1, d.s || 1);
+        m4.compose(pos.set(d.x, R.groundH(d.x, d.y), d.y), q, sc);
+        for (const p of ['base', 'glow', 'window']) if (baked[p]) { const g = baked[p].clone(); g.applyMatrix4(m4); parts[p].push(g); }
+        if ((nm === 'brazier' || nm === 'lanternpost') && lamps.length < 14) lamps.push({ x: d.x, y: d.y, era: fac ? fac.tech.era : 0, arcane: false });
+      }
+      for (const p of ['base', 'glow', 'window']) {
+        const L = parts[p];
+        if (!L.length) continue;
+        let n = 0; for (const g of L) n += g.attributes.position.array.length;
+        const P = new Float32Array(n), Cc = new Float32Array(n), N = new Float32Array(n);
+        let o = 0;
+        for (const g of L) { P.set(g.attributes.position.array, o); Cc.set(g.attributes.color.array, o); if (g.attributes.normal) N.set(g.attributes.normal.array, o); o += g.attributes.position.array.length; g.dispose(); }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(P, 3)); geo.setAttribute('color', new THREE.BufferAttribute(Cc, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+        geo.computeBoundingSphere();
+        const mesh = new THREE.Mesh(geo, p === 'base' ? R.mat.prop : p === 'glow' ? R.mat.glow : R.mat.window);
+        mesh.castShadow = p === 'base'; mesh.receiveShadow = true;
+        mesh.userData.decor = true;
+        group.add(mesh);
+      }
+    },
+    // a styled town's walls: about it at the edge of its houses, the shape of its plan, gaps where its roads and streets go out
+    townWalls(world, s, group, A, pal) {
+      const PL = ECHO.TownStyle.layoutOf(s), Rw = (s.reach || 14) + 1.6;
+      const kind = A.walls;
+      const colOf = { stone: pal.stone || '#8a857c', marble: '#e6e0d4', mud: pal.wall || '#d8bf94', hedge: '#3e6a34', low: pal.plaster || '#eee2c8', standards: pal.banner || '#2b3f66' };
+      const colGeo = (geo, hex) => { const g = geo.index ? geo.toNonIndexed() : geo; const c = new THREE.Color(hex).convertSRGBToLinear(), n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const j = 1 + ((i / 3 | 0) * 0.37 % 1 - 0.5) * 0.08; a[i * 3] = c.r * j; a[i * 3 + 1] = c.g * j; a[i * 3 + 2] = c.b * j; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; };
+      const H = kind === 'stone' ? 2.1 : kind === 'mud' ? 1.9 : kind === 'marble' ? 1.6 : kind === 'hedge' ? 1.05 : kind === 'low' ? 0.75 : 0;
+      const segL = 0.62;
+      // the points round it: where dist() of the plan meets the wall's reach
+      const pts = [];
+      const per = Math.round(Rw * 2 * Math.PI * 1.15 / segL);
+      for (let i = 0; i < per; i++) {
+        const a = i / per * Math.PI * 2, ux = Math.cos(a), uy = Math.sin(a), r = Rw / Math.max(0.2, PL.dist(ux, uy));
+        pts.push([s.x + 0.5 + ux * r, s.y + 0.5 + uy * r]);
+      }
+      const keep = [];
+      for (let i = 0; i < pts.length; i++) {
+        const [x, y] = pts[i], t = ECHO.World.tile(world, x, y);
+        if (t === TILE.ROAD || t === TILE.BRIDGE || t === TILE.WATER || t === TILE.DEEP || t === TILE.PLAZA || ECHO.World.isSolid(world, x, y)) continue;
+        const [x2, y2] = pts[(i + 1) % pts.length];
+        keep.push({ x: (x + x2) / 2, y: (y + y2) / 2, ang: Math.atan2(y2 - y, x2 - x), len: Math.hypot(x2 - x, y2 - y), i });
+      }
+      if (!keep.length) return;
+      const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+      const inst = (geo, hex, list, f) => {
+        const im = new THREE.InstancedMesh(colGeo(geo, hex), R.mat.prop, list.length);
+        let k = 0;
+        for (const p of list) { const o = f(p); if (!o) continue; q.setFromAxisAngle(up, -o.ang); sc.set(o.sx || 1, o.sy || 1, o.sz || 1); m4.compose(pos.set(o.x, R.groundH(o.x, o.y) + (o.dy || 0), o.y), q, sc); im.setMatrixAt(k++, m4); }
+        im.count = k; im.castShadow = true; im.receiveShadow = true; group.add(im);
+      };
+      if (kind === 'standards') {
+        // the steppe's ring of standards and horse-lines, no wall
+        const st = keep.filter(p => p.i % 7 === 0);
+        inst(new THREE.CylinderGeometry(0.045, 0.055, 2.6, 6).translate(0, 1.3, 0), '#4a3424', st, p => p);
+        inst(new THREE.BoxGeometry(0.04, 0.75, 0.55).translate(0, 2.05, 0.28), pal.banner || '#2b3f66', st, p => p);
+        inst(new THREE.ConeGeometry(0.08, 0.26, 6).translate(0, 2.73, 0), '#d8b048', st, p => p);
+        inst(new THREE.BoxGeometry(0.62, 0.06, 0.06).translate(0, 0.95, 0), '#5a4030', keep.filter(p => p.i % 7 > 2 && p.i % 7 < 6), p => p);
+        return;
+      }
+      const thick = kind === 'hedge' ? 0.6 : kind === 'low' ? 0.32 : 0.48;
+      inst(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), colOf[kind], keep, p => ({ x: p.x, y: p.y, ang: p.ang, sx: p.len + 0.04, sy: H, sz: thick }));
+      if (kind === 'stone' || kind === 'mud') {
+        // merlons on every other stone, and towers at the turns
+        inst(new THREE.BoxGeometry(0.3, 0.32, thick + 0.04).translate(0, 0.16, 0), colOf[kind], keep.filter(p => p.i % 2 === 0), p => ({ x: p.x, y: p.y, ang: p.ang, dy: H }));
+        const towers = keep.filter(p => p.i % 14 === 0);
+        if (kind === 'stone') inst(new THREE.BoxGeometry(1.3, 3.1, 1.3).translate(0, 1.55, 0), colOf[kind], towers, p => p);
+        else inst(new THREE.CylinderGeometry(0.62, 0.72, 2.9, 12).translate(0, 1.45, 0), colOf[kind], towers, p => p);
+        inst(kind === 'stone' ? new THREE.ConeGeometry(0.98, 1.0, 4).rotateY(Math.PI / 4).translate(0, 3.6, 0) : new THREE.SphereGeometry(0.62, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 2.9, 0), kind === 'stone' ? (pal.roof || '#4a5a78') : (pal.dome || '#c8a040'), towers, p => p);
+      } else if (kind === 'marble') {
+        inst(new THREE.BoxGeometry(1, 0.12, 1).translate(0, 0.06, 0), '#f4f0e8', keep, p => ({ x: p.x, y: p.y, ang: p.ang, sx: p.len + 0.1, sz: thick + 0.14, dy: H }));
+        inst(new THREE.CylinderGeometry(0.22, 0.26, H + 0.5, 10).translate(0, (H + 0.5) / 2, 0), '#f0eadf', keep.filter(p => p.i % 9 === 0), p => p);
+      } else if (kind === 'hedge') {
+        inst(new THREE.BoxGeometry(0.16, 1.25, 0.16).translate(0, 0.62, 0), '#ece4d4', keep.filter(p => p.i % 8 === 0), p => p);
+      } else if (kind === 'low') {
+        inst(new THREE.BoxGeometry(0.16, 1.3, 0.16).translate(0, 0.65, 0), '#4a3424', keep.filter(p => p.i % 9 === 0), p => p);
+        inst(new THREE.BoxGeometry(0.2, 0.24, 0.2).translate(0, 1.42, 0), '#ffd890', keep.filter(p => p.i % 9 === 0), p => p);
       }
     },
 

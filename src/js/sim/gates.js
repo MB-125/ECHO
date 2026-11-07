@@ -127,7 +127,8 @@
           for (let dy = -R_HURT; dy <= R_HURT; dy += 2) for (let dx = -R_HURT; dx <= R_HURT; dx += 2) {
             if (dx * dx + dy * dy > R_HURT * R_HURT) continue;
             const t = Wd.tile(world, x + dx, y + dy);
-            if (t === T.ROAD || t === T.BRIDGE || t === T.FARM || t === T.PLAZA) roads++;
+            if (t === T.ROAD || t === T.BRIDGE || t === T.PLAZA) roads++;
+            else if (t === T.FARM) roads += 0.34;   // (an outlying field is not a town)
             if (t === T.WATER || t === T.DEEP) water++;
           }
           if (roads > 2 + relax * 3 || water > 30 + relax * 15) continue;

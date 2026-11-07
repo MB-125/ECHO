@@ -547,6 +547,7 @@
           ${ties.length ? `<div style="font-size:13px">${ties.join(' · ')}</div>` : '<div class="dim" style="font-size:13px">At peace, bound to no one.</div>'}
           ${pact.length ? `<div class="dim" style="font-size:12px">${pact.join(' · ')}</div>` : ''}
           ${ECHO.Arsenal && !f.fallen ? `<div style="font-size:12px">Arms: ${ECHO.Arsenal.line(world, f)}</div>` : ''}
+          ${ECHO.TownStyle && !f.fallen && ECHO.Sim.settlement(world, f.capital) && ECHO.Sim.settlement(world, f.capital).style ? `<div style="font-size:12px">Builds: <span style="color:${ECHO.TownStyle.roof(world, ECHO.Sim.settlement(world, f.capital))}">■</span> ${ECHO.TownStyle.describe(ECHO.Sim.settlement(world, f.capital))}</div>` : ''}
           <div style="font-size:12px">To you: <span style="color:${sw[1]}">${sw[0]}</span>${pl.knighted === f.id ? ' · <span class="gold">you are its knight</span>' : ''}</div></div>`;
       };
       // the relations between the neighbours, at a glance

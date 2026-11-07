@@ -6,7 +6,7 @@ const path = require('path');
 const vm = require('vm');
 
 const SIM_FILES = [
-  'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
+  'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
   'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
@@ -1822,6 +1822,56 @@ function main() {
     // and it keeps: the arsenal comes back from a save, and a world without one makes it fresh
     const back = JSON.parse(JSON.stringify(W.arsenal));
     check('the arsenal keeps with the world, and an old save without one is armed, not reset', back.realms[f.id].lv === R.lv && back.armed != null, `research ${back.realms[f.id].lv}`);
+  }
+
+  console.log('\nKingdoms of their own');
+  {
+    const E = ECHO, TS = E.TownStyle, TL = E.TILE;
+    const doorsOpen = (W, s) => s.buildings.every(b => (b.w === 1 && b.h === 1) || b.fac || b.ruined || (() => { const x = b.x + Math.floor(b.w / 2), y = b.y + b.h; return !W.blocked[y * W.W + x] && E.World.tile(W, x, y) !== TL.WATER && E.World.tile(W, x, y) !== TL.DEEP; })());
+    const overlaps = (W) => { const seen = new Set(); let n = 0; for (const s of W.settlements) for (const b of s.buildings) { if (b.fac || b.ruined) continue; for (let y = b.y; y < b.y + b.h; y++) for (let x = b.x; x < b.x + b.w; x++) { const k = y * 100000 + x; if (seen.has(k)) n++; seen.add(k); } } return n; };
+    // a new world: each crown builds its own way
+    const W = E.generateWorld({ seed: 6161, name: 'Styles', prehistoryDays: 3 });
+    const capOf = id => E.Sim.settlement(W, W.factions[id].capital);
+    const sv = capOf('valdren'), sa = capOf('ashmere'), sl = capOf('lantern');
+    const house = s => s.buildings.find(b => b.type === 'house');
+    check('every town is laid out in its people\'s way, and the old crowns each in their own', W.settlements.every(s => s.style) && sv.style === 'valdren:grid' && sa.style === 'ashmere:radial' && sl.style === 'lantern:cross' && TS.model(sv, house(sv)) !== TS.model(sa, house(sa)) && TS.model(sa, house(sa)) !== TS.model(sl, house(sl)), `${sv.style} / ${sa.style} / ${sl.style}: ${TS.model(sv, house(sv))}, ${TS.model(sa, house(sa))}, ${TS.model(sl, house(sl))}`);
+    check('every door opens onto a street or open ground, the well at the heart, and no building stands on another', W.settlements.every(s => doorsOpen(W, s)) && overlaps(W) === 0 && W.settlements.every(s => s.buildings.some(b => b.type === 'well' && b.x === s.x && b.y === s.y) && !W.blocked[(s.y + 1) * W.W + s.x]), `overlaps ${overlaps(W)}`);
+    // the same town, laid out by every plan: twelve different towns
+    const sigs = new Set(), all = [];
+    for (const c of Object.keys(TS.ARCH)) for (const p of TS.ARCH[c].plans) all.push(c + ':' + p);
+    const V = E.generateWorld({ seed: 6161, name: 'Styles', prehistoryDays: 0 }), vs = V.settlements.find(s => s.kind === 'capital');
+    let allOpen = true;
+    for (const st of all) { TS.replan(V, vs, st); E.World.rebuildBlocked(V); sigs.add(vs.buildings.map(b => (b.x - vs.x) + ',' + (b.y - vs.y)).sort().join(';')); if (!doorsOpen(V, vs)) allOpen = false; }
+    const plans = new Set(all.map(st => st.split(':')[1])).size;
+    check('every plan makes a different town of the same buildings', sigs.size === plans && allOpen, `${sigs.size} of ${plans} plans different`);
+    // a crown that broke away keeps its people's way, but not its old masters' plan or roofs
+    const duchy = { id: 'rlm77', type: 'kingdom', culture: 'valdren', color: '#a05050', banner: '#502020' };
+    const fake = { style: 'valdren:' + TS.planOf(duchy, 'valdren', W), faction: 'rlm77' };
+    W.factions.rlm77 = duchy;
+    const r1 = TS.roof(W, fake), r0 = TS.roof(W, sv);
+    delete W.factions.rlm77;
+    check('a crown that broke from Valdren builds Valdren\'s way, on its own plan and under its own roofs', fake.style === 'valdren:terraces' && r1 !== r0, `${fake.style}, roofs ${r1} (Valdren ${r0})`);
+    // a world from before: laid out again once, and nothing that is yours or theirs lost
+    const keepTS = E.TownStyle; delete E.TownStyle;
+    const O = E.generateWorld({ seed: 6262, name: 'Before', prehistoryDays: 3 });
+    E.TownStyle = keepTS;
+    const oc = O.settlements.find(s => s.kind === 'capital');
+    O.player = { charId: 'c-old', first: 'Ada', last: 'Old', x: oc.x + 0.5, y: oc.y + 2.5, inv: {}, items: [] };
+    const mine = oc.buildings.find(b => b.type === 'house'); mine.owner = 'c-old';
+    const ids = W2 => W2.settlements.map(s => s.buildings.filter(b => b.id !== s.id + '_well').map(b => b.id + b.type).sort().join()).join('|');
+    const before = { ids: ids(O), mine: [mine.x, mine.y], farmTiles: O.settlements.map(s => s.farmTiles).join(), farms: O.tiles.filter(t => t === TL.FARM).length };
+    const n = TS.ensure(O);
+    const farms = O.tiles.filter(t => t === TL.FARM).length;
+    check('a world from before is laid out again once, as it loads: the same buildings (and a well at the heart), your house where it stood, the fields kept', n === O.settlements.length && O.settlements.every(s => s.style) && ids(O) === before.ids && O.settlements.every(s => s.buildings.some(b => b.type === 'well' && b.x === s.x && b.y === s.y)) && mine.x === before.mine[0] && mine.y === before.mine[1] && O.settlements.map(s => s.farmTiles).join() === before.farmTiles && farms >= before.farms * 0.88 && TS.ensure(O) === undefined, `${n} towns, fields ${before.farms} → ${farms}`);
+    const roadsOk = O.roads.every(r => { const a = E.Sim.settlement(O, r.a), b = E.Sim.settlement(O, r.b); return r.path[0] === (a.y + 1) * O.W + a.x && r.path[r.path.length - 1] === (b.y + 1) * O.W + b.x && r.path.every(i => !O.blocked[i]); });
+    check('its roads still run into every town along its streets, through no house', roadsOk && O.settlements.every(s => doorsOpen(O, s)) && overlaps(O) === 0);
+    // growing: a new house goes on the next lot of the plan, its door on a street
+    const nb0 = sv.buildings.length, nb = E.Realm.placeBuilding(W, sv, 'house', 3, 3, 5, 15);
+    const dt = nb && E.World.tile(W, nb.x + 1, nb.y + 3);
+    check('a town grows along its own streets', nb && sv.buildings.length === nb0 + 1 && dt === TL.PLAZA && overlaps(W) === 0, nb && `at ${nb.x - sv.x},${nb.y - sv.y}`);
+    // and it keeps
+    const back = JSON.parse(JSON.stringify({ s: O.settlements, t: O.townStyle }));
+    check('a town\'s way keeps in a save', back.s.every(s => s.style) && back.t && back.t.v === TS.V);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

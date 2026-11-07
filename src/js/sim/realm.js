@@ -187,6 +187,18 @@
     // Find room for a new building in a town (no overlap, on open ground).
     placeBuilding(world, s, type, w, h, minR, maxR, dry) {
       const Tl = ECHO.TILE, W = world.W;
+      // the next lot in the town's own plan, along its streets (world/townstyle.js); else anywhere about it
+      if (!dry && s.style && ECHO.TownStyle) {
+        const L = ECHO.TownStyle.lot(world, s, w, h, type);
+        if (L) {
+          const b = { id: s.id + '_b' + s.buildings.length + '_' + world.day, type, x: L.x, y: L.y, w, h };
+          for (let yy = b.y; yy < b.y + h; yy++) for (let xx = b.x; xx < b.x + w; xx++) { const tt = ECHO.World.tile(world, xx, yy); if (tt === Tl.TREE || tt === Tl.FOREST || tt === Tl.SWAMP || tt === Tl.FARM || tt === Tl.PLAZA) ECHO.World.setTile(world, xx, yy, Tl.GRASS); }
+          s.buildings.push(b);
+          ECHO.World.rebuildBlocked(world);
+          if (L.plough) ECHO.TownStyle.fields(world, s, s.reach || 12, L.plough);
+          return b;
+        }
+      }
       // (only the sites near the town can be in the way: looked for once, not for every tile tried)
       const near = (world.sites || []).filter(o => Math.abs(o.x - s.x) < maxR + w + 6 && Math.abs(o.y - s.y) < maxR + h + 6);
       const occ = (x, y) => world.blocked[y * W + x] || (near.length && near.some(o => Math.abs(o.x - 0.5 - x) < 3 && Math.abs(o.y - 0.5 - y) < 3)) || s.buildings.some(b => x >= b.x - 1 && x < b.x + b.w + 1 && y >= b.y - 1 && y < b.y + b.h + 1);

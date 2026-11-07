@@ -27,7 +27,9 @@
       const K = KINDS[k];
       const taken = (x, y) => world.blocked[y * world.W + x] === 1;
       let best = null, bs = Infinity;
-      for (let r = K.rmin; r <= K.rmax; r++) for (let a = 0; a < 24; a++) {
+      // (a mill stands out among the fields, past a planned town's last houses)
+      const r0 = k === 'mill' && s.reach ? Math.max(K.rmin, Math.ceil(s.reach) + 1) : K.rmin, r1 = Math.max(K.rmax, r0 + 8);
+      for (let r = r0; r <= r1; r++) for (let a = 0; a < 24; a++) {
         const x = Math.round(s.x + Math.cos(a / 24 * Math.PI * 2) * r), y = Math.round(s.y + Math.sin(a / 24 * Math.PI * 2) * r);
         let ok = true;
         for (let yy = y - 1; yy <= y + K.h && ok; yy++) for (let xx = x - 1; xx <= x + K.w && ok; xx++) {
@@ -67,6 +69,8 @@
           const K = KINDS[k];
           for (let yy = spot.y; yy < spot.y + K.h; yy++) for (let xx = spot.x; xx < spot.x + K.w; xx++) ECHO.World.setTile(world, xx, yy, TILE.GRASS);
           s.buildings.push({ id: s.id + '_' + k, type: k, x: spot.x, y: spot.y, w: K.w, h: K.h, fac: { state: 'working', hp: 100, since: world.day } });
+          // (taken now, so the next works of this town do not go up on top of it)
+          for (let yy = spot.y; yy < spot.y + K.h; yy++) for (let xx = spot.x; xx < spot.x + K.w; xx++) if (xx >= 0 && yy >= 0 && xx < world.W && yy < world.H) world.blocked[yy * world.W + xx] = 1;
         }
         // The town stocks, in the square.
         if (s.faction !== 'ashfang' && !s.buildings.some(b => b.type === 'stocks')) {

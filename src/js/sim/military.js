@@ -360,6 +360,7 @@
         <div class="card mil-head"><h4>${esc(s.name)} · ${esc(T.name)} of ${esc(f ? f.short : '')}</h4>
           <div>${f && f.capital === s.id ? `Seat of ${who(kr)}` : `Held for ${who(kr)} by ${who(ruler)}`}</div>
           <div>Captain of the garrison: ${who(Mil.captain(world, s))}</div>
+          ${ECHO.TownStyle && s.style ? `<div>Built: ${ECHO.TownStyle.describe(s)}</div>` : ''}
           ${f && ECHO.Arsenal && (f.type === 'kingdom' || f.type === 'order') ? `<div>Arms of the realm: ${ECHO.Arsenal.line(world, f)} · this garrison is trained to <b>level ${ECHO.Arsenal.soldierLv(world, { faction: f.id, home: s.id, rank: 0 })}</b></div>` : ''}
           ${f ? `<div>Marshal of ${esc(f.short)}: ${who(Mil.marshal(world, f))} · Champion: ${who(Mil.champion(world, f))}</div>` : ''}
         </div>

@@ -37,6 +37,7 @@
       if (ECHO.Wildwood) ECHO.Wildwood.ensure(world);
       if (ECHO.Clearing) ECHO.Clearing.ensure(world);
       if (ECHO.Realms) ECHO.Realms.ensure(world);
+      if (ECHO.TownStyle) { try { ECHO.TownStyle.ensure(world); } catch (err) { console.error('ECHO: the towns could not be laid out again', err); } }
       if (ECHO.Military) ECHO.Military.ensure(world);
       if (ECHO.Arsenal) ECHO.Arsenal.ensure(world);
       if (ECHO.Arms) ECHO.Arms.reset && ECHO.Arms.reset();
