@@ -26,29 +26,132 @@
     // relief shaded from the north-west off a smoothed height of the land, crisp
     // shorelines with the shallows lighter, the woods dotted with trees, the deep
     // woods dark, and the trails worn through the forests.
-    base(world) {
+    // The painted chart of the whole world, kept on a canvas (S pixels to a tile). `need`, when
+    // given ({ x, y, r }: the nav-scope about you), is the part wanted this moment: the rest of a
+    // chart still being painted is painted a little each frame, and in full when the whole map is
+    // asked for (need left out).
+    base(world, need) {
       const key = world.id + '|' + (world._tileEpoch || 0) + '|' + world.W + '|' + world.H + '|' + (world._trail ? 1 : 0);
-      if (WM._base && WM._baseKey === key) return WM._base;
+      if (!(WM._base && WM._baseKey === key)) WM.rebase(world, key);
+      if (WM._todo && WM._todo.length) WM.paintTodo(world, need);
+      return WM._base;
+    },
+    rebase(world, key) {
       const W = world.W, H = world.H;
       const S = U.clamp(Math.floor(2600 / Math.max(W, H)), 1, 4);
-      // a round world is made a piece at a time: paint only the new pieces
-      const dirty = world._mapDirty;
-      if (WM._base && WM._baseOf === world && WM._baseWH === W + 'x' + H && WM.baseScale === S && Array.isArray(dirty) && dirty.length) {
+      // Only what changed is painted again: the new pieces of a round world (marked as they are
+      // made), and whatever else changed on the ground since the chart was last painted (where the
+      // world noted it, or found by comparing the ground with a copy kept of it). Painting all of a
+      // round world takes a second or more; it used to happen every time a site was dug.
+      const same = WM._base && WM._baseOf === world && WM._baseWH === W + 'x' + H && WM.baseScale === S;
+      let dirty = null;
+      if (same) {
+        const md = Array.isArray(world._mapDirty) ? world._mapDirty : [];
+        const noted = WM.noted(world);
+        if (noted) dirty = md.concat(noted);
+        else { const ch = WM.changed(world); dirty = ch ? md.concat(ch) : null; }
+      }
+      if (same && dirty) {
         const g = WM._base.getContext('2d'), M = 12;
-        for (const r of dirty) {
+        for (const r of WM.merge(dirty, W, H)) {
           const x0 = Math.max(0, Math.floor(r.x0) - M), y0 = Math.max(0, Math.floor(r.y0) - M), x1 = Math.min(W, Math.ceil(r.x1) + M), y1 = Math.min(H, Math.ceil(r.y1) + M);
           const ix0 = Math.max(0, Math.floor(r.x0) - 2), iy0 = Math.max(0, Math.floor(r.y0) - 2), ix1 = Math.min(W, Math.ceil(r.x1) + 2), iy1 = Math.min(H, Math.ceil(r.y1) + 2);
+          if (x1 <= x0 || y1 <= y0) continue;
           g.putImageData(WM.paint(world, x0, y0, x1, y1, S), x0 * S, y0 * S, (ix0 - x0) * S, (iy0 - y0) * S, (ix1 - ix0) * S, (iy1 - iy0) * S);
+          WM.snap(world, ix0, iy0, ix1, iy1);
         }
-        world._mapDirty = null; WM._baseKey = key;
-        return WM._base;
+        world._mapDirty = null; WM._baseKey = key; WM._snapEp = world._tileEpoch || 0;
+        return;
       }
+      // all of it: a big world a piece at a time (the pieces you can see first)
       WM.baseScale = S;
-      const c = document.createElement('canvas'); c.width = W * S; c.height = H * S;
-      c.getContext('2d').putImageData(WM.paint(world, 0, 0, W, H, S), 0, 0);
+      // (the same chart painted over, where it can be: you see the old one until each piece is new)
+      const c = same ? WM._base : document.createElement('canvas'); if (!same) { c.width = W * S; c.height = H * S; }
       world._mapDirty = null;
       WM._base = c; WM._baseKey = key; WM._baseOf = world; WM._baseWH = W + 'x' + H;
-      return c;
+      WM.snap(world);
+      const B = W * H > 400000 ? 112 : Math.max(W, H);
+      WM._todo = [];
+      for (let y = 0; y < H; y += B) for (let x = 0; x < W; x += B) WM._todo.push({ x0: x, y0: y, x1: Math.min(W, x + B), y1: Math.min(H, y + B) });
+      if (B >= Math.max(W, H)) WM.paintTodo(world);
+    },
+    paintTodo(world, need) {
+      const T0 = performance.now(), W = world.W, H = world.H, S = WM.baseScale || 1, g = WM._base.getContext('2d'), M = 12, todo = WM._todo;
+      const piece = r => {
+        const x0 = Math.max(0, r.x0 - M), y0 = Math.max(0, r.y0 - M), x1 = Math.min(W, r.x1 + M), y1 = Math.min(H, r.y1 + M);
+        g.putImageData(WM.paint(world, x0, y0, x1, y1, S), x0 * S, y0 * S, (r.x0 - x0) * S, (r.y0 - y0) * S, (r.x1 - r.x0) * S, (r.y1 - r.y0) * S);
+      };
+      if (!need) { for (const r of todo) piece(r); WM._todo = null; WM.texDirty = true; return; }
+      // what the scope shows now (round the world's join too), then more while the frame can spare it
+      const dxw = (a, b) => { let d = a - b; if (world.globe) { d = ((d % W) + W) % W; if (d > W / 2) d -= W; } return d; };
+      const near = r => { const cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2; return Math.abs(dxw(cx, need.x)) < need.r + (r.x1 - r.x0) / 2 && Math.abs(cy - need.y) < need.r + (r.y1 - r.y0) / 2; };
+      const rest = [];
+      for (const r of todo) { if (near(r)) piece(r); else rest.push(r); }
+      rest.sort((a, b) => Math.hypot(dxw((a.x0 + a.x1) / 2, need.x), (a.y0 + a.y1) / 2 - need.y) - Math.hypot(dxw((b.x0 + b.x1) / 2, need.x), (b.y0 + b.y1) / 2 - need.y));
+      while (rest.length && performance.now() - T0 < 4) piece(rest.shift());
+      WM._todo = rest.length ? rest : null;
+      WM.texDirty = true;
+    },
+    // where the land changed since the chart was painted, as the world noted it (null: not all was noted)
+    noted(world) {
+      const e1 = world._tileEpoch || 0, e0 = WM._snapEp;
+      if (e0 == null || e0 > e1) return null;
+      const log = world._tileLog || [], out = [];
+      for (let e = e0 + 1; e <= e1; e++) { const L = log.find(l => l.e === e); if (!L) return null; out.push(...L.rects); }
+      return out;
+    },
+    // a few big rectangles rather than thousands of small ones (one per patch of 32 tiles)
+    merge(rects, W, H) {
+      if (rects.length < 24) return rects;
+      const B = 32, bw = Math.ceil(W / B), bh = Math.ceil(H / B), mark = new Uint8Array(bw * bh);
+      for (const r of rects) for (let by = Math.max(0, Math.floor(r.y0 / B)); by <= Math.min(bh - 1, Math.floor((r.y1 - 1) / B)); by++) for (let bx = Math.max(0, Math.floor(r.x0 / B)); bx <= Math.min(bw - 1, Math.floor((r.x1 - 1) / B)); bx++) mark[by * bw + bx] = 1;
+      return WM.runs(mark, bw, bh, B, W, H);
+    },
+    runs(mark, bw, bh, B, W, H) {
+      const out = [];
+      for (let by = 0; by < bh; by++) for (let bx = 0; bx < bw; bx++) {
+        if (!mark[by * bw + bx]) continue;
+        let ex = bx; while (ex + 1 < bw && mark[by * bw + ex + 1]) ex++;
+        out.push({ x0: bx * B, y0: by * B, x1: Math.min(W, (ex + 1) * B), y1: Math.min(H, (by + 1) * B) });
+        bx = ex;
+      }
+      return out;
+    },
+    // a copy of what the chart was painted from (the ground, the deep woods, the trails) — all of
+    // it, or (x0, y0)–(x1, y1) of it brought up to date
+    snap(world, x0, y0, x1, y1) {
+      const P = WM._snap, W = world.W;
+      if (x0 == null || !P || P.world !== world || P.tiles.length !== world.tiles.length || !!P.wd !== !!world._wd || !!P.tr !== !!world._trail || (P.wd && P.wd.length !== world._wd.length) || (P.tr && P.tr.length !== world._trail.length)) {
+        WM._snap = { world, tiles: world.tiles.slice(), wd: world._wd ? world._wd.slice() : null, tr: world._trail ? world._trail.slice() : null };
+        WM._snapEp = world._tileEpoch || 0;
+        return;
+      }
+      for (let y = Math.max(0, y0); y < Math.min(world.H, y1); y++) {
+        const a = y * W + Math.max(0, x0), b = y * W + Math.min(W, x1);
+        P.tiles.set(world.tiles.subarray(a, b), a);
+        if (P.wd) P.wd.set(world._wd.subarray(a, b), a);
+        if (P.tr) P.tr.set(world._trail.subarray(a, b), a);
+      }
+    },
+    // Where the ground differs from the copy, as rectangles of tiles (in blocks of 32); null when
+    // there is no copy to go by, or so much has changed that painting it all is as quick.
+    changed(world) {
+      const P = WM._snap, W = world.W, H = world.H, B = 32;
+      if (!P || P.world !== world || P.tiles.length !== world.tiles.length) return null;
+      const bw = Math.ceil(W / B), bh = Math.ceil(H / B), mark = new Uint8Array(bw * bh);
+      const diff = (a, b) => {
+        if (!a && !b) return true;
+        if (!a || !b || a.length !== b.length) return false;
+        for (let y = 0; y < H; y++) {
+          const o = y * W, by = (y / B | 0) * bw;
+          for (let x = 0; x < W; x++) if (a[o + x] !== b[o + x]) { mark[by + (x / B | 0)] = 1; x = ((x / B | 0) + 1) * B - 1; }
+        }
+        return true;
+      };
+      if (!diff(world.tiles, P.tiles) || !diff(world._wd, P.wd) || !diff(world._trail, P.tr)) return null;
+      let n = 0; for (let i = 0; i < mark.length; i++) n += mark[i];
+      if (n > mark.length * 0.35) return null;
+      return WM.runs(mark, bw, bh, B, W, H);
     },
     // The painted chart of the tiles from (X0, Y0) to (X1, Y1), S pixels to a tile.
     // Land no one has come near yet (on a round world) is a pale uncharted mist.
@@ -1055,7 +1158,7 @@
         G.yaw = a.from.yaw + (a.to.yaw - a.from.yaw) * e; G.pitch = a.from.pitch + (a.to.pitch - a.from.pitch) * e; G.dist = a.from.dist + (a.to.dist - a.from.dist) * e + (a.arc || 0) * Math.sin(Math.PI * e);
         if (t >= 1) G.anim = null;
       }
-      if (ECHO.Game && ECHO.Game.world) { WM.base(ECHO.Game.world); if (G.texKey !== WM._baseKey) WM.globeTex(ECHO.Game); }
+      if (ECHO.Game && ECHO.Game.world) { WM.base(ECHO.Game.world); if (G.texKey !== WM._baseKey || WM.texDirty) { WM.texDirty = false; WM.globeTex(ECHO.Game); } }
       // Coming down toward the ground the view leans forward, as a bird's would, so the round
       // edge of the world and the sky beyond it stay in sight above the land you are looking at
       // (which is kept in the middle of the view: the globe turns to keep it there).
@@ -1378,7 +1481,7 @@
       g.fillStyle = '#04101c'; g.fillRect(cx - R, cy - R, R * 2, R * 2);
       g.translate(cx, cy); if (rot) g.rotate(rot);
       const vw = R * 2 / scale, sx = pe.x - vw / 2, sy = pe.y - vw / 2;
-      const bs = WM.base(world), S = WM.baseScale || 1;
+      const bs = WM.base(world, { x: pe.x, y: pe.y, r: 130 / scale + 8 }), S = WM.baseScale || 1;   // (what the scope shows: R / scale paces each way, corners and all)
       g.imageSmoothingEnabled = scale < 3;
       for (const k of world.globe ? [0, world.W, -world.W] : [0]) g.drawImage(bs, (sx + k) * S, sy * S, vw * S, vw * S, -R, -R, R * 2, R * 2);   // (round the world: the other side, past the edge)
       // past a pole: the far side of the world, turned about (as the land itself is drawn)

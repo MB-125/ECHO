@@ -225,14 +225,32 @@
     },
     // The cost of stepping onto a tile, for a body of this size: there must be
     // room for it on the tile and in the gap it steps through to get there.
+    // What has been found about where bodies of a size can stand and pass, kept between plans until
+    // the land changes there (the world notes where it changed): most of the cost of a route.
+    spotMemo(world, rb) {
+      const ep = world._tileEpoch || 0, W = world.W || 200;
+      let S = Ent._spots;
+      if (!S || S.world !== world || S.W !== W) S = Ent._spots = { world, W, ep, m: new Map() };
+      if (S.ep !== ep) {
+        const ok = ECHO.Nav && ECHO.Nav.forget && ECHO.Nav.forget(world, S.ep, (x0, y0, x1, y1) => {
+          for (const M of S.m.values()) for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const k = y * W + x; M.spot.delete(k); for (let d = 0; d < 9; d++) M.edge.delete(k * 9 + d); }
+        });
+        if (!ok) S.m = new Map();
+        S.ep = ep;
+      }
+      let M = S.m.get(rb);
+      if (!M || M.spot.size > 300000 || M.edge.size > 600000) S.m.set(rb, M = { spot: new Map(), edge: new Map() });
+      return M;
+    },
     pathCost(world, e, avoid) {
-      const r = U.clamp((e.r || 0.34) * 0.85, 0.22, 0.6);
+      const r = U.clamp((e.r || 0.34) * 0.85, 0.22, 0.6), W = world.W || 200;
       const fitsAt = (x, y) => !ECHO.World.isSolid(world, x, y) && Ent.fits(world, x, y, r);
-      const spots = new Map();
+      const memo = Ent.spotMemo(world, Math.round(r * 40) / 40), spots = memo.spot, edges = memo.edge;
       // somewhere on this tile a body this size can stand (the middle, or past a trunk to one side)
       const spot = (x, y) => {
-        const k = y * (world.W || 200) + x;
-        if (spots.has(k)) return spots.get(k);
+        const k = y * W + x;
+        const had = spots.get(k);
+        if (had !== undefined) return had;
         let v = null;
         for (const [ox, oy] of [[0.5, 0.5], [0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75], [0.5, 0.2], [0.5, 0.8], [0.2, 0.5], [0.8, 0.5]]) if (fitsAt(x + ox, y + oy)) { v = { x: x + ox, y: y + oy }; break; }
         spots.set(k, v);
@@ -243,8 +261,14 @@
         if (!spot(x, y)) return Infinity;
         // and room to get across the edge between the two tiles
         if (fx != null) {
-          const mx = (x + fx) / 2 + 0.5, my = (y + fy) / 2 + 0.5, px = fy !== y ? 0.3 : 0, py = fx !== x ? 0.3 : 0;
-          if (!fitsAt(mx, my) && !fitsAt(mx + px, my + py) && !fitsAt(mx - px, my - py)) return Infinity;
+          const ek = (y * W + x) * 9 + (fx - x + 1) * 3 + (fy - y + 1);
+          let pass = edges.get(ek);
+          if (pass === undefined) {
+            const mx = (x + fx) / 2 + 0.5, my = (y + fy) / 2 + 0.5, px = fy !== y ? 0.3 : 0, py = fx !== x ? 0.3 : 0;
+            pass = fitsAt(mx, my) || fitsAt(mx + px, my + py) || fitsAt(mx - px, my - py);
+            edges.set(ek, pass);
+          }
+          if (!pass) return Infinity;
         }
         return 1 / ECHO.World.speedAt(world, x, y);
       };

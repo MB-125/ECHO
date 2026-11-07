@@ -87,6 +87,8 @@
       if (!world.player || !X()) return;
       const rng = new ECHO.RNG(ECHO.hashStr('dlife:' + world.seed + ':' + world.day));
       const towns = world.settlements;
+      // (how many of the guild are free today: counted once, not once for every dungeon in the world)
+      let gf = null; const guildFree = () => gf != null ? gf : (gf = ECHO.Guild ? ECHO.Guild.available(world).length : 3);
       for (const s of X().sites(world)) {
         if (!DL.ok(s)) continue;
         const L = DL.life(world, s), g = s.grow || 0, age = world.day - L.since, nm = s.name, Nm = U.cap(s.name);
@@ -124,7 +126,7 @@
         // a town close by, and the guild's people about: they make camp at the mouth and work it
         if ((L.state === 'active' || L.state === 'infested' || L.state === 'contested') && age > 4) {
           const near = towns.find(t => t.kind !== 'village' && t.faction !== 'ashfang' && U.dist(t.x, t.y, s.x, s.y) < 40);
-          const guild = ECHO.Guild ? ECHO.Guild.available(world).length : 3;
+          const guild = guildFree();
           if (near && guild > 2 && rng.chance(0.005)) { L.camp = { from: near.id, day: world.day }; DL.set(world, s, 'exploited', `Adventurers out of ${near.name} have made camp at the mouth of ${nm} and are working it like a mine. ${near.name} is doing well out of it.`, 2); }
         }
         if (L.state === 'exploited') {

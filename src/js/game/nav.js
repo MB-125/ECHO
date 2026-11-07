@@ -22,25 +22,45 @@
     reset() { N.route = null; N.t = 0; N._known = null; },
 
     // How costly a tile is to travel (roads cheapest; deep water, cliffs, walls never).
-    tileCost(world, x, y) {
+    // (rough: for the far stretch planned on the coarse grid, where what stands on a tile — a cart, a
+    // boulder — makes no odds, so it is not looked for: that is most of the cost of a long plan)
+    tileCost(world, x, y, rough) {
       const W = world.W || 200;
       if (x < 0 || y < 0 || x >= W || y >= (world.H || 150)) return Infinity;
       if (N._xo) x = (x + W - N._xo) % W;   // (planning in a frame turned half the world round: see plan)
       const i = y * W + x;
       if (world.blocked && world.blocked[i] === 1) return Infinity;
       // something standing here (a cart, a well, a boulder, a trunk) or no room to pass: go round
-      const M = N.room(world);
-      if (M[i] === 0) M[i] = ECHO.Ent.fits(world, x + 0.5, y + 0.5, 0.32) ? 1 : 2;
-      const extra = M[i] === 2 ? 5 : 0;
+      let extra = 0;
+      if (!rough) {
+        const M = N.room(world);
+        if (M[i] === 0) M[i] = ECHO.Ent.fits(world, x + 0.5, y + 0.5, 0.32) ? 1 : 2;
+        extra = M[i] === 2 ? 5 : 0;
+      }
       // below level 150, the menace of a gate is a wall: go round it
       if (world.gates && N._weak) for (const g of world.gates.list) { const dx = ECHO.Globe && world.globe ? ECHO.Globe.dx(world, g.x, x + 0.5) : x + 0.5 - g.x, dy = y + 0.5 - g.y; if (dx * dx + dy * dy < N._weakR2) return Infinity; }
       return N.baseCost(world, world.tiles[i]) + extra;
     },
     // room-to-pass memo for the whole world, rebuilt when the land changes
     room(world) {
-      const key = (world.W || 200) + 'x' + (world.H || 150) + ':' + (world._tileEpoch || 0);
-      if (!N._room || N._roomKey !== key || N._roomWorld !== world) { N._room = new Uint8Array((world.W || 200) * (world.H || 150)); N._roomKey = key; N._roomWorld = world; }
+      const key = (world.W || 200) + 'x' + (world.H || 150), ep = world._tileEpoch || 0;
+      if (!N._room || N._roomKey !== key || N._roomWorld !== world || !N.forget(world, N._roomEp, (x0, y0, x1, y1) => { const W = world.W; for (let y = y0; y < y1; y++) N._room.fill(0, y * W + x0, y * W + x1); })) { N._room = new Uint8Array((world.W || 200) * (world.H || 150)); N._roomKey = key; N._roomWorld = world; }
+      N._roomEp = ep;
       return N._room;
+    },
+    // What changed on the ground since epoch `from` (the world keeps a note of where): forget(x0, y0,
+    // x1, y1) is called for each place; false when some change was not noted (then forget it all).
+    forget(world, from, fn) {
+      const e1 = world._tileEpoch || 0;
+      if (from == null || from > e1) return false;
+      if (from === e1) return true;
+      const log = world._tileLog || [], W = world.W || 200, H = world.H || 150;
+      for (let e = from + 1; e <= e1; e++) {
+        const L = log.find(l => l.e === e);
+        if (!L) return false;
+        for (const r of L.rects) { const x0 = Math.max(0, Math.floor(r.x0) - 1), y0 = Math.max(0, Math.floor(r.y0) - 1), x1 = Math.min(W, Math.ceil(r.x1) + 1), y1 = Math.min(H, Math.ceil(r.y1) + 1); if (x1 > x0 && y1 > y0) fn(x0, y0, x1, y1); }
+      }
+      return true;
     },
     baseCost(world, t) {
       const K = T();
@@ -78,25 +98,33 @@
       N._weak = !!(G && pl && ECHO.Prowess.level(pl) < G.MIN && !G.list(world).some(g => U.dist(g.x, g.y, tx, ty) < G.R_HURT + 3));
       N._weakR2 = G ? (G.R_HURT + 1.5) ** 2 : 0;
       const d = U.dist(sx, sy, tx, ty);
-      const k = d > 380 ? 4 : d > 110 ? 2 : 1;
+      const k = d > 600 ? 8 : d > 240 ? 4 : d > 90 ? 2 : 1;   // (the far stretch coarsely — it is planned again as you go — and the near one in full)
       const W = world.W || 200, H = world.H || 150, cw = Math.ceil(W / k), ch = Math.ceil(H / k);
       let cost;
       if (k === 1) cost = (x, y) => N.tileCost(world, x, y);
       else {
         // the coarse costs are kept between plans (they only change when the land does)
-        const mk = k + ':' + W + 'x' + H + ':' + (world._tileEpoch || 0) + ':' + (N._weak ? 1 : 0) + ':' + (N._xo || 0);
-        if (!N._coarse || N._coarse.key !== mk || N._coarse.world !== world) N._coarse = { key: mk, world, memo: new Float32Array(cw * ch).fill(-1) };
+        const mk = k + ':' + W + 'x' + H + ':' + (N._weak ? 1 : 0) + ':' + (N._xo || 0), ep = world._tileEpoch || 0;
+        const C0 = N._coarse, xo = N._xo || 0;
+        // (kept until the land changes — and then only where it changed)
+        const ok = C0 && C0.key === mk && C0.world === world && N.forget(world, C0.ep, (x0, y0, x1, y1) => {
+          for (let y = Math.floor(y0 / k); y <= Math.floor((y1 - 1) / k) && y < ch; y++) for (let xx = x0; xx < x1; xx += k) { const cx = Math.floor((((xx + xo) % W) + W) % W / k); C0.memo[y * cw + cx] = -1; }
+        });
+        if (!ok) N._coarse = { key: mk, world, memo: new Float32Array(cw * ch).fill(-1) };
+        N._coarse.ep = ep;
         const memo = N._coarse.memo;
         cost = (cx, cy, i) => {
           if (memo[i] >= 0) return memo[i] === 999 ? Infinity : memo[i];
-          let sum = 0, n = 0;
-          for (let y = cy * k; y < cy * k + k; y++) for (let x = cx * k; x < cx * k + k; x++) { const c = N.tileCost(world, x, y); if (isFinite(c)) { sum += c; n++; } }
-          const v = n * 2 < k * k ? 999 : sum / n;
+          // (a coarse cell is judged by a few of its tiles, evenly spread: sixteen at most)
+          let sum = 0, n = 0, all = 0;
+          const st = Math.max(1, k >> 2);
+          for (let y = cy * k; y < cy * k + k; y += st) for (let x = cx * k; x < cx * k + k; x += st) { all++; const c = N.tileCost(world, x, y, true); if (isFinite(c)) { sum += c; n++; } }
+          const v = n * 2 < all ? 999 : sum / n;
           memo[i] = v;
           return v === 999 ? Infinity : v;
         };
       }
-      const p = ECHO.World.findPath({ W: cw, H: ch }, sx / k, sy / k, tx / k, ty / k, cost, Math.min(400000, 30000 + d * d * 4 / (k * k)));
+      const p = ECHO.World.findPath({ W: cw, H: ch }, sx / k, sy / k, tx / k, ty / k, cost, Math.min(150000, 30000 + d * d * 4 / (k * k)));
       if (!p) return null;
       const pts = p.map(i => ({ x: (i % cw) * k + k / 2, y: ((i / cw) | 0) * k + k / 2 }));
       pts[pts.length - 1] = { x: tx, y: ty };
@@ -125,10 +153,14 @@
     update(game, dt) {
       const world = game.world, pe = game.pe, g = ECHO.Purpose && ECHO.Purpose.goal;
       if (!world || !pe || ECHO.Interior.cur || !g || !g.where || g.where.x == null) { N.route = null; return; }
-      const w0 = g.where, key = Math.round(w0.x) + ',' + Math.round(w0.y);
+      const w0 = g.where;
+      let key = Math.round(w0.x) + ',' + Math.round(w0.y);
       // (round the world: the copy of the place nearest you, so every distance and heading is the short way)
       const w = world.globe && ECHO.Globe ? { x: pe.x + ECHO.Globe.dx(world, pe.x, w0.x), y: w0.y, vague: w0.vague, name: w0.name } : w0;
       const R = N.route;
+      // a vague place that has only shifted a little (the nearest country no one has walked, as you
+      // walk it): the same way still serves, without planning it all again
+      if (R && R.key !== key && w0.vague && R.vague && !R.air && U.dist(R.to.x, R.to.y, w.x, w.y) < 24) key = R.key;
       N.t -= dt;
       const strayed = R && R.key === key && N.offRoute(pe, R) > 7;
       // on a dragon's back the land's roads don't matter: the line points straight
@@ -142,7 +174,17 @@
       }
       // at a gallop you leave the line quickly: re-plan a little less eagerly
       const settle = game.pl && game.pl.mounted && game.pe && (ECHO.PlayerCtl.ride || {}).v > 5 ? 4 : 2.5;
-      if (!R || R.key !== key || R.air || (strayed && N.t <= 0) || (N.t <= -12)) {
+      // strayed from a long way: only the stretch back onto it is planned again, not the whole of it
+      let spliced = false;
+      if (R && R.key === key && !R.air && R.ok && strayed && N.t <= 0 && N.t > -20 && R.pts.length > 4) {
+        const P0 = R.pts; let j = Math.max(1, R.i + 1);
+        while (j < P0.length - 1 && U.dist(pe.x, pe.y, P0[j].x, P0[j].y) < 30) j++;
+        if (j < P0.length - 1) {
+          const near = N.plan(world, pe.x, pe.y, P0[j].x, P0[j].y);
+          if (near && near.length) { const pts = N.thin(near).concat(P0.slice(j + 1)); N.route = { ...R, pts, i: 0, len: N.length(pts, 0) }; N.t = settle; spliced = true; }
+        }
+      }
+      if (!spliced && (!R || R.key !== key || R.air || (strayed && N.t <= 0) || (N.t <= -20))) {
         N.t = settle;
         const t0 = performance.now();
         // a vague place: head for the middle of the search area

@@ -175,19 +175,21 @@
       let note = '';
       if (w.k === 'houses') { const n = R.placeBuilding(world, s, 'house', 3, 3, 5, 15) ? 1 : 0; const m = R.placeBuilding(world, s, 'house', 3, 3, 5, 16) ? 1 : 0; if (ECHO.Property && world._prop) ECHO.Property.assignTown(world, s); note = n + m ? '' : ' (there was no room left to build)'; }
       else if (w.k === 'statue') { const r = R.ruler(world, f); const b = R.placeBuilding(world, s, 'statue', 1, 1, 3, 8); if (b && r) { b.of = r.id; b.inscription = `${P().fullTitle(world, r)}, who raised this city.`; s.statueOf = (s.statueOf || []).concat([r.id]); } }
-      else if (w.k === 'road') { const to = S().settlement(world, w.to); if (to) { ECHO.World.connectRoad(world, s, to); world._graph = null; world._routes = {}; R.reshaped(world); } }
+      else if (w.k === 'road') { const to = S().settlement(world, w.to); if (to) { const n0 = world.roads.length; ECHO.World.connectRoad(world, s, to); world._graph = null; world._routes = {}; R.reshaped(world, world.roads.length > n0 ? R.roadRect(world, world.roads[world.roads.length - 1]) : null); } }
       else if (w.k === 'granary') { s.works.granary = world.day; s.stock.food += 60; }
       else if (w.k === 'watch') { const b = R.placeBuilding(world, s, 'lamp', 1, 1, 7, 12); if (b) b.tower = true; }
       if (w.k !== 'houses' && w.k !== 'road') s.works[w.k] = world.day;
       if (w.k === 'walls') s.works.walls = world.day;
-      R.reshaped(world);
+      R.reshaped(world, R.townRect(s));
       ECHO.Chronicle.add(world, { text: `${U.cap(W.name)} ${w.k === 'houses' ? 'were' : 'was'} finished ${w.k === 'road' ? `between ${s.name} and ${(S().settlement(world, w.to) || {}).name}` : `in ${s.name}`}${note}.`, kind: 'politics', importance: 1, sid: s.id });
       void rng;
     },
     // Find room for a new building in a town (no overlap, on open ground).
     placeBuilding(world, s, type, w, h, minR, maxR, dry) {
       const Tl = ECHO.TILE, W = world.W;
-      const occ = (x, y) => world.blocked[y * W + x] || (world.sites && world.sites.some(o => Math.abs(o.x - 0.5 - x) < 3 && Math.abs(o.y - 0.5 - y) < 3)) || s.buildings.some(b => x >= b.x - 1 && x < b.x + b.w + 1 && y >= b.y - 1 && y < b.y + b.h + 1);
+      // (only the sites near the town can be in the way: looked for once, not for every tile tried)
+      const near = (world.sites || []).filter(o => Math.abs(o.x - s.x) < maxR + w + 6 && Math.abs(o.y - s.y) < maxR + h + 6);
+      const occ = (x, y) => world.blocked[y * W + x] || (near.length && near.some(o => Math.abs(o.x - 0.5 - x) < 3 && Math.abs(o.y - 0.5 - y) < 3)) || s.buildings.some(b => x >= b.x - 1 && x < b.x + b.w + 1 && y >= b.y - 1 && y < b.y + b.h + 1);
       for (let t = 0; t < 300; t++) {
         const a = (t * 2.399) % (Math.PI * 2), d = minR + (t / 300) * (maxR - minR);
         const x = Math.round(s.x + Math.cos(a) * d - w / 2), y = Math.round(s.y + Math.sin(a) * d - h / 2);
@@ -206,7 +208,20 @@
       }
       return null;
     },
-    reshaped(world) { world._tileEpoch = (world._tileEpoch || 0) + 1; ECHO.emit('world:reshaped', {}); },
+    // The land changed (in `rects`, when it is known where: then only what stands there is built again)
+    reshaped(world, rects) {
+      world._tileEpoch = (world._tileEpoch || 0) + 1;
+      if (Array.isArray(rects) && rects.length) world._tileLog = (world._tileLog || []).concat([{ e: world._tileEpoch, rects }]).slice(-64);
+      ECHO.emit('world:reshaped', {});
+    },
+    // the ground about a town, where its works go up
+    townRect(s, r = 26) { return [{ x0: Math.floor(s.x - r), y0: Math.floor(s.y - r), x1: Math.ceil(s.x + r), y1: Math.ceil(s.y + r) }]; },
+    roadRect(world, r) {
+      if (!r || !Array.isArray(r.path) || !r.path.length) return null;
+      const W = world.W; let a = 1e9, b = 1e9, c = -1, d = -1;
+      for (const t of r.path) { const x = t % W, y = (t / W) | 0; if (x < a) a = x; if (x > c) c = x; if (y < b) b = y; if (y > d) d = y; }
+      return [{ x0: a - 3, y0: b - 3, x1: c + 4, y1: d + 4 }];
+    },
 
     // ------------------------------------------------------------ expansion
     expansion(world, f, rng) {

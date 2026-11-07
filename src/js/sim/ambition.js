@@ -59,8 +59,17 @@
   const lair = (w, pl) => { const l = near(w, pl, w.lairs.filter(l => l.boss.alive && l.boss.absentUntil <= w.day)); return l ? { x: l.x, y: l.y, name: `the lair of ${l.boss.name}`, vague: !l.seen } : null; };
   const camp = (w, pl) => { const c = near(w, pl, w.camps.filter(c => c.alive)); return c ? { x: c.x, y: c.y, name: c.name, vague: !c.seen } : null; };
   const ruin = (w, pl) => { const r = near(w, pl, w.ruins.filter(r => !r.visited)); return r ? { x: r.x, y: r.y, name: r.name, vague: true } : null; };
+  // (looked for again only when you have gone some way, or walked more of the land, or a few seconds on)
+  let ulMemo = null;
   const unknownLand = (w, pl) => {
     if (!pl.explored) return null;
+    const v = ECHO.Discover ? ECHO.Discover._exV || 0 : 0, now = Date.now();
+    if (ulMemo && ulMemo.w === w && ulMemo.arr === pl.explored && ulMemo.v === v && now - ulMemo.at < 8000 && U.dist(ulMemo.x, ulMemo.y, pl.x, pl.y) < 12) return ulMemo.best;
+    const best = unknownLand0(w, pl);
+    ulMemo = { w, arr: pl.explored, v, at: now, x: pl.x, y: pl.y, best };
+    return best;
+  };
+  const unknownLand0 = (w, pl) => {
     const cw = Math.ceil(w.W / 4), ch = Math.ceil(w.H / 4);
     let best = null, bd = Infinity;
     for (let y = 0; y < ch; y += 2) for (let x = 0; x < cw; x += 2) {

@@ -177,8 +177,11 @@
     might(r) { return r.lv + r.fol * 0.6 + r.infl * 0.05; },
 
     // ------------------------------------------------------------ people who want more
+    // a person's fixed draw of fortune (their ambition, their talent), 0..1 — worked out once
+    _hash: new Map(),
+    hashOf(tag, id) { const k = tag + id; let v = Pw._hash.get(k); if (v == null) { v = (ECHO.hashStr(k) % 1000) / 1000; if (Pw._hash.size > 60000) Pw._hash.clear(); Pw._hash.set(k, v); } return v; },
     amb(n) {
-      let a = ((ECHO.hashStr('amb:' + n.id) % 1000) / 1000) * 0.6;
+      let a = Pw.hashOf('amb:', n.id) * 0.6;
       if (P().has(n, 'ambitious')) a += 0.4;
       if (P().has(n, 'brave')) a += 0.15;
       if (P().has(n, 'hot-headed')) a += 0.08;
@@ -344,11 +347,18 @@
     // you; only the few who mean to be the best — the rival adventurers, the Marshals and
     // Champions, the guild's best, the generals — keep pace with you, so that you always have peers.
     age(world) { const d = world.day || 0; return d <= 590 ? 1 + d / 10 : Math.min(200, 60 + (d - 590) / 30); },
+    // how hard the country round a town is (its danger), kept for the day: thousands of people share a few dozen homes
+    landAt(world, sid) {
+      let M = world._dgSet;
+      if (!M || M.day !== world.day || M.n !== world.settlements.length) M = world._dgSet = { day: world.day, n: world.settlements.length, m: {} };
+      if (M.m[sid] != null) return M.m[sid];
+      const s = ECHO.Sim.settlement(world, sid);
+      return (M.m[sid] = s ? ECHO.Danger.at(world, s.x, s.y) * 1.1 : 1);
+    },
     elite(n) { return !!n && (n.rival || n.rank >= 3 || n.title === 'Marshal' || n.title === 'Champion' || (n.adv && n.adv.status !== 'retired' && (n.adv.fame || 0) >= 40)); },
     era(world, plv, n) {
       if (!n || !ECHO.Danger) return Math.max(plv || 1, Math.min(60, 1 + (world.day || 0) / 10));
-      const s = n.home && ECHO.Sim.settlement(world, n.home);
-      const land = s ? ECHO.Danger.at(world, s.x, s.y) * 1.1 : 1;
+      const land = n.home ? Pw.landAt(world, n.home) : 1;
       const base = Math.max(Pw.age(world), land);
       return Pw.elite(n) ? Math.max(base, plv || 1) : base;
     },
@@ -366,7 +376,7 @@
       if (n.title === 'Marshal' || n.title === 'Champion') k += 0.25;
       else if (n.title) k += 0.05;
       k *= 0.65 + Pw.amb(n) * 0.6;
-      k *= 0.8 + ((ECHO.hashStr('tal:' + n.id) % 1000) / 1000) * 0.4;
+      k *= 0.8 + Pw.hashOf('tal:', n.id) * 0.4;
       if (n.ngAux) k = Math.max(k, 0.8);        // (the Guard's auxiliaries train hardest of all)
       return Math.min(1.12, k);
     },

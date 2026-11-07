@@ -495,6 +495,7 @@
 
     // ---------------------------------------------------------------- heights
     buildHeights(world, rect) {
+      R.hEpoch = (R.hEpoch || 0) + 1;   // (what stands on the ground is set down again only when the ground's heights change)
       const W = world.W, H = world.H;
       const hc = rect && R.hc ? R.hc : (R.hc = new Float32Array((W + 1) * (H + 1)));
       const X0 = rect ? Math.max(0, rect.x0 - 1) : 0, X1 = rect ? Math.min(W, rect.x1 + 1) : W, Y0 = rect ? Math.max(0, rect.y0 - 1) : 0, Y1 = rect ? Math.min(H, rect.y1 + 1) : H;
@@ -3410,7 +3411,8 @@
     updateRoosts(game, room) {
       const world = game.world;
       if (!world.titans) return;
-      const key = world.seed + ':' + world.titans.list.map(t => t.x + ',' + t.y + (t.bound ? 'b' : '')).join('|') + ':' + (world._tileEpoch || 0);
+      // (set down again when a titan moves or the ground's heights change — not each time a tree is felled somewhere)
+      const key = world.seed + ':' + world.titans.list.map(t => t.x + ',' + t.y + (t.bound ? 'b' : '')).join('|') + ':' + (R.hEpoch || 0);
       if (R.roostKey !== key) {
         if (R.roostGroup) { R.scene.remove(R.roostGroup); R.roostGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
         R.roostGroup = new THREE.Group(); R.scene.add(R.roostGroup); R.roostKey = key;
@@ -3486,7 +3488,7 @@
     updateGates(game, room, dt) {
       const world = game.world;
       if (!world.gates) return;
-      const key = world.seed + ':' + world.gates.list.map(g => g.x + ',' + g.y).join('|') + ':' + (world._tileEpoch || 0);
+      const key = world.seed + ':' + world.gates.list.map(g => g.x + ',' + g.y).join('|') + ':' + (R.hEpoch || 0);
       if (R.gateKey !== key) {
         if (R.gateGroup) { R.scene.remove(R.gateGroup); R.gateGroup.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
         R.gateGroup = new THREE.Group(); R.scene.add(R.gateGroup); R.gateKey = key; R.gateFx = [];
@@ -4551,8 +4553,8 @@
     updateIslands(game, dt) {
       const world = game.world;
       if (!world || !ECHO.Lands || !R.camTarget) return;
-      if (R._islWorld !== world || R._islEpoch !== world._tileEpoch) {
-        R._islWorld = world; R._islEpoch = world._tileEpoch;
+      if (R._islWorld !== world || R._islEpoch !== (R.hEpoch || 0) + ':' + world.regions.length) {
+        R._islWorld = world; R._islEpoch = (R.hEpoch || 0) + ':' + world.regions.length;
         if (R.islands) for (const o of R.islands) { R.scene.remove(o.g); o.g.traverse(m => { if (m.geometry) m.geometry.dispose(); }); }
         R.islands = [];
         const rock0 = new THREE.MeshStandardMaterial({ color: C('#b4a8bc'), emissive: C('#2a2236'), roughness: 0.95, flatShading: true, transparent: true });

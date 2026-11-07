@@ -180,8 +180,10 @@
       n.rel[otherId] = U.clamp((n.rel[otherId] || 0) + delta, -100, 100);
       const keys = Object.keys(n.rel);
       if (keys.length > 10) {
-        keys.sort((x, y) => Math.abs(n.rel[x]) - Math.abs(n.rel[y]));
-        delete n.rel[keys[0]];
+        // (the weakest tie is let go: the first of the weakest, as a sort would have found it)
+        let k0 = keys[0], v0 = Math.abs(n.rel[k0]);
+        for (let i = 1; i < keys.length; i++) { const v = Math.abs(n.rel[keys[i]]); if (v < v0) { v0 = v; k0 = keys[i]; } }
+        delete n.rel[k0];
       }
     },
 

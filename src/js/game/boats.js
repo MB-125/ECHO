@@ -26,11 +26,22 @@
         const px = pe && pe.x < 9000 ? pe.x : (G && G.pl ? G.pl.x : W / 2), py = pe && pe.x < 9000 ? pe.y : (G && G.pl ? G.pl.y : H / 2);
         const g = 64, R = 200, cx = Math.floor(px / g) * g, cy = Math.floor(py / g) * g;
         x0 = Math.max(0, cx - R); y0 = Math.max(0, cy - R); x1 = Math.min(W, cx + g + R); y1 = Math.min(H, cy + g + R);
+        // (still well inside the stretch already worked out: keep it, rather than work it all out again every 64 paces)
+        const F = B.F, M = 90;
+        if (F && B._wh === W + 'x' + H && (px - F.x0 > M || F.x0 === 0) && (F.x0 + F.w - px > M || F.x0 + F.w === W) && (py - F.y0 > M || F.y0 === 0) && (F.y0 + F.h - py > M || F.y0 + F.h === H)) { x0 = F.x0; y0 = F.y0; x1 = F.x0 + F.w; y1 = F.y0 + F.h; }
       }
       if (B.F && G && G.pl && G.pl.flying) return;      // (in the sky the currents below can wait)
       const key = world.seed + '|' + W + 'x' + H + '|' + x0 + ',' + y0, ep = world._tileEpoch || 0, now = Date.now();
       if (B._key === key && (B._ep === ep || now - (B._at || 0) < 4000)) return;
-      B._key = key; B._ep = ep; B._at = now;
+      // the land changed, but not the water (a tree felled, a field dug): the currents stand as they were
+      if (B._key === key && B.F && B.F.tiles && ECHO.Nav && ECHO.Nav.forget) {
+        const F = B.F; let wet = false;
+        const ok = ECHO.Nav.forget(world, B._ep, (ax, ay, bx, by) => {
+          for (let y = Math.max(ay, F.y0); y < Math.min(by, F.y0 + F.h) && !wet; y++) for (let x = Math.max(ax, F.x0); x < Math.min(bx, F.x0 + F.w); x++) if (isW(world.tiles[y * W + x]) !== isW(F.tiles[(y - F.y0) * F.w + (x - F.x0)])) { wet = true; break; }
+        });
+        if (ok && !wet) { B._ep = ep; return; }
+      }
+      B._key = key; B._ep = ep; B._at = now; B._wh = W + 'x' + H;
       const w = x1 - x0, h = y1 - y0, N = w * h, tiles = new Uint8Array(N);
       for (let y = 0; y < h; y++) tiles.set(world.tiles.subarray((y + y0) * W + x0, (y + y0) * W + x1), y * w);
       // distance to the open sea through water, from every water tile
@@ -72,7 +83,7 @@
         const k = U.clamp((22 - wide) / 14, 0, 1) * 1.3;    // a river runs; a lake barely moves
         fx[i] = vx / L * k; fy[i] = vy / L * k;
       }
-      B.F = { x0, y0, w, h, fx, fy, comp };
+      B.F = { x0, y0, w, h, fx, fy, comp, tiles };
       // jetties: each town on the water keeps one
       B.docks = [];
       for (const s of world.settlements) {

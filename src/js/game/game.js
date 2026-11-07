@@ -613,7 +613,7 @@
         const x = Math.floor((Game.pe.x + dx) / 4), y = Math.floor((Game.pe.y + dy) / 4);
         if (x < 0 || y < 0 || x >= cw) continue;
         const i = y * cw + x;
-        if (i < pl.explored.length && !pl.explored[i]) { pl.explored[i] = 1; ECHO.UI.mapDirty = true; }
+        if (i < pl.explored.length && !pl.explored[i]) { pl.explored[i] = 1; ECHO.UI.mapDirty = true; if (ECHO.Discover && ECHO.Discover.touch) ECHO.Discover.touch(); }
       }
       void force;
     },

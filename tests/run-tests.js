@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/nav.js'
 ];
 
 function loadEcho() {
@@ -1712,6 +1712,45 @@ function main() {
     check('an old save takes up the new realms once, on load — and your own progress is untouched', ok && n1 >= 3 && Rs.powers(W5).length === n1 && E.Prowess.level(W5.player) === 44 && W5.player.gold === 4321, `${n1} powers`);
     const W6 = E.Save.deserialize(E.Save.serialize(W5));
     check('the realms, their ties and their wars survive a save', Rs.powers(W6).length === Rs.powers(W5).length && W6.realms && W6.realms.home && Rs.powers(W6).some(f => f.style));
+  }
+
+  console.log('\nSmooth play: the heavy work kept small');
+  {
+    const E = ECHO, W = E.generateWorld({ seed: 4321, name: 'Smooth' });
+    W.player = E.Character.create(W, new E.RNG(5), { first: 'Ada', homeId: W.settlements[0].id });
+    for (let d = 0; d < 4; d++) E.Sim.dailyTick(W, true);
+    // the share of the land walked, counted again only when more is walked — and right when it is
+    const pl = W.player; pl.explored = new Array(Math.ceil(W.W / 4) * Math.ceil(W.H / 4)).fill(0);
+    const f0 = E.Discover.explored(W, pl);
+    for (let i = 0; i < 400; i++) pl.explored[i] = 1;
+    E.Discover.touch();
+    const f1 = E.Discover.explored(W, pl);
+    check('the land walked is counted right, and again only when more is walked', f0 === 0 && f1 > 0 && E.Discover.explored(W, pl) === f1, `${(f1 * 100).toFixed(1)}%`);
+    // the land's changes, as the world notes where they were: the caches forget only those places
+    const e0 = W._tileEpoch || 0;
+    E.Realm.reshaped(W, [{ x0: 10, y0: 10, x1: 14, y1: 12 }]);
+    E.Realm.reshaped(W, [{ x0: 40, y0: 40, x1: 41, y1: 41 }]);
+    const seen = []; const ok = E.Nav.forget(W, e0, (x0, y0, x1, y1) => seen.push([x0, y0, x1, y1]));
+    W._tileEpoch++;   // (a change no one noted)
+    const ok2 = E.Nav.forget(W, e0, () => {});
+    check('changes to the land are noted where they happened, and a change not noted makes the caches start over', ok && seen.length === 2 && seen[0][0] <= 10 && seen[0][2] >= 14 && !ok2, JSON.stringify(seen));
+    // a person's ties: ten kept, the weakest let go
+    const n = Object.values(W.npcs).find(x => x.status === 'alive');
+    n.rel = {}; for (let i = 0; i < 10; i++) n.rel['x' + i] = (i + 1) * 5 * (i % 2 ? -1 : 1);
+    E.People.bond(n, 'new', 30);
+    check('a person keeps ten ties and lets the weakest go', Object.keys(n.rel).length === 10 && !('x0' in n.rel) && n.rel.new === 30, Object.keys(n.rel).join(','));
+    // the day's work does not look through everyone again for every dungeon and every crown
+    let calls = 0; const av = E.Guild.available; E.Guild.available = function (...a) { calls++; return av.apply(this, a); };
+    for (const s of E.Explore.sites(W)) { const L = E.DungeonLife.ok(s) && E.DungeonLife.life(W, s); if (!L) continue; L.state = 'active'; L.since = W.day - 10; s.cleared = false; }
+    E.DungeonLife.dailyTick(W);
+    E.Guild.available = av;
+    let alive = 0; const pa = E.People.alive; E.People.alive = function (...a) { alive++; return pa.apply(this, a); };
+    E.Military.dailyTick(W);
+    E.People.alive = pa;
+    check('the dungeons ask after the guild once a day, and the crowns look through their people once', calls <= 1 && alive <= 2, `guild asked ${calls}× for ${E.Explore.sites(W).length} dungeons; everyone looked through ${alive}× for ${Object.values(W.factions).filter(f => f.type === 'kingdom').length} crowns`);
+    // the country round a town, for its people's strength: the same as the danger there, kept for the day
+    const s0 = W.settlements[W.settlements.length - 1];
+    check('the danger of a town\'s country is worked out once a day for all who live there', Math.abs(E.Powers.landAt(W, s0.id) - E.Danger.at(W, s0.x, s0.y) * 1.1) < 1e-9 && W._dgSet && W._dgSet.m[s0.id] != null);
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

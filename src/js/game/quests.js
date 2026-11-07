@@ -598,6 +598,7 @@
         if (x < 0 || y < 0 || x >= cw) continue;
         const i = y * cw + x; if (i < pl.explored.length) pl.explored[i] = 1;
       }
+      if (ECHO.Discover && ECHO.Discover.touch) ECHO.Discover.touch();
       ECHO.UI.mapDirty = true; ECHO.UI.miniBase = null;
       const seen = [];
       for (const c of world.camps) if (c.alive && U.dist(c.x, c.y, site.x, site.y) < 44) { c.seen = true; seen.push(`the smoke of ${c.name}`); }

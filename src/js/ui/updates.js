@@ -7,6 +7,17 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.23.1', items: [
+      'Smoother play, above all on a big round world. The game no longer stalls for a moment when the world changes somewhere.',
+      'The map: when the land changed (a site dug, a village founded, a wood grown, a house built), the whole world map used to be painted again, which on a round world took a second or more. Now only the part that changed is painted again. After loading, the map is painted around you first and the rest a little at a time.',
+      'The guide: when you leave the route (dodging about in a fight, say), only the way back onto it is planned again, not the whole route across the world. Far from your goal that used to cost a tenth of a second every few seconds. Long routes are planned more cheaply, and a goal that only shifts a little (the nearest unexplored country) keeps its route.',
+      'Great beasts, gates and floating islands: their roosts and stones are no longer rebuilt every time a tree is felled somewhere in the world.',
+      'River currents and ferries are worked out again only when the water changes or you travel well away, not every time the land changes.',
+      'Midnight: the day\'s work is lighter. The dungeons ask after the guild once, not once per dungeon. Each crown looks through its people once. The danger of each town\'s country is worked out once a day, not once per person. The heaviest steps went from up to a tenth of a second to a few hundredths.',
+      'Your ranks: the share of the land you have walked is counted again only when you walk more, and the nearest unexplored country is looked for again only when you have moved on.',
+      'Townsfolk: where people can stand and pass is remembered between their routes until the land changes there.',
+      'Nothing in your save changes, and nothing restarts.'
+    ] },
     { v: '0.23.0', items: [
       'Danger is fixed to the land now, not to you. The country round the old capitals and the temple is gentle (level 1 to a few). The farther you go from them, the deadlier it gets, and hills, swamps and deep forest are worse than open country, while farmland is a little safer. Walk back to the meadows you started in and they are as gentle as they were. Go far and the land is stronger than you until you grow into it. Out in the far lands it runs from the twenties to past a hundred.',
       'You can see it. Entering a region shows its danger band and what it means for you ("Danger: level 4–9 — easy for you", or "far beyond you"). The place name at the top of the screen shows the danger where you stand. On the world map, zoomed in, every region is labelled with its levels, coloured by how hard it is for you.',

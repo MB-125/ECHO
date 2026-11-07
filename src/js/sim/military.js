@@ -113,7 +113,10 @@
         Mil.lords(world, s);
         Mil.works(world, s, rng);
       }
-      for (const f of Object.values(world.factions)) if ((f.type === 'kingdom' || f.type === 'order') && !f.fallen) Mil.command(world, f);
+      // (the realm's people, sorted by crown once, not looked through again for every crown)
+      const byF = new Map();
+      for (const n of P().alive(world)) { const L = byF.get(n.faction); if (L) L.push(n); else byF.set(n.faction, [n]); }
+      for (const f of Object.values(world.factions)) if ((f.type === 'kingdom' || f.type === 'order') && !f.fallen) Mil.command(world, f, byF.get(f.id) || []);
       Mil.patrols(world, rng);
     },
     // A world from before the realm took up arms: the garrisons are filled (most of the way),
@@ -260,8 +263,9 @@
       if (T.tower) build('watch', 'built a watchtower over its gate');
     },
     // the kingdom's Marshal (who leads its armies) and its Champion (its best fighter)
-    command(world, f) {
-      const men = P().alive(world).filter(n => n.faction === f.id && n.prof === 'guard' && n.loc && !n.ng);
+    command(world, f, mine) {
+      mine = mine || P().alive(world).filter(n => n.faction === f.id);
+      const men = mine.filter(n => n.faction === f.id && n.prof === 'guard' && n.loc && !n.ng);
       let m = Mil.marshal(world, f);
       if (!m || m.prof !== 'guard') {
         const old = f.marshal && world.npcs[f.marshal];
@@ -280,7 +284,7 @@
           if (ECHO.Chronicle) ECHO.Chronicle.add(world, { text: `${m.first} ${m.last} was made Marshal of ${f.short}, to lead its armies.`, kind: 'politics', importance: 2, sid: f.capital, npcs: [m.id] });
         }
       }
-      const pool = P().alive(world).filter(n => n.faction === f.id && n.loc && !n.ng && n.id !== f.marshal && n.id !== f.ruler && (!n.title || n.title === 'Champion') && n.prof !== 'child' && n.prof !== 'elder' && (n.prof === 'guard' || n.prof === 'wanderer' || n.prof === 'hunter' || n.adv || n.rival));
+      const pool = mine.filter(n => n.faction === f.id && n.loc && !n.ng && n.id !== f.marshal && n.id !== f.ruler && (!n.title || n.title === 'Champion') && n.prof !== 'child' && n.prof !== 'elder' && (n.prof === 'guard' || n.prof === 'wanderer' || n.prof === 'hunter' || n.adv || n.rival));
       const best = pool.sort((a, b) => lvOf(b) - lvOf(a))[0];
       const c = Mil.champion(world, f);
       if (best && (!c || lvOf(best) > lvOf(c) * 1.15 + 1)) {

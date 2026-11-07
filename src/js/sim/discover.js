@@ -236,9 +236,15 @@
     },
     explored(world, pl) {
       if (!pl.explored) return 0;
-      let n = 0; for (let i = 0; i < pl.explored.length; i++) if (pl.explored[i]) n++;
+      // (counted again only when more has been walked: on a round world it is a quarter of a million cells)
+      const M = D._exMemo;
+      let n;
+      if (M && M.arr === pl.explored && M.len === pl.explored.length && M.v === (D._exV || 0)) n = M.n;
+      else { n = 0; const a = pl.explored; for (let i = 0; i < a.length; i++) if (a[i]) n++; D._exMemo = { arr: pl.explored, len: pl.explored.length, v: D._exV || 0, n }; }
       return Math.min(1, n / Math.max(1, D.landCells(world)));
     },
+    // more of the land has been walked (the count above is made again)
+    touch() { D._exV = (D._exV || 0) + 1; },
     MILESTONES: [[0.15, 'the roads near home'], [0.3, 'much of the land'], [0.5, 'half the world'], [0.75, 'nearly every corner'], [0.9, 'all of it']],
     milestone(world, pl) {
       const f = D.explored(world, pl);
