@@ -1564,6 +1564,12 @@
             const door = mesh(new THREE.PlaneGeometry(1.3, 1.7), basic('#1a1414')); door.position.set(s.x, R.groundH(s.x, s.y) + 0.85, s.y - 0.1); g.add(door);
             disc(0, 0.7, 0.9, '#ff7a2a', 0.35); R.siteLights.push({ x: s.x, y: s.y + 0.6, r: 4, a: 1, color: '#ff7a2a', h: 0.5 }); break;
           }
+          // the Endless Deep: a ring of old dark pillars round a black mouth, rimmed with cold blue light
+          case 'abyss': {
+            for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; add('pillar', Math.cos(a) * 2.7, Math.sin(a) * 2.3, { stone: '#2e3240' }, a, 1 + (i % 2) * 0.25); }
+            disc(0, 0, 2.2, '#10121c', 0.95); disc(0, 0, 1.75, '#6a8aff', 0.28); disc(0, 0, 1.45, '#030308', 1); hole(0, 0, 1.2);
+            R.siteLights.push({ x: s.x, y: s.y, r: 7, a: 1.1 + Math.sin(R.time * 1.3) * 0.15, color: '#6a8aff', h: 0.4 }); break;
+          }
           // natural wonders
           case 'falls': {
             add('boulder', -1.6, -1.4, null, 0, 2.2); add('boulder', 1.6, -1.4, null, 2, 2.1); add('boulder', 0, -2.2, null, 1, 2.4);

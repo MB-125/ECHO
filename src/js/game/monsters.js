@@ -302,7 +302,7 @@
       const drop = (kind, qty) => game.loot.push({ x: e.x + (r() - 0.5) * 0.8, y: e.y + (r() - 0.5) * 0.8, kind, qty });
       for (const [k, ch, a, b] of D.loot || []) if (r() < ch * (e.elite ? 1.4 : 1)) drop(k, a + Math.floor(r() * (b - a + 1)) + (L >= 4 && r() < 0.4 ? 1 : 0));
       const [g0, g1] = D.gold || [0, 3];
-      const gold = Math.round((g0 + r() * (g1 - g0)) * (1 + (Math.min(L, 150) - 1) * 0.3 + Math.max(0, L - 150) * 0.15) * (e.elite ? 2 : 1));   // coin grows slower past 150 (or the gates would buy the realm)
+      const gold = Math.round((g0 + r() * (g1 - g0)) * (1 + (Math.min(L, 150) - 1) * 0.3 + Math.max(0, L - 150) * 0.15) * (e.elite ? 2 : 1) * (e.gilded ? 2 : 1));   // coin grows slower past 150 (or the gates would buy the realm)
       if (gold > 0) drop('gold', gold);
       // finished gear
       const gearChance = e.boss2 ? 1 : e.elite ? 0.35 : Math.min(0.22, 0.04 + L * 0.012);

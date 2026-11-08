@@ -262,7 +262,7 @@
       }
       // ---- the deep places you have long outgrown fill with stronger things
       if (world.sites && world._dng && plv > 6) for (const s of world.sites) {
-        if (s.cat !== 'delve' || s.cleared || s.starter || s.kind === 'riftdeep' || !s.level || s.level >= 150 || s.level >= plv * 0.6) continue;
+        if (s.cat !== 'delve' || s.cleared || s.starter || s.kind === 'riftdeep' || s.kind === 'abyss' || !s.level || s.level >= 150 || s.level >= plv * 0.6) continue;
         if (rng.chance(0.04)) s.level++;
       }
       // ---- new powers rise of themselves
@@ -326,7 +326,7 @@
     riseWild(world, rng, plv) {
       const X = ECHO.Explore;
       if (!X || !X.sites || !world.sites || !world._dng) return null;   // (not while the world is still being made)
-      const sites = world.sites.filter(s => s.cat === 'delve' && !s.cleared && X.DELVES[s.kind] && s.kind !== 'riftdeep');
+      const sites = world.sites.filter(s => s.cat === 'delve' && !s.cleared && X.DELVES[s.kind] && s.kind !== 'riftdeep' && s.kind !== 'abyss');
       if (!sites.length) return null;
       const s = sites[rng.int(0, sites.length - 1)], D = X.DELVES[s.kind];
       const known = k => k === 'wolf' || !ECHO.Monsters || ECHO.Monsters.DEFS[k] || (ECHO.Quests && ECHO.Quests.FOES && ECHO.Quests.FOES[k]);

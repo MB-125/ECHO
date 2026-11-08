@@ -49,7 +49,7 @@
   const town = (w, pl, f) => { const s = near(w, pl, w.settlements.filter(t => t.faction !== 'ashfang' && (!f || f(t)))); return s ? { x: s.x, y: s.y + 2, name: s.name } : null; };
   const capital = (w, pl) => { const caps = w.settlements.filter(s => s.kind === 'capital'); const s = caps.sort((a, b) => ((b.rep && b.rep[pl.charId]) || 0) - ((a.rep && a.rep[pl.charId]) || 0) || U.dist(a.x, a.y, pl.x, pl.y) - U.dist(b.x, b.y, pl.x, pl.y))[0]; return s ? { x: s.x, y: s.y, name: 'the keep at ' + s.name } : null; };
   const delve = (w, pl, minFloors = 0) => {
-    const X = ECHO.Explore, all = X.sites(w).filter(s => s.cat === 'delve' && !s.cleared && X.floors(s) >= minFloors);
+    const X = ECHO.Explore, all = X.sites(w).filter(s => s.cat === 'delve' && s.kind !== 'abyss' && !s.cleared && X.floors(s) >= minFloors);
     const d = near(w, pl, all.filter(s => s.found || s.seen));
     if (d) return { x: d.x, y: d.y, name: d.name };
     const u = near(w, pl, all);

@@ -307,6 +307,12 @@
         sub: `${s.kind === 'capital' ? 'Capital' : s.kind === 'village' ? 'Village' : 'Town'} of ${world.factions[s.faction] ? world.factions[s.faction].name : 'no one'}${s.warden === pl.charId ? ' · yours' : ''}${s.char && s.char.kind !== 'village' && ECHO.TownLife ? ' · ' + ECHO.TownLife.KINDS[s.char.kind].name.toLowerCase() : ''}` });
       for (const site of ECHO.Explore.sites(world)) {
         if (!site.found && !site.seen && !all) continue;
+        if (site.kind === 'abyss' && ECHO.Deep) {
+          const L = ECHO.Deep.level(0), D = Pw ? Pw.diff(L, me) : { color: '#6a8aff', word: '' }, ds = ECHO.Deep.st(pl);
+          add({ layer: 'dungeons', kind: 'dungeon', x: site.x, y: site.y, name: 'The Endless Deep', color: '#6a8aff', pri: 11, ref: site, stars: `Lv ${L}+`,
+            sub: `No bottom · floor 1 Lv ${L}, harder every floor, a Warden every fifth${ds.best ? ` · your deepest: floor ${ds.best}` : ''}`, diff: `${D.word ? D.word + ' at the top; ' : ''}every floor down is worse, and the halls shift each descent` });
+          continue;
+        }
         if (site.cat === 'delve') {
           const told = site.found || site.starter || all, L = ECHO.Explore.level(world, site), fl = ECHO.Explore.floors(site), done = Math.min(fl, Object.keys(site.floorsDone || {}).length);
           const D = Pw ? Pw.diff(L, me) : { color: '#e0a070', word: '' };
@@ -1399,7 +1405,7 @@
     miniDungeon(game, c) {
       const L = ECHO.Interior.cur, g = c.getContext('2d'), B = ECHO.Interior.BASE, pe = game.pe;
       const s = Math.min((c.width - 20) / L.W, (c.height - 30) / L.H), ox = (c.width - L.W * s) / 2, oy = (c.height - L.H * s) / 2 + 5;
-      WM.miniFrame(g, c, L.depth != null ? `FLOOR ${(L.depth || 0) + 1}${L.floors ? ' / ' + L.floors : ''}` : 'BELOW');
+      WM.miniFrame(g, c, L.depth != null ? `FLOOR ${(L.depth || 0) + 1}${L.floors && L.kind !== 'abyss' ? ' / ' + L.floors : ''}` : 'BELOW');
       for (let y = 0; y < L.H; y++) for (let x = 0; x < L.W; x++) {
         if (L.rock[y * L.W + x] || !L.seen[y * L.W + x]) continue;
         const lord = L.lordRoom && x >= L.lordRoom.x0 && x < L.lordRoom.x1 && y >= L.lordRoom.y0 && y < L.lordRoom.y1;

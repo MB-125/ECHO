@@ -111,7 +111,7 @@
       O._t = 3;
       if (!(game.isNight && game.isNight())) return;
       for (const s of world.sites) {
-        if (s.cat !== 'delve' || s.cleared || (s.grow || 0) < 30 || s.spilled === world.day) continue;
+        if (s.cat !== 'delve' || s.kind === 'abyss' || s.cleared || (s.grow || 0) < 30 || s.spilled === world.day) continue;
         const d = U.dist(s.x, s.y, pe.x, pe.y);
         if (d > 34 || d < 8) continue;
         s.spilled = world.day;

@@ -108,7 +108,8 @@
       if (!e) return 'common';
       if (e.type === 'boss') return 'great';
       if (e.nem) return (e.nemInfl || 0) >= 25 ? 'lord' : 'champion';   // one of the named
-      if (e.boss2) return 'lord';
+      if (e.boss2 || e.deepWarden) return 'lord';
+      if (e.stalker) return 'champion';
       if (e.species === 'slime') return 'champion';      // (the strongest thing that crawls)
       if (e.species === 'slimeling' && !e.summoner) return 'elite';
       if (e.summoner || e.shard) return 'minion';

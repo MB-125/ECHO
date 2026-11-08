@@ -159,6 +159,7 @@
           }
         }
       }
+      if (target.deepWarden && ECHO.Deep) ECHO.Deep.wardenDown(game, target);   // (its stair-gate is yours: deep.js)
       if (target.delve) {
         const site = X().byId(world, target.delve);
         const L = ECHO.Interior.cur;
@@ -167,6 +168,7 @@
           site.floorsDone = site.floorsDone || {}; site.floorsDone[target.floor || 0] = world.day;
           if (ECHO.Lore && from && (from === game.pe || from.pal)) ECHO.Lore.onFloor(game);
           const last = !L || L.depth >= L.floors - 1;
+          if (site.kind === 'abyss') UI().toast('This floor is quiet now. The stair goes on down — and every floor below is worse.', 'legend', 4); else
           UI().toast(last ? `${U.cap(site.name)} falls quiet. Whatever was down here is finished — and what it guarded is yours.` : 'This floor is quiet now. The stairs lead deeper — the things below are stronger.', 'legend', 5);
         }
       }
@@ -184,7 +186,7 @@
       const small = X().small(site);
       const style = def.style || 'cave';
       const cave = style === 'cave';
-      const rng = new ECHO.RNG(ECHO.hashStr(site.id + world.seed + ':' + depth + (site.mobileOf ? ':' + (site.shift || 0) : '') + (site.life && site.life.shape ? ':f' + site.life.shape : '')));   // (and one that fell in, or woke, is not laid out as it was)   // (a living or walking place shifts each time)
+      const rng = new ECHO.RNG(ECHO.hashStr(site.id + world.seed + ':' + depth + (site.mobileOf ? ':' + (site.shift || 0) : '') + (site.life && site.life.shape ? ':f' + site.life.shape : '') + (site.kind === 'abyss' ? ':r' + (site.run || 0) : '')));   // (and one that fell in, or woke, is not laid out as it was)   // (a living or walking place shifts each time)
       // rooms and passages: bigger and more tangled the deeper you go
       const cols = small ? 2 + (depth >= 2 ? 1 : 0) : 3 + (depth >= 5 ? 1 : 0), rows = small ? 2 + (depth >= 4 ? 1 : 0) : 2 + (depth >= 1 ? 1 : 0) + (depth >= 7 ? 1 : 0);
       const G = ECHO.DGen.carve(rng, cols, rows);
@@ -252,7 +254,7 @@
         f('candles', far.x0 + 1, far.y1 - 1, { solid: false, light: { r: 6, a: 1.2, color: '#ff6a4a', h: 1.1 } });
         f('candles', far.x1 - 1, far.y1 - 1, { solid: false, light: { r: 6, a: 1.2, color: '#ff6a4a', h: 1.1 } });
         }
-      } else f('stairs', fx, fy, { w: 2, h: 2, action: 'delvedown', label: `Go down the stairs (floor ${depth + 2} of ${floors})` });
+      } else f('stairs', fx, fy, { w: 2, h: 2, action: 'delvedown', label: K === 'abyss' ? `Go down the stairs (floor ${depth + 2} · Lv ${X().floorLevel(site, depth + 1)})` : `Go down the stairs (floor ${depth + 2} of ${floors})` });
       // what a cave off the beaten track was known for
       if (last && site.feature === 'paintings') f('tablet', fx - 2.2, far.y0 + 0.9, { action: 'cavepaint', label: site.used.paint ? 'The painted wall' : 'Look at the paintings on the wall', colors: { rune: '#d0803a', stone: '#6a5a48' } });
       if (last && site.feature === 'spring') f('well', fx + 2.2, far.my, { action: 'cavespring', label: 'Drink from the spring', colors: { stone: '#5a6878', glow: '#9fd3ff' }, light: { r: 4, a: 0.9, color: '#9fd3ff', h: 0.5 } });
@@ -272,10 +274,11 @@
       const nTrap = Math.min(ctiles.length, 2 + depth * 2 + (small ? -1 : 0));
       const fire = K === 'forge' || K === 'sanctum';
       for (let i = 0; i < nTrap; i++) { const t = ctiles.splice(rng.int(0, ctiles.length - 1), 1)[0]; if (t) L.traps.push({ x: t.x + 0.5, y: t.y + 0.5, phase: rng.next() * 3, kind: fire ? 'flame' : 'spikes', cycle: -1 }); }
+      if (K === 'abyss' && ECHO.Deep) ECHO.Deep.onLayout(game, L, f, rng);   // (its twists, its Warden's hoard: deep.js)
       Q.unblock(L, G.doorX + 1, H - 3);
       L.inside = { x: BASE + G.doorX + 1, y: H - 2.2 };
       L.outside = { x: site.x, y: site.y + 1.6 };
-      L.name = U.cap(site.name) + (floors > 1 ? ` — ${depth === floors - 1 ? 'the deepest floor' : 'floor ' + (depth + 1) + ' of ' + floors}` : '') + ` · Lv ${X().floorLevel(site, depth)}`;
+      L.name = L.deepName ? L.deepName : U.cap(site.name) + (floors > 1 ? ` — ${depth === floors - 1 ? 'the deepest floor' : 'floor ' + (depth + 1) + ' of ' + floors}` : '') + ` · Lv ${X().floorLevel(site, depth)}`;
       return L;
     },
     // Nothing on a floor may wall you off: every room, the iron door and
@@ -382,6 +385,7 @@
       if (ECHO.Growth) ECHO.Growth.inDelve(game, L, free, tag);   // (a named thing that keeps to its den)
       if (ECHO.WorldEvents) ECHO.WorldEvents.inDelve(game, L, site, free, tag);   // (the Sleeper's choir, singing in the dark)
       // they remember you ran: a few of them waiting just inside the door
+      if (site.kind === 'abyss' && ECHO.Deep) ECHO.Deep.onPopulate(game, L, lvl, free, tag, pick);   // (the Swarm, a Warden, the Stalker; every twist: deep.js)
       if (DL && depth === 0) { const er = free(G.entrance).filter(t => Math.hypot(BASE + t.x + 0.5 - L.inside.x, t.y + 0.5 - L.inside.y) > 2.5); DL.ambush(game, L, site, () => { const s0 = er.pop(); if (!s0) return null; const k = pick(); const e = k === 'wolf' ? wolf(BASE + s0.x + 0.5, s0.y + 0.5) : tag(ECHO.Monsters.make(game, k, BASE + s0.x + 0.5, s0.y + 0.5, lvl, { noElite: true })); game.ents.push(e); return e; }); }
       ECHO.Music.stinger('discover');
       if (ECHO.Monsters) ECHO.Monsters.tip(game, 'dungeon');
@@ -496,6 +500,7 @@
         ECHO.Sfx.play('coin'); ECHO.Music.stinger('star');
         return UI().toast(`A treasure room! In the strongbox: ${out.join(', ')}.`, 'legend', 6);
       }
+      if (it.action === 'deephoard' && ECHO.Deep) return ECHO.Deep.hoard(game, it);
       if (it.action === 'delvecache') {
         site.caches = site.caches || {};
         if (site.caches[L.depth]) return UI().toast('The cache is empty.', 'info', 2);
@@ -837,6 +842,7 @@
         const d = U.dist(s.x, s.y, pe.x, pe.y);
         if (d > 2.6) continue;
         if (s.cat === 'delve' && s.kind === 'riftdeep' && !(world.story && world.story.ch === 5 && !world.story.kingSlain)) continue;
+        if (s.kind === 'abyss' && ECHO.Deep) { const bs = ECHO.Deep.st(game.pl).best; out.push({ kind: 'act', label: `Go down into the Endless Deep — floor 1 Lv ${X().floorLevel(s, 0)} · no bottom${bs ? ` · your deepest: floor ${bs}` : ''}`, d: d * 0.5, act: () => ECHO.Deep.chooseFloor(game, s) }); continue; }
         if (s.cat === 'delve') { X().refill(world, s); const fl = X().floors(s); out.push({ kind: 'act', label: `${s.secret ? 'Explore' : 'Enter'} ${s.name} — ${X().stars(s.level ? s : (X().level(world, s), s))}${fl > 1 ? ' · ' + fl + ' floors' : ''}${s.cleared ? (s.clearedBy ? ` (emptied by ${s.clearedBy} — quiet for now)` : ' (quiet now)') : ''}`, d: d * 0.5, act: () => Q.chooseFloor(game, s) }); }
         else {
           const label = { stones: 'Read the standing stones', lookout: 'Look out over the land', moonwell: 'Drink from the moonwell', oak: 'Rest beneath the great oak', battlefield: 'Search the battlefield', wayshrine: 'Pray at the wayside shrine', wreck: 'Search the wreck',
@@ -863,6 +869,7 @@
     },
     // At the entrance of a place you have been deep in: choose the floor to start on.
     chooseFloor(game, site) {
+      if (site.kind === 'abyss' && ECHO.Deep) return ECHO.Deep.chooseFloor(game, site);
       const world = game.world;
       X().level(world, site);
       const top = Q.reached(site), fl = X().floors(site), done = site.floorsDone || {};
@@ -876,6 +883,7 @@
       UI().modal({ title: U.cap(site.name), html: `<p>${fl} floors, Lv ${X().floorLevel(site, 0)} at the top to Lv ${X().floorLevel(site, fl - 1)} at the bottom. You have been down to ${top === fl - 1 ? 'the deepest floor' : 'floor ' + (top + 1)}. Which floor do you go down to?</p>`, choices });
     },
     enterDelve(game, site, depth = 0) {
+      if (site.kind === 'abyss' && ECHO.Deep) ECHO.Deep.onEnter(game, site, depth);   // (a new descent, or a new floor reached: deep.js)
       site.reached = Math.max(site.reached || 0, depth);
       const s = ECHO.World.nearestSettlement(game.world, site.x, site.y) || game.world.settlements[0];
       ECHO.Interior.enter(game, Q.delveBuilding(site, s, depth), s);

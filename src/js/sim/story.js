@@ -57,7 +57,7 @@
   const echo = (w, pl) => { const e = w.wonders && w.wonders.echoes && near(pl, w.wonders.echoes.filter(e => !e.found && e.revealed)); return e ? { x: e.x, y: e.y, name: 'an echo' } : null; };
   const nextPage = w => w.expedition && w.expedition.next ? { x: w.expedition.next.x, y: w.expedition.next.y, name: w.expedition.next.hint, vague: true } : null;
   const unknown = () => null;
-  const deepDungeon = (w, pl) => { const d = near(pl, ECHO.Explore.sites(w).filter(s => s.cat === 'delve' && ECHO.Explore.floors(s) >= 2 && ECHO.Explore.DELVES[s.kind] && ECHO.Monsters && ECHO.Monsters.DEFS[ECHO.Explore.DELVES[s.kind].boss] && !s.cleared)); return d ? { x: d.x, y: d.y, name: d.found ? d.name : 'a deep dungeon', vague: !d.found } : null; };
+  const deepDungeon = (w, pl) => { const d = near(pl, ECHO.Explore.sites(w).filter(s => s.cat === 'delve' && s.kind !== 'abyss' && ECHO.Explore.floors(s) >= 2 && ECHO.Explore.DELVES[s.kind] && ECHO.Monsters && ECHO.Monsters.DEFS[ECHO.Explore.DELVES[s.kind].boss] && !s.cleared)); return d ? { x: d.x, y: d.y, name: d.found ? d.name : 'a deep dungeon', vague: !d.found } : null; };
   // The Rift opens for the story if no kingdom has torn it open yet.
   const ensureRift = (w, rng) => {
     if (!w.rift && ECHO.Civ) { const f = Object.values(w.factions).filter(f => f.type === 'kingdom').sort((a, b) => (b.tech && b.tech.era || 0) - (a.tech && a.tech.era || 0))[0]; if (f) ECHO.Civ.openRift(w, f, rng); }

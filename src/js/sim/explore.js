@@ -38,6 +38,7 @@
     maw: { label: 'Living belly', names: ['the Belly'], desc: 'The inside of a living beast: warm, wet, breathing, and full of what lives off it.', boss: 'queen', floors: 2, roster: [['spider', 3], ['giantrat', 2]], deep: [['spider', 2]], style: 'flesh', glow: '#ff6a8a', lvl: 2 },
     backkeep: { label: 'Walking keep', names: ['the Keep'], desc: 'A ruined fortress on the back of a walking beast, still held by its dead garrison.', boss: 'necromancer', floors: 3, roster: [['skeleton', 3], ['skelarcher', 2], ['ghoul', 1], ['cultist', 1]], deep: [['wraith', 1]], style: 'stone', glow: '#c8b48a', lvl: 3 },
     scar: { label: 'Calamity scar', names: ['the Scar'], desc: 'The ground split open where a calamity died. Heat, or cold, or a wrongness, breathes up out of it; things have gone down to feed on what is left.', boss: 'golem', floors: 2, roster: [['golemling', 3], ['wraith', 1]], deep: [['golemling', 2]], style: 'stone', glow: '#ff9a5a', lvl: 2 },
+    abyss: { label: 'The Endless Deep', names: ['the Endless Deep'], desc: 'A round black mouth in the ground, ringed with old pillars. Cold air breathes up out of it, and the stair inside goes down further than anyone has ever followed it. It shifts: no one goes down the same way twice.', boss: 'golem', floors: 2, roster: [['skeleton', 3], ['wight', 2], ['wraith', 2], ['golemling', 2], ['cultist', 2], ['troll', 1], ['spider', 2], ['ghoul', 2], ['skelarcher', 1]], deep: [['wraith', 1], ['golemling', 1], ['troll', 1]], style: 'stone', glow: '#6a8aff', lvl: 0 },
     forge: { label: 'Deep forge', names: ['the Old Deep Forge', 'the Dwarrow Halls', 'Hammerdeep', 'the Cinder Halls'], desc: 'A door of black iron in the mountainside. The ground is warm. Something inside still keeps the fires.', boss: 'golem', floors: 3, roster: [['golemling', 3]], deep: [['golemling', 3]], style: 'stone', glow: '#ff7a2a', lvl: 3 }
   };
   // The dungeons a world holds: the old delves, and the deep ones added later.
@@ -52,6 +53,7 @@
       if (!world._dng) X.placeDungeons(world);
       if (!world._lv2) { world._lv2 = 1; for (const s of world.sites) if (s.cat === 'delve') X.level(world, s); }
       if (!world._starter) X.starters(world);
+      if (!world._abyss && ECHO.Deep) ECHO.Deep.ensure(world);   // (the way down with no bottom: deep.js)
       return world.sites;
     },
     place(world) {
@@ -169,6 +171,7 @@
     // land grows deadlier the further you go, up to level 150.
     // how deadly a place below is (risen with you: danger.js); site.level keeps its own fixed level
     level(world, site) {
+      if (site.kind === 'abyss' && ECHO.Deep) return ECHO.Deep.level(0);
       const L = X.baseLevel(world, site);
       return ECHO.Danger && ECHO.Danger.rise ? ECHO.Danger.rise(world, L) : L;
     },
@@ -188,6 +191,7 @@
     floors(site) {
       const def = DELVES[site.kind] || {};
       if (site.kind === 'riftdeep') return def.floors || 2;
+      if (site.kind === 'abyss' && ECHO.Deep) return ECHO.Deep.floors(site);
       const L = site.level || 1;
       const more = Math.min(3, Math.floor((site.grow || 0) / 25));   // (grown, untended: more floors)
       const life = ECHO.DungeonLife ? ECHO.DungeonLife.floorsDelta(site) : 0;   // (an awakened one opens deeper; a collapse seals some)
@@ -195,6 +199,7 @@
     },
     // Each floor down is stronger than the one above.
     floorLevel(site, depth) {
+      if (site.kind === 'abyss' && ECHO.Deep) return ECHO.Deep.level(depth);
       const L = site.level || 1;
       const b = L + (depth || 0) * (2 + Math.floor(L / 25)) + Math.floor((site.round || 0) / 2) + X.growth(site);
       const f = Math.min(150, b + (ECHO.DungeonLife ? ECHO.DungeonLife.levelAdd(site, b) : 0));
@@ -204,6 +209,7 @@
     // how much worse it has grown, untended
     growth(site) { return Math.min(Math.max(3, Math.round((site.level || 1) * 0.3)), Math.floor((site.grow || 0) / 6)); },
     stars(site) {
+      if (site.kind === 'abyss') return `Lv ${X.floorLevel(site, 0)}+`;
       const a = X.floorLevel(site, 0), b = X.floorLevel(site, X.floors(site) - 1);
       return a === b ? `Lv ${a}` : `Lv ${a}–${b}`;
     },
@@ -228,7 +234,7 @@
       const sites = X.sites(world);
       for (const s of sites) X.refill(world, s);
       // a dungeon no one clears grows: deeper, and worse, day by day (cleared, it starts again)
-      for (const s of sites) if (s.cat === 'delve' && s.kind !== 'riftdeep') { if (s.cleared) s.grow = 0; else s.grow = Math.min(150, (s.grow || 0) + 1); }
+      for (const s of sites) if (s.cat === 'delve' && s.kind !== 'riftdeep' && s.kind !== 'abyss') { if (s.cleared) s.grow = 0; else s.grow = Math.min(150, (s.grow || 0) + 1); }
       if (!world.player) return;
       const open = world.plights.filter(p => p.status === 'open');
       for (const t of world.settlements) {
@@ -238,7 +244,7 @@
         const r = rng.next();
         const res = P().residents(world, t).filter(n => n.status === 'alive');
         // a delve nearby is trouble
-        const delve = sites.filter(s => s.cat === 'delve' && !s.cleared && U.dist(s.x, s.y, t.x, t.y) < 45).sort((a, b) => U.dist(a.x, a.y, t.x, t.y) - U.dist(b.x, b.y, t.x, t.y))[0];
+        const delve = sites.filter(s => s.cat === 'delve' && !s.cleared && s.kind !== 'abyss' && U.dist(s.x, s.y, t.x, t.y) < 45).sort((a, b) => U.dist(a.x, a.y, t.x, t.y) - U.dist(b.x, b.y, t.x, t.y))[0];
         if (r < 0.3 && delve && !open.some(p => p.kind === 'delve' && p.siteId === delve.id)) {
           const asker = rng.pick(res.filter(n => n.prof !== 'child')) || null;
           const what = { barrow: 'pale things walking out of', cave: 'wolves without number coming out of', hideout: 'cutthroats using', crypt: 'lights and voices in', warren: 'goblins creeping out of', nest: 'spiders the size of dogs around', trollden: 'a troll coming out of', catacomb: 'the dead walking out of', sanctum: 'robed figures going in and out of', forge: 'smoke rising from', grot: 'things moving in', scar: 'things crawling out of' }[delve.kind] || 'things moving in';

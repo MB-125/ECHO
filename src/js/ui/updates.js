@@ -7,6 +7,17 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.30.0', items: [
+      'The Endless Deep: a dungeon with no bottom. Every world has one, a walk from your home, already marked on your map (an older world gets it when you load it). There is always a stair further down.',
+      'Every floor is harder than the last. The first floor is a little below you, about the fifth is your match, and below that it climbs past you, floor after floor, with no end. Past the greatest level there is, it keeps getting stronger anyway.',
+      'Every floor below the first has its twists: one, two from the tenth floor, three from the twenty-fifth. The Swarm (half as many again), Ironhide (blades and arrows bite a quarter less), Frenzy (faster, and quicker to strike), Bloodthirst (they heal from the blows they land), Glass and Fury (less life, far more harm), Champions (every one of them hulking), Lightless (the lamps burn low), the Gauntlet (traps in every passage), the Stalker (something strong is already hunting you), and now and then a kind one, Gilded (twice the coin).',
+      'Every fifth floor a Warden of the Deep waits in the far room with its hoard: a great boss, much stronger than a dungeon lord. The hoard holds a fortune in crowns, a relic (epic from the tenth floor, legendary from the twenty-fifth), fine gear and, from the fifth floor, a deep-core that adds to your mana for good.',
+      'Beat a Warden and its stair-gate is yours for good: next time you may start your descent just below it, instead of at the top.',
+      'Each new floor you reach on a descent pays you crowns by its depth and level. Your deepest floor is kept, with the day you got there, and every fifth one goes in the chronicle.',
+      'It is never the same twice. Each time you go down from the surface the halls shift, the twists change, and everything is full again.',
+      'Your character page (K) shows your deepest floor, the Wardens you have beaten and where you may start; the map shows it with the level of its first floor.',
+      'Nothing in your save changes. The Endless Deep is added beside everything you have, and your record starts the first time you go down.'
+    ] },
     { v: '0.29.0', items: [
       'The world rises with you. Once you have outgrown the land, every region, every dungeon, the deep woods and the great beasts of the lairs rise to meet you, on their own, as you level. It begins as you pass level 15 and is whole by level 40.',
       'Every place keeps its place in the order of things. The heartlands round the capitals stay a little below you (easy), the middle country is your match, the far country is above you (hard), and the deep woods are far above that (deadly, and worse the deeper you go). Dungeons rise the same way, each floor down a little worse again, and a lair\'s beast stands above even the far country.',

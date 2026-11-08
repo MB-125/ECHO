@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
 
 function loadEcho() {
@@ -609,7 +609,7 @@ function main() {
     const delves = X.sites(B).filter(s => s.cat === 'delve');
     const kinds = new Set(delves.map(s => s.kind));
     check('many dungeons lie across the map, of many kinds', delves.length >= 12 && ['catacomb', 'warren', 'nest', 'trollden', 'sanctum', 'forge'].every(k => kinds.has(k)), `${delves.length} dungeons: ${[...kinds].join(' ')}`);
-    check('dungeons have floors, and grow deadlier away from the capitals', delves.every(s => s.level >= 1 && s.level <= 30 && X.floors(s) >= 3 && X.floorLevel(s, X.floors(s) - 1) > X.floorLevel(s, 0)) && delves.some(s => X.floors(s) >= 5) && new Set(delves.map(s => s.level)).size >= 3, delves.map(s => s.level + '/' + X.floors(s)).join(' '));
+    check('dungeons have floors, and grow deadlier away from the capitals', delves.filter(s => s.kind !== 'abyss').every(s => s.level >= 1 && s.level <= 30 && X.floors(s) >= 3 && X.floorLevel(s, X.floors(s) - 1) > X.floorLevel(s, 0)) && delves.some(s => X.floors(s) >= 5) && new Set(delves.map(s => s.level)).size >= 3, delves.map(s => s.level + '/' + X.floors(s)).join(' '));
     check('no dungeon sits on solid ground or in a town', delves.every(s => !ECHO.World.isSolid(B, s.x, s.y) && B.settlements.every(t => ECHO.U.dist(t.x, t.y, s.x, s.y) > (t.founded != null ? 8 : 10))));   // (a village founded since may stand nearer, but not on it)
     const json = ECHO.Save.serialize(B), B2 = ECHO.Save.deserialize(json);
     const cachesFound = B.caches.filter(c => c.found).length; B.caches[0].found = true;
@@ -1813,6 +1813,69 @@ function main() {
     check('…and you cannot buy what you wear, or worse', /wearing/.test(MW.why(pl, 'ring', 2)) && /better/.test(MW.why(pl, 'ring', 1)));
     pl.gold = 1000000; MW.buy(game, 'amulet', 1);
     check('an amulet lets you hold more: a share more, and a store on top', pl.gold === 0 && MW.maxMana(pl, 1000) === 1600);
+  }
+
+  console.log('\nThe Endless Deep');
+  {
+    const E = ECHO, Dp = E.Deep, X = E.Explore, U = E.U;
+    const W = E.generateWorld({ seed: 4242, name: 'Bottomless' });
+    const pl = W.player = E.Character.create(W, new E.RNG(9), { first: 'Ira', homeId: W.settlements[0].id });
+    const home = W.settlements[0];
+    const sites = X.sites(W), ab = sites.filter(s => s.kind === 'abyss');
+    check('every world has one Endless Deep, a walk from your home, marked on your map from the start', ab.length === 1 && ab[0].found && ab[0].cat === 'delve' && U.dist(ab[0].x, ab[0].y, home.x, home.y) >= 11 && U.dist(ab[0].x, ab[0].y, home.x, home.y) < 60 && !E.World.isSolid(W, ab[0].x, ab[0].y) && W.settlements.every(t => U.dist(t.x, t.y, ab[0].x, ab[0].y) >= 11), ab[0] && `${Math.round(U.dist(ab[0].x, ab[0].y, home.x, home.y))} leagues from ${home.name}`);
+    const W2 = E.Save.deserialize(E.Save.serialize(W));
+    check('…and it keeps in a save, not moved and not doubled', X.sites(W2).filter(s => s.kind === 'abyss').length === 1 && X.sites(W2).find(s => s.kind === 'abyss').x === ab[0].x);
+    // an older world, from before there was one: it is dug when the world is loaded, once
+    const W3 = E.Save.deserialize(E.Save.serialize(W)); W3.sites = W3.sites.filter(s => s.kind !== 'abyss'); delete W3._abyss;
+    const n3 = W3.sites.length; X.sites(W3); X.sites(W3);
+    check('a world from before it gets one when loaded, once; nothing else of it changes', W3.sites.length === n3 + 1 && W3.sites.filter(s => s.kind === 'abyss').length === 1 && W3.sites.slice(0, n3).every((s, i) => s.id === W2.sites.filter(o => o.kind !== 'abyss')[i].id));
+    const site = ab[0];
+    E.Game = { world: W, pl, pe: { x: site.x, y: site.y } };
+    const lvAt = (me, d) => { E.Prowess.st(pl).lv = me; return Dp.level(d); };
+    check('a floor\'s level follows you: a little below you at the top, about you by the fifth floor, past you below that', lvAt(1, 0) === 8 && lvAt(1, 9) === 44 && lvAt(600, 0) === 510 && lvAt(600, 4) === 594 && lvAt(600, 9) > 600 && lvAt(600, 9) < lvAt(600, 10), `Lv 600: floor 1 ${lvAt(600, 0)}, floor 5 ${lvAt(600, 4)}, floor 10 ${lvAt(600, 9)}, floor 20 ${lvAt(600, 19)}`);
+    E.Prowess.st(pl).lv = E.Prowess.MAX || 1500;
+    check('…and past the greatest level there is, it keeps getting stronger regardless', Dp.beyond(0) === 0 && Dp.beyond(10) > 0 && Dp.beyond(30) > Dp.beyond(10) && Dp.level(30) === (E.Prowess.MAX || 1500), `beyond: floor 11 +${(Dp.beyond(10) * 100).toFixed(0)}%, floor 31 +${(Dp.beyond(30) * 100).toFixed(0)}%`);
+    E.Prowess.st(pl).lv = 300;
+    check('it has no bottom: there is always a floor below the deepest you have reached', X.floors(site) >= 2 && (() => { site.reached = 40; const f = X.floors(site); site.reached = 0; return f === 42; })() && X.floorLevel(site, 7) === Dp.level(7));
+    site.run = 3;
+    const tw = d => Dp.twists(site, d).join(',');
+    check('every floor below the first has its twists: one, two from the tenth floor, three from the twenty-fifth', Dp.twists(site, 0).length === 0 && [1, 5, 8].every(d => Dp.twists(site, d).filter(k => !Dp.TWISTS[k].good).length === 1) && [9, 15, 23].every(d => Dp.twists(site, d).filter(k => !Dp.TWISTS[k].good).length === 2) && [24, 40].every(d => Dp.twists(site, d).filter(k => !Dp.TWISTS[k].good).length === 3), [1, 9, 24].map(d => `floor ${d + 1}: ${tw(d)}`).join(' · '));
+    const a = [1, 2, 3, 4, 5, 6, 7, 8].map(tw).join('|'); site.run = 4; const b = [1, 2, 3, 4, 5, 6, 7, 8].map(tw).join('|'); site.run = 3;
+    check('…the same floor keeps its twists for the whole descent, and a new descent brings new ones', a === [1, 2, 3, 4, 5, 6, 7, 8].map(tw).join('|') && a !== b);
+    let seenK = new Set(); for (let r = 0; r < 40; r++) { site.run = r; for (let d = 1; d < 30; d++) for (const k of Dp.twists(site, d)) seenK.add(k); } site.run = 3;
+    check('…and every twist turns up in time, the kind one too', Object.keys(Dp.TWISTS).every(k => seenK.has(k)), [...seenK].join(' '));
+    check('a Warden waits on every fifth floor, and only there', [4, 9, 14, 49].every(Dp.isWarden) && ![0, 1, 3, 5, 10].some(Dp.isWarden));
+    // the twists, on a monster
+    const mk = () => ({ hp: 1000, maxHp: 1000, dmgMul: 1, speed: 3, scale: 1, resist: { melee: 0.1 }, foe: { wind: 0.5, cd: 1.2 }, ab: {} }), F0 = mk().foe;
+    const tw1 = (ks, bey = 0, o = {}) => { const e = Object.assign(mk(), o); Dp.twist({ twists: ks }, e, bey); return e; };
+    const iron = tw1(['iron']), fr = tw1(['frenzy']), th = tw1(['thirst']), gl = tw1(['glass']), ch = tw1(['champions']), gi = tw1(['gilded']), by = tw1([], 0.5);
+    check('the twists do what they say: Ironhide, Frenzy, Bloodthirst, Glass and Fury, Champions, Gilded — and past the greatest level, more of everything', iron.resist.melee === 0.35 && iron.resist.ranged === 0.25 && fr.speed > 3 && fr.cdMul === 0.75 && fr.foe.wind === 0.4 && th.ab.drain === 0.25 && gl.maxHp === 650 && gl.dmgMul === 1.4 && ch.elite === 'hulking' && ch.maxHp === 1800 && gi.gilded && by.maxHp === 2000 && by.dmgMul === 1.5);
+    const shared = { wind: 0.5 }, e2 = tw1(['frenzy'], 0, { foe: shared }); Dp.twist({ twists: ['frenzy', 'iron'] }, e2, 0);
+    check('…once each, and never on what other monsters share', shared.wind === 0.5 && e2.speed === 3 * 1.3 && !(e2.resist.ranged > 0) && tw1(['champions'], 0, { boss2: true }).elite === undefined);
+    // going down: a descent, new floors, your deepest, and a Warden's gate
+    E.Interior = { cur: null }; const UI0 = E.UI; E.UI = { toast() {}, banner() {}, modal() {} };
+    const game = E.Game; game.world = W;
+    check('an old save has never been down: nothing kept until you go', !pl.deep && Dp.st(pl).best === 0 && pl.deep.gates === 0);
+    delete pl.deep;
+    pl.gold = 0; site.floorsDone = { 0: 1 }; site.hoards = { 4: 1 };
+    Dp.onEnter(game, site, 0);
+    check('each descent from the surface is a new one: the halls shift, and what you emptied last time is full again', site.run === 4 && Object.keys(site.floorsDone).length === 0 && Object.keys(site.hoards).length === 0 && pl.deep.runs === 1 && pl.deep.best === 1 && pl.gold === 0);
+    E.Interior.cur = { site, depth: 0 };
+    Dp.onEnter(game, site, 1); const g1 = pl.gold; Dp.onEnter(game, site, 1); E.Interior.cur.depth = 1; Dp.onEnter(game, site, 0); Dp.onEnter(game, site, 1);
+    check('each new floor you reach on a descent pays you, by its level and depth — once', g1 === Dp.pay(1) && g1 > 0 && pl.gold === g1 && pl.deep.best === 2, `floor 2 at Lv 300: ${g1} crowns`);
+    for (let d = 2; d <= 5; d++) Dp.onEnter(game, site, d);
+    check('your deepest floor is kept, and the day you got there', pl.deep.best === 6 && pl.deep.bestDay === W.day && site.runTop === 5);
+    Dp.wardenDown(game, { floor: 4, deepWarden: true });
+    check('beat the Warden of the fifth floor and its stair-gate is yours for good: you may start the next descent on the sixth', pl.deep.gates === 5 && pl.deep.wardens === 1 && site.wardenDown[4]);
+    Dp.wardenDown(game, { floor: 4, deepWarden: true });
+    check('…a Warden beaten again opens no gate you have not earned', pl.deep.gates === 5 && pl.deep.wardens === 2);
+    E.Interior.cur = null; const g2 = pl.gold; Dp.onEnter(game, site, 5);
+    check('start a descent at a stair-gate: no pay for the floor you start on, and the record stands', site.runTop === 5 && pl.gold === g2 && pl.deep.best === 6 && pl.deep.runs === 2);
+    const W4 = E.Save.deserialize(E.Save.serialize(W));
+    check('all of it keeps in a save', W4.player.deep.best === 6 && W4.player.deep.gates === 5 && W4.sites.find(s => s.kind === 'abyss').run === site.run);
+    for (let i = 0; i < 30; i++) X.dailyTick(W, new E.RNG(100 + i));
+    check('it is no ordinary dungeon: it never grows untended, never changes hands, and no town posts work about it', !(site.grow > 0) && !(E.DungeonLife && E.DungeonLife.ok(site)) && W.plights.every(p => p.siteId !== site.id));
+    E.UI = UI0; delete E.Interior; delete E.Game;
   }
 
   console.log('\nFixed danger, more realms, real diplomacy');

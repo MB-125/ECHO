@@ -93,7 +93,7 @@
       const pw = Math.max(...party.map(m => D.power(world, m))) + (party.length - 1) * 0.6;
       let best = null, bs = Infinity;
       for (const site of X().sites(world)) {
-        if (site.cat !== 'delve' || site.kind === 'riftdeep') continue;
+        if (site.cat !== 'delve' || site.kind === 'riftdeep' || site.kind === 'abyss') continue;
         const d = U.dist(site.x, site.y, s.x, s.y);
         if (d > 50) continue;
         X().level(world, site);

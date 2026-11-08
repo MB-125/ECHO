@@ -53,7 +53,7 @@
 
   const DL = ECHO.DungeonLife = {
     STATES, ORIGINS,
-    ok(site) { return site && site.cat === 'delve' && !site.mobileOf && site.kind !== 'riftdeep' && X().DELVES[site.kind]; },
+    ok(site) { return site && site.cat === 'delve' && !site.mobileOf && site.kind !== 'riftdeep' && site.kind !== 'abyss' && X().DELVES[site.kind]; },
     // the site's life, made the first time (from its own id, so the same world tells the same story)
     life(world, site) {
       if (!DL.ok(site)) return null;
