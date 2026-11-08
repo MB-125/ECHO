@@ -599,11 +599,11 @@
       if (!pl.items.includes(it.id)) pl.items.push(it.id);
       const legend = it.legend ? ECHO.Legacy.legendOf(world, it.legend) : null;
       it.history.push({ d: world.day, t: `taken up by ${pl.first} ${pl.last}` });
-      const eff = x => { const W = ECHO.Gear.wclass(x) || { dmg: 1, cd: 1 }; return (x.dmg || 0) * W.dmg / W.cd; };
+      const eff = x => { const W = ECHO.Gear.wclass(x) || { dmg: 1, cd: 1 }; return ECHO.Gear.power(x) * W.dmg / W.cd; };   // (what it is now, tempered and all)
       const cur = world.items[pl.weapon];
       if (it.kind === 'sword' && (!cur || (eff(it) >= eff(cur) && (it.wclass || 'sword') === (cur.wclass || 'sword')) || eff(it) > eff(cur) * 1.25 || it.legend)) pl.weapon = it.id;
-      if (it.kind === 'bow' && (!world.items[pl.bow] || it.dmg > (world.items[pl.bow].dmg || 0))) pl.bow = it.id;
-      if (it.kind === 'armor' && (!world.items[pl.armor] || (it.def || 0) > (world.items[pl.armor].def || 0))) pl.armor = it.id;
+      if (it.kind === 'bow' && (!world.items[pl.bow] || ECHO.Gear.power(it) > ECHO.Gear.power(world.items[pl.bow]))) pl.bow = it.id;
+      if (it.kind === 'armor' && (!world.items[pl.armor] || ECHO.Gear.power(it) > ECHO.Gear.power(world.items[pl.armor]))) pl.armor = it.id;
       const worn = it.kind === 'relic' && ECHO.Arcana && ECHO.Arcana.onTake(pl, it);
       if (it.rarity && ECHO.Gear && !quiet) ECHO.UI.toast(`${it.name} — ${ECHO.Gear.line(it)}${worn ? ` (worn — its gift is on you now, and it wakes by itself when it is needed${ECHO.Arcana.slots(pl).indexOf(it.id) < 3 ? `, or with ${ECHO.Arcana.keyName(ECHO.Arcana.slots(pl).indexOf(it.id))}` : ''}; I for your relics)` : [pl.weapon, pl.bow, pl.armor].includes(it.id) ? ' (equipped)' : ' (in your pack; sell it, or equip it from your character page)'}`, it.rarity === 'common' ? 'info' : 'legend', 5);
       Game.loot = Game.loot.filter(l => l.itemId !== itemId);

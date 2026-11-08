@@ -19,7 +19,7 @@
       const aggr = t('aggression'), caution = t('caution'), reck = t('reckless');
       const weapon = game.world.items[pl.weapon];
       const bow = game.world.items[pl.bow];
-      const wdmg = weapon ? weapon.dmg : 5;
+      const wdmg = weapon ? weapon.dmg * (ECHO.Temper ? ECHO.Temper.mul(weapon) : 1) : 5;   // (tempered in battle: temper.js)
       const charm = k => ECHO.Wonders && ECHO.Wonders.has(game.world, pl, k);
       const might = pl.buffs && pl.buffs.might > 0 ? 1.33 : 1;
       const vigor = pl.buffs && pl.buffs.vigor > 0 ? 50 : 0;
@@ -33,7 +33,7 @@
         meleeStam: 11 * (1 - 0.2 * aggr) * WC.sta,
         blockMul: 1 - 0.4 * caution,
         guardPenalty: aggr * 0.25,
-        bowDmg: bow ? bow.dmg * (0.7 + pl.skills.archery / 65) * lvM : 0,
+        bowDmg: bow ? bow.dmg * (ECHO.Temper ? ECHO.Temper.mul(bow) : 1) * (0.7 + pl.skills.archery / 65) * lvM : 0,
         drawTime: 0.75 * (1 - pl.skills.archery / 250),
         flameDmg: 19 * (ECHO.Prowess ? ECHO.Prowess.gearScale(ECHO.Prowess.level(pl)) : 1) * (0.8 + pl.skills.flame / 55) * (1 + 0.45 * reck) * (pl.spells.includes('starfire') ? 1.25 : 1) * lvM * WC.flame,
         flameInstab: pl.spells.includes('starfire') ? 0 : reck * 0.2,

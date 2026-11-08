@@ -284,7 +284,8 @@
       if (from && from.hidden && !from.dead) return 0; // nothing unseen can strike
       // a beast beaten to its knees is not struck again by you or yours: only Finish (E) ends it
       if (target.subdued > 0 && !target.pal && !target.titan && from && (from === game.pe || from.pal || from.tamed || from.isCompanion)) { if (from === game.pe && ECHO.Tame) ECHO.Tame.breathFinish(game, target); return 0; }
-      if (from === game.pe && target !== game.pe) { game.lastStruck = target; game.lastStruckT = game.time; }
+      if (from === game.pe && target !== game.pe) { game.lastStruck = target; game.lastStruckT = game.time; if (ECHO.Temper) ECHO.Temper.onHit(game, target, src.type); }   // (legendary gear tempers as it strikes: temper.js)
+      if (target === game.pe && from && from !== game.pe && ECHO.Temper) ECHO.Temper.onStruck(game, from);   // (…and legendary armour as it is struck)
       // a companion's own skill: dodge, parry, shield
       if (target.isCompanion && ECHO.Companions) { amount = ECHO.Companions.defend(game, target, amount, src); if (amount <= 0) return 0; }
       const type = src.type;
@@ -309,7 +310,7 @@
         const isPlayer = target === game.pe;
         const ward = isPlayer ? game.pl.skills.ward : 30;
         const perfect = isPlayer && game.blockStart != null && game.time - game.blockStart < 0.22;
-        const reduce = perfect ? 1 : 0.7 + ward / 400 - (isPlayer && ECHO.PlayerCtl.derived ? ECHO.PlayerCtl.derived.guardPenalty : 0);
+        const reduce = perfect ? 1 : Math.min(0.97, 0.7 + ward / 400 - (isPlayer && ECHO.PlayerCtl.derived ? ECHO.PlayerCtl.derived.guardPenalty : 0) + (isPlayer && ECHO.Temper ? ECHO.Temper.guard(game) : 0));
         dmg *= (1 - reduce);
         if (target === game.pe) game.pl.stamina = Math.max(0, game.pl.stamina - amount * 0.6 * (ECHO.PlayerCtl.derived ? ECHO.PlayerCtl.derived.blockMul : 1));
         else target.stamina = Math.max(0, (target.stamina || 0) - amount * 0.6);
@@ -487,6 +488,7 @@
       if (target.rare && ECHO.Secrets && (from === game.pe || (from && from.isCompanion))) ECHO.Secrets.onRareKill(game, target);
       if (target.escort && ECHO.Jobs && target.escort.status === 'active') ECHO.Jobs.fail(game, target.escort, `${target.escort.giverName} was killed on the road`);
       const byPlayer = from === game.pe || (from && (from.isCompanion || from.pal));
+      if (from === game.pe && ECHO.Temper) ECHO.Temper.onKill(game, target);
       target._killer = from || null;
       if (ECHO.Tame && from && (from.pal || from === game.pe) && !target.pal && !target.tamed) ECHO.Tame.onKill(game, target, from);
       if (ECHO.Growth) ECHO.Growth.onKill(game, target, from);

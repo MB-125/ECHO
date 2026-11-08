@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
 
 function loadEcho() {
@@ -1129,7 +1129,7 @@ function main() {
   {
     const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite, Uint8Array, Int32Array, Float32Array };
     ctx.globalThis = ctx; vm.createContext(ctx);
-    for (const f of ['core.js', 'sim/gear.js', 'game/combat.js', 'game/progress.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx);
+    for (const f of ['core.js', 'sim/gear.js', 'sim/temper.js', 'game/combat.js', 'game/progress.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx);
     const E = ctx.ECHO, C = E.Combat;
     E.UI = { settings: {} };
     const d0 = C.difficulty(); E.UI.settings.difficulty = 'story'; const d1 = C.difficulty(); E.UI.settings.difficulty = 'hard'; const d2 = C.difficulty(); E.UI.settings.difficulty = 'nonsense';
@@ -1903,6 +1903,41 @@ function main() {
     check('…and the floors you clear are kept', s2.cleared === 22);
     E.Quests = Q0;
     E.UI = UI0; delete E.Interior; delete E.Game;
+  }
+
+  console.log('\nLegendary gear, tempered in battle');
+  {
+    const E = ECHO, Tp = E.Temper, Gr = E.Gear;
+    const W = E.generateWorld({ seed: 515, name: 'Forge' });
+    const pl = W.player = E.Character.create(W, new E.RNG(3), { first: 'Hal', homeId: W.settlements[0].id });
+    const rng = new E.RNG(7);
+    const sw = Gr.make(W, rng, 'sword', 40, 'legendary', 'in a test'), bw = Gr.make(W, rng, 'bow', 40, 'legendary', 'in a test'), ar = Gr.make(W, rng, 'armor', 40, 'legendary', 'in a test'), plain = Gr.make(W, rng, 'sword', 40, 'epic', 'in a test');
+    for (const it of [sw, bw, ar, plain]) { it.holder = 'player'; pl.items.push(it.id); }
+    pl.weapon = sw.id; pl.bow = bw.id; pl.armor = ar.id;
+    const base = sw.dmg, abase = ar.def;
+    check('a legendary piece you already have begins untempered, just as it was', !sw.temper && Tp.lv(sw) === 0 && Tp.mul(sw) === 1 && Gr.power(sw) === base && Gr.def(W, pl) === abase && Tp.durability(sw) === 100);
+    const ups = []; const UI0 = E.UI; E.UI = { toast: t => ups.push(t) };
+    const game = { world: W, pl, pe: { x: 0, y: 0 }, time: 0 }, foe = { type: 'creature', foe: { dmg: 10 }, hp: 100, maxHp: 100 }, lord = { type: 'creature', foe: { dmg: 10 }, boss2: true, hp: 100, maxHp: 100 };
+    for (let i = 0; i < Tp.need(0); i++) Tp.onHit(game, foe, 'melee');
+    check('every blow a legendary blade lands tempers it; enough, and it goes up a level and hits harder', Tp.lv(sw) === 1 && Gr.power(sw) === Math.round(base * 1.03) && sw.temper.hits === Tp.need(0) && ups.some(t => /hits 3% harder/.test(t)), `${base} → ${Gr.power(sw)}`);
+    const x0 = sw.temper.xp; Tp.onHit(game, lord, 'melee'); const lordXp = sw.temper.xp - x0;
+    Tp.onKill(game, lord); const killXp = sw.temper.xp - x0 - lordXp;
+    check('…the harder the foe, the more it counts, and a kill five times over', lordXp === 4 && killXp === 20 && sw.temper.kills === 1);
+    for (let i = 0; i < 40; i++) Tp.onHit(game, foe, 'ranged');
+    for (let i = 0; i < 40; i++) Tp.onStruck(game, foe);
+    check('a legendary bow tempers with its arrows, and legendary armour with the blows it takes for you', Tp.lv(bw) === 1 && Tp.lv(ar) === 1 && Gr.def(W, pl) === Math.round(abase * 1.03) && Gr.taken(W, pl, 'melee') < 1 - abase / (abase + 55));
+    for (let i = 0; i < 40; i++) Tp.onHit(game, { type: 'creature', pal: { name: 'x' }, hp: 1, maxHp: 1 }, 'melee');
+    const xp1 = sw.temper.xp; pl.weapon = plain.id; for (let i = 0; i < 40; i++) Tp.onHit(game, foe, 'melee'); pl.weapon = sw.id;
+    check('…but not on your own beasts, and nothing less than legendary tempers', sw.temper.xp === xp1 && !plain.temper);
+    const need = [0, 1, 5, 10, 20].map(Tp.need);
+    check('each level asks more fighting than the one before, with no last level', need.every((n, i) => !i || n > need[i - 1]) && need[0] === 25, need.join(' · '));
+    sw.temper.lv = 30; ar.temper.lv = 50;
+    check('its durability grows with it: a blade holds better in your guard, armour shrugs off more of every blow — within bounds', Tp.durability(sw) === 850 && Tp.guard(game) === 0.2 && Tp.toughOf(ar) === 0.15 && Tp.mul(sw) === 1.9);
+    check('…and you see it on the piece', /tempered 30 \(power \+90%\) · durability 850/.test(Gr.line(sw)) && /tempers in battle/.test(Gr.line(Gr.make(W, rng, 'bow', 5, 'legendary'))));
+    check('a tempered blade is not traded away for a plainer one that only looks stronger', Gr.power(sw) > Gr.power(Object.assign({}, plain, { dmg: Math.round(base * 1.5) })));
+    const W2 = E.Save.deserialize(E.Save.serialize(W));
+    check('all of it keeps in a save, on the piece itself', W2.items[sw.id].temper.lv === 30 && W2.items[ar.id].temper.lv === 50 && E.Gear.power(W2.items[sw.id]) === Gr.power(sw));
+    E.UI = UI0;
   }
 
   console.log('\nHidden places, treasure maps, and the Atlas');

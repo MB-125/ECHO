@@ -191,12 +191,16 @@
       const stat = raw > 600 ? 600 + (raw - 600) * 0.15 : raw;   // the gear of the gates is priceless — merchants pay what they can
       return Math.round(stat * 2.2 * R.mult * R.mult + (it.plus || 0) * 18 + (it.affix ? 25 : 0) + (it.legend ? 80 : 0));
     },
+    // What a piece is worth in a fight now: power (armour for armour), with what battle has tempered into it (temper.js)
+    power(it) { if (!it) return 0; const b = it.kind === 'armor' ? (it.def || 0) : (it.dmg || 0); return ECHO.Temper ? Math.round(b * ECHO.Temper.mul(it)) : b; },
     // Armour between you and the blow.
-    def(world, pl) { const a = pl.armor && world.items[pl.armor]; return a ? (a.def || 0) : 0; },
+    def(world, pl) { const a = pl.armor && world.items[pl.armor]; return a ? G.power(a) : 0; },
     taken(world, pl, type) {
       const a = pl.armor && world.items[pl.armor];
       const bf = pl.buffs || {}, now = world.minute + world.day * 1440;
-      let m = a ? 1 - (a.def || 0) / ((a.def || 0) + 55) : 1;
+      const ad = a ? G.power(a) : 0;
+      let m = a ? 1 - ad / (ad + 55) : 1;
+      if (a && ECHO.Temper) m *= 1 - ECHO.Temper.toughOf(a);   // (tempered armour shrugs off a share of every blow)
       if (a && a.affix === 'warding' && (type === 'fire' || type === 'magic')) m *= 0.6;
       if (bf.stone > 0) m *= 0.67;
       if (pl._cward > 0) m *= 0.7; // a companion's ward
@@ -277,8 +281,9 @@
       if (!it) return '';
       if (it.kind === 'relic') return `${G.rarity(it.rarity).name} · ${ECHO.Arcana ? ECHO.Arcana.line(it) : 'relic'}`;
       const R = G.rarity(it.rarity);
-      const stat = it.kind === 'armor' ? `armour ${it.def}` : `${it.kind === 'sword' && it.wclass && it.wclass !== 'sword' ? WCLASS[it.wclass].name.toLowerCase() + ' · ' : ''}power ${it.dmg}`;
-      return `${R.name !== 'Common' || it.rarity ? R.name + ' · ' : ''}${stat}${it.plus ? ` · +${it.plus}` : ''}${it.affix && AFFIX[it.affix] ? ` · ${AFFIX[it.affix].desc}` : ''}`;
+      const stat = it.kind === 'armor' ? `armour ${G.power(it)}` : `${it.kind === 'sword' && it.wclass && it.wclass !== 'sword' ? WCLASS[it.wclass].name.toLowerCase() + ' · ' : ''}power ${G.power(it)}`;
+      const tp = ECHO.Temper && ECHO.Temper.ok(it) ? ` · ${ECHO.Temper.line(it)}` : '';
+      return `${R.name !== 'Common' || it.rarity ? R.name + ' · ' : ''}${stat}${it.plus ? ` · +${it.plus}` : ''}${it.affix && AFFIX[it.affix] ? ` · ${AFFIX[it.affix].desc}` : ''}${tp}`;
     }
   };
 })();

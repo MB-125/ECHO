@@ -541,7 +541,7 @@
         if (r() < 0.75) {
           const it = ECHO.Character.makeItem(world, { kind: 'sword', name: names[Math.floor(r() * names.length)], dmg: Math.round(17 + r() * 8 + (site.round || 0) * 2), holder: 'player', history: [{ d: world.day, t: `taken from the dead in ${site.name}` }] });
           pl.items.push(it.id);
-          if (!world.items[pl.weapon] || it.dmg > world.items[pl.weapon].dmg) pl.weapon = it.id;
+          if (!world.items[pl.weapon] || it.dmg > ECHO.Gear.power(world.items[pl.weapon])) pl.weapon = it.id;
           ECHO.PlayerCtl.derivedT = 0;
           out.push(`${it.name} — an old sword of the barrow (power ${it.dmg})`);
         }

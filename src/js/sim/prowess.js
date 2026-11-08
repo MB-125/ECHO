@@ -178,9 +178,10 @@
     // One number for how hard you hit: weapon, skill, level.
     power(world, pl) {
       const w = world.items[pl.weapon], b = world.items[pl.bow], a = pl.armor && world.items[pl.armor];
-      const melee = (w ? w.dmg : 5) * (0.75 + (pl.skills.blade || 0) / 70) * P.dmgMult(pl);
-      const bow = b ? b.dmg * (0.7 + (pl.skills.archery || 0) / 65) * P.dmgMult(pl) : 0;
-      const def = a ? a.def || 0 : 0;
+      const pw = x => ECHO.Gear && ECHO.Gear.power ? ECHO.Gear.power(x) : (x.dmg || x.def || 0);   // (tempered in battle and all)
+      const melee = (w ? pw(w) : 5) * (0.75 + (pl.skills.blade || 0) / 70) * P.dmgMult(pl);
+      const bow = b ? pw(b) * (0.7 + (pl.skills.archery || 0) / 65) * P.dmgMult(pl) : 0;
+      const def = a ? pw(a) : 0;
       return { melee: Math.round(melee), bow: Math.round(bow), def, total: Math.round(melee * 4 + bow * 2 + def * 3 + P.level(pl) * 10) };
     }
   };

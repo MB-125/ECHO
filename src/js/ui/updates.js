@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.32.0', items: [
+      'Legendary gear is tempered in battle. Every blow a legendary blade or bow lands tempers it, and every blow legendary armour takes for you tempers that. Harder foes count for more (an elite half again, a champion two and a half times, a lord four), and a kill counts five times over.',
+      'Each temper level: a legendary weapon or bow hits 3% harder than it was made (honing and all), and legendary armour turns 3% more. There is no last level; each asks a little more fighting than the one before.',
+      'Its durability grows with it, from 100 and by 25 a level. ECHO\'s gear never breaks, so durability here is how much the piece can take and still hold: a tempered blade holds 1% better in your guard each level (up to 20% more of a blocked blow turned), and tempered armour shrugs off another half a percent of every blow (up to 15%).',
+      'You see it on the piece: its power or armour now, its temper level, its durability, and a bar for the next level, on your character page (K) and wherever it is shown. A tempered piece is never swapped out for a plainer one that only looks stronger.',
+      'The legendary gear you already have begins at temper level 0 and grows from your next fight. Nothing else about it, or your save, changes.'
+    ] },
     { v: '0.31.1', items: [
       'The Endless Deep is measured against you now: your real strength, and your beasts\', not your level. Before each floor it takes stock of how hard you and the pack with you actually hit, and how much life you each carry.',
       'Each foe there is made to take all of you longer to bring down the deeper you go: about 3 seconds of everything you have on the first floor, about 10 by the twentieth, and on. The stronger you and your beasts are, the more life they have.',
