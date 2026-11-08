@@ -673,7 +673,7 @@
           // and how dangerous it is: fixed, whatever your level (danger.js)
           const b = ECHO.Danger && ECHO.Danger.band(world, region), me = ECHO.Prowess ? ECHO.Prowess.level(Game.pl) : 1;
           ECHO.UI.banner(U.cap(region.name), b ? `Danger: ${ECHO.Danger.label(world, region)} — ${ECHO.Danger.phrase(Math.round((b[0] + b[1]) / 2), me)}` : '', true);
-          if (b && !Game.pl._dangerTip) { Game.pl._dangerTip = true; ECHO.UI.toast(`Every land has its own danger, and it does not change with you: the country round the old capitals is gentle, and it grows deadlier the further you go — the hills, swamps and deep forests worse, farmland gentler. What lives somewhere is as strong as that place. Go far when you are ready for it, and come back to find the old meadows as easy as they ever were. (The top of the screen and the map show each land's danger.)`, 'study', 12); }
+          if (b && !Game.pl._dangerTip) { Game.pl._dangerTip = true; ECHO.UI.toast(`Every land has its own danger: the country round the old capitals is gentle, and it grows deadlier the further you go — the hills, swamps and deep forests worse, farmland gentler. Once you have outgrown it all, the whole world rises with you: the heartlands stay a little below you, the far country above you, the deep woods far above. (The top of the screen and the map show each land's danger.)`, 'study', 12); }
         }
       }
       for (const r of world.ruins) if (!r.visited && U.dist(r.x, r.y, pe.x, pe.y) < 7) { r.visited = true; ECHO.UI.banner(U.cap(r.name), 'Ancient ruin'); }

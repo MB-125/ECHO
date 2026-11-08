@@ -22,6 +22,17 @@
         type: 'boss', x: lair.x + 0.5, y: lair.y - 2.5, r: k.r, hp: b.hp, maxHp: b.maxHp, speed: k.speed, faction: 'wild',
         boss: b, lair, state: 'dormant', t: 0, cd: 1.5, label: `${b.name} ${b.title}`
       });
+      // a lair's beast is a great beast: once you have outgrown the land it rises with it, and stands
+      // above the far country (danger.js). Its life is kept in the lair as it always was (b.hp, b.maxHp);
+      // what it is risen by is applied here, each time it wakes.
+      const P = ECHO.Prowess, Dg = ECHO.Danger;
+      if (P && Dg && Dg.rise) {
+        const L0 = P.foeLevel({ type: 'boss', maxHp: b.maxHp }), L = Dg.rise(game.world, L0, 1);
+        if (L > L0) {
+          const f1 = P.foeMul(L, true), f0 = P.foeMul(L0, true), hk = f1.hp / f0.hp;
+          e._hpK = hk; e.maxHp = Math.round(b.maxHp * hk); e.hp = Math.round(Math.max(1, b.hp) * hk); e.lvl = L; e.growDmg = f1.dmg / f0.dmg;
+        }
+      }
       e.enc = { dmg: { melee: 0, ranged: 0, fire: 0 }, started: false };
       return e;
     },
@@ -100,7 +111,7 @@
       const pe = game.pe;
       e.t += dt;
       e.cd = Math.max(0, e.cd - dt);
-      b.hp = e.hp;
+      b.hp = e.hp / (e._hpK || 1);   // (kept in the lair's own measure: boss.spawn)
       if (!pe || pe.dead) { e.moving = false; return; }
       const d = U.dist(e.x, e.y, pe.x, pe.y);
       const ang = Math.atan2(pe.y - e.y, pe.x - e.x);

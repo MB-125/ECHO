@@ -167,7 +167,12 @@
     // How dangerous a delve is: the further from the old capitals, the worse.
     // The old island's run from 1 to the teens; out past the old shores, the
     // land grows deadlier the further you go, up to level 150.
+    // how deadly a place below is (risen with you: danger.js); site.level keeps its own fixed level
     level(world, site) {
+      const L = X.baseLevel(world, site);
+      return ECHO.Danger && ECHO.Danger.rise ? ECHO.Danger.rise(world, L) : L;
+    },
+    baseLevel(world, site) {
       if (site.level && site.lv2) return site.level;
       const caps = world.settlements.filter(s => s.kind !== 'village' && !s.frontier);
       const d = caps.length ? Math.min(...caps.map(s => U.dist(s.x, s.y, site.x, site.y))) : 40;
@@ -192,7 +197,9 @@
     floorLevel(site, depth) {
       const L = site.level || 1;
       const b = L + (depth || 0) * (2 + Math.floor(L / 25)) + Math.floor((site.round || 0) / 2) + X.growth(site);
-      return Math.min(150, b + (ECHO.DungeonLife ? ECHO.DungeonLife.levelAdd(site, b) : 0));
+      const f = Math.min(150, b + (ECHO.DungeonLife ? ECHO.DungeonLife.levelAdd(site, b) : 0));
+      // (risen with you, each floor a little worse again: danger.js)
+      return ECHO.Danger && ECHO.Danger.riseFloor ? ECHO.Danger.riseFloor(null, L, depth, f) : f;
     },
     // how much worse it has grown, untended
     growth(site) { return Math.min(Math.max(3, Math.round((site.level || 1) * 0.3)), Math.floor((site.grow || 0) / 6)); },

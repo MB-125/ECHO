@@ -1503,8 +1503,8 @@ function main() {
     const ks = Object.values(W3.factions).filter(f => f.type === 'kingdom');
     const top = Math.max(...ks.map(f => Math.max(M.lvOf(M.marshal(W3, f)), M.lvOf(M.champion(W3, f)))));
     const sol = W3.settlements.filter(s => M.armed(W3, s)).flatMap(s => M.soldiers(W3, s)), avg = sol.reduce((a, x) => a + M.lvOf(x), 0) / sol.length;
-    // (its soldiers are as strong as the times and the country they hold — not as strong as you)
-    check('the realm is no pushover: its Marshals and Champions come near your level, its soldiers as strong as the times and their country', top >= 64 && avg >= ECHO.Powers.age(W3) * 0.9 && avg < 40, `you 80 · the best ${top} · soldiers about ${Math.round(avg)} (the age: ${Math.round(ECHO.Powers.age(W3))})`);
+    // (its soldiers are as strong as the times and the country they hold — which rises with you, but stays below you)
+    check('the realm is no pushover: its Marshals and Champions come near your level, its soldiers as strong as the times and their country', top >= 64 && avg >= ECHO.Powers.age(W3) * 0.9 && avg < 76, `you 80 · the best ${top} · soldiers about ${Math.round(avg)} (the age: ${Math.round(ECHO.Powers.age(W3))})`);
     // a battle is won by levels, numbers, walls and command
     const tgt = W3.settlements.find(s => s.faction === 'ashmere' && s.kind !== 'capital') || W3.settlements.find(s => s.faction === 'ashmere');
     const mk = (lv, k) => Array.from({ length: k }, () => { const x = P.create(W3, new ECHO.RNG(k * 31 + lv), { home: W3.factions.valdren.capital, faction: 'valdren', prof: 'guard', fight: 40 }); x.lv = lv; return x; });
@@ -1823,11 +1823,21 @@ function main() {
     const cap = W.settlements.find(s => s.kind === 'capital');
     E.Prowess.st(pl).lv = 5; const corner = [[2, 2], [W.W - 3, 2], [2, W.H - 3], [W.W - 3, W.H - 3]].sort((a, b) => Dg.reach(W, b[0], b[1]) - Dg.reach(W, a[0], a[1]))[0];
     const d1 = Dg.at(W, cap.x + 3, cap.y + 2), far1 = Dg.at(W, corner[0], corner[1]);
+    E.Prowess.st(pl).lv = 14; const d14 = Dg.at(W, cap.x + 3, cap.y + 2), far14 = Dg.at(W, corner[0], corner[1]);
+    check('the land\'s danger is its own while you are young: gentle by the capitals, deadlier far off, whatever your level below 15', d1 <= 3 && far1 >= 8 && d1 === d14 && far1 === far14, `by ${cap.name}: ${d1} · the farthest corner of the old island: ${far1}`);
     E.Prowess.st(pl).lv = 250; const d2 = Dg.at(W, cap.x + 3, cap.y + 2), far2 = Dg.at(W, corner[0], corner[1]);
-    check('the land\'s danger is fixed: gentle by the capitals, deadlier far off — and the same whatever your level', d1 <= 3 && far1 >= 8 && d1 === d2 && far1 === far2, `by ${cap.name}: ${d1} · the farthest corner of the old island: ${far1}`);
+    check('…and once you have outgrown it, it rises with you: the heartlands a little below you, the far country above them — never weaker than it was', d2 >= 175 && d2 < 250 && far2 > d2 && Dg.base(W, cap.x + 3, cap.y + 2) === d1 && Dg.rise(W, 150) >= 295 && Dg.rise(W, 1) < 250, `level 250: by ${cap.name} ${d2}, far corner ${far2}, the far country ${Dg.rise(W, 150)}`);
+    E.Prowess.st(pl).lv = 5;
     const r0 = W.regions.find(r => r.land > 0.3);
     check('each region has its own band of danger, to show you', Array.isArray(Dg.band(W, r0)) && Dg.band(W, r0)[0] <= Dg.band(W, r0)[1], `${r0.name}: ${Dg.label(W, r0)}`);
-    check('a deep wood is as deadly as it always was, whatever your level', !E.Wildwood || (E.Wildwood.level(W, 1) === 70 && E.Wildwood.level(W, 4) === 480));
+    check('a deep wood is as deadly as it always was — until you outgrow even that, and it rises above you', !E.Wildwood || (E.Wildwood.level(W, 1) === 70 && E.Wildwood.level(W, 4) === 480 && (E.Prowess.st(pl).lv = 600, E.Wildwood.level(W, 1) >= 750 && E.Wildwood.level(W, 4) >= 1000 && (E.Prowess.st(pl).lv = 5, true))));
+    {
+      const site = { kind: 'crypt', level: 30, lv2: 1, x: 0, y: 0 }, G0 = E.Game; E.Game = { pl }; E.Prowess.st(pl).lv = 400;
+      const L = E.Explore.level(W, site), f0 = E.Explore.floorLevel(site, 0), f5 = E.Explore.floorLevel(site, 5);
+      check('a place below rises with you too, each floor down a little worse again — and keeps its own level for when you were young', L >= 288 && f0 >= 288 && f5 > f0 && site.level === 30, `${L}: floors ${f0} … ${f5}`);
+      E.Prowess.st(pl).lv = 5; E.Game = G0;
+      check('…which it is, below 15', E.Explore.level(W, site) === 30 && E.Explore.floorLevel(site, 0) < 60);
+    }
     // the realm's people: the rank and file rise with the age and their country; only the elite keep pace with you
     const sol = P.alive(W).find(n => n.prof === 'guard' && !n.rank && !n.title && !n.rival), riv = P.alive(W).find(n => n.prof === 'guard') ;
     const aLow = Pw.aim(W, sol, 10), aHigh = Pw.aim(W, sol, 300);

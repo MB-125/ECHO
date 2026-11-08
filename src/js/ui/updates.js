@@ -7,6 +7,15 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.29.0', items: [
+      'The world rises with you. Once you have outgrown the land, every region, every dungeon, the deep woods and the great beasts of the lairs rise to meet you, on their own, as you level. It begins as you pass level 15 and is whole by level 40.',
+      'Every place keeps its place in the order of things. The heartlands round the capitals stay a little below you (easy), the middle country is your match, the far country is above you (hard), and the deep woods are far above that (deadly, and worse the deeper you go). Dungeons rise the same way, each floor down a little worse again, and a lair\'s beast stands above even the far country.',
+      'Nothing is ever made weaker than it was, and below level 15 the land is exactly as it always was.',
+      'The rewards rise with it. Experience, gear and spoils come from what you kill, so they keep pace with you, and the coin monsters carry now keeps growing past level 150 (more slowly than before).',
+      'The people of the towns and the soldiers of the realms grow with the country they live in, so the kingdoms keep pace too.',
+      'The danger on your screen and the levels on the map show the risen land.',
+      'Nothing in your save changes. Your level, gear, gold and everything you own stay as they are; the world simply rises to meet you when you load.'
+    ] },
     { v: '0.28.1', items: [
       'Your beasts now defend you against the town watch and the realm\'s soldiers. Before, they would never touch a guard or a soldier, even one cutting you down, so when the guards came for you your beasts just stood by.',
       'Now any guard or soldier who strikes you or one of your beasts, or is swinging at you, is fair game to your pack, and a hunting slime of yours comes back for them too. A guard who only comes to arrest you, a warden of the Guard, and anyone who has yielded are still left alone, and so are townsfolk.',
