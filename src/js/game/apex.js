@@ -894,9 +894,18 @@
       if (e.flies && e.alt > 1.2) {
         e.moving = A.airStep(game, e, a, Math.min(d, speed * dt));
       } else {
-        // its body is stopped by trunks, boulders, walls and water, as yours is
-        const world = game.world, s = Math.min(d, speed * dt);
-        const off = A.walk(game, e, a, s);
+        // its body is stopped by trunks, boulders, walls and water, as yours is; and it is
+        // heavy: it gathers pace slowly, comes round in a wide turn, and labours uphill
+        const world = game.world, Ent = ECHO.Ent;
+        const acc = Ent && Ent.accelOf ? Ent.accelOf(e) : 4, fresh = e._gvT != null && game.time - e._gvT < 0.25;
+        let v = fresh ? e._gv || 0 : 0, h = fresh && e._ga != null ? e._ga : a;
+        h += U.clamp(U.angleDiff(h, a), -3 * dt, 3 * dt);
+        const want = Math.min(speed * (ECHO.Ground ? ECHO.Ground.slopeMul(world, e.x, e.y, Math.cos(h), Math.sin(h)) : 1), Math.sqrt(2 * acc * 1.7 * Math.max(0, d - 0.2)) + 0.4);
+        v += U.clamp(want - v, -acc * 1.7 * dt, acc * dt);
+        e._gv = v; e._gvT = game.time; e._ga = h;
+        e.dir = h; e.flip = Math.cos(h) < 0;
+        const s = Math.min(d, v * dt);
+        const off = A.walk(game, e, h, s);
         const moved = off != null;
         e.moving = moved;
         e._blockT = moved ? 0 : (e._blockT || 0) + dt;

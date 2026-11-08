@@ -51,6 +51,15 @@
       const a = Gd.corner(world, ix, iy), b = Gd.corner(world, ix + 1, iy), c = Gd.corner(world, ix, iy + 1), d = Gd.corner(world, ix + 1, iy + 1);
       return Math.max(-0.05, U.lerp(U.lerp(a, b, fx), U.lerp(c, d, fx), fy));
     },
+    // how much the lie of the land helps or hinders a step this way (dx, dy: the way; any length):
+    // uphill slow going (to a little over half pace up the steepest), downhill a little quicker
+    slopeMul(world, x, y, dx, dy) {
+      if (!world || x >= 9000) return 1;
+      const l = Math.hypot(dx, dy);
+      if (l < 1e-6) return 1;
+      const g = Gd.grad(world, x, y), up = (g.x * dx + g.y * dy) / l;
+      return up > 0 ? Math.max(0.55, 1 - 0.65 * up) : Math.min(1.15, 1 - 0.3 * up);
+    },
     // which way it falls, and how steeply: the rise per league along x and along y
     _g: { x: 0, y: 0 },
     grad(world, x, y, o) {

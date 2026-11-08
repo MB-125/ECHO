@@ -155,6 +155,7 @@
         e.anim += dt * (e.moving ? 1 : 0.3);
         if (e.attackT) e.attackT = Math.max(0, e.attackT - dt);
       }
+      for (const e of Game.ents) if (e !== Game.pe && !e.dead && (e._mvx || e._mvy)) ECHO.Ent.coast(world, e, dt);   // (what was going and is no longer driven runs on a little: entities.js)
       Game.pe.anim += dt * (Game.pe.moving ? 1 : 0.3);
       if (Game.pe.attackT) Game.pe.attackT = Math.max(0, Game.pe.attackT - dt);
       ECHO.Ent.separate(Game.ents, dt);

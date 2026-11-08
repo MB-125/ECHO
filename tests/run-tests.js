@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
 
 function loadEcho() {
@@ -1795,7 +1795,7 @@ function main() {
     const ring3 = [at(1.5, 0), at(-1.5, 0), at(0, 1.5)], hunted = wild(50, 30);
     game.ents = [pe, mine, ...ring3, hunted]; P.reset(); P.tick(game, 0.05);
     check('three at you and you are hemmed in: the pack — the slime too — is on them', P.threat && !!P.plan && P.plan.role.has(mine));
-    const d0 = Math.hypot(mine.x - pe.x, mine.y - pe.y); for (let k = 0; k < 10; k++) { game.time += 0.05; SL.hunt(game, mine, 0.05); }
+    const d0 = Math.hypot(mine.x - pe.x, mine.y - pe.y); for (let k = 0; k < 16; k++) { game.time += 0.05; SL.hunt(game, mine, 0.05); }   // (a heavy thing takes a moment to get going: entities.js)
     check('…and the slime leaves its hunt and comes back to your side', Math.hypot(mine.x - pe.x, mine.y - pe.y) < d0 - 2 && !mine._prey);
     mine.x = pe.x + 3; check('…where the pack\'s plan has it like any other', SL.hunt(game, mine, 0.05) === false);
     game.ents = [pe, mine, at(1.5, 0)]; game.time += 7; P.t = 0; P.tick(game, 0.05);
@@ -2421,6 +2421,46 @@ function main() {
     check('what was broken keeps in a save, and nothing else of them is kept', W5.loose && W5.loose.b['X:1,1'] === 48 && !/"vx"/.test(JSON.stringify(W5.loose)));
     Gd.fn = null; Lo.reset(null);
     E.Combat = C0; E.Sfx = S0; E.Water = Wt0; E.Boats = B0; E.Interior = I0; E.Game = G0;
+  }
+
+  console.log('\nWeight in every step');
+  {
+    const E = ECHO, Ent = E.Ent, Gd = E.Ground, T = E.TILE;
+    const P = { W: 60, H: 60, seed: 3, day: 1, tiles: new Uint8Array(3600).fill(T.GRASS), blocked: new Uint8Array(3600), settlements: [], ruins: [] };
+    for (let y = 0; y < 60; y++) P.tiles[y * 60 + 40] = T.ROCK;
+    const G0 = E.Game, I0 = E.Interior, game = { time: 0, ents: [] }; E.Game = game; E.Interior = { cur: null }; Gd.fn = () => 0;
+    const mk = (r, o) => Ent.make(Object.assign({ type: 'creature', x: 10, y: 10, r }, o || {}));
+    const man = mk(0.35, { type: 'person' }), bear = mk(0.6), giant = mk(0.5, { type: 'boss' });
+    const reach = e => { e.x = 10; e.y = 10; e._mvx = e._mvy = 0; e._mvT = null; let t = 0; while (t < 5) { game.time += 0.05; t += 0.05; Ent.seek(P, e, 35, 10, 4, 0.05); if (e._mvx >= 3.9) break; } return t; };
+    const tm = reach(man), tb = reach(bear), tg = reach(giant);
+    check('everything has weight: a man gets going in a moment, a bear more slowly, a lair\'s great beast slowest of all', tm <= 0.35 && tb > tm * 1.3 && tg > tb * 1.3, `${tm.toFixed(2)} s, ${tb.toFixed(2)} s, ${tg.toFixed(2)} s to full pace`);
+    const coastOf = e => { e.x = 10; e.y = 10; e._mvx = 4; e._mvy = 0; e._mvT = game.time; e._mpx = e.x; e._mpy = e.y; game.time += 0.05; for (let i = 0; i < 40; i++) { Ent.coast(P, e, 0.05); game.time += 0.05; } return e.x - 10; };
+    const rm = coastOf(man), rb = coastOf(bear);
+    check('…and no longer driven, it runs on a step and stops (the heavier, the further), rather than stopping dead', rm > 0.15 && rm < 1 && rb > rm * 1.25 && man._mvx === 0, `${rm.toFixed(2)} and ${rb.toFixed(2)} leagues`);
+    man.x = 10; man.y = 10; man._mvx = man._mvy = 0; let over = 0;
+    for (let i = 0; i < 80; i++) { game.time += 0.05; Ent.seek(P, man, 13, 10, 4.5, 0.05); over = Math.max(over, man.x - 13); }
+    check('…it comes to a stop where it was going, not past it', over < 0.1 && Math.abs(man.x - 13) < 0.5, `${over.toFixed(3)} past`);
+    man.x = 10; man.y = 20; man._mvx = 4; man._mvy = 0; man._mvT = game.time; man._mpx = man.x; man._mpy = man.y; let back = 0;
+    for (let i = 0; i < 20 && !back; i++) { game.time += 0.05; Ent.seek(P, man, 2, 20, 4, 0.05); if (man._mvx < -3.5) back = (i + 1) * 0.05; }
+    check('…turning right about takes it a moment: it checks its way, then gathers it again', back > 0.3 && back < 0.8, `${back.toFixed(2)} s`);
+    man.x = 38; man.y = 30; man._mvx = 4; man._mvy = 0; man._mvT = game.time; man._mpx = man.x; man._mpy = man.y;
+    for (let i = 0; i < 20; i++) { game.time += 0.05; Ent.seek(P, man, 45, 30, 4, 0.05); }
+    check('…a wall in the way takes the way off it', man.x < 40 && Math.abs(man._mvx) < 0.5);
+    const man2 = mk(0.35, { type: 'person', x: 10, y: 30 }); man2._mvx = 4; man2._mvy = 0; man2._mvT = game.time; man2._mpx = 30; man2._mpy = 30;
+    game.time += 0.05; Ent.seek(P, man2, 2, 30, 4, 0.05);
+    check('…and carried off in a blink (through a door, say), it keeps none of the way it had', man2._mvx < 0 && man2._mvx > -1.5);
+    // the lie of the land
+    Gd.fn = (x, y) => 0.3 * x;
+    const up = Gd.slopeMul(P, 10, 10, 1, 0), down = Gd.slopeMul(P, 10, 10, -1, 0), across = Gd.slopeMul(P, 10, 10, 0, 1);
+    Gd.fn = (x, y) => 3 * x;
+    const steepUp = Gd.slopeMul(P, 10, 10, 1, 0), steepDown = Gd.slopeMul(P, 10, 10, -1, 0);
+    check('the slope has its say: uphill slow going (to a little over half pace up the steepest), downhill a little quicker, across it nothing', up < 0.85 && down > 1.05 && Math.abs(across - 1) < 1e-9 && steepUp === 0.55 && steepDown === 1.15, `${up.toFixed(2)} up, ${down.toFixed(2)} down`);
+    Gd.fn = (x, y) => 0.3 * x;
+    const walk = (tx) => { man.x = 20; man.y = 40; man._mvx = man._mvy = 0; man._mvT = null; for (let i = 0; i < 40; i++) { game.time += 0.05; Ent.seek(P, man, tx, 40, 4, 0.05); } return Math.abs(man.x - 20); };
+    const wu = walk(35), wd = walk(5);
+    check('…for everything that walks', wd > wu * 1.2, `${wu.toFixed(1)} leagues uphill in 2 s, ${wd.toFixed(1)} down`);
+    check('…and a body\'s weight goes by its size (a man is 1), a lair\'s beast and a titan heaviest', Math.abs(Ent.massOf(man) - 1) < 0.05 && Ent.massOf(bear) > 2 && Ent.massOf(giant) === 9 && Ent.massOf({ titan: true, r: 2 }) === 14);
+    Gd.fn = null; E.Game = G0; E.Interior = I0;
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

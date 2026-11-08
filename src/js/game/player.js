@@ -11,6 +11,15 @@
     dodgeT: 0, dodgeDir: 0, studyT: 0, studyTarget: null, eatT: 0, sneaking: false,
 
     ROLL: 0.38,
+    // how fast you gather way on foot, and lose it (leagues a second, each second)
+    ACC: 20, DEC: 30,
+    // how well the ground holds your feet
+    grip(world, pe) {
+      if (pe.swimming) return 0.35;
+      if (pe.x >= 9000) return 1;
+      const T = ECHO.TILE, t = ECHO.World.tile(world, pe.x, pe.y);
+      return t === T.SWAMP ? 0.55 : t === T.WATER ? 0.6 : t === T.SAND ? 0.8 : t === T.SNOW ? 0.75 : 1;
+    },
     reset() { PC.combo = 0; PC.comboT = 9; PC.atkBuf = 0; PC.holdT = 0; PC.heavyHold = false; PC.lungeT = 0; PC.dodgeBuf = 0; PC.derived = null; PC.draw = 0; PC.drawing = false; PC.charge = 0; PC.charging = false; PC.dodgeT = 0; PC.studyT = 0; PC.studyTarget = null; PC.lock = null; },
 
     computeDerived(game) {
@@ -105,6 +114,7 @@
         // burst out of the dive, slow as you come up out of the roll
         const sp = 10 * (0.45 + 0.75 * Math.max(0, PC.dodgeT) / PC.ROLL) * dt;
         ECHO.Ent.move(world, pe, Math.cos(PC.dodgeDir) * sp, Math.sin(PC.dodgeDir) * sp);
+        if (dt > 0) { const V = PC.vel || (PC.vel = { x: 0, y: 0 }); V.x = Math.cos(PC.dodgeDir) * sp / dt; V.y = Math.sin(PC.dodgeDir) * sp / dt; }   // (you come up out of it still going)
         if (Math.random() < 0.6) ECHO.Combat.fx.push({ kind: 'p', x: pe.x, y: pe.y + 0.2, vx: 0, vy: 0, t: 0, life: 0.3, color: 'rgba(200,190,170,0.6)', size: 2 });
       } else if (pe.stagger <= 0) {
         let sp = D.speed * (ECHO.Life ? ECHO.Life.speedMul(pl) : 1) * ECHO.World.speedAt(world, pe.x, pe.y) * (ECHO.Climate ? ECHO.Climate.moveMul(world, pe.x, pe.y, pl.mounted) : 1) * ECHO.Tech.speedMul() * (ECHO.Monsters ? ECHO.Monsters.slowMul() : 1);
@@ -132,6 +142,7 @@
           let cap = ECHO.Life ? ECHO.Life.rideTick(game, R0, dt) : Infinity;
           if (ECHO.Climate && ECHO.Climate.onIce(world, pe.x, pe.y)) cap = Math.min(cap, 3.2);  // it picks its way on the ice
           let want = len && !rein && !(R0.rearT > 0) ? Math.min(sp, cap) : 0;
+          if (want > 0 && ECHO.Ground) want *= ECHO.Ground.slopeMul(world, pe.x, pe.y, Math.cos(R0.dir), Math.sin(R0.dir));   // (it labours up a hill, and lets go down one)
           // where you point it — and where it actually puts its feet
           let goal = len ? Math.atan2(my, mx) : R0.dir;
           if (ECHO.Life && (R0.v > 0.4 || want > 0)) {
@@ -185,20 +196,34 @@
           R0.peak = Math.max(R0.v, (R0.peak || 0) - dt * 4);  // the momentum a blow carries, a moment after you check
           pe.moving = R0.v > 0.3;
           pe.rideV = R0.v;
-        } else if (ECHO.Climate && ECHO.Climate.onIce(world, pe.x, pe.y)) {
-          // on ice your feet don't quite answer: you slide on, and turn slowly
-          const S = PC.slide || (PC.slide = { vx: 0, vy: 0 });
-          const k = Math.min(1, dt * 2.2);
-          S.vx += (mx * sp - S.vx) * k; S.vy += (my * sp - S.vy) * k;
-          ECHO.Ent.move(world, pe, S.vx * dt, S.vy * dt);
-          pe.moving = Math.hypot(S.vx, S.vy) > 0.3;
-        } else if (len) {
-          PC.slide = null;
-          ECHO.Ent.steerMove(world, pe, mx * sp * dt, my * sp * dt);   // (bears round a trunk square in the way)
-          pe.moving = true;
-          if (Math.random() < dt * 0.6) Ch().train(pl, 'endurance', 0.03);
-        } else { pe.moving = false; PC.slide = null; }
-      }
+        } else {
+          // On foot you have weight. You gather way and lose it — quickly (a body answers its legs),
+          // but not at once — and a turn is a change of way. The ground has its say: its grip (on
+          // ice your feet hardly answer, and you slide on; marsh, sand and snow hold you back; in
+          // the water you are slow to get going) and its slope (uphill is slow going, downhill a
+          // little quicker).
+          const V = PC.vel || (PC.vel = { x: 0, y: 0 });
+          const ice = ECHO.Climate && ECHO.Climate.onIce(world, pe.x, pe.y);
+          const grip = ice ? 0.13 : PC.grip(world, pe);
+          const sm = len && ECHO.Ground ? ECHO.Ground.slopeMul(world, pe.x, pe.y, mx, my) : 1;
+          const tx = mx * sp * sm, ty = my * sp * sm, cur = Math.hypot(V.x, V.y);
+          const dvx = tx - V.x, dvy = ty - V.y, dl = Math.hypot(dvx, dvy);
+          const braking = !len || tx * V.x + ty * V.y < 0 || Math.hypot(tx, ty) < cur;
+          const rate = (braking ? PC.DEC : PC.ACC) * grip * dt;
+          if (dl > rate) { V.x += dvx / dl * rate; V.y += dvy / dl * rate; } else { V.x = tx; V.y = ty; }
+          const vs = Math.hypot(V.x, V.y);
+          if (vs > 0.02) {
+            const x0 = pe.x, y0 = pe.y;
+            if (len && !ice) ECHO.Ent.steerMove(world, pe, V.x * dt, V.y * dt);   // (bears round a trunk square in the way)
+            else ECHO.Ent.move(world, pe, V.x * dt, V.y * dt);
+            // what stops you takes the way off you (a wall, a crowd, a bale)
+            if (dt > 0) { const ax = (pe.x - x0) / dt, ay = (pe.y - y0) / dt; if (Math.hypot(ax, ay) < vs * 0.85) { V.x = ax; V.y = ay; } }
+          } else { V.x = 0; V.y = 0; }
+          pe.moving = Math.hypot(V.x, V.y) > 0.3 || (len > 0 && vs > 0.05);
+          if (len && Math.random() < dt * 0.6) Ch().train(pl, 'endurance', 0.03);
+        }
+      } else if (PC.vel) { PC.vel.x = 0; PC.vel.y = 0; }   // (staggered: the way is knocked off you)
+      if ((pl.mounted || pe.inBoat) && PC.vel) PC.vel = null;
       if (!pl.mounted && PC.ride) PC.ride = null;
       // Face the mouse when fighting, otherwise movement.
       if (pe.attackT > 0) { /* keep the swing's facing */ }

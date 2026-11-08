@@ -3541,6 +3541,33 @@
           const op = Math.max(0, 1 - Math.max(0, (e.deathT || 0) - 1.5) / 1.5);
           for (const m of v.inst.mats) { if (op < 1) { m.transparent = true; m.opacity = op * ((m.userData && m.userData.a0) || 1); } }
         } else root.rotation.x = 0;
+        // weight, as it shows: a body leans into a start and back from a stop, and into a turn
+        // (a beast less than a man; nothing on horseback, afloat, sitting or lying)
+        {
+          const ok = !e.dead && !v.roll && !e.mounted && !e.inBoat && !e.swimming && !e.seated && !e.sleeping && !(e.alt > 0.3) && dt > 0 && dt < 0.2 && !(e === game.pe && game.pl && game.pl.flying);
+          if (ok) {
+            const vx = (v.px - (v.wpx == null ? v.px : v.wpx)) / dt, vy = (v.py - (v.wpy == null ? v.py : v.wpy)) / dt;
+            const jump = Math.abs(vx) + Math.abs(vy) > 40;
+            const k = Math.min(1, dt * 9);
+            v.wvx = v.wvx == null || jump ? 0 : v.wvx + (vx - v.wvx) * k; v.wvy = v.wvy == null || jump ? 0 : v.wvy + (vy - v.wvy) * k;
+            const ax = jump ? 0 : (v.wvx - (v.wvx0 == null ? v.wvx : v.wvx0)) / dt, ay = jump ? 0 : (v.wvy - (v.wvy0 == null ? v.wvy : v.wvy0)) / dt;
+            v.wvx0 = v.wvx; v.wvy0 = v.wvy;
+            const c = Math.cos(v.dir), s = Math.sin(v.dir);
+            const fwd = ax * c + ay * s, side = ax * s - ay * c;
+            const man = e.type === 'player' || e.type === 'person' || e.humanoid || e.type === 'ghost';
+            const tp = U.clamp(fwd * (man ? 0.016 : 0.008), -0.16, 0.16), tb = U.clamp(side * (man ? 0.02 : 0.015), -0.2, 0.2);
+            const kk = Math.min(1, dt * 8);
+            v.wPitch = (v.wPitch || 0) + (tp - (v.wPitch || 0)) * kk; v.wBank = (v.wBank || 0) + (tb - (v.wBank || 0)) * kk;
+            root.rotation.order = 'YXZ';
+            root.rotation.z = v.wPitch; root.rotation.x = v.wBank;
+          } else if (v.wPitch != null) {
+            // (as it was: a fall or a roll turns it about the world as before)
+            v.wPitch = v.wBank = null;
+            if (!e.dead && !v.roll) root.rotation.z = 0;
+            root.rotation.order = 'XYZ';
+          }
+          v.wpx = v.px; v.wpy = v.py;
+        }
         // hurt flash (white-hot then red), attack tells, burning
         const flash = e.hurtT > 0 ? (e.hurtT > 0.12 ? 2 : 1) : 0;
         const tell = v.tell ? (Math.sin(R.time * 30) > 0 ? 2 : 1) : 0;

@@ -460,7 +460,7 @@
       if (turn) {
         // over a pole, turned about: every heading it holds turns with it, every push it is under reverses
         for (const k of ['dir', 'aim', 'chargeAng', 'rollDir', 'deathAngle', 'gaze']) if (typeof e[k] === 'number') e[k] += Math.PI;
-        for (const [a, b] of [['vx', 'vy'], ['kbx', 'kby']]) if (typeof e[a] === 'number' && typeof e[b] === 'number') { e[a] = -e[a]; e[b] = -e[b]; }
+        for (const [a, b] of [['vx', 'vy'], ['kbx', 'kby'], ['_mvx', '_mvy']]) if (typeof e[a] === 'number' && typeof e[b] === 'number') { e[a] = -e[a]; e[b] = -e[b]; }
         if (e.gcast && typeof e.gcast.ang === 'number') e.gcast.ang += Math.PI;
       }
       for (const k of ['home', 'goal', 'wander', 'lastSeen', 'post', 'from', 'to', 'route', 'at']) {
@@ -513,7 +513,7 @@
         const R0 = PC.ride;
         if (R0) { if (typeof R0.dir === 'number') R0.dir += Math.PI; if (typeof R0.sideDir === 'number') R0.sideDir += Math.PI; R0.lx = null; R0.ly = null; R0.wedgeT = 0; }
         for (const k of ['dodgeDir', 'lungeDir']) if (typeof PC[k] === 'number') PC[k] += Math.PI;
-        if (PC.slide) { PC.slide.vx = -PC.slide.vx; PC.slide.vy = -PC.slide.vy; }
+        if (PC.vel) { PC.vel.x = -PC.vel.x; PC.vel.y = -PC.vel.y; }
       }
       if (turn && ECHO.Life && ECHO.Life.ride && typeof ECHO.Life.ride.dir === 'number') ECHO.Life.ride.dir += Math.PI;
       if (turn && ECHO.Boats && ECHO.Boats.row) { const Rw = ECHO.Boats.row; Rw.dir += Math.PI; Rw.vx = -Rw.vx; Rw.vy = -Rw.vy; }

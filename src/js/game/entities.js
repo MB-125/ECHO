@@ -176,7 +176,7 @@
       const d = Math.hypot(dx, dy);
       // Once settled, don't twitch back into motion for a nudge of a few inches.
       if (d < arrive || (!e.moving && d < arrive + 0.45 && e.type !== 'player')) { e.moving = false; return true; }
-      const sp = speed * ECHO.World.speedAt(world, e.x, e.y) * (ECHO.Climate && e.x < 9000 ? ECHO.Climate.moveMul(world, e.x, e.y, e.mounted) : 1) * dt;
+      const sp = speed * ECHO.World.speedAt(world, e.x, e.y) * (ECHO.Climate && e.x < 9000 ? ECHO.Climate.moveMul(world, e.x, e.y, e.mounted) : 1) * (ECHO.Ground && e.x < 9000 ? ECHO.Ground.slopeMul(world, e.x, e.y, dx, dy) : 1) * dt;
       // not getting any closer (stuck, or dithering at a corner)? plan a real route
       // there for a while, instead of pushing at the obstacle
       if (!e._inTravel && e.type !== 'player' && e.x < 9000) {
@@ -210,9 +210,26 @@
       // other bodies: it does not walk into them, it slides round them
       e._bodyBlock = false;
       if (e.type !== 'player' && !e.ghost && (e.aggro || e.pal || e.target)) { const m0 = Math.hypot(mx, my), v = Ent.slideBodies(e, mx, my); mx = v.x; my = v.y; e._bodyBlock = Math.hypot(mx, my) < m0 * 0.5; }
+      // weight: it gathers way and loses it as heavily as it is built, turns by changing it, and
+      // comes to its stop rather than at it (no faster than it can stop in, the last few steps)
+      if (e.type !== 'player' && dt > 0 && !e.ghost && !e.noWeight) {
+        const A = Ent.accelOf(e), Dc = A * 1.7, now = ECHO.Game ? ECHO.Game.time : 0;
+        // (the way it had, if it was going a moment ago from about here — not if it was carried off in a blink)
+        const fresh = e._mvT != null && now - e._mvT < 0.2 && Math.abs(e.x - e._mpx) + Math.abs(e.y - e._mpy) < 1.5;
+        let vx = fresh ? e._mvx || 0 : 0, vy = fresh ? e._mvy || 0 : 0;
+        let tx = mx / dt, ty = my / dt;
+        const tl = Math.hypot(tx, ty), cur = Math.hypot(vx, vy);
+        if (!e._onPath && tl > 0) { const stopV = Math.sqrt(2 * Dc * Math.max(0, d - arrive)) + 0.4; if (tl > stopV) { tx *= stopV / tl; ty *= stopV / tl; } }
+        const ddx = tx - vx, ddy = ty - vy, dl = Math.hypot(ddx, ddy);
+        const rate = (tx * vx + ty * vy < 0 || Math.hypot(tx, ty) < cur ? Dc : A) * dt;
+        if (dl > rate) { vx += ddx / dl * rate; vy += ddy / dl * rate; } else { vx = tx; vy = ty; }
+        e._mvx = vx; e._mvy = vy; e._mvT = now;
+        mx = vx * dt; my = vy * dt;
+      }
       const before = { x: e.x, y: e.y };
       Ent.move(world, e, mx, my);
       e.moving = true;
+      if (e._mvT != null && dt > 0) { const ax = (e.x - before.x) / dt, ay = (e.y - before.y) / dt; if (Math.hypot(ax, ay) < Math.hypot(e._mvx, e._mvy) * 0.85) { e._mvx = ax; e._mvy = ay; } e._mpx = e.x; e._mpy = e.y; }   // (what it ran into took the way off it)
       // turn toward where we actually went (not where a wall deflected us)
       if (d > arrive + 0.12) e.dir = Math.atan2(dy, dx); // no last-inch spins on arrival
       if (Math.abs(dx) > 0.3 || (Math.abs(dx) > 0.05 && Math.abs(dx) > Math.abs(dy) * 0.5)) e.flip = dx < 0;
@@ -526,6 +543,32 @@
         e.kbx *= 0.7; e.kby *= 0.7;
         if (Math.abs(e.kbx) + Math.abs(e.kby) < 0.005) { e.kbx = 0; e.kby = 0; }
       }
+    },
+    // ------------------------------------------------------------ weight
+    // How heavy a body is (a grown person is 1): by its size, a lair's beast and a titan heaviest.
+    massOf(e) {
+      if (e.mass) return e.mass;
+      if (e.titan) return 14;
+      if (e.type === 'boss') return 9;
+      const r = Ent.bodyR(e) / 0.35;
+      return U.clamp(r * r * (e.mounted ? 4 : 1), 0.3, 12);
+    },
+    // how fast it gathers way (a man in a fifth of a second or so; a bear in half a second; a
+    // giant in a second) and loses it (quicker than it gathers it)
+    accelOf(e) { return 16 / Math.sqrt(Ent.massOf(e)); },
+    // A body that was going and is no longer being driven (it stopped to strike, or has arrived)
+    // does not stop dead: it runs on a little, as its weight carries it.
+    coast(world, e, dt) {
+      if (!(e._mvx || e._mvy) || e._mvT === (ECHO.Game && ECHO.Game.time)) return;
+      const v = Math.hypot(e._mvx, e._mvy), d = Ent.accelOf(e) * 1.7 * dt;
+      if (v <= d || e.dead || e.stagger > 0 || Math.abs(e.x - e._mpx) + Math.abs(e.y - e._mpy) > 1.5) { e._mvx = e._mvy = 0; return; }
+      const k = (v - d) / v;
+      e._mvx *= k; e._mvy *= k;
+      const x0 = e.x, y0 = e.y;
+      Ent.move(world, e, e._mvx * dt, e._mvy * dt);
+      if (Math.abs(e.x - x0) + Math.abs(e.y - y0) < v * dt * 0.2) { e._mvx = e._mvy = 0; }
+      e._mpx = e.x; e._mpy = e.y;
+      e.moving = v > 0.6;
     },
     lineOfSight(world, ax, ay, bx, by) {
       const d = U.dist(ax, ay, bx, by);

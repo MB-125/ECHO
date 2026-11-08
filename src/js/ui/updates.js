@@ -7,6 +7,15 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.35.0', items: [
+      'Weight in every step. You, the people and every beast now speed up, slow down and turn with real momentum, instead of starting and stopping on the spot.',
+      'On foot you reach full pace in about a fifth of a second and stop within a step. Turning right round takes a moment: you slow, then speed up again the other way. You still face wherever you point at once, so fighting is as quick as before.',
+      'Every beast moves by its size. A wolf darts, a bear takes half a second to get going, a lair\'s great beast takes about a second, and a titan longer still. Something that stops to strike runs on a little before it halts, the heavier the further. Things come to a stop where they were going rather than overshooting, and a wall in the way stops them.',
+      'The lie of the land has its say, for you, your horse and everything that walks: uphill is slow going (down to a little over half pace on the steepest slopes), downhill is a little quicker, and walking across a slope makes no difference.',
+      'The ground\'s grip matters too. On ice your feet hardly answer and you slide on. Marsh, deep sand and snow hold you back. In the water you are slow to get going.',
+      'Bodies show their weight: everyone leans forward into a start, back as they stop, and into the turn as they turn (a beast less than a person).',
+      'Your saved game loads exactly as before.'
+    ] },
     { v: '0.34.0', items: [
       'The world reacts to you. Barrels, crates and pots stand against the walls of the inns, the smithies and the houses; there are sacks at the mill and urns among the ruins, round bales in the fields once the hay is cut, pumpkins in the autumn, and loose stones on the hills. Every one of them can be moved.',
       'Walk into a pot and it skitters away. Lean on a crate and it slides. A hay bale is heavier than you, so it hardly moves. A horse at the gallop sends them all flying. Each thing has its own weight.',
