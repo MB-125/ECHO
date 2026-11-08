@@ -368,6 +368,7 @@
         for (const s of world.secrets.list) if (!s.done) add({ layer: 'places', kind: 'landmark', x: s.x, y: s.y, name: s.name || NM[s.kind] || 'Something hidden', color: s.found ? '#a8e0c0' : '#8ac8b0', pri: 3, ref: s, sub: s.found ? 'You have found it' : 'Not yet found' });
       }
       if (all) for (const ch of world.caches || []) if (!ch.found) add({ layer: 'wonders', kind: 'star', x: ch.x, y: ch.y, name: 'A buried cache', color: '#e8c86a', pri: 2, ref: ch, sub: 'Something is hidden here' });
+      for (const p of WM.pins(pl)) add(WM.pinFeat(world, p));
       if (all && world.lang && world.lang.vault && !world.lang.vault.revealed && !world.lang.vault.opened) add({ layer: 'wonders', kind: 'vault', x: world.lang.vault.x, y: world.lang.vault.y, name: 'The sealed vault', color: '#9fd3ff', pri: 8, sub: 'Its door waits for words no one remembers' });
       return out;
     },
@@ -395,18 +396,19 @@
             <div><kbd>Drag</kbd><span>turn the world (let go mid-drag and it spins on)</span></div>
             <div><kbd>Scroll</kbd><kbd>E</kbd><kbd>Q</kbd><span>come closer · go higher (or drag the altitude ruler on the right)</span></div>
             <div><kbd>W A S D</kbd><kbd>Arrows</kbd><span>turn the world</span></div>
-            <div><kbd>Click</kbd><span>a place: its details, and Guide me there</span></div>
+            <div><kbd>Click</kbd><span>a place: its details, and Guide me there · open ground: drop a pin there</span></div>
             <div><kbd>Double-click</kbd><span>fly in to it</span></div>
-            <div><kbd>Right-click</kbd><span>set a waypoint there and be guided to it</span></div>
+            <div><kbd>Right-click</kbd><span>drop a pin there and be guided to it (right-click your destination again to stop)</span></div>
+            <div><kbd>Zoom in</kbd><span>for more: from high up, only the places that matter most are shown</span></div>
             <div><kbd>Space</kbd><span>find yourself</span><kbd>G</kbd><span>your destination</span><kbd>H</kbd><span>the whole world</span></div>
             <div><kbd>/</kbd><span>search</span>${round ? '<kbd>T</kbd><span>globe or flat chart</span>' : ''}<kbd>M</kbd><span>close</span></div>
             <button data-help="1">Got it</button></div>
-          <div class="wmap-hint"><b>Drag</b> turn · <b>Scroll</b> zoom · <b>Double-click</b> fly in · <b>Right-click</b> waypoint · <b>Space</b> me · <b>G</b> goal · <b>?</b> help</div></div>
+          <div class="wmap-hint"><b>Click</b> pin · <b>Right-click</b> pin &amp; go · <b>Drag</b> move · <b>Scroll</b> zoom · <b>?</b> help</div></div>
         <div class="wmap-side">
           <div id="map-dest"></div>
           <div id="map-sel"></div>
-          <div class="wmap-sec"><span>Layers</span><button class="link ${WM.revealed(pl) ? 'on' : ''}" data-reveal="1" title="Show the whole world, or only the land you have walked">${WM.revealed(pl) ? '◉ Whole world shown' : '○ Only land you have walked'}</button></div>
-          <div class="wmap-layers">${LAYERS.map(chip).join('')}</div>
+          <div class="wmap-sec"><button class="link" data-lfold="1" title="Choose what the map shows">${WM.layersOpen ? '▾' : '▸'} Layers</button><button class="link ${WM.revealed(pl) ? 'on' : ''}" data-reveal="1" title="Show the whole world, or only the land you have walked">${WM.revealed(pl) ? '◉ Whole world shown' : '○ Only land you have walked'}</button></div>
+          <div class="wmap-layers${WM.layersOpen ? '' : ' hidden'}">${LAYERS.map(chip).join('')}</div>
           <div class="wmap-tabs"><button data-tab="near">Nearby</button><button data-tab="dun">Dungeons</button><button data-tab="key">Key</button></div>
           <div id="map-list"></div>
         </div></div>`, 'map');
@@ -436,7 +438,9 @@
       const V = WM.view;
       UI.mapView = { toScreen: (x, y) => WM.toScreen(c, x, y), view: V };
       const globe = () => WM.isGlobe(world);
-      const ptr = ev => { const r = c.getBoundingClientRect(); return { mx: ev.clientX - r.left, my: ev.clientY - r.top }; };
+      // (the side panels are zoomed by Interface size: the pointer is measured in the canvas's own pixels)
+      const ptr = ev => { const r = c.getBoundingClientRect(), kx = r.width ? c.width / r.width : 1, ky = r.height ? c.height / r.height : 1; return { mx: (ev.clientX - r.left) * kx, my: (ev.clientY - r.top) * ky }; };
+      const pk = () => { const r = c.getBoundingClientRect(); return r.width ? c.width / r.width : 1; };
       const poke = () => { if (WM.G) WM.G.lastInput = performance.now(); WM.drawSoon(game, c); };
       // ---- zoom
       const zoomAt = (f, mx, my) => {
@@ -461,7 +465,7 @@
         if (ev.button !== 0) return;
         const { mx, my } = ptr(ev), Rr = WM._ruler;
         if (globe() && Rr && mx > Rr.x - 14 && mx < Rr.x + 14 && my > Rr.y0 - 8 && my < Rr.y1 + 8) { drag = { ruler: true }; WM.rulerSet(c, my); poke(); return; }
-        drag = { x: ev.clientX, y: ev.clientY, cx: V.cx, cy: V.cy, moved: false, yaw: WM.G && WM.G.yaw, pitch: WM.G && WM.G.pitch, trail: [] };
+        drag = { x: ev.clientX, y: ev.clientY, cx: V.cx, cy: V.cy, moved: false, yaw: WM.G && WM.G.yaw, pitch: WM.G && WM.G.pitch, trail: [], k: pk() };
         if (WM.G) { WM.G.anim = null; WM.G.spinV = null; }
       });
       const move = ev => {
@@ -476,7 +480,7 @@
             G.yaw = drag.yaw + dx * k; G.pitch = U.clamp(drag.pitch + dy * k, -1.45, 1.45);
             c.style.cursor = 'grabbing'; return poke();
           }
-          if (drag.moved) { V.cx = drag.cx - dx / V.z; V.cy = drag.cy - dy / V.z; c.style.cursor = 'grabbing'; return poke(); }
+          if (drag.moved) { V.cx = drag.cx - dx * drag.k / V.z; V.cy = drag.cy - dy * drag.k / V.z; c.style.cursor = 'grabbing'; return poke(); }
         }
         const f = WM.hit(c, mx, my);
         if (globe()) {
@@ -508,7 +512,7 @@
         if (E) { if (E.what === 'goal') WM.goGoal(game, c); else WM.flyTo(game, pl.x, pl.y, globe() ? Math.min(WM.G.dist, 2.0) : null); return; }
         const f = WM.hit(c, mx, my);
         if (f) WM.select(game, f);
-        else { const p = WM.toWorld(c, mx, my); if (p.x >= 0 && p.y >= 0 && p.x < world.W && p.y < world.H && (WM.revealed(pl) || game.explored(p.x, p.y))) WM.select(game, { kind: 'mark', x: p.x, y: p.y, name: 'A spot you marked', sub: (ECHO.World.regionAt(world, p.x, p.y) || {}).name || '', color: '#ffe08a' }); else { WM.sel = null; WM.side(game, c); } }
+        else { const p = WM.toWorld(c, mx, my); if (p.x >= 0 && p.y >= 0 && p.x < world.W && p.y < world.H) WM.select(game, WM.dropPin(game, p.x, p.y)); else { WM.sel = null; WM.side(game, c); } }
         WM.draw(game, c);
       };
       // double-click: fly in to it
@@ -524,7 +528,7 @@
         const { mx, my } = ptr(ev), f = WM.hit(c, mx, my), p = f || WM.toWorld(c, mx, my);
         if (p.x < 0 || p.y < 0 || p.x >= world.W || p.y >= world.H) return;
         if (f && f.isGoal) { WM.guide(game, f, false); return; }     // (right-click it again: gone)
-        const m = f || { kind: 'mark', x: p.x, y: p.y, name: 'Your waypoint', sub: (ECHO.World.regionAt(world, p.x, p.y) || {}).name || '', color: '#ffe08a' };
+        const m = f || WM.dropPin(game, p.x, p.y);
         if (m.kind === 'dungeon-cleared') return;
         WM.select(game, m); WM.guide(game, m, true);
       });
@@ -610,6 +614,7 @@
       let seenHelp = false; try { seenHelp = !!localStorage.getItem('echo.mapHelp'); } catch (e) { seenHelp = true; }
       if (!seenHelp) help(true);
       body.querySelector('[data-fold]').addEventListener('click', ev => { WM.sideHidden = !WM.sideHidden; wrap.classList.toggle('noside', WM.sideHidden); ev.currentTarget.textContent = WM.sideHidden ? '⟨' : '⟩'; requestAnimationFrame(() => { fit(); WM.draw(game, c); }); });
+      body.querySelector('[data-lfold]').addEventListener('click', ev => { WM.layersOpen = !WM.layersOpen; body.querySelector('.wmap-layers').classList.toggle('hidden', !WM.layersOpen); ev.currentTarget.textContent = (WM.layersOpen ? '▾' : '▸') + ' Layers'; });
       body.querySelector('[data-reveal]').addEventListener('click', ev => {
         pl.mapReveal = !WM.revealed(pl);
         ev.currentTarget.classList.toggle('on', WM.revealed(pl)); ev.currentTarget.textContent = WM.revealed(pl) ? '◉ Whole world shown' : '○ Only land you have walked';
@@ -673,7 +678,7 @@
     },
     toScreen(c, x, y) { if (WM.isGlobe()) return WM.gScreen(c, x, y); const V = WM.view; return { x: (x - V.cx) * V.z + c.width / 2, y: (y - V.cy) * V.z + c.height / 2 }; },
     toWorld(c, sx, sy) { if (WM.isGlobe()) return WM.gWorld(c, sx, sy); const V = WM.view; return { x: (sx - c.width / 2) / V.z + V.cx, y: (sy - c.height / 2) / V.z + V.cy }; },
-    visible() { const g = WM.goalFeat(); return WM.feats.filter(f => WM.layers[f.layer]).concat(g ? [g] : []); },
+    visible() { const g = WM.goalFeat(); return WM.feats.filter(f => f.layer === 'pins' || WM.layers[f.layer]).concat(g ? [g] : []); },
     // where you are headed, as a place on the map (click it to see it, and to take the mark away)
     goalFeat() {
       const game = ECHO.Game, goal = game && ECHO.Purpose && ECHO.Purpose.current(game);
@@ -682,9 +687,17 @@
       if (!WM._gf || WM._gf.key !== key) WM._gf = { key, isGoal: true, layer: 'goal', kind: 'flag', pri: 9, x: w.x, y: w.y, name: w.name || 'Your destination', sub: goal.kind === 'track' ? 'Where you are headed' : 'Your road\'s next step', color: '#ffcf6a' };
       return WM._gf;
     },
+    // how near the land is: screen pixels to a league, about the middle of the view
+    pxPerLeague(game, c) {
+      if (!WM.isGlobe(game.world)) return WM.view.z;
+      const world = game.world, m = WM.gWorld(c, c.width / 2, c.height / 2), x = m.x >= 0 ? m.x : game.pl.x, y = m.x >= 0 ? m.y : game.pl.y;
+      const a = WM.gScreen(c, x, U.clamp(y - 10, 0, world.H - 1)), b = WM.gScreen(c, x, U.clamp(y + 10, 0, world.H - 1));
+      return a.hidden || b.hidden ? 0.3 : Math.hypot(b.x - a.x, b.y - a.y) / 20;
+    },
     hit(c, mx, my) {
-      let best = null, bd = 14;
-      for (const f of WM.visible()) { const p = WM.toScreen(c, f.x, f.y), d = Math.hypot(p.x - mx, p.y - my) - (f.layer === 'dungeons' ? 3 : 0); if (d < bd) { bd = d; best = f; } }
+      let best = null, bd = 12;
+      const drawn = WM._drawn && WM._drawn.c === c ? WM._drawn.list : WM.visible().map(f => ({ f, p: WM.toScreen(c, f.x, f.y), r: 12 }));
+      for (const { f, p, r } of drawn) { const d = Math.hypot(p.x - mx, p.y - my) - (r - 12); if (d < bd) { bd = d; best = f; } }
       return best;
     },
     dist(game, f) { const pl = game.pl, ddx = ECHO.Globe ? ECHO.Globe.dx(game.world, pl.x, f.x) : f.x - pl.x; const d = Math.hypot(ddx, f.y - pl.y), a = Math.atan2(f.y - pl.y, ddx); return { d: Math.round(d), dir: DIRS[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8] }; },
@@ -694,7 +707,7 @@
       if (!f) { el.classList.add('hidden'); return; }
       const D = WM.dist(game, f);
       el.style.setProperty('--c', f.color);
-      el.innerHTML = `<div class="k">${esc(KIND_NAME[f.kind] || 'Place')}</div><b>${esc(f.name)}</b>${f.sub ? `<div>${esc(f.sub)}</div>` : ''}${f.diff ? `<div style="color:${f.color}">${esc(f.diff)}</div>` : ''}<div class="m">${D.d < 3 ? 'You are here' : `${D.d} leagues ${D.dir}`}${game.world.globe ? ' · ' + ECHO.Globe.fmtLatLon(game.world, f.x, f.y) : ''}</div><div class="h">Click · details  ·  Double-click · fly in  ·  Right-click · guide me</div>`;
+      el.innerHTML = `<div class="k">${esc(KIND_NAME[f.kind] || 'Place')}</div><b>${esc(f.name)}</b>${f.sub ? `<div>${esc(f.sub)}</div>` : ''}${f.diff ? `<div style="color:${f.color}">${esc(f.diff)}</div>` : ''}<div class="m">${D.d < 3 ? 'You are here' : `${D.d} leagues ${D.dir}`}${game.world.globe ? ' · ' + ECHO.Globe.fmtLatLon(game.world, f.x, f.y) : ''}</div><div class="h">Click · details  ·  Right-click · guide me</div>`;
       el.classList.remove('hidden');
       el.style.left = Math.min(mx + 16, el.parentElement.clientWidth - 240) + 'px'; el.style.top = Math.max(4, my - 10) + 'px';
     },
@@ -703,6 +716,23 @@
       return `mark:${f.x.toFixed(1)}:${f.y.toFixed(1)}:${f.name}`;
     },
     select(game, f) { WM.sel = f; WM.side(game, document.getElementById('worldmap')); },
+    // ---- your pins: dropped with a click wherever you like, kept (the last twelve) until you take them up
+    pins(pl) { return Array.isArray(pl.mapPins) ? pl.mapPins : []; },
+    pinFeat(world, p) { return { layer: 'pins', kind: 'mark', pin: p, x: p.x, y: p.y, name: p.name, sub: ((ECHO.World.regionAt(world, p.x, p.y) || {}).name) || (world.globe && ECHO.Globe ? ECHO.Globe.fmtLatLon(world, p.x, p.y) : ''), color: '#ffe08a', pri: 12 }; },
+    dropPin(game, x, y) {
+      const pl = game.pl, n = pl.mapPinN = (pl.mapPinN || 0) + 1, p = { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, n, name: `Pin ${n}` };
+      pl.mapPins = WM.pins(pl).slice(-11).concat([p]);
+      WM.feats = WM.features(game);
+      return WM.feats.find(f => f.pin === p) || WM.pinFeat(game.world, p);
+    },
+    removePin(game, p) {
+      const pl = game.pl;
+      pl.mapPins = WM.pins(pl).filter(q => q !== p);
+      if (pl.tracked && pl.tracked === WM.trackId(WM.pinFeat(game.world, p))) { pl.tracked = 'off'; ECHO.Purpose._html = null; ECHO.Purpose.t = 0; if (ECHO.Nav) ECHO.Nav.route = null; }
+      if (WM.sel && WM.sel.pin === p) WM.sel = null;
+      WM.feats = WM.features(game);
+      const c = document.getElementById('worldmap'); WM.side(game, c); if (c) WM.draw(game, c);
+    },
     // The side panel: the selected place, then what is near (or the dungeons you know, or the key).
     side(game, c) {
       const pl = game.pl, world = game.world;
@@ -713,12 +743,13 @@
         const D = WM.dist(game, f), id = WM.trackId(f), on = f.isGoal || pl.tracked === id || (pl.tracked && f.kind === 'mark' && pl.tracked.startsWith('mark:') && pl.tracked.endsWith(':' + f.name) && Math.abs(parseFloat(pl.tracked.split(':')[1]) - f.x) < 0.2);
         sel.innerHTML = `<div class="card${on ? ' on' : ''}" style="--c:${f.color}"><div class="kind">${esc(KIND_NAME[f.kind] || f.layer || 'Place')}</div><h4>${esc(f.name)}</h4>${f.sub ? `<div class="sub">${esc(f.sub)}</div>` : ''}${f.diff ? `<div class="diff" style="color:${f.color}">${esc(f.diff)}</div>` : ''}${f.life && ECHO.DungeonLife ? ECHO.DungeonLife.card(world, f.life) : ''}
           <div class="read"><span><b>${D.d < 3 ? '—' : D.d}</b>${D.d < 3 ? 'you are here' : 'leagues ' + D.dir}</span>${round ? `<span><b>${esc(ECHO.Globe.fmtLatLon(world, f.x, f.y))}</b>position</span>` : ''}</div>
-          <div class="row">${f.kind === 'dungeon-cleared' ? '' : `<button class="go${on ? ' on' : ''}" data-track="1">${on ? (f.isGoal || f.kind === 'mark' ? '✕ Remove waypoint' : '■ Stop guiding') : '➤ Guide me there'}</button>`}<button data-fly="1" title="Fly the view there (double-click does too)">◎ Fly to</button><button data-unsel="1" title="Close">✕</button></div></div>`;
+          <div class="row">${f.kind === 'dungeon-cleared' ? '' : `<button class="go${on ? ' on' : ''}" data-track="1">${on ? (f.isGoal || f.kind === 'mark' ? '■ Stop guiding' : '■ Stop guiding') : '➤ Guide me there'}</button>`}${f.pin ? '<button data-unpin="1" title="Take this pin up">✕ Remove pin</button>' : `<button data-fly="1" title="Fly the view there (double-click does too)">◎ Fly to</button>`}<button data-unsel="1" title="Close">✕</button></div></div>`;
+        const up2 = sel.querySelector('[data-unpin]'); if (up2) up2.addEventListener('click', () => WM.removePin(game, f.pin));
         const b = sel.querySelector('[data-track]');
         if (b) b.addEventListener('click', () => WM.guide(game, f, !on));
-        sel.querySelector('[data-fly]').addEventListener('click', () => WM.flyTo(game, f.x, f.y, WM.isGlobe(world) ? Math.min(WM.G.dist, 1.6) : Math.max(WM.view.z, 5)));
+        const fl = sel.querySelector('[data-fly]'); if (fl) fl.addEventListener('click', () => WM.flyTo(game, f.x, f.y, WM.isGlobe(world) ? Math.min(WM.G.dist, 1.6) : Math.max(WM.view.z, 5)));
         sel.querySelector('[data-unsel]').addEventListener('click', () => { WM.sel = null; WM.side(game, c); if (c) WM.draw(game, c); });
-      } else sel.innerHTML = `<div class="card idle"><div class="kind">Navigation</div><p>Click a place for its details, then <b>Guide me there</b> — the arrow at the edge of the screen and the minimap point the way. Or <b>right-click</b> anywhere for a waypoint (right-click it again to take it away).</p></div>`;
+      } else sel.innerHTML = `<div class="card idle mini"><p><b>Click</b> the map to drop a pin · <b>click</b> a place for details · <b>right-click</b> to pin it and go</p></div>`;
       // where you are headed, always in sight here, with a way to clear it
       const dest = document.getElementById('map-dest');
       if (dest) {
@@ -728,7 +759,7 @@
           dest.innerHTML = `<div class="dest"><div class="l1"><span class="k">Headed to</span><span class="dd">${D.d < 3 ? 'here' : `${D.d} LG ${DIR_S[D.dir]}`}</span></div><div class="l2"><span class="nm"><i>◆</i>${esc(gf.name)}</span><button data-dfly="1" title="Fly the view there">◎</button><button data-dclear="1" title="Clear it: nothing marked">✕ Clear</button></div></div>`;
           dest.querySelector('[data-dfly]').addEventListener('click', () => { WM.select(game, gf); WM.flyTo(game, gf.x, gf.y, WM.isGlobe(world) ? Math.min(WM.G.dist, 1.6) : Math.max(WM.view.z, 5)); });
           dest.querySelector('[data-dclear]').addEventListener('click', () => WM.guide(game, gf, false));
-        } else dest.innerHTML = `<div class="dest none"><div class="l1"><span class="k">Headed to</span></div><div class="l2"><span class="nm dim">Nothing marked — right-click the map for a waypoint</span></div></div>`;
+        } else dest.innerHTML = '';
       }
       document.querySelectorAll('.wmap-tabs [data-tab]').forEach(t => t.classList.toggle('on', t.dataset.tab === (WM.tab || 'near')));
       const rowOf = (x, i, extra) => { const D = WM.dist(game, x); return `<div class="dl ${WM.sel === x ? 'on' : ''}" data-goto="${i}"><span class="dot" style="background:${x.color}"></span><span class="nm">${esc(x.name)}</span>${extra || ''}<span class="dd">${D.d < 3 ? 'here' : `${D.d}<i>${DIR_S[D.dir]}</i>`}</span></div>`; };
@@ -743,7 +774,7 @@
         return wire(ds);
       }
       // what is near: the places shown on the map, nearest first
-      const near = WM.visible().filter(x => x.layer !== 'regions').map(x => ({ x, d: WM.dist(game, x).d })).sort((a, b) => a.d - b.d).slice(0, 40).map(o => o.x);
+      const near = WM.visible().filter(x => x.layer !== 'regions' && (x.pri >= 5 || x.layer === 'pins')).map(x => ({ x, d: WM.dist(game, x).d })).sort((a, b) => a.d - b.d).slice(0, 14).map(o => o.x);
       list.innerHTML = near.length ? near.map((x, i) => rowOf(x, i)).join('') : '<div class="none">Nothing known nearby yet — or every layer is off.</div>';
       wire(near);
     },
@@ -878,20 +909,42 @@
       }
       // quest rings
       WM.rings(game, c, g);
-      // icons, least important first; labels where they fit
-      const feats = WM.visible().slice().sort((a, b) => a.pri - b.pri);
-      const k = U.clamp(0.75 + V.z * 0.09, 0.8, 1.35);
+      // icons: from high up only what matters most, and never piled on one another — the most
+      // important first (and what is near you, what you follow, what you chose), each kept clear of
+      // the rest; come closer and the rest appear. Labels where they fit.
+      const ppl = WM.pxPerLeague(game, c), minPri = ppl < 0.6 ? 10 : ppl < 1.2 ? 9 : ppl < 2.2 ? 8 : ppl < 3.6 ? 6 : ppl < 6 ? 4 : 0;
+      const k = U.clamp(0.75 + Math.min(ppl, 8) * 0.07, 0.8, 1.3);
       const rects = [];
       const fits = (x, y, w, h) => { for (const r of rects) if (x < r.x + r.w && x + w > r.x && y < r.y + r.h && y + h > r.y) return false; rects.push({ x, y, w, h }); return true; };
-      const pos = feats.map(f => ({ f, p: WM.toScreen(c, f.x, f.y) })).filter(({ p }) => p.x > -30 && p.y > -30 && p.x < c.width + 30 && p.y < c.height + 30);
       const sug = ECHO.Guide && ECHO.Guide.suggestDungeon(world, pl);
-      for (const { f, p } of pos) {
-        if (f.isGoal) continue;
+      const weight = f => {
+        if (f === WM.sel || f === WM.hover || f.layer === 'pins') return 99;
+        let w = f.pri || 0;
+        if (f.kind === 'dungeon-cleared') w -= 4; else if (f.kind === 'dungeon-unknown') w -= 5; else if (f.layer === 'dungeons' && f.kind === 'dungeon' && f.pri < 11) w -= 2;
+        if (f.kind === 'town' && f.ref && f.ref.kind === 'village') w -= 1;
+        const dx = ECHO.Globe && world.globe ? ECHO.Globe.dx(world, pl.x, f.x) : f.x - pl.x;
+        if (Math.abs(dx) < 45 && Math.abs(f.y - pl.y) < 45) w += 2;                         // (what is near you)
+        if ((f.ref && sug && f.ref === sug) || (f.ref && pl.tracked === 'site:' + f.ref.id)) w += 6;   // (what you follow)
+        return w;
+      };
+      const all0 = WM.visible().map(f => ({ f, p: WM.toScreen(c, f.x, f.y) })).filter(({ p }) => p.x > -30 && p.y > -30 && p.x < c.width + 30 && p.y < c.height + 30);
+      for (const o of all0) o.w = weight(o.f);
+      all0.sort((a, b) => b.w - a.w);
+      const pos = [], gap = (ppl < 3.6 ? 24 : 19) * k, drawn = [];
+      for (const o of all0) {
+        if (o.f.isGoal) { drawn.push({ f: o.f, p: o.p, r: 14 }); continue; }
+        if (o.w < 99 && o.w < minPri) continue;
+        if (o.w < 99 && pos.some(q => Math.abs(q.p.x - o.p.x) < gap && Math.abs(q.p.y - o.p.y) < gap)) continue;
+        pos.push(o);
+      }
+      for (const { f, p } of pos.slice().reverse()) {
         const hi = f === WM.hover || f === WM.sel;
         const pulse = (f.ref && sug && f.ref === sug) || (pl.tracked === 'site:' + (f.ref && f.ref.id));
-        WM.icon(g, f.kind, p.x, p.y, f.color, k * (hi ? 1.25 : 1), pulse ? now : 0);
+        WM.icon(g, f.kind, p.x, p.y, f.color, k * (hi ? 1.25 : f.layer === 'pins' ? 1.15 : 1), pulse ? now : 0);
         rects.push({ x: p.x - 9 * k, y: p.y - 9 * k, w: 18 * k, h: 18 * k });
+        drawn.push({ f, p, r: 12 * k });
       }
+      WM._drawn = { c, list: drawn };
       // what the pointer is over, and what is chosen: rings of light round them
       for (const { f, p } of pos) {
         if (f === WM.hover && f !== WM.sel) { g.strokeStyle = HOLO + '0.85)'; g.lineWidth = 1.5; g.shadowColor = HOLO + '0.9)'; g.shadowBlur = 8; g.beginPath(); g.arc(p.x, p.y, 15 * k, 0, Math.PI * 2); g.stroke(); g.shadowBlur = 0; }
@@ -906,7 +959,7 @@
       for (const { f, p } of lblOrder) {
         if (f.isGoal) continue;
         const hi = f === WM.hover || f === WM.sel;
-        const show = hi || f.layer === 'towns' || (f.layer === 'dungeons' && f.kind !== 'dungeon-unknown' && V.z >= (WM.revealed(pl) ? 4.5 : 2.2)) || (V.z >= 5 && f.pri >= 5) || V.z >= 8;
+        const show = hi || f.layer === 'pins' || (f.layer === 'towns' && (f.kind === 'capital' || ppl >= 1.2)) || (f.layer === 'dungeons' && f.kind !== 'dungeon-unknown' && ppl >= 3) || (ppl >= 5 && f.pri >= 5) || ppl >= 9;
         if (!show) continue;
         const size = Math.round(U.clamp(9 + V.z * 0.9, 11, 16) * (f.kind === 'capital' ? 1.12 : 1));
         g.font = `${f.layer === 'towns' ? 700 : 600} ${size}px Inter, system-ui, sans-serif`;
@@ -1537,9 +1590,14 @@
       g.stroke();
       // ---- what is about you
       if (!WM._mf || game.time - WM._mfT > 1 || game.time < WM._mfT) { WM._mf = WM.features(game, { x0: pe.x - 120, x1: pe.x + 120, y0: pe.y - 120, y1: pe.y + 120 }); WM._mfT = game.time; }
-      for (const f of WM._mf) {
-        if (f.layer !== 'towns' && f.layer !== 'dungeons' && f.layer !== 'danger' && f.layer !== 'gates' && f.layer !== 'wonders') continue;
+      // (the most important first, none piled on another, nothing small)
+      const mdone = [];
+      for (const f of WM._mf.slice().sort((a, b) => (b.layer === 'pins' ? 99 : b.pri) - (a.layer === 'pins' ? 99 : a.pri))) {
+        if (f.layer !== 'towns' && f.layer !== 'dungeons' && f.layer !== 'danger' && f.layer !== 'gates' && f.layer !== 'wonders' && f.layer !== 'pins') continue;
+        if (f.layer !== 'pins' && ((f.pri || 0) < 4 || f.kind === 'dungeon-unknown')) continue;
         const p = P(f.x, f.y); if (!inR(p, 4)) continue;
+        if (mdone.some(q => Math.abs(q.x - p.x) < 9 && Math.abs(q.y - p.y) < 9)) continue;
+        mdone.push(p);
         g.save(); g.translate(p.x, p.y); if (rot) g.rotate(-rot);
         g.shadowColor = f.color; g.shadowBlur = 6;
         WM.icon(g, f.kind, 0, 0, f.color, f.layer === 'dungeons' ? 0.55 : 0.5, 0);

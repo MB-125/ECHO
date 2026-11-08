@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.32.1', items: [
+      'The map is accurate under your pointer at every Interface size. With the interface set larger or smaller, a click used to land in the wrong place (sometimes a hundred leagues off); now it lands exactly where you click.',
+      'Click anywhere on open ground to drop a pin exactly there. Right-click to drop a pin and be guided to it at once. Your pins stay on the map (the last twelve) until you take them up with Remove pin, and they show on the minimap too.',
+      'Clicking a place picks only what is actually drawn under your pointer, never something hidden nearby.',
+      'The map is far calmer. From high up it shows only what matters most: the capitals, the gates, the Endless Deep, what you are following, and what is near you. Come closer and the rest appears. Icons are never piled on one another, and small things (caches, ruins, rumours) wait until you zoom in. The minimap is thinned the same way.',
+      'The side panel is quieter too: a one-line hint instead of the long instructions, Layers folded away until you open them, and Nearby lists the fourteen nearest places that matter.'
+    ] },
     { v: '0.32.0', items: [
       'Legendary gear is tempered in battle. Every blow a legendary blade or bow lands tempers it, and every blow legendary armour takes for you tempers that. Harder foes count for more (an elite half again, a champion two and a half times, a lord four), and a kill counts five times over.',
       'Each temper level: a legendary weapon or bow hits 3% harder than it was made (honing and all), and legendary armour turns 3% more. There is no last level; each asks a little more fighting than the one before.',
