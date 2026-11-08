@@ -7,6 +7,14 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.31.1', items: [
+      'The Endless Deep is measured against you now: your real strength, and your beasts\', not your level. Before each floor it takes stock of how hard you and the pack with you actually hit, and how much life you each carry.',
+      'Each foe there is made to take all of you longer to bring down the deeper you go: about 3 seconds of everything you have on the first floor, about 10 by the twentieth, and on. The stronger you and your beasts are, the more life they have.',
+      'Every blow from down there takes a share of the life of whatever it hits, you or your beast, however much life that is: 1.5% on the first floor, 6% by the tenth, about 10% by the twentieth, and on (a heavier blow takes more; a Warden\'s much more). Even your greatest beast can be beaten down there now.',
+      'The deeper floors are fuller (up to half as many again), and every kill pays more coin the deeper it is.',
+      'Go in again and you carry on from the deepest floor you have reached. The way in also offers the last floor you cleared, the first floor, and every fifth floor between.',
+      'Nothing in your save changes: your deepest floor and everything else are as they were.'
+    ] },
     { v: '0.31.0', items: [
       'Discoveries everywhere: the world now keeps hidden places, and it never runs out of them. Wherever you walk, in the old country and on every new stretch of land, places no map shows are laid down as you come near.',
       'Places that go down into the dark, each a dungeon of its own with its own treasure at the bottom: sunken temples by the water, sky ruins on the heights with their stones still hanging in the air, forgotten tombs of kings no one remembers, and sealed vaults in the rock that open only to a vault key.',

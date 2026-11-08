@@ -7,17 +7,22 @@
 //   • each floor is harder than the last. A floor's level follows you (about 0.85 of your level
 //     on the first floor, and 3.5% of you more on every floor below it), and is never less than
 //     8 + 4 a floor; past the greatest level there is, it keeps getting stronger regardless;
+//   • and it is MEASURED AGAINST YOU — not your level, your real strength, and your beasts':
+//     how hard you and the pack you bring actually hit, and how much life you carry. Each foe
+//     takes the whole of you longer to bring down the deeper you go (about 3 seconds of all you
+//     have on the first floor, 10 by the twentieth, and on), and every blow it lands takes a share
+//     of the life of whatever it hits, you or your beast (1.5% on the first floor, about 10% by the
+//     twentieth, and on). The deeper floors are fuller, and pay more for every kill;
 //   • every floor below the first has its twists — one, two from floor 10, three from floor 25:
 //     the Swarm, Ironhide, Frenzy, Bloodthirst, Glass and Fury, Champions, Lightless, the
 //     Gauntlet, the Stalker — and now and then a kind one (Gilded: twice the coin);
-//   • every fifth floor a Warden of the Deep waits in the far room with its hoard; beat it and
-//     that floor's stair-gate is open to you for ever after: next time you may start below it;
+//   • every fifth floor a Warden of the Deep waits in the far room with its hoard;
 //   • each new floor you reach on a descent pays you coin by its level and depth, and your
-//     deepest floor is kept (and told, every fifth one);
+//     deepest floor is kept (and told, every fifth one); go in again and you carry on from it;
 //   • it is never the same twice: every time you go down from the surface the halls shift.
 // Kept: the site in world.sites (kind 'abyss': run, runTop, hoards, wardenDown), and pl.deep
-// {best, runs, wardens, gates, bestDay}, made the first time they are needed — nothing else in
-// a save changes.
+// {best, runs, wardens, gates, bestDay, cleared}, made the first time they are needed — nothing
+// else in a save changes.
 (function () {
   const { U } = ECHO;
   const X = () => ECHO.Explore, Q = () => ECHO.Quests, UI = () => ECHO.UI, P = () => ECHO.Prowess;
@@ -41,6 +46,9 @@
     KIND: 'abyss', TWISTS, WARDENS,
     is(site) { return !!site && site.kind === 'abyss'; },
     st(pl) { return pl.deep || (pl.deep = { best: 0, runs: 0, wardens: 0, gates: 0, bestDay: null }); },
+    // the deepest floor you have cleared (before it was kept: every floor above your deepest)
+    cleared(s) { return s.cleared != null ? s.cleared : Math.max(0, (s.best || 0) - 1); },
+    floorCleared(game, site, depth) { const s = D.st(game.pl); if (depth + 1 > D.cleared(s)) s.cleared = depth + 1; },
     site(world) { return (world && world.sites || []).find(s => s.kind === 'abyss') || null; },
     // one in every world, a walk from your home, on open ground
     ensure(world) {
@@ -79,6 +87,22 @@
     // past the greatest level there is, it keeps getting stronger regardless (0: not yet)
     beyond(depth) { const MAX = (P() && P().MAX) || 1500; return Math.max(0, D.want(depth || 0) / MAX - 1); },
     floors(site) { return Math.max(2, (site.reached || 0) + 2, (site.runTop || 0) + 2); },
+    // ------------------------------------------------------------ measured against you
+    // how hard you and the beasts with you actually hit (a second), and the life you carry
+    might(game) {
+      const pl = game.pl, Dv = ECHO.PlayerCtl && ECHO.PlayerCtl.derived;
+      const me = Dv ? Math.max((Dv.meleeDmg || 0) / Math.max(0.2, Dv.meleeCd || 0.5), (Dv.bowDmg || 0) / Math.max(0.3, Dv.drawTime || 0.75) * 0.8, (Dv.flameDmg || 0) * 0.8) : 10;
+      const pals = (game.ents || []).filter(e => e.pal && !e.dead && !e.vanish);
+      let pd = 0, ph = 0;
+      for (const e of pals) { pd += (e.palDmg || 0) * (e.growDmg || 1) / 1.1; ph += e.maxHp || 0; }
+      const out = ECHO.Tame && pl.pack ? ECHO.Tame.pack(pl).filter(r => r.out).length : 0;
+      if (pals.length) D._pals = { pd, ph, n: pals.length };
+      else if (out && D._pals) { pd = D._pals.pd * Math.min(1, out / D._pals.n); ph = D._pals.ph; }   // (left outside a moment, on the way down: as they were)
+      return { dps: Math.max(1, me + pd), me, pd, hp: pl.maxHp || 100, ph };
+    },
+    // seconds of all you have to bring one of them down, and the share of life each blow takes
+    tKill(depth) { return 2.5 + 0.4 * (depth || 0); },
+    pct(depth) { return Math.min(0.4, 0.015 + 0.0045 * (depth || 0)); },
     isWarden(depth) { return (depth + 1) % 5 === 0; },
     // a floor's twists: fixed for the descent, so going up and down again finds the same
     twists(site, depth) {
@@ -93,18 +117,24 @@
     ord(n) { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); },
 
     // ------------------------------------------------------------ going down
-    // at the mouth of it: start on the first floor, or at any stair-gate you have opened
+    // at the mouth of it: carry on from the deepest floor you have reached (or the last you cleared),
+    // or start lower
     chooseFloor(game, site) {
-      const s = D.st(game.pl), choices = [];
-      choices.push({ label: `Floor 1 · Lv ${D.level(0)}`, onPick: () => Q().enterDelve(game, site, 0) });
-      const gates = []; for (let g = 5; g <= s.gates; g += 5) gates.push(g);
-      for (const g of gates.slice(-6)) choices.push({ label: `The stair-gate below the ${D.ord(g / 5)} Warden · floor ${g + 1} · Lv ${D.level(g)}`, onPick: () => Q().enterDelve(game, site, g) });
+      const s = D.st(game.pl), choices = [], seen = new Set();
+      const go = (depth, label) => { if (depth < 0 || seen.has(depth)) return; seen.add(depth); choices.push({ label: `${label} · Lv ${D.level(depth)}`, onPick: () => Q().enterDelve(game, site, depth) }); };
+      // carry on where you left off: the deepest floor you have reached, or the last you cleared
+      if (s.best > 1) go(s.best - 1, `Carry on at floor ${s.best} — the deepest you have reached`);
+      const done = D.cleared(s);
+      if (done > 0 && done < s.best) go(done - 1, `Floor ${done} — the last you cleared`);
+      go(0, 'Start again at floor 1');
+      for (let f = Math.min(s.best - 1, 50) - 1; f >= 5 && choices.length < 7; f--) if (f % 5 === 0) go(f, `Floor ${f + 1}`);
       choices.push({ label: 'Not now', onPick: () => {} });
-      UI().modal({ title: 'The Endless Deep', html: `<p class="prose">${esc(X().DELVES.abyss.desc)}</p><p>${s.best ? `Your deepest: <b class="gold">floor ${s.best}</b>${s.bestDay != null ? ` (day ${s.bestDay})` : ''} · ${s.wardens} Warden${s.wardens === 1 ? '' : 's'} beaten · ${s.runs} descent${s.runs === 1 ? '' : 's'}.` : 'You have never been down it.'}</p><p class="dim">Every floor is harder than the last, each with its twists; every fifth floor a Warden waits with its hoard, and beating one opens a stair-gate you may start from next time. Each new floor you reach pays you. The halls are never the same twice.</p>`, choices });
+      UI().modal({ title: 'The Endless Deep', html: `<p class="prose">${esc(X().DELVES.abyss.desc)}</p><p>${s.best ? `Your deepest: <b class="gold">floor ${s.best}</b>${s.bestDay != null ? ` (day ${s.bestDay})` : ''} · ${s.wardens} Warden${s.wardens === 1 ? '' : 's'} beaten · ${s.runs} descent${s.runs === 1 ? '' : 's'}.` : 'You have never been down it.'}</p><p class="dim">It is measured against you — your real strength and your beasts', not your level: the deeper, the longer each foe takes all of you to bring down, and the more of your life each blow takes. Every floor has its twists; every fifth a Warden waits with its hoard. Each new floor you reach pays you. The halls are never the same twice.</p>`, choices });
     },
     // you go in (Quests.enterDelve): a new descent from the surface, or a stair within one
     onEnter(game, site, depth) {
       const L = ECHO.Interior.cur, inside = !!(L && L.site === site), s = D.st(game.pl);
+      D.might(game);   // (taken now, while your beasts are still beside you)
       if (!inside) {
         site.run = (site.run || 0) + 1; site.runTop = depth;
         site.floorsDone = {}; site.keys = {}; site.doors = {}; site.caches = {}; site.treasure = {}; site.picked = {}; site.hoards = {}; site.wardenDown = {}; site.chestTaken = false; site.cleared = false;
@@ -179,10 +209,33 @@
           game.ents.push(e);
         }
       }
+      // the deeper, the fuller
+      const crowd = Math.min(0.6, Math.max(0, (depth - 5) * 0.02));
+      if (crowd > 0) for (const e of mine()) {
+        if (e.keybearer || e.deepWarden || e.stalker || e.boss2 || Math.random() >= crowd) continue;
+        const sp = ECHO.Ent.freeSpot(game.world, e.x + (Math.random() - 0.5) * 2.4, e.y + (Math.random() - 0.5) * 2.4, 2);
+        if (sp) game.ents.push(tag(M.make(game, pick(), sp.x, sp.y, lvl, {})));
+      }
+      // measured against you and your beasts: each one takes all of you longer to bring down, and
+      // each blow takes a share of the life of what it hits (combat.js)
+      const m = D.might(game), foes = mine();
+      const hps = foes.filter(e => !e.deepWarden && !e.stalker && !e.boss2).map(e => e.maxHp).sort((a, b) => a - b), med = hps[hps.length >> 1] || 1;
+      const k = Math.max(1, m.dps * D.tKill(depth) / med), pct = D.pct(depth);
+      L.might = { k, dps: Math.round(m.dps), pct };
+      for (const e of foes) D.measure(e, k, pct, depth);
       // every twist, on everything on the floor; and past the greatest level, stronger regardless
       const bey = D.beyond(depth);
       for (const e of mine()) D.twist(L, e, bey);
-      if (L.twists && L.twists.length) later(() => UI().toast(`Floor ${depth + 1}: ${L.twists.map(k => TWISTS[k].name + ' — ' + TWISTS[k].d).join('; ')}.`, D.has(L, 'gilded') && L.twists.length === 1 ? 'legend' : 'warn', 7), 900);
+      const tw = (L.twists || []).map(t => TWISTS[t].name + ' — ' + TWISTS[t].d).join('; ');
+      later(() => UI().toast(`Floor ${depth + 1}, measured against you and your beasts: each foe takes about ${Math.round(D.tKill(depth))} seconds of all you have to bring down, and each blow it lands takes ${Math.round(pct * 1000) / 10}% of the life of what it hits.${tw ? ' ' + tw + '.' : ''}`, depth >= 10 || tw ? 'warn' : 'info', 8), 900);
+    },
+    measure(e, k, pct, depth) {
+      if (e._measured) return;
+      e._measured = true;
+      e.deepBase = ((e.foe && e.foe.dmg) || 8) * (e.dmgMul || 1);
+      if (k > 1) e.hp = e.maxHp = Math.round(e.maxHp * k);
+      e.deepPct = pct * (e.deepWarden ? 1.6 : e.stalker ? 1.3 : e.boss2 ? 1.4 : 1);
+      e.deepGold = 1 + depth / 15;
     },
     twist(L, e, bey) {
       if (e._twisted) return;
@@ -207,7 +260,7 @@
       const opened = gate > s.gates;
       if (opened) s.gates = gate;
       pl.renown = (pl.renown || 0) + 2;
-      later(() => UI().banner('A Warden of the Deep is beaten', opened ? `Its hoard is yours — and the stair-gate below floor ${gate} is open to you for good` : 'Its hoard is yours', true), 1200);
+      later(() => UI().banner('A Warden of the Deep is beaten', 'Its hoard is yours — open it (E)', true), 1200);
     },
     hoard(game, it) {
       const L = ECHO.Interior.cur, site = L.site, depth = L.depth || 0, pl = game.pl;
@@ -232,7 +285,7 @@
       const s = D.st(game.pl), site = D.site(game.world);
       if (!site) return '';
       const pe = game.pe, dist = pe ? Math.round(U.dist(pe.x, pe.y, site.x, site.y)) : 0;
-      return `<div class="card"><h4 style="color:#9fb8ff">▼ The Endless Deep</h4><div style="font-size:13px">${s.best ? `Your deepest: <b class="gold">floor ${s.best}</b> · ${s.wardens} Warden${s.wardens === 1 ? '' : 's'} beaten · ${s.runs} descent${s.runs === 1 ? '' : 's'}${s.gates ? ` · you may start at floor ${s.gates + 1}` : ''}` : 'You have never been down it.'}</div><div class="dim" style="font-size:12px">${ECHO.Interior && ECHO.Interior.cur ? '' : `${dist} leagues ${ECHO.Purpose ? ECHO.Purpose.dirTo(game.world, pe || game.pl, site) : ''} · `}no bottom: each floor harder, a Warden every fifth floor. Floor 1 is Lv ${D.level(0)}.</div></div>`;
+      return `<div class="card"><h4 style="color:#9fb8ff">▼ The Endless Deep</h4><div style="font-size:13px">${s.best ? `Your deepest: <b class="gold">floor ${s.best}</b> · ${s.wardens} Warden${s.wardens === 1 ? '' : 's'} beaten · ${s.runs} descent${s.runs === 1 ? '' : 's'}${s.best > 1 ? ` · you carry on at floor ${s.best} when you go in` : ''}` : 'You have never been down it.'}</div><div class="dim" style="font-size:12px">${ECHO.Interior && ECHO.Interior.cur ? '' : `${dist} leagues ${ECHO.Purpose ? ECHO.Purpose.dirTo(game.world, pe || game.pl, site) : ''} · `}no bottom, and measured against you and your beasts: each floor harder, a Warden every fifth.</div></div>`;
     }
   };
   const later = (f, ms) => (typeof setTimeout === 'function' ? setTimeout(f, ms) : f());

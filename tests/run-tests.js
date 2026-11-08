@@ -1150,6 +1150,13 @@ function main() {
     const bad = { type: 'creature', species: 'slime', foe: { slimeK: true }, x: 1, y: 0, dir: Math.PI, hp: NaN, maxHp: 800, gear: {} };
     try { C.damage(bad, 100, { type: 'melee', from: atk, angle: 0 }); } catch (err) { bad.err = err.message; }
     check('a life gone bad (not a number) is mended when struck, so it can be killed', Number.isFinite(bad.hp) && bad.hp < 800, `${bad.hp} ${bad.err || ''}`);
+    // the Endless Deep measures you: a blow from down there takes a share of the life of what it hits
+    const deepFoe = { type: 'creature', x: 0, y: 0, dir: 0, deepPct: 0.1, deepBase: 50 }, plain = { type: 'creature', x: 0, y: 0, dir: 0 };
+    const bigPal = { type: 'creature', species: 'slime', pal: { name: 'Gloop' }, x: 1, y: 0, dir: Math.PI, hp: 14000000, maxHp: 14000000, gear: {} };
+    const bigPal2 = Object.assign({}, bigPal, { pal: { name: 'Gloop' } });
+    let dp1 = 0, dp2 = 0, dp3 = 0;
+    try { C.damage(bigPal, 50, { type: 'melee', from: deepFoe, angle: 0 }); dp1 = 14000000 - bigPal.hp; C.damage(bigPal2, 50, { type: 'melee', from: plain, angle: 0 }); dp2 = 14000000 - bigPal2.hp; const heavy = Object.assign({}, bigPal, { hp: 14000000, pal: { name: 'G2' } }); C.damage(heavy, 100, { type: 'melee', from: deepFoe, angle: 0 }); dp3 = 14000000 - heavy.hp; } catch (err) { dp1 = 'threw: ' + err.message; }
+    check('a blow from the Endless Deep takes a share of a beast\'s life however much it has (and a heavier blow more); from anywhere else, only what it deals', dp1 >= 14000000 * 0.075 * 0.95 && dp2 <= 60 && dp3 > dp1 * 1.5, `${Math.round(dp1)} vs ${Math.round(dp2)}; heavy ${Math.round(dp3)}`);
   }
 
   console.log('\nThe round world');
@@ -1875,6 +1882,26 @@ function main() {
     check('all of it keeps in a save', W4.player.deep.best === 6 && W4.player.deep.gates === 5 && W4.sites.find(s => s.kind === 'abyss').run === site.run);
     for (let i = 0; i < 30; i++) X.dailyTick(W, new E.RNG(100 + i));
     check('it is no ordinary dungeon: it never grows untended, never changes hands, and no town posts work about it', !(site.grow > 0) && !(E.DungeonLife && E.DungeonLife.ok(site)) && W.plights.every(p => p.siteId !== site.id));
+    // measured against you and your beasts, not your level
+    E.Interior = { cur: null }; E.Game = game; game.ents = [];
+    const PC0 = E.PlayerCtl; E.PlayerCtl = { derived: { meleeDmg: 1000, meleeCd: 0.5, bowDmg: 0, drawTime: 0.75, flameDmg: 0 } };
+    const solo = Dp.might(game).dps;
+    game.ents = [{ pal: { name: 'Gloop' }, palDmg: 110000, maxHp: 14000000 }, { pal: { name: 'Brute' }, palDmg: 11000, maxHp: 800000, growDmg: 2 }];
+    const party = Dp.might(game);
+    check('the Deep measures how hard you actually hit, and your beasts with you', solo === 2000 && Math.round(party.dps) === 2000 + 100000 + 20000 && party.ph === 14800000, `alone ${solo}/s, with the pack ${Math.round(party.dps)}/s`);
+    check('…and the deeper, the longer each foe takes all of you to bring down, and the more of your life each blow takes', Dp.tKill(0) === 2.5 && Dp.tKill(19) > 9.5 && Dp.tKill(40) > Dp.tKill(19) && Dp.pct(0) === 0.015 && Dp.pct(19) > 0.09 && Dp.pct(19) < 0.11 && Dp.pct(500) === 0.4, `floor 20: ${Dp.tKill(19).toFixed(1)} s, ${(Dp.pct(19) * 100).toFixed(1)}% a blow`);
+    const foe = { hp: 300000, maxHp: 300000, dmgMul: 1.2, foe: { dmg: 40 } }, k = party.dps * Dp.tKill(19) / foe.maxHp;
+    Dp.measure(foe, k, Dp.pct(19), 19); Dp.measure(foe, k, Dp.pct(19), 19);
+    check('…so a foe there is made to match: its life by your strength, its blows by your life, and its coin by the depth — once', Math.abs(foe.maxHp - party.dps * Dp.tKill(19)) < 2 && foe.deepPct === Dp.pct(19) && foe.deepBase === 48 && foe.deepGold > 2);
+    E.PlayerCtl = PC0;
+    // carry on where you left off
+    const s2 = pl.deep; s2.best = 21; delete s2.cleared;
+    let picked = null, choices = null; E.UI = { toast() {}, banner() {}, modal: o => { choices = o.choices; } }; const Q0 = E.Quests; E.Quests = { enterDelve: (g, st, d) => { picked = d; } };
+    Dp.chooseFloor(game, site); choices[0].onPick();
+    check('go in again and you carry on from the deepest floor you have reached (or the last you cleared, or start again)', picked === 20 && /floor 21/.test(choices[0].label) && choices.some(c => /floor 20 — the last you cleared/i.test(c.label)) && choices.some(c => /floor 1\b/.test(c.label)), choices.map(c => c.label).join(' | '));
+    Dp.floorCleared(game, site, 21); Dp.floorCleared(game, site, 3);
+    check('…and the floors you clear are kept', s2.cleared === 22);
+    E.Quests = Q0;
     E.UI = UI0; delete E.Interior; delete E.Game;
   }
 

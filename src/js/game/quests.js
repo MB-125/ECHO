@@ -168,7 +168,7 @@
           site.floorsDone = site.floorsDone || {}; site.floorsDone[target.floor || 0] = world.day;
           if (ECHO.Lore && from && (from === game.pe || from.pal)) ECHO.Lore.onFloor(game);
           const last = !L || L.depth >= L.floors - 1;
-          if (site.kind === 'abyss') UI().toast('This floor is quiet now. The stair goes on down — and every floor below is worse.', 'legend', 4); else
+          if (site.kind === 'abyss') { if (ECHO.Deep) ECHO.Deep.floorCleared(game, site, target.floor || 0); UI().toast('This floor is quiet now. The stair goes on down — and every floor below is worse.', 'legend', 4); } else
           UI().toast(last ? `${U.cap(site.name)} falls quiet. Whatever was down here is finished — and what it guarded is yours.` : 'This floor is quiet now. The stairs lead deeper — the things below are stronger.', 'legend', 5);
         }
       }

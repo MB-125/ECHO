@@ -289,6 +289,12 @@
       if (target.isCompanion && ECHO.Companions) { amount = ECHO.Companions.defend(game, target, amount, src); if (amount <= 0) return 0; }
       const type = src.type;
       let dmg = amount * (from && from.growDmg ? from.growDmg : 1);   // (what it has grown into, fight by fight)
+      // the Endless Deep measures you: what comes up out of it takes a share of the life of what it
+      // strikes, you or your beast, however much of it there is (deep.js)
+      if (from && from.deepPct && target !== from && !from.pal && (target === game.pe || target.pal || target.isCompanion)) {
+        const mh = target === game.pe ? (game.pl.maxHp || target.maxHp) : target.maxHp, k = U.clamp(amount / (from.deepBase || amount), 0.4, 3);
+        if (mh > 0) dmg = Math.max(dmg, mh * from.deepPct * k * (target === game.pe ? 1 : 0.75));
+      }
       // how hard the world hits back (Esc → Gameplay → Challenge)
       const dif = C.difficulty();
       if (dif !== C.DIFF.normal && from && target !== from) {
