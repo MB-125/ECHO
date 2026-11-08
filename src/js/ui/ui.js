@@ -126,7 +126,7 @@
         }
       }
       set('#hud-hero', pl.first + ' ' + pl.last);
-      const hon = pl.honor || (ECHO.Ambition && ECHO.Ambition.honor(pl));
+      const hon = pl.honor || (ECHO.Ambition && ECHO.Ambition.honor(pl)) || (ECHO.Atlas && ECHO.Atlas.title(pl));
       set('#hud-title', hon ? `${hon} · ${ECHO.Character.title(pl)}` : ECHO.Character.title(pl));
       const hpF = U.clamp(pl.hp / pl.maxHp, 0, 1);
       $('#hud-left .hp .fill').style.transform = `scaleX(${hpF})`;
@@ -799,7 +799,7 @@
         <div style="font-size:13px;margin-top:4px">Power <b class="gold">${pow.total}</b> · sword <b>${pow.melee}</b> a blow · bow <b>${pow.bow}</b> a shot · armour <b>${pow.def}</b></div>
         <div class="dim" style="font-size:12px">From your level: +${Math.round((Pw.dmgMult(pl) - 1) * 100)}% damage, +${Pw.hpBonus(pl)} life, +${Pw.staBonus(pl)} stamina. Strongest foe beaten: ${st.best ? 'level ' + st.best : 'none yet'}.</div>
         <div class="rank-ladder" style="margin-top:4px">${Pw.RANKS.map(r => `<span style="color:${L >= r.lv ? r.color : '#5a5248'}">${L >= r.lv ? '◆' : '◇'} ${esc(r.title)}</span>`).join('')}</div>
-        <div class="dim" style="font-size:12px">You grow by defeating foes. The stronger they are than you, the more you learn; things far beneath you teach you nothing.</div></div></div>${ECHO.Aura && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Aura.html(ECHO.Game), 'aura') : ''}${ECHO.Well && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Well.html(ECHO.Game), 'mana') : ''}${ECHO.Deep && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Deep.html(ECHO.Game), 'the Endless Deep') : ''}${ECHO.Harvest && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Harvest.paceHtml(ECHO.Game, false), 'felling and mining') : ''}${ECHO.Guard ? ECHO.Guard.cardHtml(world, pl) : ''}`;
+        <div class="dim" style="font-size:12px">You grow by defeating foes. The stronger they are than you, the more you learn; things far beneath you teach you nothing.</div></div></div>${ECHO.Aura && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Aura.html(ECHO.Game), 'aura') : ''}${ECHO.Well && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Well.html(ECHO.Game), 'mana') : ''}${ECHO.Deep && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Deep.html(ECHO.Game), 'the Endless Deep') : ''}${ECHO.Atlas && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Atlas.html(ECHO.Game), 'the Atlas') : ''}${ECHO.Harvest && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Harvest.paceHtml(ECHO.Game, false), 'felling and mining') : ''}${ECHO.Guard ? ECHO.Guard.cardHtml(world, pl) : ''}`;
     },
     // What you carry and wear, drawn so that every upgrade shows.
     equipHtml(world, pl) {
@@ -1685,6 +1685,7 @@
         } else if (tab === 'places') {
           const sites = ECHO.Explore.sites(world);
           const found = sites.filter(x => x.found);
+          if (ECHO.Atlas && ECHO.Game && ECHO.Game.pl === pl) html += UI.safe(() => ECHO.Atlas.journalHtml(ECHO.Game), 'the Atlas');   // (the Atlas first: hidden.js)
           html += `<p class="dim">${found.length} of ${sites.length} places found. Explore the wilds — lookouts show you the land around them, and the archives pay for accounts of what you find.</p>`;
           html += found.length ? found.map(x => { const near = ECHO.World.nearestSettlement(world, x.x, x.y, t => t.faction !== 'ashfang'); return `<div class="card"><h4>${esc(U.cap(x.name))} <span class="dim">· ${esc(ECHO.Explore.label(x))}</span></h4><div class="dim">${esc(ECHO.Explore.desc(x))}</div><div class="dim" style="font-size:13px">${near ? Math.round(U.dist(near.x, near.y, x.x, x.y)) + ' leagues ' + ECHO.Explore.dirFrom(near, x) + ' of ' + esc(near.name) : ''}${x.cat === 'delve' ? (x.cleared ? ' · cleared' : ' · <span class="ember">not yet cleared</span>') : ''}</div></div>`; }).join('') : '<p class="dim">Nothing yet.</p>';
           html += UI.findsHtml(world, pl);

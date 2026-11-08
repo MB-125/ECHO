@@ -7,6 +7,18 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.31.0', items: [
+      'Discoveries everywhere: the world now keeps hidden places, and it never runs out of them. Wherever you walk, in the old country and on every new stretch of land, places no map shows are laid down as you come near.',
+      'Places that go down into the dark, each a dungeon of its own with its own treasure at the bottom: sunken temples by the water, sky ruins on the heights with their stones still hanging in the air, forgotten tombs of kings no one remembers, and sealed vaults in the rock that open only to a vault key.',
+      'Places that are guarded: dragons\' graves, lost battlefields whose dead still hold the field, witches\' hollows, giants\' forges and starfall hearts. Something strong keeps each one; kill it and the hoard is yours: a fortune in crowns, a relic, fine gear, and often a treasure map or a vault key. A giant\'s forge has the best blade it ever made still on the anvil.',
+      'Places that bless: silver pools that give by moonlight and eldest trees that give by daylight. Each gives once (more life, more mana, a lighter stride) and what it gives stays with you.',
+      'Every hidden place has its name and its story, told when you find it and kept in your journal. You feel one before you see it: a message tells you which way.',
+      'Treasure maps: from hoards, from the bottom of hidden places and from every Warden of the Endless Deep. Each marks a ring on your map where a hidden place still waits. It is tracked for you, and finding a place by its map pays half as much again.',
+      'Vault keys of old bronze turn up in hoards, at the bottom of hidden places and with the Wardens.',
+      'The Atlas: everything you have ever found counts (hidden places, dungeons and landmarks, caches, secrets of the wild, echoes of the old world), and every milestone pays. You get crowns by your level, a treasure map, and for good a little more life and a quicker stride. Every third milestone brings a relic. Your sense for hidden places sharpens, from the fifth milestone rumours of them show on your map, and you earn names to go by: Wayfarer, Pathfinder, Trailblazer, Far-walker, Worldwalker, Keeper of the Atlas, the Unbounded.',
+      'Your progress counts: the Atlas starts already counting everything you had found before, and pays every milestone you have already passed the first time you load.',
+      'Your character page (K) shows your Atlas. The journal\'s finds page lists every hidden place you have found with its story, and your treasure maps with a button to track each one.'
+    ] },
     { v: '0.30.0', items: [
       'The Endless Deep: a dungeon with no bottom. Every world has one, a walk from your home, already marked on your map (an older world gets it when you load it). There is always a stair further down.',
       'Every floor is harder than the last. The first floor is a little below you, about the fifth is your match, and below that it climbs past you, floor after floor, with no end. Past the greatest level there is, it keeps getting stronger anyway.',

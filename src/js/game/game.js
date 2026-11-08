@@ -212,6 +212,7 @@
       if (ECHO.Director) ECHO.Director.update(Game, dt);
       if (ECHO.Jobs) ECHO.Jobs.update(Game, dt);
       if (ECHO.Secrets) ECHO.Secrets.update(Game, dt);
+      if (ECHO.Hidden) ECHO.Hidden.update(Game, dt);   // (hidden places, and the Atlas: hidden.js)
       if (ECHO.Homestead) ECHO.Homestead.update(Game, dt);
       if (ECHO.Frontier) ECHO.Frontier.tick(Game, dt);
       if (ECHO.GateWorld) ECHO.GateWorld.update(Game, dt);

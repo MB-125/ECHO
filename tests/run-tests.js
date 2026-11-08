@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
 
 function loadEcho() {
@@ -1876,6 +1876,91 @@ function main() {
     for (let i = 0; i < 30; i++) X.dailyTick(W, new E.RNG(100 + i));
     check('it is no ordinary dungeon: it never grows untended, never changes hands, and no town posts work about it', !(site.grow > 0) && !(E.DungeonLife && E.DungeonLife.ok(site)) && W.plights.every(p => p.siteId !== site.id));
     E.UI = UI0; delete E.Interior; delete E.Game;
+  }
+
+  console.log('\nHidden places, treasure maps, and the Atlas');
+  {
+    const E = ECHO, Hd = E.Hidden, At = E.Atlas, U = E.U, T = E.TILE;
+    const W = E.generateWorld({ seed: 777, name: 'Hiddenland' });
+    const pl = W.player = E.Character.create(W, new E.RNG(5), { first: 'Oda', homeId: W.settlements[0].id });
+    check('a save from before has none of it: nothing is made until it is needed', !W.hidden && !pl.atlas);
+    // lay down the whole land, cell by cell, as if walked (the world's places first, as in play)
+    E.Explore.sites(W);
+    const cw = Math.ceil(W.W / Hd.CELL), ch = Math.ceil(W.H / Hd.CELL);
+    for (let cy = 0; cy < ch; cy++) for (let cx = 0; cx < cw; cx++) Hd.fill(W, cx, cy);
+    const L = W.hidden.list, kinds = new Set(L.map(h => h.kind));
+    let more = 0; for (const sd of [31, 4242, 9191]) { const Wx = E.generateWorld({ seed: sd, name: 'More' }); Wx.player = { homeId: Wx.settlements[0].id }; E.Explore.sites(Wx); for (let cy = 0; cy < ch; cy++) for (let cx = 0; cx < cw; cx++) Hd.fill(Wx, cx, cy); more += Wx.hidden.list.length; for (const h of Wx.hidden.list) kinds.add(h.kind); }
+    const wetNear = (h, r) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const t = E.World.tile(W, Math.floor(h.x) + dx, Math.floor(h.y) + dy); if (t === T.WATER || t === T.DEEP || t === T.SWAMP) return true; } return false; };
+    check('the land is full of hidden places — of many kinds (island worlds: most of them sea)', L.length >= 1 && L.length + more >= 5 && kinds.size >= 4, `${L.length + more} in four islands: ${[...kinds].join(' ')}`);
+    check('…each on open ground, out in the wild: none in a town, none on top of another place, none in water or rock', L.every(h => !E.World.isSolid(W, h.x, h.y) && W.settlements.every(s => U.dist(s.x, s.y, h.x, h.y) >= 15) && W.sites.every(s => s.hidden || U.dist(s.x, s.y, h.x, h.y) >= 9) && L.every(o => o === h || U.dist(o.x, o.y, h.x, h.y) >= 22)));
+    check('…and each where it belongs: a sunken temple by the water', L.filter(h => h.kind === 'drowned').every(h => wetNear(h, 3)), `${L.filter(h => h.kind === 'drowned').length} sunken temples`);
+    check('…each with its name and its story', L.every(h => h.name && /[A-Z]/.test(h.name) && Hd.lore(h).length > 40 && !/\{/.test(Hd.lore(h)) && !/\{/.test(h.name)), Hd.lore(L[0]));
+    const W1 = E.generateWorld({ seed: 777, name: 'Hiddenland' }); W1.player = pl; E.Explore.sites(W1);
+    for (let cy = 0; cy < ch; cy++) for (let cx = 0; cx < cw; cx++) Hd.fill(W1, cx, cy);
+    check('the same world has the same hidden places, wherever its walker goes first', W1.hidden.list.length === L.length && W1.hidden.list.every((h, i) => h.kind === L[i].kind && h.x === L[i].x && h.name === L[i].name));
+    const n0 = L.length; for (let cy = 0; cy < ch; cy++) for (let cx = 0; cx < cw; cx++) Hd.fill(W, cx, cy);
+    const W2 = E.Save.deserialize(E.Save.serialize(W)); for (let cy = 0; cy < ch; cy++) for (let cx = 0; cx < cw; cx++) Hd.fill(W2, cx, cy);
+    check('each stretch of land is laid down once: walk it again, or load the save, and nothing is added or moved', L.length === n0 && W2.hidden.list.length === n0 && W2.hidden.list[n0 - 1].x === L[n0 - 1].x);
+    // finding them
+    const toasts = []; const UI0 = E.UI; E.UI = { toast: t => toasts.push(t), banner() {}, modal() {} };
+    E.Interior = { cur: null }; const C0 = E.Combat; E.Combat = { fx: [], ring() {}, burst() {}, floater() {} }; const S0 = E.Sfx; E.Sfx = { play() {} };
+    const M0 = E.Monsters; let made = []; E.Monsters = { DEFS: {}, make: (g, kind, x, y, lvl, o) => { const e = { kind, x, y, lvl, hp: 100, maxHp: 100, dmgMul: 1, scale: 1 }; made.push(e); return e; }, dropGear: (g, x, y, lvl) => { made.push({ gear: lvl }); } };
+    const Ent0 = E.Ent; E.Ent = { freeSpot: (w, x, y) => ({ x, y }), lineOfSight: () => true };
+    const game = { world: W, pl, pe: { x: 0, y: 0 }, ents: [], addEnt(e) { this.ents.push(e); }, dropItem() {}, isNight: () => false, time: 0 };
+    E.Game = game;
+    // (an island world has few: any kind missing here is set down by hand, out in the wild)
+    let fake = 0; const mk = kind => { const s0 = W.settlements[1 + (fake % 3)], h = { id: 'hdt' + (++fake), kind, name: `the Test ${kind} of Nowhere`, N: 'Nowhere', lore: 0, who: 0, x: s0.x + 30, y: s0.y, found: false }; L.push(h); return h; };
+    const pick = k => L.find(h => h.kind === k && !h.found) || mk(k);
+    const g1 = L.find(h => Hd.KINDS[h.kind].type === 'guard') || mk('giantforge'), d1 = L.find(h => Hd.KINDS[h.kind].type === 'delve' && h.kind !== 'vault') || mk('drowned');
+    Hd.discover(game, g1);
+    check('found: it counts in your Atlas, by kind, and you hear its story', g1.found && pl.atlas.n === 1 && pl.atlas.kinds[g1.kind] === 1 && toasts.some(t => t.includes(Hd.lore(g1).slice(0, 30))));
+    Hd.discover(game, d1); const s1 = E.Explore.byId(W, d1.site);
+    check('one that goes down becomes a dungeon on your map, of its own floors and its own kind', s1 && s1.cat === 'delve' && s1.kind === d1.kind && s1.found && s1.hidden === d1.id && E.Explore.floors(s1) === Hd.DELVE_DEFS[d1.kind].hiddenFloors && E.Explore.level(W, s1) >= 1 && E.Explore.def(s1).label === Hd.KINDS[d1.kind].label, `${s1 && s1.name}: ${s1 && E.Explore.floors(s1)} floors, Lv ${s1 && E.Explore.level(W, s1)}`);
+    const v = pick('vault');
+    Hd.discover(game, v); const sv = E.Explore.byId(W, v.site);
+    pl.inv.vaultkey = 0; Hd.unseal(game, sv); const still = sv.sealed; pl.inv.vaultkey = 2; Hd.unseal(game, sv);
+    check('a sealed vault holds until you bring it a vault key; the key is used up', still === true && sv.sealed === false && pl.inv.vaultkey === 1);
+    // guarded: its keeper, and its hoard
+    game.pe.x = g1.x + 4; game.pe.y = g1.y; made = []; Hd.guard(game, g1);
+    const champ = made.find(e => e.hidChamp), K1 = Hd.KINDS[g1.kind];
+    check('come near a guarded one and its keeper is there, stronger than its kind, with its guards about it', champ && champ.hiddenOf === g1.id && champ.maxHp === 300 && champ.label.includes(K1.champName) && made.length === 1 + K1.guards.reduce((s, x) => s + x[1], 0) && champ.lvl > made.find(e => !e.hidChamp).lvl);
+    Hd.guard(game, g1);
+    check('…once: while they stand, no more come', game.ents.length === made.length);
+    const gold0 = pl.gold = 0; Hd.hoard(game, g1); const early = !g1.taken && pl.gold === 0;
+    Hd.onKill(made.find(e => !e.hidChamp), game.pe); const notYet = !g1.cleared;
+    Hd.onKill(champ, game.pe);
+    const got = Hd.hoard(game, g1), g2 = pl.gold; Hd.hoard(game, g1);
+    check('kill the keeper and its hoard is yours: crowns by its level, a relic, gear — once', early && notYet && g1.cleared && g1.taken && g2 >= 160 * g1.L && pl.gold === g2 && got.length >= 3, got.join('; '));
+    // blessings
+    const sp = pick('silverpool');
+    sp.found = 1; Hd.bless(game, sp); const dayNo = !sp.blessed;
+    game.isNight = () => true; Hd.bless(game, sp); const b1 = Object.assign({}, pl.atlas.boon); Hd.bless(game, sp);
+    check('a silver pool gives by moonlight only, once, and what it gives is for good', dayNo && sp.blessed && b1.hp === 0.02 && b1.mana === 0.03 && pl.atlas.boon.hp === 0.02);
+    const et = { id: 'hde', kind: 'eldertree', name: 'the Eldest Tree of Test', N: 'Test', lore: 0, who: 0, x: 0, y: 0, found: 1 };
+    Hd.bless(game, et); const nightNo = !et.blessed; game.isNight = () => false; Hd.bless(game, et);
+    check('…an eldest tree by daylight only: a lighter stride', nightNo && et.blessed && pl.atlas.boon.speed === 0.01 && At.speedMul(pl) > 1);
+    // treasure maps
+    game.pe.x = W.settlements[0].x; game.pe.y = W.settlements[0].y; pl.tracked = null;
+    if (!L.some(h => !h.found && U.dist(h.x, h.y, game.pe.x, game.pe.y) > 30)) L.push({ id: 'hdm', kind: 'starheart', name: 'the Blue Crater at Test', N: 'Test', lore: 0, who: 0, x: game.pe.x + 45, y: game.pe.y, found: false });   // (an island world has few)
+    const m = Hd.giveMap(game, game.pe.x, game.pe.y, 'for a test', true), mh = m && Hd.byId(W, m.h);
+    check('a treasure map marks a ring where a hidden place waits — not one you have found, a fair walk away — and is tracked', m && mh && !mh.found && U.dist(mh.x, mh.y, game.pe.x, game.pe.y) > 30 && U.dist(m.x, m.y, mh.x, mh.y) <= m.r && pl.tracked === 'hmap:' + m.id && Hd.trackedMap(game, pl.tracked).where.vague);
+    Hd.discover(game, mh);
+    check('…find it, and the map is done with: you came by the map, and it pays more', !pl.hmaps.length && mh.byMap && pl.atlas.maps === 1);
+    // the Atlas: a save from before counts what you had already found
+    delete E.Game; const P2 = E.Character.create(W, new E.RNG(8), { first: 'Ves', homeId: W.settlements[0].id });
+    P2.discovered = 12; P2.cachesFound = 4; P2.gold = 0;
+    E.Game = Object.assign({}, game, { pl: P2 }); E.Prowess.st(P2).lv = 100;
+    const c0 = At.count(W, P2), r = At.check(E.Game), gold2 = P2.gold;
+    check('the Atlas counts everything you have ever found, and a save from before starts it already counting', c0 >= 16 && P2.atlas.tier === 2 && r.got.join() === '1,2' && gold2 >= At.pay(1) + At.pay(2), `${c0} discoveries → milestones ${r.got.join(', ')}, ${gold2} crowns`);
+    const r2 = At.check(E.Game);
+    check('…each milestone paid once', r2 === null && P2.atlas.tier === 2 && P2.gold === gold2);
+    check('…and what it gives stays: a little more life, a quicker stride, a sharper sense, and a name', At.lifeMul(P2) === 1.02 && At.speedMul(P2) === 1.02 && At.sense(P2) === 28 && At.title(P2) === 'Wayfarer' && !At.rumours(P2));
+    P2.atlas.tier = 30;
+    check('…within bounds, however far you go', At.lifeMul(P2) === 1.15 && At.speedMul(P2) === 1.1 && At.sense(P2) === 40 && At.title(P2) === 'the Unbounded' && At.rumours(P2) && At.need(30) > At.need(29));
+    W.player = pl;
+    const W3 = E.Save.deserialize(E.Save.serialize(W));
+    check('all of it keeps in a save', W3.hidden.list.length === W.hidden.list.length && W3.player.atlas.n === pl.atlas.n && W3.sites.some(s => s.hidden === d1.id) && W3.sites.find(s => s.hidden === v.id).sealed === false);
+    E.UI = UI0; E.Combat = C0; E.Sfx = S0; E.Monsters = M0; E.Ent = Ent0; delete E.Interior; delete E.Game;
   }
 
   console.log('\nFixed danger, more realms, real diplomacy');

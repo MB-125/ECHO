@@ -1496,7 +1496,7 @@
       const mesh = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.userData.own = true; return m; };
       const basic = (c, o = 1) => R._siteMats[c + o] || (R._siteMats[c + o] = new THREE.MeshBasicMaterial({ color: c, transparent: o < 1, opacity: o, side: THREE.DoubleSide }));
       for (const s of (ECHO.Explore ? ECHO.Explore.sites(world) : [])) {
-        if (!near(s.x, s.y) || s.secret) continue;
+        if (!near(s.x, s.y) || s.secret || s.hidden) continue;   // (a hidden place's way down is drawn with the place: below)
         const add = (name, dx, dy, colors, rot = 0, sc = 1) => R.addStatic(g, name, s.x + dx, s.y + dy, colors, rot, sc);
         const disc = (dx, dy, r, c, o) => { const m = mesh(new THREE.CircleGeometry(r, 18), basic(c, o)); m.rotation.x = -Math.PI / 2; m.position.set(s.x + dx, R.groundH(s.x + dx, s.y + dy) + 0.05, s.y + dy); g.add(m); };
         const hole = (dx, dy, r = 0.6) => { const m = mesh(new THREE.CircleGeometry(r, 12), basic('#05050a')); m.rotation.x = -Math.PI / 2; m.position.set(s.x + dx, R.groundH(s.x + dx, s.y + dy) + 0.04, s.y + dy); g.add(m); };
@@ -1619,6 +1619,70 @@
         R.addStatic(g, 'campfire', EX.camp.x, EX.camp.y, { flame: '#2a2a2a', glow: '#3a3a3a' });
         R.addStatic(g, 'tent', EX.camp.x - 1.6, EX.camp.y - 1.2, { tent: '#6a6050' }, 0.6, 0.85);
         R.addStatic(g, 'crate', EX.camp.x + 1.4, EX.camp.y - 0.6, null, 0.3, 0.8);
+      }
+      // the hidden places: sunken temples, sky ruins, sealed vaults, forgotten tombs; dragons' graves,
+      // lost battlefields, witches' hollows, giants' forges, starfall hearts; silver pools and eldest trees
+      if (ECHO.Hidden && world.hidden) for (const h of world.hidden.list) {
+        if (!near(h.x, h.y, 36)) continue;
+        const hx = h.x, hy = h.y, K = ECHO.Hidden.KINDS[h.kind], seed = ECHO.hashStr(h.id);
+        const add = (name, dx, dy, colors, rot = 0, sc = 1) => R.addStatic(g, name, hx + dx, hy + dy, colors, rot, sc);
+        const disc = (dx, dy, r, c, o) => { const m = mesh(new THREE.CircleGeometry(r, 20), basic(c, o)); m.rotation.x = -Math.PI / 2; m.position.set(hx + dx, R.groundH(hx + dx, hy + dy) + 0.05, hy + dy); g.add(m); };
+        const hole = (dx, dy, r = 0.7) => { const m = mesh(new THREE.CircleGeometry(r, 14), basic('#05050a')); m.rotation.x = -Math.PI / 2; m.position.set(hx + dx, R.groundH(hx + dx, hy + dy) + 0.06, hy + dy); g.add(m); };
+        const lift = (m, y) => { if (m) m.position.y += y; return m; };
+        const light = (dx, dy, r, a, c, hh = 0.6) => R.siteLights.push({ x: hx + dx, y: hy + dy, r, a, color: c, h: hh });
+        const site = h.site && ECHO.Explore.byId(world, h.site), night = game.isNight ? game.isNight() : false;
+        switch (h.kind) {
+          case 'drowned':
+            disc(0, 0, 3.1, '#1f5a58', 0.55); disc(0, 0, 2.2, '#2f8a84', 0.35);
+            for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + 0.3; lift(add(i % 2 ? 'pillar_lo' : 'pillar', Math.cos(a) * 2.6, Math.sin(a) * 2.2, { stone: '#7a9a92' }, a, 0.7 + (i % 3) * 0.12), -0.5 - (i % 2) * 0.3); }
+            add('ruinwall', -1.8, -2.4, { stone: '#6a8a82' }, 0.2, 0.7); hole(0, 0.2, 0.75);
+            light(0, 0, 6, 0.9 + Math.sin(R.time * 1.4) * 0.15, K.col, 0.3); break;
+          case 'skyruin':
+            add('ruinwall', -1.6, -1.2, { stone: '#c8c4bc' }, 0.4, 0.9); add('ruinwall', 1.8, -0.8, { stone: '#c8c4bc' }, -0.6, 0.8);
+            add('pillar', -2.4, 1.4, { stone: '#d8d4cc' }, 0, 1.1); add('pillar', 2.3, 1.6, { stone: '#d8d4cc' }, 0, 0.9);
+            for (let i = 0; i < 5; i++) { const a = i * 1.27 + seed % 7; lift(add('boulder', Math.cos(a) * (1.4 + i * 0.4), Math.sin(a) * (1.2 + i * 0.3), null, a, 0.35 + (i % 3) * 0.12), 2.2 + i * 0.55 + Math.sin(R.time * 0.8 + i) * 0.25); }
+            hole(0, 0.6, 0.65); light(0, 0, 6, 0.9, K.col, 1.6); break;
+          case 'vault':
+            add('vaultstone', 0, -0.2, { rune: site && !site.sealed ? '#ffd27a' : '#4a4236' }, 0, 1.25);
+            add('ruinwall', -1.9, -0.6, { stone: '#8a7a68' }, 0.1, 0.8); add('ruinwall', 1.9, -0.5, { stone: '#8a7a68' }, -0.1, 0.8);
+            add('boulder', -2.6, 1.2, null, 0.7, 0.6); add('boulder', 2.7, 1.0, null, 1.7, 0.5);
+            if (site && !site.sealed) { hole(0, 1.0, 0.6); light(0, 0.4, 5, 1.1, K.col, 1.2); } else light(0, 0, 3, 0.35, '#c8a060', 1.2); break;
+          case 'tomb':
+            disc(0, 0, 3.0, '#3e4a30', 0.6); disc(0, 0, 2.1, '#4a5838', 0.6);
+            for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; add('tablet', Math.cos(a) * 3.1, Math.sin(a) * 2.6, { rune: '#5a6a7a' }, a + Math.PI / 2 + ((seed >> i) % 3 - 1) * 0.2, 0.8); }
+            add('standard', 1.4, -1.6, { banner: '#4a5a7a' }, 0.3, 0.7); hole(0, 0.4, 0.6); light(0, 0, 5, 0.7, K.col, 0.5); break;
+          case 'dragongrave':
+            disc(0, 0, 3.4, '#1e1410', 0.75); disc(0, 0, 2.2, '#3a1e12', 0.5);
+            add('bones', 0, 0, null, seed % 6, 2.4); add('bones', -2.2, 1.3, null, 2.1, 1.1); add('bones', 2.0, -1.4, null, 4.2, 0.9);
+            add('boulder', 2.6, 1.5, null, 1, 0.7); add('boulder', -2.4, -1.6, null, 2, 0.6);
+            light(0, 0, 6, 0.8 + Math.sin(R.time * 2.1) * 0.2, K.col, 0.3); break;
+          case 'warfield':
+            for (let i = 0; i < 5; i++) { const a = i * 1.26 + 0.4; add('standard', Math.cos(a) * 2.6, Math.sin(a) * 2.2, { banner: ['#6a3a2a', '#4a4a3a', '#5a2a2a', '#3a4a5a', '#6a5a3a'][i] }, a + 0.3 * (i % 2 ? 1 : -1), 0.85); }
+            for (let i = 0; i < 4; i++) add('bones', Math.cos(i * 1.9) * 1.4, Math.sin(i * 1.9) * 1.1, null, i * 1.3, 0.6);
+            add('rack', 0.4, -0.6, null, 0.8, 0.8); light(0, 0, 4, 0.4, K.col, 0.6); break;
+          case 'witch':
+            for (let i = 0; i < 4; i++) { const a = i * 1.57 + 0.7; add(i % 2 ? 'gnarltree' : 'deadtree', Math.cos(a) * 3, Math.sin(a) * 2.6, null, a + Math.PI, 0.9); }
+            add('hangcage', -1.2, -1.4, null, 0.4, 0.7); add('candles', 0.4, 0.2, null, 0, 1); add('shrooms', 1.4, 1.0, null, 1, 1.2); add('totem', -1.6, 1.2, null, 0.6, 0.8);
+            disc(0, 0, 2.4, '#1e2a14', 0.6); light(0, 0, 5, 0.8 + Math.sin(R.time * 3.3) * 0.2, K.col, 0.4); break;
+          case 'giantforge':
+            add('anvil', 0, 0, null, 0.3, 2.6); add('forge', -2.2, -1.4, null, 0.6, 1.6);
+            add('boulder', 2.4, -1.2, null, 1, 0.9); add('boulder', 2.0, 1.8, null, 2, 0.7); add('rock', -2.4, 1.8, null, 1, 0.8);
+            disc(0, 0, 3.2, '#2a2420', 0.6); light(-2.2, -1.4, 5, h.cleared ? 0.4 : 1.0, K.col, 0.8); break;
+          case 'starheart':
+            disc(0, 0, 3.6, '#1a1a26', 0.8); disc(0, 0, 2.6, '#22243a', 0.6);
+            lift(add('voidcrystal', 0, 0, { crystal: '#8ac8ff' }, seed % 5, 1.5), Math.sin(R.time * 1.2) * 0.12);
+            for (let i = 0; i < 5; i++) add('rock', Math.cos(i * 1.25) * 3, Math.sin(i * 1.25) * 2.6, null, i, 0.4);
+            light(0, 0, 7, 1.2 + Math.sin(R.time * 1.7) * 0.2, K.col, 0.8); break;
+          case 'silverpool':
+            disc(0, 0, 2.2, night ? '#cfe4ff' : '#6a8a9a', night ? 0.7 : 0.6); disc(0, 0, 1.5, night ? '#f0f6ff' : '#7a9aaa', night ? 0.6 : 0.5);
+            for (let i = 0; i < 4; i++) { const a = i * 1.57 + 0.785; add('pillar_lo', Math.cos(a) * 2.6, Math.sin(a) * 2.6, { stone: '#d8dce4' }, a, 0.55); }
+            add('reeds', -2.1, 0.4, null, 0, 1); add('reeds', 1.9, -0.6, null, 1, 1);
+            if (night) light(0, 0, 6, h.blessed ? 0.5 : 1.1, K.col, 0.4); break;
+          case 'eldertree':
+            add('oak', 0, 0, null, seed % 6, 2.7); add('shrooms', 1.6, 1.2, null, 0, 1.2); add('shrooms', -1.4, 1.6, null, 1, 1); add('bush', 2.2, -1.2, null, 2, 1);
+            if (!night) light(0, 0, 6, h.blessed ? 0.4 : 0.9, K.col, 2.4); break;
+        }
+        if (K.type === 'guard' && !h.taken) { add('chest', 0, 1.6, { metal: K.col }, 0, 1); }
       }
       if (world.rift && near(world.rift.x, world.rift.y)) {
         R.rift = R.addStatic(g, 'rift', world.rift.x + 0.5, world.rift.y + 0.5, { rune: '#c8a8ff' }, 0, 1.2);
@@ -3895,7 +3959,7 @@
       }
     },
     updateGlows(game) {
-      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : [], ECHO.Jobs ? ECHO.Jobs.glows : [], ECHO.Secrets ? ECHO.Secrets.glows : [], ECHO.Town ? ECHO.Town.glows : []);
+      const list = (ECHO.Marvels ? ECHO.Marvels.glows : []).concat(ECHO.Fest ? ECHO.Fest.glows : [], ECHO.Quests ? ECHO.Quests.glows : [], ECHO.Patrol ? ECHO.Patrol.glows : [], ECHO.Finds ? ECHO.Finds.glows : [], ECHO.Purpose ? ECHO.Purpose.glows : [], ECHO.Progress ? ECHO.Progress.glows : [], ECHO.Jobs ? ECHO.Jobs.glows : [], ECHO.Secrets ? ECHO.Secrets.glows : [], ECHO.Town ? ECHO.Town.glows : [], ECHO.Hidden ? ECHO.Hidden.glows : []);
       const ga = R.glows.geometry.attributes;
       const n = Math.min(list.length, ga.size.count);
       const tmp = R._gc || (R._gc = new THREE.Color());

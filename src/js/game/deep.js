@@ -221,6 +221,7 @@
       if (ECHO.Arcana) { ECHO.Arcana.drop(game, x + 0.9, y, lvl + 2, { boost: 30 + depth * 4, floor: depth >= 24 ? 'legendary' : depth >= 9 ? 'epic' : 'rare', where }); out.push('a relic (on the floor)'); }
       ECHO.Monsters.dropGear(game, x, y, lvl + 2, 30 + depth * 4, where); out.push('a piece of gear (on the floor)');
       if (depth >= 9) { ECHO.Monsters.dropGear(game, x - 0.9, y, lvl + 2, 40 + depth * 4, where); out.push('another, finer still'); }
+      if (ECHO.Hidden) { const m = ECHO.Hidden.giveMap(game, game.pe.x, game.pe.y, 'in the Warden\'s hoard', true); if (m) out.push('a treasure map to a hidden place'); if (Math.random() < 0.5) { pl.inv.vaultkey = (pl.inv.vaultkey || 0) + 1; out.push('a vault key of old bronze'); } }
       if (ECHO.Well && depth >= 4) { const add = ECHO.Well.core(game, { x: game.pe.x, y: game.pe.y, big: depth >= 14, evo: 1 + Math.min(5, Math.floor(depth / 10)), lv: lvl }); out.push(`a deep-core: your mana +${add} for good`); }
       ECHO.Sfx.play('coin'); if (ECHO.Music) ECHO.Music.stinger('star');
       UI().modal({ title: `The Warden's hoard · floor ${depth + 1}`, html: `<ul>${out.map(g => `<li>${esc(g)}</li>`).join('')}</ul><p class="dim">The stair goes on down.</p>`, choices: [{ label: 'Take it all', onPick: () => {} }] });

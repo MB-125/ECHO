@@ -11,7 +11,7 @@
     // Today's bounties at a town (the same all day).
     forTown(world, s) {
       const rng = new ECHO.RNG(ECHO.hashStr(s.id + ':' + world.day + ':' + world.seed));
-      const near = ECHO.Explore.sites(world).filter(x => x.cat === 'delve' && x.kind !== 'riftdeep' && x.kind !== 'abyss').sort((a, b) => U.dist(a.x, a.y, s.x, s.y) - U.dist(b.x, b.y, s.x, s.y)).slice(0, 6);
+      const near = ECHO.Explore.sites(world).filter(x => x.cat === 'delve' && x.kind !== 'riftdeep' && x.kind !== 'abyss' && !x.hidden).sort((a, b) => U.dist(a.x, a.y, s.x, s.y) - U.dist(b.x, b.y, s.x, s.y)).slice(0, 6);
       const kinds = [...new Set(near.flatMap(x => ((ECHO.Explore.DELVES[x.kind] || {}).roster || []).map(r => r[0])))].filter(k => k !== 'wolf' && k !== 'brigand' && k !== 'wight');
       const lvl = near.length ? Math.round(near.reduce((a, x) => a + ECHO.Explore.level(world, x), 0) / near.length) : 2;
       const out = [];

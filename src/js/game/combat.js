@@ -502,6 +502,7 @@
       const region = ECHO.World.regionAt(world, target.x, target.y);
       if (target.marvel) { ECHO.Marvels.onKill(target, from); return; }
       if (target.event && ECHO.Events && target.type !== 'boss') ECHO.Events.onKill(target, from);
+      if (target.hiddenOf && ECHO.Hidden) ECHO.Hidden.onKill(target, from);   // (what kept a hidden place: hidden.js)
       if (target.humanoid) { C.burst(target.x, target.y, target.foe && (target.foe.look === 'wight' || target.foe.look === 'king') ? '#9fe8c8' : '#7a1d24', 12, 3, 0.6, 2); ECHO.Quests.onKill(target, from); return; }
       if (target.questId || target.delve) ECHO.Quests.onKill(target, from);
       if (target.fauna || target.species === 'fox') {

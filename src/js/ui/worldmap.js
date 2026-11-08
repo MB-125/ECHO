@@ -345,6 +345,18 @@
       }
       // what has got out of them, while the Guard runs it down
       if (ECHO.GuardWork && world.gates) for (const b of ECHO.GuardWork.openBreaches(world)) add({ layer: 'gates', kind: 'lair', x: b.x, y: b.y, name: `${ECHO.GuardWork.aBeast(b.kind, true)} out of ${b.gateName}`, color: '#ff4a3a', pri: 10, ref: b, sub: `Level ${b.lv} · loose since day ${b.day} · the National Guard is hunting it`, diff: me < ECHO.Gates.MIN ? 'Far beyond you: keep clear' : 'Run it down' });
+      // the hidden places you have found (those that go down show with the dungeons), the rings your
+      // treasure maps draw, and — once your Atlas has earned it — rumours of the ones still hidden
+      if (ECHO.Hidden && world.hidden) {
+        const HK = ECHO.Hidden.KINDS, rum = ECHO.Atlas && ECHO.Atlas.rumours(pl);
+        for (const h of world.hidden.list) {
+          if (h.site) continue;
+          const K = HK[h.kind];
+          if (h.found || all) add({ layer: 'wonders', kind: 'wonder', x: h.x, y: h.y, name: h.name, color: K.col, pri: 6, ref: h, sub: `${K.label} · ${K.type === 'guard' ? (h.taken ? 'its hoard taken' : h.cleared ? 'its hoard waits' : 'guarded by ' + K.champName) : (h.blessed ? 'it has given you its gift' : K.when === 'night' ? 'gives by moonlight, once' : 'gives by daylight, once')}` });
+          else if (rum && h.sensed == null && Math.abs(h.x - pl.x) < 90 && Math.abs(h.y - pl.y) < 90) add({ layer: 'wonders', kind: 'echo', x: h.x + ((ECHO.hashStr(h.id) % 11) - 5), y: h.y + ((ECHO.hashStr(h.id + 'y') % 11) - 5), name: 'Rumoured: something hidden', color: '#d8c8a0', pri: 2, sub: 'Somewhere about here, the archive says' });
+        }
+        for (const m of (pl.hmaps || [])) add({ layer: 'quests', kind: 'mark', x: m.x, y: m.y, name: 'Treasure map: ' + HK[m.kind].label.toLowerCase(), color: '#ffe08a', pri: 9, ref: m, sub: `Somewhere in the ring: ${m.hint}` });
+      }
       const wst = world.wonders;
       if (wst) {
         for (const e of wst.echoes || []) if ((e.revealed || all) && !e.found) add({ layer: 'wonders', kind: 'echo', x: e.x, y: e.y, name: 'An echo of the old world', color: '#bfe8ff', pri: 5, sub: 'Shown to you by the wisps' });
@@ -843,6 +855,8 @@
         g.strokeStyle = 'rgba(30,40,24,0.7)'; g.lineWidth = 1.5; g.setLineDash([4, 4]); g.beginPath(); g.arc(p.x, p.y, rr * 0.92, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
         if (V.z >= 1.2) (WM._later = WM._later || []).push({ text: U.cap(w.name), x: p.x, y: p.y + rr * 0.98, font: `italic bold ${Math.round(U.clamp(V.z * 3.6, 12, 20))}px "Cormorant Garamond", Georgia, serif`, fill: '#b8e09a', stroke: 'rgba(14,20,12,0.85)', pri: 2 });
       }
+      // the rings your treasure maps draw
+      for (const m of (pl.hmaps || [])) { const p = WM.toScreen(c, m.x, m.y), q = WM.toScreen(c, m.x + m.r, m.y), rr = Math.max(10, q.hidden || p.hidden ? 0 : Math.hypot(q.x - p.x, q.y - p.y)); if (p.hidden || p.x < -rr || p.y < -rr || p.x > c.width + rr || p.y > c.height + rr) continue; g.strokeStyle = 'rgba(255,224,138,0.8)'; g.lineWidth = 2; g.setLineDash([5, 4]); g.beginPath(); g.arc(p.x, p.y, rr, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }
       // the gates' menace
       if (world.gates && !globe) for (const gt of world.gates.list) { const p = WM.toScreen(c, gt.x, gt.y); g.strokeStyle = 'rgba(200,40,40,0.55)'; g.lineWidth = 1.5; g.setLineDash([5, 4]); g.beginPath(); g.arc(p.x, p.y, ECHO.Gates.R_HURT * V.z, 0, Math.PI * 2); g.stroke(); g.setLineDash([]); }
       // the unwalked, as parchment with soft edges (unless the whole map is shown)

@@ -571,6 +571,7 @@
       if (L0 && L0.chest && ECHO.Arcana) { ECHO.Arcana.drop(game, ECHO.Interior.BASE + L0.chest.x + 0.9, L0.chest.y + 1.2, lv + 1, { boost: 18 + lv * 3, floor: 'rare', where: `at the bottom of ${site.name}` }); out.push('a relic'); }
       if (L0 && L0.chest) { ECHO.Monsters.dropGear(game, ECHO.Interior.BASE + L0.chest.x, L0.chest.y + 1.2, lv + 1, 14 + lv * 3, `at the bottom of ${site.name}`); out.push('a piece of gear, left on the floor beside the chest — take it (E)'); }
       if (lv >= 3 && D) { const extra = Math.round(lv * 25 * r()); pl.gold += extra; if (extra) out.push(`${extra} more crowns, hidden under the lining`); }
+      if (site.hidden && ECHO.Hidden) ECHO.Hidden.chest(game, site, out, lv);   // (a hidden place's own treasure: hidden.js)
       return out;
     },
 
@@ -843,6 +844,7 @@
         if (d > 2.6) continue;
         if (s.cat === 'delve' && s.kind === 'riftdeep' && !(world.story && world.story.ch === 5 && !world.story.kingSlain)) continue;
         if (s.kind === 'abyss' && ECHO.Deep) { const bs = ECHO.Deep.st(game.pl).best; out.push({ kind: 'act', label: `Go down into the Endless Deep — floor 1 Lv ${X().floorLevel(s, 0)} · no bottom${bs ? ` · your deepest: floor ${bs}` : ''}`, d: d * 0.5, act: () => ECHO.Deep.chooseFloor(game, s) }); continue; }
+        if (s.sealed && ECHO.Hidden) { const k = game.pl.inv.vaultkey || 0; out.push({ kind: 'act', label: k > 0 ? `Unseal ${s.name} with a vault key (you have ${k})` : `${U.cap(s.name)} is sealed — it takes a vault key`, d: d * 0.5, act: () => ECHO.Hidden.unseal(game, s) }); continue; }
         if (s.cat === 'delve') { X().refill(world, s); const fl = X().floors(s); out.push({ kind: 'act', label: `${s.secret ? 'Explore' : 'Enter'} ${s.name} — ${X().stars(s.level ? s : (X().level(world, s), s))}${fl > 1 ? ' · ' + fl + ' floors' : ''}${s.cleared ? (s.clearedBy ? ` (emptied by ${s.clearedBy} — quiet for now)` : ' (quiet now)') : ''}`, d: d * 0.5, act: () => Q.chooseFloor(game, s) }); }
         else {
           const label = { stones: 'Read the standing stones', lookout: 'Look out over the land', moonwell: 'Drink from the moonwell', oak: 'Rest beneath the great oak', battlefield: 'Search the battlefield', wayshrine: 'Pray at the wayside shrine', wreck: 'Search the wreck',

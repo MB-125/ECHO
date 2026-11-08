@@ -224,6 +224,7 @@
         const L = ECHO.Explore.level(game.world, s), D = Pw().diff(L, Pw().level(pl)), fl = ECHO.Explore.floors(s);
         out.push({ x: s.x, y: s.y - (s.secret ? 1.6 : 0), text: `▼ ${U.cap(s.name)} · ${s.cleared ? 'cleared ✓' : ECHO.Explore.stars(s)}${s.kind === 'abyss' ? ' · no bottom' : fl > 1 ? ` · ${fl} floors` : ''}${s.life && s.life.state !== 'dormant' && ECHO.DungeonLife ? ' · ' + ECHO.DungeonLife.STATES[s.life.state].name : ''}`, color: s.cleared ? '#9a9080' : D.color, a: U.clamp(1.3 - d / 32, 0.45, 1) });
       }
+      if (ECHO.Hidden) for (const o of ECHO.Hidden.labels(game)) out.push(o);   // (hidden places you have found)
       // the gates, named from far off — and how they stand with you
       const G = ECHO.Gates;
       if (G && game.world.gates) for (const g of game.world.gates.list) {

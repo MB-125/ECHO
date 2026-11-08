@@ -37,7 +37,7 @@
         drawTime: 0.75 * (1 - pl.skills.archery / 250),
         flameDmg: 19 * (ECHO.Prowess ? ECHO.Prowess.gearScale(ECHO.Prowess.level(pl)) : 1) * (0.8 + pl.skills.flame / 55) * (1 + 0.45 * reck) * (pl.spells.includes('starfire') ? 1.25 : 1) * lvM * WC.flame,
         flameInstab: pl.spells.includes('starfire') ? 0 : reck * 0.2,
-        speed: 4.3 * (1 + pl.skills.endurance / 260) * (charm('swiftness') ? 1.08 : 1),
+        speed: 4.3 * (1 + pl.skills.endurance / 260) * (charm('swiftness') ? 1.08 : 1) * (ECHO.Atlas ? ECHO.Atlas.speedMul(pl) : 1),
         maxHp: vigor + 100 + pl.skills.endurance * 0.6 + pl.skills.ward * 0.4 + ((pl.boons && pl.boons.hp) || 0) + (charm('health') ? 20 : 0) - (charm('hindcurse') ? 20 : 0) + (pl.armor && game.world.items[pl.armor] && game.world.items[pl.armor].affix === 'vigor' ? 25 : 0) + (ECHO.Prowess ? ECHO.Prowess.hpBonus(pl) : 0),
         maxSta: 100 + pl.skills.endurance * 0.8 + ((pl.boons && pl.boons.sta) || 0) + (ECHO.Prowess ? ECHO.Prowess.staBonus(pl) : 0),
         maxMana: 60 + pl.skills.flame * 1.2 + ((pl.boons && pl.boons.mana) || 0) + (ECHO.Arcana ? ECHO.Arcana.bonus(pl) : 0) + (ECHO.Well ? ECHO.Well.bonus(pl) : 0),
@@ -46,6 +46,7 @@
       if (ECHO.Arcana) ECHO.Arcana.applyDerived(game, PC.derived);
       if (ECHO.ManaWear) PC.derived.maxMana = ECHO.ManaWear.maxMana(pl, PC.derived.maxMana);   // (a mana amulet)
       if (ECHO.Lore) PC.derived.maxHp = Math.round(PC.derived.maxHp * ECHO.Lore.lifeMul(pl));
+      if (ECHO.Atlas) { PC.derived.maxHp = Math.round(PC.derived.maxHp * ECHO.Atlas.lifeMul(pl)); PC.derived.maxMana = Math.round(PC.derived.maxMana * ECHO.Atlas.manaMul(pl)); }   // (the Atlas, and what the hidden places gave: hidden.js)
       pl.maxHp = PC.derived.maxHp; pl.maxSta = PC.derived.maxSta; pl.maxMana = PC.derived.maxMana;
       pl.hp = Math.min(pl.hp, pl.maxHp);
     },

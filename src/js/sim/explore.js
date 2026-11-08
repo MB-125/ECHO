@@ -192,6 +192,7 @@
       const def = DELVES[site.kind] || {};
       if (site.kind === 'riftdeep') return def.floors || 2;
       if (site.kind === 'abyss' && ECHO.Deep) return ECHO.Deep.floors(site);
+      if (def.hiddenFloors) return def.hiddenFloors;   // (a hidden place, laid down whole: hidden.js)
       const L = site.level || 1;
       const more = Math.min(3, Math.floor((site.grow || 0) / 25));   // (grown, untended: more floors)
       const life = ECHO.DungeonLife ? ECHO.DungeonLife.floorsDelta(site) : 0;   // (an awakened one opens deeper; a collapse seals some)
