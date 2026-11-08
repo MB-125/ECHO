@@ -16,6 +16,8 @@ ECHO is a desktop RPG built around one idea: **consequence**. You begin as an or
 
 Every system below is real and connected to the others. Nothing is scripted.
 
+**Pages, simplified**: every page shows the least you need and the rest a click away. The journal has six pages (Goals, Around you, People, Beasts, You, Help) with their few parts beneath; the character page has five parts; long notes show a line, long cards a title, a line and their buttons, long lists and tables their first six, long pages their first two parts with the rest folded; and Esc → Gameplay → Pages → "Everything at once" brings back every detail.
+
 **The map, cleared**: clicks land exactly where you click at any Interface size; a click on open ground drops a pin there (right-click: pin and go); from high up only what matters most is shown, nothing piles on anything else, and the rest appears as you come closer.
 
 **Legendary gear is tempered in battle**: every blow a legendary weapon or bow lands, and every blow legendary armour takes for you, tempers it (harder foes count more, kills five times over). Each temper level makes it 3% stronger than it was made, with no last level, and grows its durability: a tempered blade holds better in your guard, tempered armour shrugs off a share of every blow. Gear you already have starts at level 0.

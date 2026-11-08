@@ -7,6 +7,15 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.33.0', items: [
+      'Every page is simpler: it shows the least you need to understand it, and the rest is one click away. Nothing has been taken out.',
+      'The journal has six pages instead of twenty: Goals, Around you, People, Beasts, You and Help. The few parts of the page you are on sit in a small row beneath it, and a red badge shows unread letters and the beasts you have.',
+      'Your character page (K) comes in five parts: You (your level and what you wear), Gear, Skills, Progress and Companions. A part with nothing in it yet has no tab.',
+      'Long notes show their first line; click one to read it all. Long cards show their title, their first line and their buttons, with "More ▾" for the rest. Long lists and tables show their first six, with "Show N more".',
+      'Long pages of many parts (the Guide, the help, the bestiary) keep their first two parts open and fold the rest under their headings; click a heading to open it. "How the world works" is now a list of topics, one line each.',
+      'A row of many tabs (a town\'s notice board, say) shows the first few and the one you are on, with "More ▾" for the rest.',
+      'Whatever you open stays open while you play. If you would rather see everything at once, as before: Esc → Gameplay → Pages → "Everything at once".'
+    ] },
     { v: '0.32.1', items: [
       'The map is accurate under your pointer at every Interface size. With the interface set larger or smaller, a click used to land in the wrong place (sometimes a hundred leagues off); now it lands exactly where you click.',
       'Click anywhere on open ground to drop a pin exactly there. Right-click to drop a pin and be guided to it at once. Your pins stay on the map (the last twelve) until you take them up with Remove pin, and they show on the minimap too.',

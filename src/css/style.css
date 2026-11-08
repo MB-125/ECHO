@@ -645,3 +645,31 @@ table.ledger th:first-child, table.ledger td:first-child { text-align: left; }
 .wmap.holo .card.idle.mini { padding: 8px 10px; }
 .wmap.holo .card.idle.mini p { margin: 0; font-size: 12px; line-height: 1.45; opacity: 0.85; }
 .wmap-layers.hidden { display: none; }
+/* Tidy (tidy.js): the least you need, and the rest a click away */
+.tidy-x { display: none !important; }
+.tabs.tidy-open .tidy-x { display: inline-block !important; }
+.tidy-tabmore { opacity: 0.75; font-size: 12px; }
+.tidy-clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; line-clamp: 1; overflow: hidden; cursor: pointer; }
+.tidy-clamp:hover { opacity: 0.9; }
+.tidy-clamp.open { display: block; -webkit-line-clamp: unset; line-clamp: unset; cursor: default; }
+.tidy-clamp2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.tidy-open .tidy-clamp2 { display: block; -webkit-line-clamp: unset; line-clamp: unset; }
+.tidy-hide { display: none !important; }
+button.tidy-more { display: inline-block; background: none; border: none; padding: 2px 0; margin: 2px 0; font-size: 12px; color: var(--gold, #e8c86a); opacity: 0.85; cursor: pointer; box-shadow: none; }
+button.tidy-more:hover { opacity: 1; text-decoration: underline; }
+button.tidy-more.tidy-list { display: block; margin: 6px auto; }
+/* the journal: six pages, and the few of the one you are on */
+.tabs.jgroups { margin-bottom: 6px; }
+.tabs.jgroups button { font-size: 15px; padding: 7px 14px; }
+.tabs.jsub { margin: 0 0 12px; gap: 4px; }
+.tabs.jsub button { font-size: 12px; padding: 3px 10px; opacity: 0.8; background: transparent; }
+.tabs.jsub button.on { opacity: 1; }
+.jbadge { display: inline-block; min-width: 16px; padding: 0 4px; margin-left: 4px; border-radius: 8px; background: #8a3a2a; color: #fff; font-size: 11px; line-height: 16px; text-align: center; }
+/* the character page, a part at a time */
+.tabs.csec button { font-size: 14px; padding: 6px 14px; }
+.prose.guide-how { white-space: normal; }
+.prose.guide-how p { margin: 0 0 8px; }
+h3.tidy-fold { cursor: pointer; user-select: none; }
+h3.tidy-fold::before { content: '▸ '; opacity: 0.7; }
+h3.tidy-fold.open::before { content: '▾ '; }
+h3.tidy-fold:hover { filter: brightness(1.15); }
