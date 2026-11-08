@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
 
 function loadEcho() {
@@ -2294,6 +2294,133 @@ function main() {
     // and it keeps
     const back = JSON.parse(JSON.stringify({ s: O.settlements, t: O.townStyle }));
     check('a town\'s way keeps in a save', back.s.every(s => s.style) && back.t && back.t.v === TS.V);
+  }
+
+  console.log('\nA world that reacts: loose things');
+  {
+    const E = ECHO, Lo = E.Loose, U = E.U, T = E.TILE, Gd = E.Ground;
+    const W = E.generateWorld({ seed: 4321, name: 'Looseland' });
+    check('a save from before has none of it: nothing is kept until something is broken', !W.loose && !JSON.parse(E.Save.serialize(W)).loose);
+    // where they lie: by the walls of the towns, never in a doorway, on open ground
+    let all = [], doorHit = 0, wallOk = 0;
+    for (const s of W.settlements) {
+      const sp = Lo.spots(W, s); all = all.concat(sp);
+      const doors = new Set(s.buildings.map(b => (b.y + b.h) * 100000 + b.x + Math.floor(b.w / 2)));
+      for (const p of sp.filter(q => q.town)) {
+        const tx = Math.floor(p.x), ty = Math.floor(p.y);
+        if (doors.has(ty * 100000 + tx)) doorHit++;
+        if (s.buildings.some(b => tx >= b.x - 1 && tx <= b.x + b.w && ty >= b.y - 1 && ty <= b.y + b.h)) wallOk++;
+      }
+    }
+    const kinds = new Set(all.map(p => p.k));
+    check('every town has its barrels, crates, pots and sacks, up against its walls — on open ground, never in a doorway', all.length >= W.settlements.length * 2 && kinds.size >= 3 && doorHit === 0 && wallOk === all.filter(q => q.town).length && all.every(p => !E.World.isSolid(W, p.x, p.y)) && new Set(all.map(p => p.key)).size === all.length, `${all.length} in ${W.settlements.length} towns: ${[...kinds].join(' ')}`);
+    Lo._spots = {};
+    check('…the same ones in the same places every time', W.settlements.every(s => JSON.stringify(Lo.spots(W, s).map(p => [p.key, p.k, p.x])) === JSON.stringify(all.filter(p => p.sid === s.id).map(p => [p.key, p.k, p.x]))));
+    let d0 = 0; while (E.TIME.dateOf(d0).seasonIdx !== 0) d0++;
+    let d2 = d0; while (E.TIME.dateOf(d2).seasonIdx !== 2) d2++;
+    const fieldsOf = day => { W.day = day; Lo._spots = {}; return W.settlements.reduce((n, s) => n + Lo.spots(W, s).filter(p => p.k === 'hay' || p.k === 'pumpkin').length, 0); };
+    const spring = fieldsOf(d0), autumn = fieldsOf(d2);
+    check('out in the fields: round bales and pumpkins in the autumn, none in the spring', spring === 0 && autumn > 0, `${autumn} in the autumn`);
+    // a little land to try them in: grass, a rock wall at x = 30, a river below y = 34 running east
+    const P = { W: 40, H: 40, seed: 3, day: 50, tiles: new Uint8Array(1600).fill(T.GRASS), blocked: new Uint8Array(1600), settlements: [], ruins: [], items: {} };
+    for (let y = 0; y < 40; y++) P.tiles[y * 40 + 30] = T.ROCK;
+    for (let y = 34; y < 40; y++) for (let x = 0; x < 30; x++) P.tiles[y * 40 + x] = T.DEEP;
+    const C0 = E.Combat, S0 = E.Sfx, Wt0 = E.Water, B0 = E.Boats, I0 = E.Interior, G0 = E.Game;
+    E.Combat = { fx: [], puff() {}, burst() {}, floater() {}, decal() {} }; E.Sfx = { play() {} }; E.Interior = { cur: null };
+    E.Water = { SURFACE: -0.2, kind: (w, x, y) => y >= 34 && x < 30 ? 'deep' : null, splash() {} }; E.Boats = { flow: () => ({ x: 1.2, y: 0 }) };
+    const pl = { gold: 0, inv: { arrows: 0 } }, pe = { id: 1, type: 'player', x: 5, y: 5, r: 0.35 };
+    const game = { world: P, pl, pe, ents: [pe], time: 0, light() {}, hostileTo: () => false };
+    E.Game = game; Lo.reset(P); Gd.fn = () => 0;
+    const put = (k, x, y, o) => { const p = Lo.make({ key: 'test:' + k + x + ',' + y, k, yaw: 0 }, x, y); Object.assign(p, o || {}); Lo.list.push(p); Lo.byKey.set(p.key, p); return p; };
+    const run = (sec, each) => { for (let t = 0; t < sec; t += 1 / 30) { if (each) each(); game.time += 1 / 30; Lo.bodies(game, 1 / 30); for (const e of game.ents) { e.x += e.pushx || 0; e.y += e.pushy || 0; e.pushx = e.pushy = 0; } for (let s = 0; s < 2; s++) for (const p of Lo.list) if ((p.awake || p.wet === 'deep') && !p.gone) Lo.step(game, p, 1 / 60); Lo.pairs(game); Lo.sweep(); } };
+    // walking into things
+    pe.x = 10; pe.y = 10; const pot = put('pot', 10.7, 10);
+    let top = 0; run(0.6, () => { pe.x += 4 / 30; top = Math.max(top, pot.vx); });
+    const walked = pe.x - 10;
+    const hay = put('hay', 10.9, 20); pe.x = 10; pe.y = 20; run(1, () => { pe.x += 4 / 30; });
+    const leaned = pe.x - 10;
+    check('walk into a pot and it skitters off ahead of you (you hardly feel it); lean on a hay bale and it hardly gives', top > 4 && walked > 2.2 && leaned < walked * 0.75 && hay.x - 10.9 < leaned, `pot to ${top.toFixed(1)}/s; you went ${walked.toFixed(2)} pushing the pot, ${leaned.toFixed(2)} pushing the bale`);
+    // over, and rolling: across its length it rolls on; along it, it slides and stops
+    Lo.clear(); const st = put('barrel', 5, 5);
+    Lo.shove(game, st, 4, 0, 0, pe); Lo.tip(st, 1, 0);
+    check('a barrel knocked hard goes over the way it was pushed (and lies with its length that way)', st.lie > 1.5 && Math.abs(Math.cos(st.yaw)) < 0.01);
+    Lo.clear(); const rA = put('barrel', 3, 3, { lie: Math.PI / 2, lieA: Math.PI / 2, yaw: 0 }), rB = put('barrel', 3, 8, { lie: Math.PI / 2, lieA: Math.PI / 2, yaw: Math.PI / 2 });
+    rA.vx = rB.vx = 3; Lo.wake(rA); Lo.wake(rB); run(5);
+    const dA = rA.x - 3, dB = rB.x - 3;
+    check('on its side a barrel rolls on across its length, but pushed along its length it only slides, and not far', dA > 4 && dB < 0.8 && dA > dB * 6, `${dA.toFixed(1)} leagues rolling, ${dB.toFixed(2)} sliding`);
+    // downhill
+    Lo.clear(); Gd.fn = (x, y) => -0.3 * x;
+    const stone = put('stone', 5, 12), crate = put('crate', 5, 16), lying = put('barrel', 5, 20, { lie: Math.PI / 2, lieA: Math.PI / 2, yaw: 0 });
+    Lo.wake(stone); Lo.wake(crate); Lo.wake(lying); run(2);
+    check('on a slope a stone or a barrel on its side rolls downhill, faster and faster; a crate stays where it is', stone.x - 5 > 2 && stone.vx > 1.5 && lying.x - 5 > 2 && Math.abs(crate.x - 5) < 0.01, `stone ${stone.vx.toFixed(1)}/s after 2 s`);
+    Gd.fn = () => 0;
+    // thrown: up, over, down, a bounce, settled
+    Lo.clear(); const c2 = put('crate', 5, 5); let zTop = 0, bounced = 0, lastVz = 0;
+    Lo.shove(game, c2, 3, 0, 4, pe); run(2.5, () => { zTop = Math.max(zTop, c2.z); if (lastVz < -1 && c2.vz > 0) bounced++; lastVz = c2.vz; });
+    const q = Math.PI / 2, onFace = Math.abs(c2.spin / q - Math.round(c2.spin / q)) < 0.02;
+    check('thrown up, a crate flies, turns over, lands, bounces and comes to rest on a face', zTop > 0.6 && bounced >= 1 && c2.z === 0 && !c2.awake && onFace && c2.x > 6, `up ${zTop.toFixed(2)}, ${bounced} bounce(s), ${c2.x - 5 > 0 ? (c2.x - 5).toFixed(1) : 0} leagues on, at ${(c2.spin / q).toFixed(2)} quarter-turns`);
+    // into a wall, and into each other
+    Lo.clear(); const s1 = put('stone', 28, 5); s1.vx = 5; Lo.wake(s1); let back = false; run(1, () => { if (s1.vx < 0) back = true; });
+    check('it knocks into a wall and comes back off it', back && s1.x < 29.75);
+    Lo.clear(); const sa = put('stone', 5, 5), sb = put('stone', 5.36, 5); sa.vx = 4; Lo.wake(sa); run(0.05);
+    check('…and into another thing, which takes most of its way on (they are the same weight)', sb.vx > 2 && sa.vx < 1.6 && sa.vx >= 0, `${sa.vx.toFixed(2)} / ${sb.vx.toFixed(2)}`);
+    // blows
+    Lo.clear(); W.loose = undefined;
+    const pt2 = put('pot', 5.8, 5), cr = put('crate', 5, 5.9), br = put('barrel', 4.2, 5);
+    pe.x = 5; pe.y = 5;
+    Lo.strike(pe, { angle: 0, arc: 1.5, range: 1.3, knock: 0.24 });
+    Lo.strike(pe, { angle: Math.PI / 2, arc: 1.2, range: 1.4, knock: 0.24 }); const cr1 = !cr.gone; run(0.1);
+    const cr2 = cr; pe.x = cr.x; pe.y = cr.y - 0.8; Lo.strike(pe, { angle: Math.PI / 2, arc: 1.2, range: 1.4, knock: 0.24 }); pe.x = 5; pe.y = 5;
+    Lo.strike(pe, { angle: Math.PI, arc: 1.2, range: 1.4, knock: 0.24 });
+    const tipped = br.lie > 1.5 && br.vx < -2; run(0.5);
+    const br2 = put('barrel', 4.2, 9); pe.y = 9; Lo.strike(pe, { angle: Math.PI, arc: 1.2, range: 1.4, knock: 0.7, heavy: true });
+    let up = 0; run(1.5, () => { up = Math.max(up, br2.z); });
+    check('a blow breaks a pot at once, a crate at the second, and a barrel never: it goes over, and a heavy blow sends it flying', pt2.gone && cr1 && cr.gone && !br.gone && tipped && !br2.gone && up > 0.15 && br2.x < 2.2 && P.loose && P.loose.b[pt2.key] === P.day, `the barrel flew ${(4.2 - br2.x).toFixed(1)} leagues`);
+    // what is in them, for you
+    let gold = 0, n = 0; pl.gold = 0;
+    for (let i = 0; i < 300; i++) { const u = put('urn', 20, 20, { ruin: true, key: 'ruin:t:' + i }); Lo.smash(game, u, pe); }
+    gold = pl.gold; pl.gold = 0;
+    for (let i = 0; i < 300; i++) { const u = put('urn', 20, 20, { ruin: true, key: 'ruin:u:' + i }); Lo.smash(game, u, { type: 'creature' }); }
+    check('now and then there is something in an old urn — for you, not for whatever else breaks it', gold > 300 && pl.gold === 0, `${gold} crowns from 300 urns`);
+    // a blast
+    Lo.clear(); const b1 = put('barrel', 6, 10), b2 = put('crate', 3.8, 10.2), b3 = put('hay', 5, 11.8);
+    Lo.blast(5, 10, 1.3, { fire: true, by: pe });
+    check('a blast throws what is round it outward and up, knocks it over, and sets wood and straw alight', b1.vx > 2 && b1.vz > 1 && b2.vx < -1 && b3.vy > 0.5 && b1.lie > 1.5 && (b1.burnT > 0 || b2.burnT > 0 || b3.burnT > 0) && Lo.waves.length > 0);
+    Lo.clear(); const fz = put('hay', 10, 10); Lo.ignite(game, fz); const bt = fz.burnT;
+    for (let t = 0; t < bt + 1; t += 0.1) Lo.update.call(Lo, { world: P, pe: { x: 10, y: 10 }, pl, ents: [], time: t }, 0.1) || null;
+    check('…what burns, burns out', fz.gone && bt > 6, `${bt.toFixed(1)} s`);
+    // arrows
+    Lo.clear(); const tall = put('crate', 8, 8), low = put('pot', 8, 12);
+    const arrow = a => ({ x: a.x, y: a.y, angle: 0, from: { x: 3, y: a.y }, kind: 'arrow' });
+    check('an arrow stops in a crate or a barrel, and flies over a pot', Lo.projHit(arrow(tall)) === tall && Lo.projHit(arrow(low)) === null && tall.vx > 0);
+    // water
+    Lo.clear(); Lo.reset(P); Lo.world = P; const fl = put('barrel', 10, 33.6, { lie: Math.PI / 2, lieA: Math.PI / 2, yaw: Math.PI / 2 }), sk = put('stone', 14, 33.6);
+    fl.vy = sk.vy = 1.5; Lo.wake(fl); Lo.wake(sk);
+    const x0 = fl.x; run(4);
+    check('into the river: a barrel floats off down it with the current; a stone goes to the bottom, and is gone', fl.wet === 'deep' && !fl.gone && fl.x - x0 > 3 && sk.gone, `${(fl.x - x0).toFixed(1)} leagues downstream in 4 s`);
+    Lo.clear(); const wet = put('crate', 10, 33.9); Lo.ignite(game, wet); wet.vy = 3; Lo.wake(wet); run(1);
+    check('…and fire dies in the water', wet.wet === 'deep' && !(wet.burnT > 0));
+    // they come again
+    P.day = 50; P.loose = { b: { 'X:1,1': 48, 'X:2,2': 46 } };
+    check('what was broken is made again in a few days', Lo.broken(P, 'X:1,1') && !Lo.broken(P, 'X:2,2') && !Lo.broken(P, 'X:3,3'));
+    // the townsfolk mind their things
+    Lo.clear(); const towny = { id: 9, type: 'person', x: 12, y: 12 }; game.ents = [pe, towny]; game.time = 100;
+    const tp = put('pot', 11, 12, { town: true }); Lo.smash(game, tp, pe);
+    check('break a townsman\'s pot and he tells you what he thinks of it', !!towny.say && towny.sayT > 0, towny.say);
+    Lo.clear(); const tidy = put('barrel', 12, 12, { town: true }); tidy.x = 14; tidy.lie = tidy.lieA = Math.PI / 2; tidy.awake = false; tidy.restAt = 0; Lo.t = 100;
+    Lo.ensure({ world: P, pl, pe: { x: 12, y: 38 }, ents: [] });
+    check('…and what was knocked about in a town and left lying is put back by its owner while you are away', tidy.x === 12 && tidy.lie === 0 && !tidy.gone);
+    // near you, and only near you
+    Lo.reset(W); const home = W.settlements[0];
+    const g2 = { world: W, pl, pe: { id: 1, type: 'player', x: home.x, y: home.y, r: 0.35 }, ents: [], time: 0, light() {} };
+    E.Game = g2; Lo.update(g2, 0.05);
+    const near = Lo.list.length, far = Lo.list.every(p => U.dist(p.x, p.y, home.x, home.y) < 36);
+    g2.pe.x += 60; Lo.update(g2, 0.05); Lo.ensureT = 0; Lo.update(g2, 0.05);
+    check('they are there about you as you go, and put back where they belong behind you', near > 0 && far && Lo.list.every(p => U.dist(p.x, p.y, g2.pe.x, g2.pe.y) < 46), `${near} about ${home.name}`);
+    W.loose = P.loose; const W5 = E.Save.deserialize(E.Save.serialize(W));
+    check('what was broken keeps in a save, and nothing else of them is kept', W5.loose && W5.loose.b['X:1,1'] === 48 && !/"vx"/.test(JSON.stringify(W5.loose)));
+    Gd.fn = null; Lo.reset(null);
+    E.Combat = C0; E.Sfx = S0; E.Water = Wt0; E.Boats = B0; E.Interior = I0; E.Game = G0;
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

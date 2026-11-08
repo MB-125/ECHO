@@ -114,6 +114,8 @@
       R.detail(R.mat.prop, 0.12, 2.5, true);
       // plants: the same, but they move with the wind
       R.mat.foliage = R.detail(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0 }), 0.12, 2.5, true, true);
+      // the low plants: the same, and they part round you as you go through them
+      R.mat.foliageLow = R.detail(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0 }), 0.12, 2.5, true, true, true);
       // See-through versions for buildings that stand between the camera and the player.
       R.mat.propFade = R.mat.prop.clone(); R.mat.propFade.transparent = true; R.mat.propFade.opacity = 0.28; R.mat.propFade.depthWrite = false;
       R.mat.windowFade = R.mat.window.clone(); R.mat.windowFade.transparent = true; R.mat.windowFade.opacity = 0.28; R.mat.windowFade.depthWrite = false;
@@ -193,14 +195,63 @@
     // behind it; the shadows it casts stay whole
     cutU: null,
     FOLIAGE: new Set(['grass', 'crop', 'reeds', 'bush', 'pine', 'oak', 'willow', 'oakbare']),
-    detail(mat, k, scale, seeThrough, sway) {
+    LOWPLANT: new Set(['grass', 'crop', 'reeds', 'bush', 'thorns']),   // (what gives way round you as you walk through it)
+    PUSH_N: 16,
+    detail(mat, k, scale, seeThrough, sway, push) {
       if (!mat || mat.userData.detail) return mat;
       mat.userData.detail = true;
       const cut = seeThrough && (R.cutU = R.cutU || { uCutP: { value: new THREE.Vector3() }, uCutC: { value: new THREE.Vector3() }, uCutR: { value: 0 } });
       const wind = sway && (R.windU = R.windU || { uWT: { value: 0 }, uWS: { value: 1 } });
-      const key = 'detail' + k + ':' + scale + (cut ? ':cut' : '') + (wind ? ':sway' : '');
+      const pushU = push && (R.pushU = R.pushU || { uPush: { value: Array.from({ length: R.PUSH_N }, () => new THREE.Vector4(0, 0, 0, 0)) }, uPushC: { value: new THREE.Vector2() }, uPushR: { value: 0 } });
+      const key = 'detail' + k + ':' + scale + (cut ? ':cut' : '') + (wind ? ':sway' : '') + (pushU ? ':push' : '');
       mat.customProgramCacheKey = () => key;
       mat.onBeforeCompile = (sh) => {
+        if (pushU) {
+          // grass, crops, reeds and bushes give way round whatever walks (or rolls) through them,
+          // bending away from it from the root, the further the higher up the stalk; pressed
+          // down where you have just been, and rising again behind you
+          Object.assign(sh.uniforms, pushU);
+          sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>
+          uniform vec4 uPush[${R.PUSH_N}]; uniform vec2 uPushC; uniform float uPushR;`)
+            .replace('#include <begin_vertex>', `#include <begin_vertex>
+            {
+              vec4 pip = vec4(0.0, 0.0, 0.0, 1.0);
+              #ifdef USE_INSTANCING
+                pip = instanceMatrix * pip;
+              #endif
+              vec2 pb = (modelMatrix * pip).xz;
+              if (uPushR > 0.0 && distance(pb, uPushC) < uPushR) {
+                vec2 off = vec2(0.0); float fl = 0.0;
+                for (int i = 0; i < ${R.PUSH_N}; i++) {
+                  vec4 P = uPush[i];
+                  if (P.w <= 0.0) continue;
+                  vec2 d = pb - P.xy; float dl = length(d);
+                  if (dl >= P.z) continue;
+                  float f = 1.0 - smoothstep(P.z * 0.3, P.z, dl);
+                  off += (dl > 0.001 ? d / dl : vec2(0.7071)) * f * P.w;
+                  fl = max(fl, f * P.w);
+                }
+                if (fl > 0.0) {
+                  // leaning over from the root, the stalk as long as it was: a walker parts it
+                  // (to some 35 degrees), a blast lays it nearly flat
+                  float ln = length(off); if (ln > 1.8) { off *= 1.8 / ln; ln = 1.8; }
+                  float lr = ln * 0.75;
+                  float sc0 = 1.0;
+                  #ifdef USE_INSTANCING
+                    sc0 = max(1e-4, length(instanceMatrix[0].xyz));
+                  #endif
+                  float hp = max(0.0, transformed.y) * sc0;
+                  vec3 wo = vec3(off.x, 0.0, off.y) * (ln > 0.0 ? lr / ln : 0.0) * min(hp, 0.6);
+                  #ifdef USE_INSTANCING
+                    vec3 c0 = instanceMatrix[0].xyz, c1 = instanceMatrix[1].xyz, c2 = instanceMatrix[2].xyz;
+                    wo = vec3(dot(c0, wo), dot(c1, wo), dot(c2, wo)) / (sc0 * sc0);
+                  #endif
+                  transformed.y /= sqrt(1.0 + lr * lr);
+                  transformed += wo;
+                }
+              }
+            }`);
+        }
         if (wind) {
           // leaves and stalks lean with the wind: the higher up the plant, the further,
           // each one in its own rhythm, and harder in a storm
@@ -1174,7 +1225,7 @@
         for (const part of ['base', 'glow']) {
           const geo = baked[part];
           if (!geo) continue;
-          const im = new THREE.InstancedMesh(geo, part === 'glow' ? R.mat.glow : R.FOLIAGE.has(set.name) && R.mat.foliage ? R.mat.foliage : R.mat.prop, set.list.length);
+          const im = new THREE.InstancedMesh(geo, part === 'glow' ? R.mat.glow : R.LOWPLANT.has(set.name) && R.mat.foliageLow ? R.mat.foliageLow : R.FOLIAGE.has(set.name) && R.mat.foliage ? R.mat.foliage : R.mat.prop, set.list.length);
           set.list.forEach((it, i) => {
             q.setFromAxisAngle(up, it[3]);
             sv.setScalar(it[2]);
@@ -4732,6 +4783,8 @@
       R.updateEntities(game, dt);
       R.updateFx(game, dt);
       R.updateFell(game, dt, room);
+      R.updateLoose(game, dt, room);
+      R.updatePush(game, dt, room);
       R.updateAura(game, dt);
       R.updateGlows(game);
       R.updateTownFires(game, room);
@@ -4756,6 +4809,103 @@
       R.drawOverlay(game);
     },
 
+    // ---------------------------------------------------------------- loose things (game/loose.js)
+    // Each drawn where the game has it, turned as it lies: standing, gone over on its side and
+    // rolling across its length, tumbling through the air, settled on a face; afloat on the
+    // water and rocking with it, or going down.
+    updateLoose(game, dt, room) {
+      const L = ECHO.Loose, list = L && !room && !L.inside ? L.list : [];
+      const M = R._loose || (R._loose = new Map()), seen = R._looseSeen || (R._looseSeen = new Set());
+      seen.clear();
+      const Q = R._lq || (R._lq = { y: new THREE.Quaternion(), a: new THREE.Quaternion(), b: new THREE.Quaternion(), d: new THREE.Quaternion(), X: new THREE.Vector3(1, 0, 0), Y: new THREE.Vector3(0, 1, 0), Z: new THREE.Vector3(0, 0, 1), ax: new THREE.Vector3() });
+      const Wt = ECHO.Water, SURF = Wt ? Wt.SURFACE : -0.2;
+      for (const p of list) {
+        if (p.gone) continue;
+        let o = M.get(p);
+        if (!o) {
+          const K = p.K, baked = ECHO.Models.bake(K.model);
+          if (!baked || !baked.base) continue;
+          const g = new THREE.Group(), mesh = new THREE.Mesh(baked.base, R.mat.prop), sc = K.sc || 1;
+          if (!baked.base.boundingBox) baked.base.computeBoundingBox();
+          const bb = baked.base.boundingBox;
+          mesh.scale.setScalar(sc);
+          mesh.position.set(-(bb.min.x + bb.max.x) / 2 * sc, -(bb.min.y + bb.max.y) / 2 * sc, -(bb.min.z + bb.max.z) / 2 * sc);
+          mesh.castShadow = K.m >= 0.3; mesh.receiveShadow = true;
+          g.add(mesh); R.scene.add(g);
+          o = { g, q: new THREE.Quaternion().setFromAxisAngle(Q.Y, -(p.yaw || 0)), lx: p.x, ly: p.y, bob: Math.random() * 6.28 };
+          M.set(p, o);
+        }
+        seen.add(p);
+        const K = p.K;
+        // how high its middle stands off what it rests on, as it lies
+        let c;
+        if (K.shape === 'box') c = Math.abs(Math.cos(p.spin)) * K.ht / 2 + Math.abs(Math.sin(p.spin)) * (K.w || K.ht) / 2;
+        else if (K.shape === 'can' || K.shape === 'bale') { const tip = Math.sin(p.lieA), s = p.lie > 0.1 ? 0 : Math.abs(Math.sin(p.spin)); c = (K.ht / 2) * Math.cos(p.lieA) * (1 - s) + (K.rr || K.r) * Math.max(tip, s); }
+        else c = K.ht / 2;
+        // turned: yaw, then over (a tumble, or rolling on its side), then gone over on its side
+        if (K.shape === 'ball') {
+          const dx = p.x - o.lx, dy = p.y - o.ly, d = Math.hypot(dx, dy);
+          if (d > 1e-4 && d < 2) { Q.ax.set(dy / d, 0, -dx / d); Q.d.setFromAxisAngle(Q.ax, d / (K.rr || K.r) * (p.wet === 'deep' ? 0.15 : 1)); o.q.premultiply(Q.d); }
+          o.g.quaternion.copy(o.q);
+        } else {
+          Q.y.setFromAxisAngle(Q.Y, -p.yaw);
+          if (p.tax === 'x' && K.shape === 'box') Q.a.setFromAxisAngle(Q.X, p.spin); else Q.a.setFromAxisAngle(Q.Z, -p.spin);
+          Q.b.setFromAxisAngle(Q.X, p.lieA);
+          o.g.quaternion.copy(Q.y).multiply(Q.a).multiply(Q.b);
+          if (K.shape === 'heap' && p.vz === 0) { const sq = Math.min(0.25, Math.hypot(p.vx, p.vy) * 0.04); o.g.scale.set(1 + sq, 1 - sq, 1 + sq); }
+        }
+        o.lx = p.x; o.ly = p.y;
+        // where: on the ground (or the river bed), afloat, or sinking
+        const bed = R.standH(p.x, p.y);
+        let y;
+        if (p.wet && K.float > 0) {
+          o.bob += dt * 2.2;
+          const fy = SURF + (K.float - 0.5) * 2 * c + Math.sin(o.bob) * 0.025;
+          y = Math.max(bed + c, fy);
+          if (p.wet === 'deep') { o.g.rotateX(Math.sin(o.bob * 0.8) * 0.06); o.g.rotateZ(Math.cos(o.bob * 0.7) * 0.05); }
+        } else if (p.sinkT > 0) {
+          const k = Math.min(1, p.sinkT / 1.6);
+          y = U.lerp(SURF - c * 0.3, bed + c - 0.15, k * k);
+        } else y = (p.wet ? bed : R.groundH(p.x, p.y)) + c + Math.max(0, p.z);
+        o.g.position.set(p.x, y, p.y);
+      }
+      for (const [p, o] of M) if (!seen.has(p)) { R.scene.remove(o.g); M.delete(p); }
+    },
+    // what the grass and the low plants give way round this moment (the shader: detail())
+    updatePush(game, dt, room) {
+      const P = R.pushU;
+      if (!P) return;
+      const arr = P.uPush.value, pe = game.pe;
+      let n = 0;
+      const add = (x, y, r, k) => { if (n < arr.length && k > 0.03) arr[n++].set(x, y, r, Math.min(1.8, k)); };
+      if (room || !pe || pe.x >= 9000) { P.uPushR.value = 0; return; }
+      const high = (game.pl && game.pl.flying) || (pe.alt || 0) > 0.6 || pe.inBoat;
+      if (!high && !pe.swimming) add(pe.x, pe.y, pe.mounted ? 1.05 : 0.62, 1);
+      // a blast flattens it in a ring going outward
+      for (const w of (ECHO.Loose && ECHO.Loose.waves) || []) { const k = 1 - w.t / 0.9; if (k > 0) add(w.x, w.y, w.R * Math.min(1, 0.35 + w.t * 2.4), k * 1.8); }
+      // the way you came: pressed down behind you, and rising again
+      const tr = R._trail || (R._trail = []);
+      R._trailT = (R._trailT || 0) - dt;
+      if (R._trailT <= 0 && !high) {
+        R._trailT = 0.14;
+        const l = tr[tr.length - 1];
+        if (!l || Math.hypot(l.x - pe.x, l.y - pe.y) > 0.22) { tr.push({ x: pe.x, y: pe.y, t: R.time, r: pe.mounted ? 0.85 : 0.5 }); if (tr.length > 6) tr.shift(); }
+      }
+      for (let i = tr.length - 1; i >= 0; i--) { const a = R.time - tr[i].t; if (a < 1.7) add(tr[i].x, tr[i].y, tr[i].r, Math.pow(1 - a / 1.7, 1.5) * 0.8); }
+      // the others near you, and what is rolling through it
+      const near = R._pushNear || (R._pushNear = []);
+      near.length = 0;
+      for (const e of game.ents) {
+        if (e === pe || e.dead || e.hidden || e.ghost || e.burrowed || (e.alt || 0) > 0.6 || e.swimming) continue;
+        const d = Math.abs(e.x - pe.x) + Math.abs(e.y - pe.y);
+        if (d < 16) near.push({ e, d });
+      }
+      near.sort((a, b) => a.d - b.d);
+      for (let i = 0; i < near.length && i < 6; i++) { const e = near[i].e, r = (ECHO.Ent && ECHO.Ent.bodyR ? ECHO.Ent.bodyR(e) : e.r || 0.35); add(e.x, e.y, Math.min(2.2, r * 1.7) * (e.mounted ? 1.4 : 1), e.moving ? 0.9 : 0.6); }
+      if (ECHO.Loose && !ECHO.Loose.inside) for (const p of ECHO.Loose.list) if (!p.gone && !p.wet && p.z < 0.2 && Math.abs(p.x - pe.x) + Math.abs(p.y - pe.y) < 14) add(p.x, p.y, p.K.r * 1.6, 0.75);
+      for (let i = n; i < arr.length; i++) arr[i].w = 0;
+      P.uPushC.value.set(pe.x, pe.y); P.uPushR.value = 22;
+    },
     // A felled tree going over, a broken boulder crumbling: each as itself, for a moment, while
     // the land under it is built again with the stump (or the rubble) in its place.
     updateFell(game, dt, room) {

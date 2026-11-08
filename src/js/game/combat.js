@@ -163,6 +163,7 @@
         if (r.hp <= 0) continue;
         if (U.dist(att.x, att.y, r.x + 0.5, r.y + 0.5) < o.range + 0.8) C.hitRock(l, r, 60);
       }
+      if (ECHO.Loose && ECHO.Loose.list.length) ECHO.Loose.strike(att, o);   // (and whatever lies loose in its way: loose.js)
       return hits;
     },
     hitRock(lair, rock, dmg) {
@@ -217,6 +218,7 @@
         if (!e.dead && p.power > 0 && !e._inWater) { const wetMul = e === game.pe && game.pl.wetT > 0 ? 0.3 : 1; e.burn = Math.max(e.burn, 2 * p.power * wetMul); e.burnFrom = p.from; }
       }
       for (const l of game.world.lairs) for (const r of l.rocks) if (r.hp > 0 && U.dist(p.x, p.y, r.x + 0.5, r.y + 0.5) < R + 0.6) C.hitRock(l, r, 25);
+      if (ECHO.Loose) ECHO.Loose.blast(p.x, p.y, R, { fire: !steam, power: Math.max(0.5, p.power || 1), by: p.from });
       // a big enough fire sets wooden workplaces alight
       if (p.from === game.pe && R >= 1.3 && !ECHO.Interior.cur) for (const st of game.world.settlements) {
         if (Math.abs(st.x - p.x) > 30 || Math.abs(st.y - p.y) > 30) continue;
@@ -240,6 +242,12 @@
             break;
           }
           if (p.contest && ECHO.Fest.hitTarget(p)) { p.done = true; break; }
+          // a barrel, a crate, a bale in the way stops it (loose.js)
+          if (ECHO.Loose && ECHO.Loose.list.length && p.kind !== 'orb' && ECHO.Loose.projHit(p)) {
+            p.done = true;
+            if (p.kind === 'fire') C.explode(p); else if (p.from === game.pe && ECHO.Sfx) ECHO.Sfx.play('arrowHit', { vol: 0.4 });
+            break;
+          }
           for (const e of game.ents) {
             if (e === p.from || e.dead || e.hidden || e.ghost) continue;
             if (p.contest && e.type !== 'creature') continue; // contest arrows fly over the crowd

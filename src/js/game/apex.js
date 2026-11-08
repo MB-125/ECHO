@@ -327,6 +327,7 @@
     boom(g, e, x, y, r, op) {
       const el = ELEM[e.elem] || ELEM.earth;
       ECHO.Combat.ring(x, y, r, 'rgba(255,240,220,0.85)', 0.4);
+      if (ECHO.Loose) ECHO.Loose.blast(x, y, r, { fire: e.elem === 'fire', power: 1.5, by: e });
       for (let i = 0; i < 10 + r * 6; i++) { const a = Math.random() * 6.28, s = Math.random() * r; ECHO.Combat.fx.push({ kind: 'p', x: x + Math.cos(a) * s, y: y + Math.sin(a) * s, vx: Math.cos(a) * 2, vy: Math.sin(a) * 2, t: 0, life: 0.6, color: Math.random() < 0.6 ? el.col : '#ffffff', size: 3 }); }
       if (op.bolt) { A.pillar(x, y, '#dfeaff'); g.light(x, y, 8, 0.9, '#bfe0ff'); }
       if (op.fall) A.fall(x, y, el.col);

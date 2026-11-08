@@ -161,6 +161,7 @@
       ECHO.Ent.pathBudget = 3;   // (route plans allowed in the next frame)
       for (const e of Game.ents) if (!e.dead || (e.deathT || 0) < 0.5) ECHO.Ent.applyPush(world, e);
       ECHO.Combat.updateProjectiles(dt);
+      if (ECHO.Loose) ECHO.Loose.update(Game, dt);   // (barrels, crates, pots and the rest: loose.js)
       ECHO.Combat.updateBurning(dt);
       // Corpses fade
       for (const e of Game.ents) if (e.dead && !e.vanish) { e.deathT = (e.deathT || 0) + dt; if (e.deathT > 3) e.vanish = true; }

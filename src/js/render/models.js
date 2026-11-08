@@ -51,6 +51,56 @@
         }
         M.scenes.stump = g;
       }
+      // the loose things that lie about the towns, the fields and the ruins (game/loose.js);
+      // each stands on its base, its foot at 0, as tall as the game takes it to be
+      const lathe = (pts, m, seg = 12) => new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg), m);
+      if (!M.scenes.pot) {
+        const g = new THREE.Group(), clay = mat('clay', '#a85a32'), dark = mat('claydark', '#6a3018');
+        g.add(lathe([[0, 0], [0.085, 0], [0.125, 0.04], [0.15, 0.13], [0.14, 0.22], [0.095, 0.29], [0.075, 0.31], [0.088, 0.34], [0.07, 0.34], [0.055, 0.31]], clay));
+        const band = lathe([[0.151, 0.15], [0.153, 0.17], [0.148, 0.19]], dark); g.add(band);
+        const mouth = new THREE.Mesh(new THREE.CircleGeometry(0.062, 10), dark); mouth.rotation.x = -Math.PI / 2; mouth.position.y = 0.305; g.add(mouth);
+        M.scenes.pot = g;
+      }
+      if (!M.scenes.urn) {
+        const g = new THREE.Group(), clay = mat('urnclay', '#a8957a'), dark = mat('urnband', '#5a4a3a');
+        g.add(lathe([[0, 0], [0.07, 0], [0.1, 0.03], [0.16, 0.14], [0.18, 0.24], [0.14, 0.35], [0.075, 0.42], [0.062, 0.45], [0.088, 0.48], [0.07, 0.48], [0.05, 0.45]], clay, 14));
+        g.add(lathe([[0.176, 0.2], [0.181, 0.23], [0.176, 0.26]], dark, 14));
+        for (const s of [-1, 1]) { const h = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.012, 5, 10, Math.PI), dark); h.position.set(s * 0.1, 0.39, 0); h.rotation.set(0, 0, s * -Math.PI / 2); g.add(h); }
+        const mouth = new THREE.Mesh(new THREE.CircleGeometry(0.06, 10), mat('urnin', '#2a2018')); mouth.rotation.x = -Math.PI / 2; mouth.position.y = 0.455; g.add(mouth);
+        M.scenes.urn = g;
+      }
+      if (!M.scenes.sack) {
+        const g = new THREE.Group(), cloth = mat('sacking', '#b8a47a'), tw = mat('twine', '#6a5236');
+        const body = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 9), cloth); body.scale.set(1, 0.72, 0.9); body.position.y = 0.16; g.add(body);
+        const neck = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.12, 8), cloth); neck.position.y = 0.3; neck.rotation.x = Math.PI; g.add(neck);
+        const tie = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.025, 8), tw); tie.position.y = 0.3; g.add(tie);
+        const top = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.06, 8), cloth); top.position.y = 0.33; g.add(top);
+        M.scenes.sack = g;
+      }
+      if (!M.scenes.hay) {
+        const g = new THREE.Group(), hay = mat('hay', '#c8a850'), end = mat('hayend', '#a8883a'), tw = mat('haytwine', '#8a6a3a');
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.6, 18, 1, true), hay); body.position.y = 0.3; g.add(body);
+        for (const y of [0.002, 0.598]) { const e = new THREE.Mesh(new THREE.CircleGeometry(0.355, 18), end); e.rotation.x = y < 0.3 ? Math.PI / 2 : -Math.PI / 2; e.position.y = y; g.add(e); }
+        for (const y of [0.15, 0.3, 0.45]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.364, 0.364, 0.018, 18, 1, true), tw); b.position.y = y; g.add(b); }
+        M.scenes.hay = g;
+      }
+      if (!M.scenes.pumpkin) {
+        const g = new THREE.Group(), pk = mat('pumpkin', '#d8721e'), st = mat('stem', '#5a6a30');
+        const geo = new THREE.SphereGeometry(0.2, 16, 10), pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), a = Math.atan2(z, x), k = 1 + Math.cos(a * 8) * 0.06 * Math.sqrt(Math.max(0, 1 - (y / 0.2) * (y / 0.2))); pos.setXYZ(i, x * k, y * 0.75, z * k); }
+        geo.computeVertexNormals();
+        const body = new THREE.Mesh(geo, pk); body.position.y = 0.15; g.add(body);
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.026, 0.07, 6), st); stem.position.set(0.005, 0.32, 0); stem.rotation.z = 0.25; g.add(stem);
+        M.scenes.pumpkin = g;
+      }
+      if (!M.scenes.stone) {
+        const g = new THREE.Group(), sm = mat('looserock', '#8a847a');
+        const geo = new THREE.IcosahedronGeometry(0.15, 1), pos = geo.attributes.position;
+        for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i), k = 0.85 + (Math.sin(x * 37.1 + y * 11.3) * 0.5 + 0.5) * 0.25; pos.setXYZ(i, x * k, y * k * 0.85, z * k); }
+        geo.computeVertexNormals();
+        const s = new THREE.Mesh(geo, sm); s.position.y = 0.13; g.add(s);
+        M.scenes.stone = g;
+      }
     },
 
     // ---------------------------------------------------------------- baking

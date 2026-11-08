@@ -7,6 +7,17 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.34.0', items: [
+      'The world reacts to you. Barrels, crates and pots stand against the walls of the inns, the smithies and the houses; there are sacks at the mill and urns among the ruins, round bales in the fields once the hay is cut, pumpkins in the autumn, and loose stones on the hills. Every one of them can be moved.',
+      'Walk into a pot and it skitters away. Lean on a crate and it slides. A hay bale is heavier than you, so it hardly moves. A horse at the gallop sends them all flying. Each thing has its own weight.',
+      'A barrel stands until it is knocked hard enough, then falls over and rolls on its side, but only across its length, the way a real barrel rolls. Pumpkins and stones roll any way. Crates and sacks only slide, and not far. Anything that rolls goes down the slope it lies on.',
+      'Things thrown up fly and tumble, land and bounce, then settle: a crate on one of its faces, a barrel on its side or on its end. They knock into walls and into each other.',
+      'A blow sends a thing off according to how heavy the blow is and how heavy the thing is. A heavy blow lifts it. A fireball or a great beast\'s blast throws everything nearby outward and up. Arrows stop in a crate, a barrel or a bale, and fly over a pot.',
+      'Clay pots and urns break, and now and then there are a few crowns inside, more often in the old urns of the ruins. Crates break at the second blow, sometimes with arrows inside. Sacks burst and bales fly apart. The townsfolk tell you what they think of it. What is broken is replaced after a few days.',
+      'In a river, barrels, crates, bales and pumpkins float away with the current; pots, sacks and stones sink. On ice, everything slides. Wood, sacking and straw catch fire, the fire spreads to whatever stands beside them, and water puts it out.',
+      'Grass, crops, reeds and bushes now part around anyone who walks through them, and rise again behind you. A blast lays them flat in a ring.',
+      'Things that were only moved are put back while you are away. Only what was broken is kept in your save, so your saved game loads exactly as before.'
+    ] },
     { v: '0.33.0', items: [
       'Every page is simpler: it shows the least you need to understand it, and the rest is one click away. Nothing has been taken out.',
       'The journal has six pages instead of twenty: Goals, Around you, People, Beasts, You and Help. The few parts of the page you are on sit in a small row beneath it, and a red badge shows unread letters and the beasts you have.',

@@ -230,6 +230,7 @@
           f.done = true;
           const C = ECHO.Combat, R = f.r || 3;
           C.burst(f.x, f.y, '#ffb84a', 40, 6, 0.8, 3); C.burst(f.x, f.y, '#fff0c8', 20, 3, 0.6, 2); C.ring(f.x, f.y, R, 'rgba(255,184,74,0.9)', 0.5);
+          if (ECHO.Loose) ECHO.Loose.blast(f.x, f.y, R, { fire: true, power: 1.4, by: game.pe });
           C.puff(f.x, f.y, { h: 0.6, vz: 0.6, g: 0, life: 0.4, size: 26, color: '#ffc87a', glow: true, flash: true, grow: 1.8 });
           C.decal(f.x, f.y, 'scorch', R * 0.75, 16);
           game.shake(0.45); game.light(f.x, f.y, 9, 1, '#ffb84a', 0.35);
@@ -383,6 +384,7 @@
     frost(game, P, aim, it, plan, t) {
       const pe = game.pe, C = ECHO.Combat, R = 4 + t * 0.5, fr = 2 + t * 0.4;
       C.ring(pe.x, pe.y, R, 'rgba(190,240,255,0.95)', 0.5); C.ring(pe.x, pe.y, R * 0.66, 'rgba(255,255,255,0.8)', 0.35);
+      if (ECHO.Loose) ECHO.Loose.blast(pe.x, pe.y, R * 0.6, { power: 0.8, by: pe });
       C.burst(pe.x, pe.y, '#bfefff', 40 + t * 8, 6, 0.7, 3);
       for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2; C.puff(pe.x + Math.cos(a) * R * 0.6, pe.y + Math.sin(a) * R * 0.6, { h: 0.3, vz: 0.4, g: 0, life: 0.7, size: 7, color: '#e8f8ff', glow: true }); }
       for (const e of A.foes(game, pe.x, pe.y, R)) {

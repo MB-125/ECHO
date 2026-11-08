@@ -138,6 +138,20 @@
           S.noise(t, 0.08, 'bandpass', 1300 * r(0.15), 650, 1.6, 0.45 * v, 0.002);
           S.noise(t + 0.004, 0.035, 'highpass', 3400, 5200, 0.7, 0.14 * v, 0.001);
           break;
+        // loose things (loose.js): a wooden knock, a stone's click, clay going to pieces
+        case 'thud':
+          S.tone(t, 0.12, 'sine', 150 * p * r(0.1), 70, 0.45 * v, 0.003);
+          S.noise(t, 0.1, 'bandpass', 600 * p * r(0.15), 300, 1.4, 0.35 * v, 0.003);
+          break;
+        case 'knock':
+          S.tone(t, 0.06, 'triangle', 900 * p * r(0.1), 600, 0.25 * v, 0.001);
+          S.noise(t, 0.05, 'bandpass', 2200 * p * r(0.15), 1400, 2, 0.22 * v, 0.001);
+          break;
+        case 'shatter':
+          S.noise(t, 0.16, 'highpass', 2600, 5200, 0.8, 0.4 * v, 0.001);
+          for (let k = 0; k < 4; k++) S.tone(t + k * 0.025 + Math.random() * 0.02, 0.07, 'triangle', (1500 + Math.random() * 1600) * p, 900, 0.1 * v, 0.001);
+          S.tone(t, 0.08, 'sine', 260, 120, 0.25 * v, 0.002);
+          break;
         // a pick on stone: the ring of iron, the crack of the rock
         case 'pick':
           S.tone(t, 0.18, 'triangle', 1850 * p * r(0.06), 1720, 0.18 * v, 0.001);
