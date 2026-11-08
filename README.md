@@ -2,6 +2,9 @@
 
 > *A world that existed before you, continues without you, remembers what you do, and may never become the same world twice.*
 
+**▶ Play it in your browser: [mb-125.github.io/ECHO](https://mb-125.github.io/ECHO/)** — free, nothing to install (a computer with a keyboard and mouse, or a gamepad).
+Or [download it](https://github.com/MB-125/ECHO/releases/latest) for Windows, Mac or Linux. Found a problem? [Report it](https://github.com/MB-125/ECHO/issues/new/choose) (or press Esc → *Report a problem* in the game).
+
 ECHO is a desktop RPG built around one idea: **consequence**. You begin as an ordinary person in a world that is already alive — kingdoms, a religious order, outlaws, monsters, an economy and an ecosystem — and none of it waits for you.
 
 ![A town at morning, in 3D](docs/town.png)
@@ -311,15 +314,18 @@ On your first crossing a sandbar rises across the strait so you can walk over. T
 
 ## Play
 
-**Play in the browser:** `npm run build:web` produces one self-contained page at `dist/web/index.html`.
+**Play in the browser:** [mb-125.github.io/ECHO](https://mb-125.github.io/ECHO/) — always the newest version. (To build the page yourself: `npm run build:web` makes one self-contained page at `dist/web/index.html`.)
 
-**Download:** grab the latest installer from [Releases](https://github.com/MB-125/ECHO/releases), or the newest build from the [Actions](https://github.com/MB-125/ECHO/actions) tab (open a run → *Artifacts*).
+**Download:** the latest installers are on [Releases](https://github.com/MB-125/ECHO/releases/latest). The desktop app updates itself.
 
-| Platform | File |
-|---|---|
-| Windows | `ECHO Setup x.y.z.exe` (installer) or `ECHO x.y.z.exe` (portable) |
-| macOS | `ECHO-x.y.z.dmg` / `ECHO-x.y.z-arm64.dmg` — unsigned: right-click → *Open* the first time |
-| Linux | `ECHO-x.y.z.AppImage` (chmod +x) or `.deb` |
+| Your computer | File | The first time you open it |
+|---|---|---|
+| Windows | `ECHO.Setup.x.y.z.exe` (installer) or `ECHO.x.y.z.exe` (portable) | *"Windows protected your PC"*: click **More info**, then **Run anyway** |
+| Mac (Apple chip) | `ECHO-x.y.z-arm64.dmg` | drag to Applications; then **System Settings → Privacy & Security → Open Anyway** (older macOS: right-click → *Open*) |
+| Mac (Intel) | `ECHO-x.y.z.dmg` | the same |
+| Linux | `ECHO-x.y.z.AppImage` (make it executable) or `.deb` | — |
+
+The warnings are because the app isn't signed with a paid developer certificate yet. Phones and tablets aren't supported yet (there are no touch controls).
 
 **Bring your browser world to the desktop app:** on the browser version's title screen choose *Export world* (a `.echo.json` file is saved), then on the desktop app's title screen choose *Import world* and pick that file. The desktop app keeps each world as a file in your user data folder, with the previous save kept beside it as a `.bak`.
 

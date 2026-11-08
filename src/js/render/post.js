@@ -221,7 +221,9 @@
         // the effects go first; the resolution (which is what makes it look soft) last, and never below three quarters
         if (P.q && P.q.ao && !P.aoOff) { P.aoOff = true; P.cool = 3000; H.length = 0; }
         else if (P.bloom && !P.bloomOff) { P.bloomOff = true; P.bloom.enabled = false; P.cool = 3000; H.length = 0; }
-        else if (P.scale > P.minScale() + 0.01) { if (now - (P.lastUp || -1e9) < 20000) P.noUp = true; P.scale = Math.max(P.minScale(), Math.round((P.scale - 0.125) * 40) / 40); P.resize(); P.cool = 4000; H.length = 0; }   // (going up just made it too slow: stay put from now on)
+        else if (P.scale > P.minScale() + 0.01) { if (now - (P.lastUp || -1e9) < 20000) P.noUp = true; P.scale = Math.max(P.minScale(), Math.round((P.scale - 0.125) * 40) / 40); P.resize(); P.cool = 4000; H.length = 0; }
+        // and if that is still not enough, a step down in quality (when the player has not chosen it)
+        else if (med > 30 && P.R.autoLower && P.R.autoLower()) { P.cool = 6000; H.length = 0; }   // (going up just made it too slow: stay put from now on)
       } else if (P.scale < 1 && !P.noUp && (med < 11 || (med < 18 && Wk.slice().sort((a, b) => a - b)[Wk.length >> 1] < 6))) {
         // (on a 60 Hz screen frames never come faster than 16.7 ms: look at how busy we are instead)
         P.scale = Math.min(1, Math.round((P.scale + 0.1) * 20) / 20); P.resize(); P.cool = 10000; P.lastUp = now; H.length = 0; Wk.length = 0; }

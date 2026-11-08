@@ -1,0 +1,35 @@
+name: Report a problem
+description: Something in ECHO went wrong, or doesn't work the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time. A few lines are plenty. (Nothing from your saved world is sent anywhere.)
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      placeholder: "I hit a barrel with a heavy blow and the game froze for a second…"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What were you doing just before?
+      placeholder: "Fighting goblins outside a town, on horseback…"
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "0.36.1 (Esc → Report a problem fills this in)"
+  - type: input
+    id: system
+    attributes:
+      label: Where are you playing?
+      placeholder: "Browser (Chrome on Windows) / Windows app / Mac app / Linux app"
+  - type: textarea
+    id: error
+    attributes:
+      label: Error text, if the game showed one
+      render: text

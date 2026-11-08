@@ -7,6 +7,14 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.36.1', items: [
+      'Ready for everyone. Anyone can now play ECHO in their browser at mb-125.github.io/ECHO, with nothing to install.',
+      'Esc → Report a problem opens a short form on the game\'s page with your version and system already filled in (and the error text, if the game showed one). Nothing from your world is sent.',
+      'On a slow computer the graphics now step down by themselves (High → Medium → Low) once the picture has given up all it can, and the game tells you so. If you chose a quality yourself, it is left alone.',
+      'On a phone or tablet, the game now says at once that it needs a keyboard and mouse or a gamepad, instead of opening a game you can\'t control.',
+      'The Mac app opens properly now: allow it once in System Settings → Privacy & Security → Open Anyway. Every release page explains how to install the game on Windows, Mac and Linux.',
+      'Your saved game loads exactly as before.'
+    ] },
     { v: '0.36.0', items: [
       'Blows that throw. A blow now pushes according to how heavy it is and how heavy the body it hits is. A light blow pushes a foe back a step. A heavy blow lifts them off their feet: they fly, come down with a thump, slide, and take a moment to get up. A rat flies far, a troll barely moves, and a lair\'s great beast or a titan stands its ground.',
       'Off their feet, foes can do nothing until they land and get up again. Even you can be knocked about, but only the greatest blows lift you.',

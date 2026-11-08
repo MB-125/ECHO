@@ -289,13 +289,33 @@
     },
 
     // ------------------------------------------------------------ Pause
+    // A problem, reported in a few lines: the form on the game's page, with the version, where it
+    // is being played, and the last error (if any) filled in. Nothing of the world is sent.
+    reportUrl() {
+      const v = (ECHO.Updates && ECHO.Updates.build) || '';
+      const ua = navigator.userAgent || '', os = /Windows/.test(ua) ? 'Windows' : /Mac OS X|Macintosh/.test(ua) ? 'Mac' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Linux/.test(ua) ? 'Linux' : 'unknown';
+      const br = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'a browser';
+      const where = window.echoNative ? `${os} app` : `Browser (${br} on ${os})`;
+      const err = (ECHO.UI && ECHO.UI.lastErr) || '';
+      const q = new URLSearchParams({ template: 'bug_report.yml', version: v, system: where });
+      if (err) q.set('error', err.slice(0, 1500));
+      return 'https://github.com/MB-125/ECHO/issues/new?' + q.toString();
+    },
+    report() {
+      const url = Scr.reportUrl();
+      let ok = false;
+      try { const w = window.open(url, '_blank'); if (w) { try { w.opener = null; } catch (e) { /* fine */ } ok = true; } } catch (e) { ok = false; }   // (with 'noopener' the browser answers null even when it opened)
+      if (window.echoNative) ok = true;   // (the desktop app opens it in your browser)
+      if (ok) ECHO.UI.toast('A short form has opened in your browser. A few lines are plenty. Thank you!', 'info', 5);
+      else ECHO.UI.modal({ title: 'Report a problem', html: `<p class="prose">Open this page in your browser to tell us what went wrong (your version and system are filled in):</p><p class="prose" style="word-break:break-all;user-select:all">${url.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>`, choices: [{ label: 'Close' }] });
+    },
     openPause() {
       const UI = ECHO.UI;
       UI.pauseOpen = true;
       const body = UI.openPanel('Paused', `<div class="list" style="max-width:600px;margin:0 auto">
         <button data-a="resume" class="primary">Resume</button>
         <button data-a="journal">Journal (Tab)</button><button data-a="map">Map (M)</button><button data-a="char">Character (K)</button>
-        <button data-a="save">Save now</button><button data-a="keys">Keys…</button>
+        <button data-a="save">Save now</button><button data-a="keys">Keys…</button><button data-a="report" title="Opens a short form on the game's page (GitHub), with your version and system filled in">Report a problem</button>
         <div class="upd-slot"></div>
         ${(() => { const st = UI.settings, opt = (k, v, lbl, def) => `<button class="small" data-gs="${k}:${v}" ${(st[k] || def) === v ? 'disabled' : ''}>${lbl}</button>`;
           return `<div class="card"><h4>Gameplay</h4>
@@ -336,11 +356,12 @@
         if (a === 'char') UI.openCharacter();
         if (a === 'help') UI.openJournal('help');
         if (a === 'keys') { Scr.openKeys(); return; }
+        if (a === 'report') { Scr.report(); return; }
         if (a === 'save') { await ECHO.Game.save(); UI.toast('The world is saved.', 'info', 2); UI.closePanel(); }
         if (a === 'title') { await ECHO.Game.save(); UI.closePanel(); Scr.title(); }
         if (a === 'quit') { await ECHO.Game.save(); window.echoNative.closeNow(); }
       }));
-      body.querySelectorAll('button[data-q]').forEach(b => b.addEventListener('click', () => { UI.settings.quality = b.dataset.q; try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ } if (ECHO.Renderer.applyQuality) ECHO.Renderer.applyQuality(); Scr.openPause(); }));
+      body.querySelectorAll('button[data-q]').forEach(b => b.addEventListener('click', () => { UI.settings.quality = b.dataset.q; UI.settings.qualityChosen = true; UI.settings.qualityAuto = false; try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ } if (ECHO.Renderer.applyQuality) ECHO.Renderer.applyQuality(); Scr.openPause(); }));
       body.querySelectorAll('button[data-p]').forEach(b => b.addEventListener('click', () => { if (ECHO.Game.world) ECHO.Game.world.pace = b.dataset.p; Scr.openPause(); }));
       body.querySelectorAll('button[data-mu]').forEach(b => b.addEventListener('click', () => { ECHO.Music.setEnabled(b.dataset.mu === 'on'); Scr.openPause(); }));
       body.querySelectorAll('button[data-pd]').forEach(b => b.addEventListener('click', () => {

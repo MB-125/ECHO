@@ -7,6 +7,22 @@
     ECHO.Input.attach(canvas);
     ECHO.Sfx.init();
     ECHO.UI.init();
+    // On a phone or a tablet (a touch screen and nothing finer to point with) there is no way to
+    // play yet: say so at once, and let anyone with a keyboard after all carry on.
+    try {
+      const mq = q => window.matchMedia && window.matchMedia(q).matches;
+      const touchOnly = mq('(pointer: coarse)') && !mq('(any-pointer: fine)');
+      let ok = false; try { ok = localStorage.getItem('echo.touchOk') === '1'; } catch (e) { /* none */ }
+      if (touchOnly && !ok) {
+        await new Promise(resolve => {
+          const el = document.createElement('div');
+          el.className = 'screen';
+          el.innerHTML = '<div class="scr" style="max-width:560px;margin:12vh auto;text-align:center;padding:0 16px"><h1>ECHO</h1><p class="prose">ECHO is played with a keyboard and mouse, or with a gamepad. On a phone or tablet it can\'t be controlled yet.</p><p class="prose">Open this page on a computer to play. (Your world is kept in the browser you play it in.)</p><div class="row" style="justify-content:center;margin-top:14px"><button class="primary" data-go>I have a keyboard — carry on</button></div></div>';
+          document.body.appendChild(el);
+          el.querySelector('[data-go]').addEventListener('click', () => { try { localStorage.setItem('echo.touchOk', '1'); } catch (e) { /* none */ } el.remove(); resolve(); });
+        });
+      }
+    } catch (e) { console.error(e); }
     if (!(await ECHO.chooseRenderer())) {
       // no WebGL (or the models failed to load): ECHO is a 3D game and cannot run here
       const el = document.createElement('div');

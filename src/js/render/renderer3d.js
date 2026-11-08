@@ -488,6 +488,20 @@
     // laptop at 150% or a 4K monitor, is drawn at its own sharpness, not stretched)
     QUALITY: { low: { dpr: 1, chunk: 1, lights: 4, shadows: false, map: 512, shadowEvery: 1 }, medium: { dpr: 1.5, chunk: 2, lights: 6, shadows: true, map: 2048, shadowEvery: 2 }, high: { dpr: 2, chunk: 2, lights: 8, shadows: true, map: 4096, shadowEvery: 1 } },
     lightN: 8, chunkR: CHUNK_RADIUS,
+    // Still too slow with everything the picture can spare given up (the effects off, the picture
+    // drawn as small as it may be): one step down in quality, and a word to say so — only if the
+    // player never chose the quality themselves. (post.js: adapt)
+    autoLower() {
+      const UI = ECHO.UI, st = UI && UI.settings;
+      if (!st || st.qualityChosen || (st.quality && !st.qualityAuto)) return false;
+      const cur = st.quality || 'high', next = cur === 'high' ? 'medium' : cur === 'medium' ? 'low' : null;
+      if (!next) return false;
+      st.quality = next; st.qualityAuto = true;
+      try { localStorage.setItem('echo.settings', JSON.stringify(st)); } catch (e) { /* ignore */ }
+      R.applyQuality();
+      if (UI.toast) UI.toast(`The game was running slowly on this computer, so the graphics are now set to ${next === 'medium' ? 'Medium' : 'Low'}. You can change this in Esc → Quality.`, 'info', 7);
+      return true;
+    },
     applyQuality() {
       const q = R.QUALITY[(ECHO.UI && ECHO.UI.settings.quality) || 'high'] || R.QUALITY.high;
       R.lightN = q.lights; R.chunkR = q.chunk; R.Q = q;
