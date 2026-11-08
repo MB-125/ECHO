@@ -383,7 +383,7 @@
     bodies(game, dt) {
       const G = L.grid(), stamp = (L._bstamp = (L._bstamp || 0) + 1);
       for (const e of game.ents) {
-        if (e.dead || e.hidden || e.ghost || e.burrowed || (e.alt || 0) > 0.6 || e.seated || e.x >= 9000) continue;
+        if (e.dead || e.hidden || e.ghost || e.burrowed || (e.alt || 0) > 0.6 || e.tz > 0.6 || e.seated || e.x >= 9000) continue;
         let vx = 0, vy = 0;
         if (e._lsT === stamp - 1 && dt > 0) { vx = (e.x - e._lsx) / dt; vy = (e.y - e._lsy) / dt; if (vx * vx + vy * vy > 400) { vx = vy = 0; } }
         e._lsx = e.x; e._lsy = e.y; e._lsT = stamp;

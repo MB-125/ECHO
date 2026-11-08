@@ -536,6 +536,7 @@
     },
     applyPush(world, e) {
       if (e.pushx || e.pushy) { Ent.move(world, e, e.pushx || 0, e.pushy || 0); e.pushx = 0; e.pushy = 0; }
+      if ((e.kbx || e.kby) && ECHO.Thrown) ECHO.Thrown.legacy(ECHO.Game, e);   // (a push is a slide now: thrown.js)
       if (e.kbx || e.kby) {
         // thrown back, it is stopped by the bodies behind it (it does not pass through them)
         if (e.type !== 'player') { const v = Ent.slideBodies(e, e.kbx, e.kby); e.kbx = v.x; e.kby = v.y; }

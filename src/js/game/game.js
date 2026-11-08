@@ -161,11 +161,13 @@
       ECHO.Ent.separate(Game.ents, dt);
       ECHO.Ent.pathBudget = 3;   // (route plans allowed in the next frame)
       for (const e of Game.ents) if (!e.dead || (e.deathT || 0) < 0.5) ECHO.Ent.applyPush(world, e);
+      if (ECHO.Thrown) ECHO.Thrown.update(Game, dt);   // (what a blow has sent flying, or sliding: thrown.js)
       ECHO.Combat.updateProjectiles(dt);
       if (ECHO.Loose) ECHO.Loose.update(Game, dt);   // (barrels, crates, pots and the rest: loose.js)
       ECHO.Combat.updateBurning(dt);
       // Corpses fade
-      for (const e of Game.ents) if (e.dead && !e.vanish) { e.deathT = (e.deathT || 0) + dt; if (e.deathT > 3) e.vanish = true; }
+      // (a body still flying, or sliding, has not yet come to rest where it lies)
+      for (const e of Game.ents) if (e.dead && !e.vanish) { const going = e.tz > 0 || Math.abs(e.tvx || 0) + Math.abs(e.tvy || 0) > 1; e.deathT = going ? Math.min((e.deathT || 0) + dt, 0.3) : (e.deathT || 0) + dt; if (e.deathT > 3) e.vanish = true; }
       Game.ents = Game.ents.filter(e => !e.vanish);
       ECHO.Spawner.update(Game, dt);
       if (ECHO.Growth) ECHO.Growth.update(Game, dt);

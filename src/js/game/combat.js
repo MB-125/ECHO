@@ -431,12 +431,13 @@
       if (target === game.pe) { game.pl.hp = target.hp; game.lastHurtTime = game.time; if (from && from !== game.pe) { game.combatT = game.time; ECHO.Tech.onHurt(game, dmg); if (from.ab && type !== 'magic') ECHO.Monsters.hitPlayer(game, from, dmg); } }
       if (from === game.pe && target.foe && ECHO.Monsters) ECHO.Monsters.playerHit(game, target, dmg, type);
       if (from === game.pe && target !== game.pe && target.type !== 'ghost' && !(target.type === 'creature' && target.species === 'hare')) ECHO.Tech.onHit(game, target, { ...src, crit, wasStaggered, perfect: !!src.crit }, dmg);
-      if (from === game.pe && target !== game.pe) {
+      if (from === game.pe && target !== game.pe && type !== 'impact') {
         const sk = type === 'melee' ? 'blade' : type === 'ranged' ? 'archery' : 'flame';
         ECHO.Character.train(game.pl, sk, type === 'ranged' ? 0.18 : 0.06);
         if (target.type === 'person' || target.type === 'boss' || target.species === 'wolf' || target.humanoid) game.combatT = game.time;
       }
-      if (src.knock && src.angle != null && target.type !== 'boss') { target.kbx += Math.cos(src.angle) * src.knock; target.kby += Math.sin(src.angle) * src.knock; }
+      // the blow's push: by its weight and the body's (hard enough, and off its feet: thrown.js)
+      if (src.knock && src.angle != null) { if (ECHO.Thrown) ECHO.Thrown.hit(game, target, src.knock, src.angle, from); else if (target.type !== 'boss') { target.kbx += Math.cos(src.angle) * src.knock; target.kby += Math.sin(src.angle) * src.knock; } }
       const col = target === game.pe ? '#ff6b6b' : type === 'fire' ? '#ffb347' : crit ? '#ffe066' : '#ffffff';
       C.floater(target.x + (Math.random() - 0.5) * 0.4, target.y - 0.9, (crit ? '✦' : '') + (dmg >= 10000 ? U.short(dmg) : dmg), col, crit);
       C.impact(target, dmg, src, crit);
@@ -503,7 +504,8 @@
       // Death has weight: a beat of stillness, then the body is thrown.
       const ka = src.angle != null ? src.angle : Math.atan2(target.y - game.pe.y, target.x - game.pe.x);
       target.deathAngle = ka;
-      if (target.type !== 'boss') { const kb = (src.knock || 0.12) * 1.8 + 0.15; target.kbx += Math.cos(ka) * kb; target.kby += Math.sin(ka) * kb; }
+      if (ECHO.Thrown) ECHO.Thrown.hit(game, target, (src.knock || 0.12) * 1.2 + 0.2, ka, from, { kill: true });
+      else if (target.type !== 'boss') { const kb = (src.knock || 0.12) * 1.8 + 0.15; target.kbx += Math.cos(ka) * kb; target.kby += Math.sin(ka) * kb; }
       if (byPlayer && target.species !== 'hare' && target.species !== 'gnawer') ECHO.Tech.onKill(game, target, type, src);
       if (byPlayer && ECHO.Progress) ECHO.Progress.onKill(game, target);
       if (from === game.pe && ECHO.Mending) ECHO.Mending.onKill(game, target);

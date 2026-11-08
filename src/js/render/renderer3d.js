@@ -3499,12 +3499,14 @@
         else R.animateBoss(game, e, v);
         // facing: smooth turn toward e.dir
         let target = e.dir != null ? e.dir : 0;
-        if (e.dead && e.deathAngle != null) target = e.deathAngle + Math.PI; // face the blow, fall away from it
+        const uprightBody = e.type === 'player' || e.type === 'person' || e.humanoid || e.type === 'ghost' || e.type === 'boss';
+        if (e.dead && e.deathAngle != null && uprightBody) target = e.deathAngle + Math.PI; // face the blow, fall away from it (a beast goes down on its side: below)
         if (e.indoor && !e.moving && !e.dead && e.indoor.pose !== 'stand' && (e.seated || e.sleeping)) { target = e.indoor.dir; v.dir = target; }
         if (e.rollT > 0 && e.rollDir != null) { target = e.rollDir; v.dir = target; }
         const turn = U.angleDiff(v.dir, target);
         // NPCs ignore tiny heading wobbles and turn at a natural pace
         if (e === game.pe || e.dead || Math.abs(turn) > 0.18 || (v.mv || 0) > 0.5) v.dir += turn * Math.min(1, dt * (e.dead ? 30 : e === game.pe ? 14 : 9));
+        if (root.rotation.order !== 'YXZ') root.rotation.order = 'YXZ';   // (its own turn first; then over forward or back, and to either side, about its own body)
         root.rotation.y = Math.PI - v.dir + (v.twist || 0) + (e === game.pe && e.inBoat === true ? Math.PI : 0);  // a rower faces the stern
         v.twist = 0;
         // on the bed when wading; afloat, head and shoulders out, when swimming
@@ -3516,7 +3518,7 @@
           v.horse = e.mounted && !ECHO.Interior.cur && !e.dead ? R.driveHorse(game, R.horseFor('ent:' + (e.npcId || e.id), e.horseBreed || 'pony'), dt, v.px, v.py, v.dir, v.spd || 0, { ridden: true, quiet: true }) : null;
           if (v.horse) hy = v.horse.seat - gy - 0.4;
         }
-        root.position.set(v.horse && e.mounted ? v.horse.sx : v.px, gy + (v.yOff || 0) + hy + (e.alt || 0), v.horse && e.mounted ? v.horse.sz : v.py);
+        root.position.set(v.horse && e.mounted ? v.horse.sx : v.px, gy + (v.yOff || 0) + hy + (e.alt || 0) + (e.tz > 0 ? e.tz : 0), v.horse && e.mounted ? v.horse.sz : v.py);
         // hurt: squash and recoil
         const base = v.baseScale || (v.baseScale = root.scale.x);
         const hk = e.hurtT > 0 && !e.dead ? e.hurtT / 0.18 : 0;
@@ -3534,10 +3536,25 @@
         // death: thrown backward, then sink and fade
         if (e.dead) {
           const k = Math.min(1, (e.deathT || 0) * 4);
-          const fall = (1 - Math.pow(1 - k, 2)) * Math.PI / 2;
-          if (e.deathAngle != null) { root.rotation.z = -fall; root.rotation.x = 0; }
+          const fall = (1 - Math.pow(1 - k, 2)) * Math.PI / 2, sp = e.tspin || 0;
+          // (thrown, it turns over as it flies, and comes to lie on its back or its front: thrown.js)
+          if (e.deathAngle != null && uprightBody) { root.rotation.z = -(fall + sp); root.rotation.x = 0; }
+          else if (e.deathAngle != null) {
+            // a beast goes down on its side, the side away from the blow, and rolls as it flies
+            if (v.dside == null) v.dside = Math.sin(v.dir - e.deathAngle) >= 0 ? 1 : -1;
+            root.rotation.z = 0; root.rotation.x = v.dside * (fall + sp);
+          }
           else root.rotation.x = fall * (v.bob > 3 ? 1 : -1);
-          root.position.y = gy + 0.1 + Math.sin(k * Math.PI) * 0.25 - Math.max(0, (e.deathT || 0) - 1) * 0.08;
+          root.position.y = gy + 0.1 + (e.tz > 0 ? e.tz : 0) + (sp || e.tz > 0 ? 0 : Math.sin(k * Math.PI) * 0.25) - Math.max(0, (e.deathT || 0) - 1) * 0.08;
+          // tumbling through the air it turns about its middle (not its feet, or it would go
+          // over into the ground); once down, it lies along the ground as before
+          const pw = (e.tz > 0 || (sp && !e.tSet)) ? 0.42 * base : 0;
+          v.pivH = v.pivH == null ? pw : v.pivH + (pw - v.pivH) * Math.min(1, dt * 8);
+          if (v.pivH > 0.01) {
+            const off = R._pivV || (R._pivV = new THREE.Vector3());
+            off.set(0, -v.pivH, 0).applyQuaternion(root.quaternion);
+            root.position.x += off.x; root.position.y += v.pivH + off.y; root.position.z += off.z;
+          }
           const op = Math.max(0, 1 - Math.max(0, (e.deathT || 0) - 1.5) / 1.5);
           for (const m of v.inst.mats) { if (op < 1) { m.transparent = true; m.opacity = op * ((m.userData && m.userData.a0) || 1); } }
         } else root.rotation.x = 0;
@@ -3558,13 +3575,18 @@
             const tp = U.clamp(fwd * (man ? 0.016 : 0.008), -0.16, 0.16), tb = U.clamp(side * (man ? 0.02 : 0.015), -0.2, 0.2);
             const kk = Math.min(1, dt * 8);
             v.wPitch = (v.wPitch || 0) + (tp - (v.wPitch || 0)) * kk; v.wBank = (v.wBank || 0) + (tb - (v.wBank || 0)) * kk;
-            root.rotation.order = 'YXZ';
-            root.rotation.z = v.wPitch; root.rotation.x = v.wBank;
+            let pz = v.wPitch, px = v.wBank;
+            // thrown: off its feet it goes over the way it flies (and gets up again after: thrown.js)
+            if (e.tz > 0 || e.tspin) {
+              const fa = Math.hypot(e.tvx || 0, e.tvy || 0) > 0.3 ? Math.atan2(e.tvy, e.tvx) : (v.tfa != null ? v.tfa : v.dir + Math.PI);
+              v.tfa = fa;
+              const rel = fa - v.dir, tau = U.clamp(e.tspin || 0, -1.15, 1.15);
+              pz += tau * Math.cos(rel); px += -tau * Math.sin(rel);
+            } else v.tfa = null;
+            root.rotation.z = pz; root.rotation.x = px;
           } else if (v.wPitch != null) {
-            // (as it was: a fall or a roll turns it about the world as before)
             v.wPitch = v.wBank = null;
-            if (!e.dead && !v.roll) root.rotation.z = 0;
-            root.rotation.order = 'XYZ';
+            if (!e.dead && !v.roll) { root.rotation.z = 0; root.rotation.x = 0; }
           }
           v.wpx = v.px; v.wpy = v.py;
         }

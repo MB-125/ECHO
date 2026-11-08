@@ -7,6 +7,14 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.36.0', items: [
+      'Blows that throw. A blow now pushes according to how heavy it is and how heavy the body it hits is. A light blow pushes a foe back a step. A heavy blow lifts them off their feet: they fly, come down with a thump, slide, and take a moment to get up. A rat flies far, a troll barely moves, and a lair\'s great beast or a titan stands its ground.',
+      'Off their feet, foes can do nothing until they land and get up again. Even you can be knocked about, but only the greatest blows lift you.',
+      'A body thrown into a wall, a tree or a rock slams into it and is hurt by it (the blow counts as yours). A body thrown into another bowls that one over too, and hurts it if it is your foe; a friend in the way is only knocked aside.',
+      'The dead are thrown by the blow that killed them. They turn over as they fly, a person head over heels and a beast rolling onto its side, then come down and lie on their back or front where they land, and only fade once they have come to rest.',
+      'Knock-back now goes the same distance at any frame rate. Before, it went further the faster your game ran.',
+      'Your saved game loads exactly as before.'
+    ] },
     { v: '0.35.0', items: [
       'Weight in every step. You, the people and every beast now speed up, slow down and turn with real momentum, instead of starting and stopping on the spot.',
       'On foot you reach full pace in about a fifth of a second and stop within a step. Turning right round takes a moment: you slow, then speed up again the other way. You still face wherever you point at once, so fighting is as quick as before.',

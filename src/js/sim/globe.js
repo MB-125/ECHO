@@ -460,7 +460,7 @@
       if (turn) {
         // over a pole, turned about: every heading it holds turns with it, every push it is under reverses
         for (const k of ['dir', 'aim', 'chargeAng', 'rollDir', 'deathAngle', 'gaze']) if (typeof e[k] === 'number') e[k] += Math.PI;
-        for (const [a, b] of [['vx', 'vy'], ['kbx', 'kby'], ['_mvx', '_mvy']]) if (typeof e[a] === 'number' && typeof e[b] === 'number') { e[a] = -e[a]; e[b] = -e[b]; }
+        for (const [a, b] of [['vx', 'vy'], ['kbx', 'kby'], ['_mvx', '_mvy'], ['tvx', 'tvy']]) if (typeof e[a] === 'number' && typeof e[b] === 'number') { e[a] = -e[a]; e[b] = -e[b]; }
         if (e.gcast && typeof e.gcast.ang === 'number') e.gcast.ang += Math.PI;
       }
       for (const k of ['home', 'goal', 'wander', 'lastSeen', 'post', 'from', 'to', 'route', 'at']) {

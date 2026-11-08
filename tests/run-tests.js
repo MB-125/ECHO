@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
 
 function loadEcho() {
@@ -2461,6 +2461,56 @@ function main() {
     check('…for everything that walks', wd > wu * 1.2, `${wu.toFixed(1)} leagues uphill in 2 s, ${wd.toFixed(1)} down`);
     check('…and a body\'s weight goes by its size (a man is 1), a lair\'s beast and a titan heaviest', Math.abs(Ent.massOf(man) - 1) < 0.05 && Ent.massOf(bear) > 2 && Ent.massOf(giant) === 9 && Ent.massOf({ titan: true, r: 2 }) === 14);
     Gd.fn = null; E.Game = G0; E.Interior = I0;
+  }
+
+  console.log('\nBlows that throw');
+  {
+    const E = ECHO, Ent = E.Ent, Th = E.Thrown, T = E.TILE;
+    const P = { W: 60, H: 60, seed: 3, day: 1, tiles: new Uint8Array(3600).fill(T.GRASS), blocked: new Uint8Array(3600), settlements: [], ruins: [] };
+    for (let y = 0; y < 60; y++) P.tiles[y * 60 + 40] = T.ROCK;
+    const hurt = []; const C0 = E.Combat, S0 = E.Sfx, G0 = E.Game, I0 = E.Interior, Wt0 = E.Water;
+    E.Combat = { puff() {}, burst() {}, damage: (e, d, s) => { hurt.push({ e, d, s }); return d; } }; E.Sfx = { play() {} }; E.Interior = { cur: null }; E.Water = undefined;
+    const pe = Ent.make({ type: 'player', x: 5, y: 5, r: 0.35 });
+    const game = { world: P, pe, pl: {}, ents: [pe], time: 0, hostileTo: (a, b) => (a === pe) !== (b === pe), shake() {} };
+    E.Game = game; E.Ground.fn = () => 0;
+    const mk = (r, o) => { const e = Ent.make(Object.assign({ type: 'creature', x: 10, y: 10, r, hp: 100, maxHp: 100 }, o || {})); game.ents.push(e); return e; };
+    const fly = (e, sec, dt) => { let top = 0, air = 0; dt = dt || 0.05; for (let t = 0; t < sec; t += dt) { game.time += dt; Th.update(game, dt); top = Math.max(top, e.tz || 0); if (e.tz > 0) air += dt; } return { top, air }; };
+    const throwAt = (e, knock, x, y) => { e.x = x; e.y = y; e.tvx = e.tvy = e.tvz = 0; e.tz = 0; e.tspin = 0; e.stagger = 0; Th.hit(game, e, knock, 0, pe); const r = fly(e, 3); return { d: e.x - x, top: r.top, air: r.air }; };
+    const man = mk(0.35, { type: 'person' }), rat = mk(0.2), troll = mk(0.6), boss = mk(0.9, { type: 'boss' });
+    const light = throwAt(man, 0.24, 5, 20), heavy = throwAt(man, 0.7, 5, 22), ratH = throwAt(rat, 0.7, 5, 24), trollH = throwAt(troll, 0.7, 5, 26), bossH = throwAt(boss, 0.7, 5, 28);
+    check('a blow pushes by the weight of the blow and of the body: a light one a step, a heavy one off his feet', light.d > 0.3 && light.d < 1.2 && light.top === 0 && heavy.top > 0.3 && heavy.air > 0.3 && heavy.d > light.d * 2, `${light.d.toFixed(2)} leagues; heavy: ${heavy.d.toFixed(1)} leagues, ${heavy.top.toFixed(2)} high, ${heavy.air.toFixed(2)} s in the air`);
+    check('…a rat goes a long way, a troll hardly anywhere, and a lair\'s beast stands where it is', ratH.d > heavy.d && trollH.d < heavy.d * 0.6 && trollH.top < heavy.top && bossH.d === 0, `rat ${ratH.d.toFixed(1)}, troll ${trollH.d.toFixed(1)}`);
+    man.x = 5; man.y = 30; man.tvx = man.tvy = 0; man.tz = 0; man.stagger = 0; Th.hit(game, man, 0.7, 0, pe);
+    let flying = 0; for (let i = 0; i < 6; i++) { game.time += 0.05; Th.update(game, 0.05); if (man.stagger > 0 && man.tz > 0) flying++; }
+    let landed = false; for (let i = 0; i < 40 && !landed; i++) { game.time += 0.05; Th.update(game, 0.05); if (!(man.tz > 0)) landed = true; }
+    check('…off his feet he can do nothing, and when he comes down he takes a moment to get up', flying >= 5 && landed && man.stagger > 0.25);
+    // the same, whatever the frame rate
+    const at = dt => { man.x = 5; man.y = 32; man.tvx = man.tvy = man.tvz = 0; man.tz = 0; man.tspin = 0; Th.hit(game, man, 0.5, 0, pe); fly(man, 3, dt); return man.x - 5; };
+    const slow = at(1 / 20), fast = at(1 / 120);
+    check('…and it goes as far at any frame rate (the old knock-back went further the faster the game ran)', Math.abs(slow - fast) / fast < 0.12, `${slow.toFixed(2)} at 20 a second, ${fast.toFixed(2)} at 120`);
+    // walls
+    hurt.length = 0; man.x = 37.5; man.y = 36; man.tvx = man.tvy = man.tvz = 0; man.tz = 0; man.hp = 100; Th.hit(game, man, 0.7, 0, pe); fly(man, 1.5);
+    const slam = hurt.find(h => h.e === man && h.s.type === 'impact');
+    check('thrown into a wall, it is stopped there (and comes back off it), and it hurts — the blow is the thrower\'s', man.x < 40 && !!slam && slam.s.from === pe && slam.d > 2 && slam.d <= 8, slam && `${slam.d.toFixed(1)} of 100`);
+    // others in the way
+    hurt.length = 0; const a = mk(0.35, { type: 'person', x: 5, y: 40 }), b = mk(0.35, { type: 'person', x: 6.2, y: 40 }), friend = mk(0.35, { type: 'person', x: 6.2, y: 44 });
+    Th.hit(game, a, 0.7, 0, pe); fly(a, 0.3);
+    check('…into another body, it bowls it over: that one is sent off in turn (and hurt, being a foe of the thrower)', b.x > 6.6 && (b.tvx > 0 || b.x > 7) && hurt.some(h => h.e === b), `${(b.x - 6.2).toFixed(1)} leagues`);
+    const hostile0 = game.hostileTo; game.hostileTo = () => false; hurt.length = 0;
+    const a2 = mk(0.35, { type: 'person', x: 5, y: 44 }); Th.hit(game, a2, 0.7, 0, pe); fly(a2, 0.3); game.hostileTo = hostile0;
+    check('…a friend in the way is knocked aside, not hurt', friend.x > 6.4 && !hurt.some(h => h.e === friend));
+    // the old pushes
+    const old = kb => { const e = mk(0.35, { type: 'person', x: 5, y: 50 }); e.kbx = kb; Th.legacy(game, e); fly(e, 3); const d = e.x - 5; game.ents.pop(); return d; };
+    const o1 = old(0.24), o2 = old(0.6);
+    check('the old pushes still go about as far as they did, as a slide', Math.abs(o1 - 0.24 / 0.3) / (0.24 / 0.3) < 0.3 && Math.abs(o2 - 0.6 / 0.3) / (0.6 / 0.3) < 0.3, `${o1.toFixed(2)} (was ${(0.24 / 0.3).toFixed(2)}), ${o2.toFixed(2)} (was ${(0.6 / 0.3).toFixed(2)})`);
+    // the dead
+    const dead = mk(0.35, { type: 'person', x: 5, y: 55 }); dead.dead = true; dead.deathT = 0;
+    Th.hit(game, dead, 0.7 * 1.2 + 0.2, 0, pe, { kill: true }); const r = fly(dead, 3);
+    check('the dead are thrown by the blow that killed them, turn over as they fly, and come to lie on their back or their front', r.air > 0.4 && dead.x - 5 > 2 && Math.abs(dead.tspin / Math.PI - Math.round(dead.tspin / Math.PI)) < 0.02 && !Th.active(dead) || (dead.tspin === 0 && r.air > 0.4), `${(dead.x - 5).toFixed(1)} leagues, ${r.air.toFixed(2)} s in the air, ${(dead.tspin / Math.PI).toFixed(2)} half-turns`);
+    // you
+    pe.x = 5; pe.y = 12; Th.hit(game, pe, 0.12, 0, man); const pr = fly(pe, 2);
+    check('you are pushed by a common blow, and only a great one lifts you', pe.x - 5 > 0.1 && pr.top === 0);
+    E.Combat = C0; E.Sfx = S0; E.Game = G0; E.Interior = I0; E.Water = Wt0; E.Ground.fn = null;
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);
