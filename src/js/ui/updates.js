@@ -7,6 +7,16 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.37.0', items: [
+      'A new look: Arcanotech, high tech and old magic together. The towns are built new: white ceramic walls, roofs of sun-glass laid in cells, doors framed in light, a line of light round the foot of every wall and the eaves of every roof, beacons on the spires, and squares and roads paved in long slabs. Each realm\'s towns glow in its own colour.',
+      'At night the joints of the paving, the frames of the roofs and the windows glow softly, the street lamps burn with cool white light, and here and there a paving slab is a lamp.',
+      'The wilds, the ruins and the deep places stay as old and strange as ever. The towns are new; the magic, the beasts and the dark are not.',
+      'People wear the new things: lines of light in their clothes, in the colour of what they are (a guard in their realm\'s colour, you in cyan), and visors on their helms. Their arms are made of light: blades in a sheath of glow (yours burns in its rarity\'s colour), bowstrings of light, shields of hard light, and staffs ringed with turning runes.',
+      'Skiffs fly over the land, high above the roofs, their engines burning cyan; now and then a slow cargo hauler passes. Barrels and crates are canisters and cargo cases with lit bands.',
+      'A new gear screen (press I): your hero in 3D wearing what you wear (drag to turn them), slots for your weapon, bow, armour, ring and amulet, and your relic slots. Click a piece to put it on, or drag it onto a slot; drag a worn piece back to take it off; right-click for more. Filter by weapons, bows, armour or relics, and sort by best, rarity or newest. Point at a piece to see exactly how your damage, armour, life, mana and pace would change. Arrow keys and Enter work too.',
+      'Prefer the old look? Esc → The look of the world → Classic. Only how things are drawn changes, and you can switch back any time.',
+      'Your saved game loads exactly as before.'
+    ] },
     { v: '0.36.1', items: [
       'Ready for everyone. Anyone can now play ECHO in their browser at mb-125.github.io/ECHO, with nothing to install.',
       'Esc → Report a problem opens a short form on the game\'s page with your version and system already filled in (and the error text, if the game showed one). Nothing from your world is sent.',

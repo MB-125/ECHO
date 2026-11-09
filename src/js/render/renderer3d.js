@@ -119,6 +119,8 @@
       // See-through versions for buildings that stand between the camera and the player.
       R.mat.propFade = R.mat.prop.clone(); R.mat.propFade.transparent = true; R.mat.propFade.opacity = 0.28; R.mat.propFade.depthWrite = false;
       R.mat.windowFade = R.mat.window.clone(); R.mat.windowFade.transparent = true; R.mat.windowFade.opacity = 0.28; R.mat.windowFade.depthWrite = false;
+      R.techify(R.mat.prop); R.techify(R.mat.propFade);
+      { const on = !ECHO.Theme || ECHO.Theme.on(); R.techU.uTech.value = on ? 1 : 0; if (on) { R.mat.window.emissive.copy(C('#7fe9ff')); R.mat.windowFade.emissive.copy(C('#7fe9ff')); } }
       R.groups = {};
       for (const g of ['terrain', 'props', 'towns', 'sites', 'room', 'ents', 'fx']) { R.groups[g] = new THREE.Group(); s.add(R.groups[g]); }
       R.ray = new THREE.Raycaster();
@@ -408,6 +410,83 @@
       mat.needsUpdate = true;
       return mat;
     },
+    // Built new (render/theme.js): what is drawn on a building's surfaces, by what each part is
+    // made of (the aTech of its corners): walls of ceramic panels in courses, roofs of sun-glass
+    // in their frames, metal that shines; the seams and frames glow a little at night, in the
+    // town's light. Off (uTech 0) for the classic look, and for everything not built new.
+    techU: null,
+    techify(mat) {
+      if (!mat || mat.userData.tech) return mat;
+      mat.userData.tech = true;
+      const U2 = R.techU || (R.techU = { uTech: { value: 1 }, uNight: { value: 0 }, uTechCol: { value: new THREE.Color('#4ff0ff') } });
+      mat.defaultAttributeValues = Object.assign({}, mat.defaultAttributeValues || {}, { aTech: [0] });
+      mat.extensions = Object.assign(mat.extensions || {}, { derivatives: true });
+      const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey;
+      mat.customProgramCacheKey = () => (prevKey ? prevKey.call(mat) : '') + '|tech1';
+      mat.onBeforeCompile = (sh, r) => {
+        if (prev) prev(sh, r);
+        Object.assign(sh.uniforms, U2);
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aTech; varying float vTech; varying vec3 vTechN; varying vec3 vTechW;')
+          .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+          vTech = aTech; vTechN = objectNormal;
+          #ifdef USE_INSTANCING
+            vTechN = mat3(instanceMatrix) * vTechN;
+          #endif
+          vTechN = mat3(modelMatrix) * vTechN;`)
+          .replace('#include <project_vertex>', `#include <project_vertex>
+          { vec4 tw = vec4(transformed, 1.0);
+            #ifdef USE_INSTANCING
+              tw = instanceMatrix * tw;
+            #endif
+            vTechW = (modelMatrix * tw).xyz; }`);
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uTech; uniform float uNight; uniform vec3 uTechCol; varying float vTech; varying vec3 vTechN; varying vec3 vTechW;')
+          .replace('#include <color_fragment>', `#include <color_fragment>
+          float tK = floor(vTech + 0.5); vec3 tEm = vec3(0.0); float tRough = 1.0, tMetal = 0.0;
+          if (uTech > 0.5 && tK > 0.5) {
+            vec3 tN = normalize(vTechN);
+            if (tK < 1.5) {
+              // ceramic panels, in courses, each its own faint shade, thin seams between
+              float u = abs(tN.x) > abs(tN.z) ? vTechW.z : vTechW.x;
+              vec2 p = abs(tN.y) > 0.75 ? vTechW.xz / 0.7 : vec2(u / 0.7, vTechW.y / 0.42);
+              p.x += mod(floor(p.y), 2.0) * 0.5;
+              vec2 f = fract(p), fw = max(fwidth(p), vec2(1e-4)), e = min(f, 1.0 - f) / fw;
+              float seam = 1.0 - smoothstep(0.6, 1.7, min(e.x, e.y));
+              float fade = 1.0 - smoothstep(0.08, 0.25, max(fw.x, fw.y));
+              float hs = fract(sin(dot(floor(p), vec2(12.9898, 78.233))) * 43758.5453);
+              diffuseColor.rgb *= 1.0 + ((hs - 0.5) * 0.07 - seam * 0.3) * fade;
+              tEm = uTechCol * seam * fade * uNight * 0.07;
+              tRough = 0.72;
+            } else if (tK < 2.5) {
+              // sun-glass, in long cells, each in a thin pale frame, the light running across it
+              vec2 p = vTechW.xz / vec2(0.56, 0.36);
+              vec2 f = fract(p), fw = max(fwidth(p), vec2(1e-4)), e = min(f, 1.0 - f) / fw;
+              float frame = 1.0 - smoothstep(0.25, 1.1, min(e.x, e.y));
+              float fade = 1.0 - smoothstep(0.1, 0.3, max(fw.x, fw.y));
+              vec3 glass = diffuseColor.rgb * (0.82 + 0.36 * (f.x * 0.35 + f.y * 0.65));
+              diffuseColor.rgb = mix(diffuseColor.rgb, mix(glass, vec3(0.55, 0.62, 0.7), frame * 0.4), fade);
+              tEm = uTechCol * frame * fade * uNight * 0.06;
+              tRough = 0.55; tMetal = 0.12;
+            } else { tRough = 0.5; tMetal = 0.55; }
+          }`)
+          .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+          roughnessFactor *= tRough;`)
+          .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
+          metalnessFactor = max(metalnessFactor, tMetal);`)
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          totalEmissiveRadiance += tEm;`);
+      };
+      mat.needsUpdate = true;
+      return mat;
+    },
+    // the look changed (Arcanotech / Classic): everything built is built again
+    setLook() {
+      const on = !ECHO.Theme || ECHO.Theme.on();
+      if (R.techU) R.techU.uTech.value = on ? 1 : 0;
+      if (R.mat) { const c = C(on ? '#7fe9ff' : '#ffb860'); R.mat.window.emissive.copy(c); if (R.mat.windowFade) R.mat.windowFade.emissive.copy(c); }
+      if (ECHO.Models) ECHO.Models.baked = {};
+      if (R._loose) { for (const o of R._loose.values()) R.scene.remove(o.g); R._loose.clear(); }
+      if (R.world) R.setWorld(R.world);
+    },
     // The ground up close: crisp patterns drawn from the world position and what
     // each tile is — cobbles with mortar in the squares, pebbles in the roads,
     // tufts in the grass, furrows in the fields, ripples in the sand, cracked
@@ -418,21 +497,38 @@
       const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey;
       mat.extensions = Object.assign(mat.extensions || {}, { derivatives: true });
       mat.customProgramCacheKey = () => prevKey.call(mat) + '|ground2';
+      const TU = R.techU || (R.techU = { uTech: { value: 1 }, uNight: { value: 0 }, uTechCol: { value: new THREE.Color('#4ff0ff') } });
       mat.onBeforeCompile = (sh, r) => {
         prev(sh, r);
+        Object.assign(sh.uniforms, TU);
         sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aKind;\nvarying float vKind;')
           .replace('#include <begin_vertex>', '#include <begin_vertex>\nvKind = aKind;');
         sh.fragmentShader = sh.fragmentShader.replace('varying vec3 vDetailW;', `varying vec3 vDetailW;
           varying float vKind;
+          uniform float uTech; uniform float uNight; uniform vec3 uTechCol;
           float gH(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 15731.743); }
           // distance to the nearest edge of the cell, with the cell's id
           float cellEdge(vec2 p, out vec2 id) { id = floor(p); vec2 f = fract(p); return min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)); }
           float aaLine(float d, float w, float fw) { return 1.0 - smoothstep(w, w + fw * 1.5, d); }`)
           .replace('#include <color_fragment>', `#include <color_fragment>
+          vec3 gEm = vec3(0.0);
           {
             vec2 wp = vDetailW.xz;
             float k = floor(vKind + 0.5), shade = 1.0;
-            if (k == 1.0) {            // cobbles, laid in courses
+            if (uTech > 0.5 && (k == 1.0 || k == 2.0)) {
+              // built new: the squares paved in pale slabs, the roads in long ones, the joints
+              // lit faintly from below at night (and here and there a slab that is a lamp)
+              vec2 p = k == 1.0 ? wp / 0.9 : wp * vec2(1.0, 2.0);
+              p.x += mod(floor(p.y), 2.0) * 0.5;
+              vec2 id = floor(p), f = fract(p), fw = max(fwidth(p), vec2(1e-4)), e = min(f, 1.0 - f) / fw;
+              float joint = 1.0 - smoothstep(0.6, 1.7, min(e.x, e.y));
+              float fade = 1.0 - smoothstep(0.1, 0.3, max(fw.x, fw.y));
+              float lum = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+              diffuseColor.rgb = mix(diffuseColor.rgb, vec3(lum) * vec3(0.9, 0.96, 1.06), k == 1.0 ? 0.7 : 0.4);
+              shade = 1.0 + ((gH(id) - 0.5) * 0.06 - joint * 0.25) * fade;
+              float lamp = k == 1.0 ? step(0.95, gH(id + 3.7)) * (1.0 - smoothstep(0.04, 0.13, length(f - 0.5))) : 0.0;
+              gEm = uTechCol * (joint * fade * (k == 1.0 ? 0.09 : 0.045) + lamp * 0.7) * uNight;
+            } else if (k == 1.0) {            // cobbles, laid in courses
               vec2 p = wp * vec2(2.1, 2.8); p.x += mod(floor(p.y), 2.0) * 0.5;
               vec2 id; float d = cellEdge(p, id), fw = fwidth(p.x) + fwidth(p.y);
               float fade = 1.0 - smoothstep(0.18, 0.45, fw);
@@ -478,7 +574,9 @@
               shade = 1.0 + blade * (gH(id + 4.0) > 0.5 ? 0.14 : -0.16) * fade;
             }
             diffuseColor.rgb *= shade;
-          }`);
+          }`)
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          totalEmissiveRadiance += gEm;`);
       };
       mat.needsUpdate = true;
       return mat;
@@ -544,6 +642,7 @@
       R.roomKey = null;
       if (R.horses) for (const k of [...R.horses.keys()]) R.dropHorse(k); R.views.clear(); R.fxMeshes.clear(); R.projMeshes.clear(); R.lootMeshes.clear();
       R.towns = {};
+      if (R.skiffs) { for (const s of R.skiffs) R.scene.remove(s.g); R.skiffs.length = 0; }
       if (R.secretSeen) { for (const s of R.secretSeen.values()) R.secretGroup.remove(s.g); R.secretSeen.clear(); }
       R._camV = null; R._chunkLast = null; R.warmed = false;
       // the same world again (new land made on it): only what changed
@@ -1336,7 +1435,7 @@
           const colors = pal ? Object.assign({}, pal) : { roof: roof[0], banner: roof[1] };
           if (b.legend && b.type === 'house') colors.roof = '#5a5a6e';
           const lost = b.fac && (b.fac.state === 'burned' || b.fac.state === 'ruined');
-          if (lost) Object.assign(colors, { wood: '#2a221c', darkwood: '#1c1814', plaster: '#3e3832', roof: '#24201d', canvas: '#3a3632', trunk: '#2a2018', stone: '#4a4640', rock: '#5a5650' });
+          if (lost) Object.assign(colors, { wood: '#2a221c', darkwood: '#1c1814', plaster: '#3e3832', roof: '#24201d', canvas: '#3a3632', trunk: '#2a2018', stone: '#4a4640', rock: '#5a5650', trim: 'off' });
           if (b.fac) smokes.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, lost, kind: b.type, b });
           else if (b.type === 'house' || b.type === 'inn' || b.type === 'smithy') smokes.push({ x: b.x + b.w * 0.68, y: b.y + b.h * 0.4, chim: true, kind: b.type, b });
           if (b.type === 'mill' && !lost) {
@@ -1376,8 +1475,12 @@
         else if (s.works && s.works.walls) {
           const rad = s.kind === 'capital' ? 17 : 14.5, n = Math.round(rad * 2 * Math.PI / 0.55);
           const geo = R._stakeGeo || (R._stakeGeo = new THREE.CylinderGeometry(0.09, 0.13, 1.9, 5).translate(0, 0.95, 0));
-          const mat = R._stakeMat || (R._stakeMat = new THREE.MeshStandardMaterial({ color: C('#6a4a2c'), roughness: 0.95, flatShading: true }));
+          const techP = !ECHO.Theme || ECHO.Theme.on();
+          const mat = techP ? R._stakeMatT || (R._stakeMatT = new THREE.MeshStandardMaterial({ color: C('#3a4250'), roughness: 0.5, metalness: 0.5, flatShading: true }))
+            : R._stakeMat || (R._stakeMat = new THREE.MeshStandardMaterial({ color: C('#6a4a2c'), roughness: 0.95, flatShading: true }));
           const im = new THREE.InstancedMesh(geo, mat, n);
+          // (built new: each post a pylon, lit at its tip in the town's light)
+          const tips = techP ? new THREE.InstancedMesh(R._tipGeo || (R._tipGeo = new THREE.BoxGeometry(0.1, 0.14, 0.1).translate(0, 1.84, 0)), new THREE.MeshBasicMaterial({ color: C(ECHO.Theme ? ECHO.Theme.accent(pal || { banner: roof[1] }) : '#4ff0ff') }), n) : null;
           const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(1, 1, 1), pos = new THREE.Vector3();
           let k = 0;
           for (let i = 0; i < n; i++) {
@@ -1387,10 +1490,12 @@
             q.setFromAxisAngle(R.v3.set(Math.sin(a), 0, -Math.cos(a)), 0.12 * ((i % 2) - 0.5));
             sc.set(1, 0.85 + ((i * 7) % 5) * 0.06, 1);
             m4.compose(pos.set(x, R.groundH(x, y), y), q, sc);
+            if (tips) tips.setMatrixAt(k, m4);
             im.setMatrixAt(k++, m4);
           }
           im.count = k; im.castShadow = true; im.receiveShadow = true;
           group.add(im);
+          if (tips) { tips.count = k; group.add(tips); }
         }
         R.groups.towns.add(group);
         R.towns[s.id] = { key, group, lamps, sails, smokes };
@@ -1418,11 +1523,12 @@
         const L = parts[p];
         if (!L.length) continue;
         let n = 0; for (const g of L) n += g.attributes.position.array.length;
-        const P = new Float32Array(n), Cc = new Float32Array(n), N = new Float32Array(n);
+        const P = new Float32Array(n), Cc = new Float32Array(n), N = new Float32Array(n), anyT = L.some(g => g.attributes.aTech), Tk = anyT ? new Float32Array(n / 3) : null;
         let o = 0;
-        for (const g of L) { P.set(g.attributes.position.array, o); Cc.set(g.attributes.color.array, o); if (g.attributes.normal) N.set(g.attributes.normal.array, o); o += g.attributes.position.array.length; g.dispose(); }
+        for (const g of L) { P.set(g.attributes.position.array, o); Cc.set(g.attributes.color.array, o); if (g.attributes.normal) N.set(g.attributes.normal.array, o); if (Tk && g.attributes.aTech) Tk.set(g.attributes.aTech.array, o / 3); o += g.attributes.position.array.length; g.dispose(); }
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.BufferAttribute(P, 3)); geo.setAttribute('color', new THREE.BufferAttribute(Cc, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+        if (Tk) geo.setAttribute('aTech', new THREE.BufferAttribute(Tk, 1));
         geo.computeBoundingSphere();
         const mesh = new THREE.Mesh(geo, p === 'base' ? R.mat.prop : p === 'glow' ? R.mat.glow : R.mat.window);
         mesh.castShadow = p === 'base'; mesh.receiveShadow = true;
@@ -1435,6 +1541,9 @@
       const PL = ECHO.TownStyle.layoutOf(s), Rw = (s.reach || 14) + 1.6;
       const kind = A.walls;
       const colOf = { stone: pal.stone || '#8a857c', marble: '#e6e0d4', mud: pal.wall || '#d8bf94', hedge: '#3e6a34', low: pal.plaster || '#eee2c8', standards: pal.banner || '#2b3f66' };
+      // built new: the walls in the new stuff, a band of the town's light along them
+      const Th = ECHO.Theme, techW = !!(Th && Th.on() && kind !== 'hedge' && kind !== 'standards');
+      if (techW) { colOf.stone = Th.remap('keep', 'stone', colOf.stone); colOf.marble = Th.remap('keep', 'marble', colOf.marble); colOf.mud = Th.remap('keep', 'wall', colOf.mud); colOf.low = Th.remap('keep', 'plaster', colOf.low); }
       const colGeo = (geo, hex) => { const g = geo.index ? geo.toNonIndexed() : geo; const c = new THREE.Color(hex).convertSRGBToLinear(), n = g.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { const j = 1 + ((i / 3 | 0) * 0.37 % 1 - 0.5) * 0.08; a[i * 3] = c.r * j; a[i * 3 + 1] = c.g * j; a[i * 3 + 2] = c.b * j; } g.setAttribute('color', new THREE.BufferAttribute(a, 3)); return g; };
       const H = kind === 'stone' ? 2.1 : kind === 'mud' ? 1.9 : kind === 'marble' ? 1.6 : kind === 'hedge' ? 1.05 : kind === 'low' ? 0.75 : 0;
       const segL = 0.62;
@@ -1471,6 +1580,13 @@
       }
       const thick = kind === 'hedge' ? 0.6 : kind === 'low' ? 0.32 : 0.48;
       inst(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), colOf[kind], keep, p => ({ x: p.x, y: p.y, ang: p.ang, sx: p.len + 0.04, sy: H, sz: thick }));
+      if (techW) {
+        const hex = Th.accent(pal), list = keep;
+        const im = new THREE.InstancedMesh(colGeo(new THREE.BoxGeometry(1, 0.05, 1), hex), R.mat.glow, list.length);
+        let k = 0;
+        for (const p of list) { q.setFromAxisAngle(up, -p.ang); sc.set(p.len + 0.05, 1, thick + 0.035); m4.compose(pos.set(p.x, R.groundH(p.x, p.y) + H * 0.58, p.y), q, sc); im.setMatrixAt(k++, m4); }
+        im.count = k; group.add(im);
+      }
       if (kind === 'stone' || kind === 'mud') {
         // merlons on every other stone, and towers at the turns
         inst(new THREE.BoxGeometry(0.3, 0.32, thick + 0.04).translate(0, 0.16, 0), colOf[kind], keep.filter(p => p.i % 2 === 0), p => ({ x: p.x, y: p.y, ang: p.ang, dy: H }));
@@ -2531,7 +2647,71 @@
         if (e.child) scale = 0.66;
       }
       if (e.gearLook && (e.type === 'player' || e.type === 'person')) R.dressPlayer(inst, e.gearLook);
+      if (ECHO.Theme && ECHO.Theme.on()) {
+        // built new (render/theme.js): lines of light in their clothes, in the colour of what they
+        // are (a guard in their realm's, you in cyan), and arms of light
+        const Th = ECHO.Theme;
+        const hex = e.type === 'ghost' ? '#cfe6ff' : e.type === 'player' ? '#4ff0ff' : e.isCompanion ? '#5affc8' : (() => { const o = Th.hsl(cols[0]); return o.s < 0.12 ? '#4ff0ff' : Th.fromHsl(o.h, 0.95, 0.62); })();
+        const B = e.gearLook && e.gearLook.blade;
+        R.techPerson(inst, hex, B && B.rarity !== 'common' && B.glowCol ? B.glowCol : hex, !!e.gearLook);
+      }
       inst.root.scale.setScalar(scale);
+    },
+    // A person in the new things: the lines of light in their clothes shown (the visor with a
+    // helm), belts and boots of dark weave, and what they carry made of light — a blade in a
+    // sheath of glow, a bowstring of light, a shield of hard light, a staff ringed with runes.
+    techPerson(inst, hex, armHex, dressed) {
+      const M = ECHO.Models, P = inst.parts;
+      for (const k of M.TECH_PARTS) if (P[k]) P[k].visible = k !== 'visor' || !!(P.helm && P.helm.visible);
+      M.recolor(inst, 'techglow', hex);
+      if (!dressed) { M.recolor(inst, 'leather', '#2b3039'); M.recolor(inst, 'wood', '#3a4150'); }
+      else M.recolor(inst, 'bowwood', '#3a4150');
+      let T = inst._tech;
+      if (!T) {
+        T = inst._tech = { glow: [] };
+        const basic = (name, opts) => { const m = new THREE.MeshBasicMaterial(Object.assign({ color: C(hex) }, opts)); m.name = name; if (m.transparent) m.userData.a0 = m.opacity; inst.mats.push(m); T.glow.push(m); return m; };
+        const add = (m) => { const mt = basic('techlight', { transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false }); return mt; };
+        // the blade: bright, in a sheath of its light
+        if (P.sword) for (const o of P.sword.children.concat(P.sword.isMesh ? [P.sword] : [])) {
+          const nm = o.isMesh && o.material && o.material.name;
+          if (nm !== 'metal' && nm !== 'blade') continue;
+          if (o === inst.axeHead) continue;
+          o.geometry.computeBoundingBox();
+          const bb = o.geometry.boundingBox, sz = bb.getSize(new THREE.Vector3()), cn = bb.getCenter(new THREE.Vector3());
+          const ax = sz.x >= sz.y && sz.x >= sz.z ? 'x' : sz.y >= sz.z ? 'y' : 'z';
+          const s = { x: sz.x * 2.2, y: sz.y * 2.2, z: sz.z * 2.2 }; s[ax] = sz[ax] * 1.05;
+          const aura = new THREE.Mesh(new THREE.BoxGeometry(s.x, s.y, s.z), add());
+          aura.position.copy(cn); aura.userData.own = true; o.add(aura);
+          T.blade = o.material; break;
+        }
+        // the spear's head: lit
+        if (P.spear) P.spear.traverse(o => { if (o.isMesh && o.material && (o.material.name === 'metal' || o.material.name === 'blade')) T.tip = o.material; });
+        // the bow: a string of light
+        if (P.bow) P.bow.traverse(o => { if (o.isMesh && o.material && o.material.name === 'white') o.material = basic('bowstring'); });
+        // the shield: hard light round its boss
+        if (P.shield) P.shield.traverse(o => { if (o.isMesh && o.material && o.material.name === 'wood') o.material = basic('hardlight', { transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }); });
+        // the staff: two rings of runes turning about its head (and a stone of light, if it has none)
+        if (P.staff) {
+          let top = null;
+          P.staff.traverse(o => { if (!top && o.isMesh && o.material && (o.material.name === 'wood' || o.material.name === 'staffwood')) { o.geometry.computeBoundingBox(); top = o.geometry.boundingBox; } });
+          if (top) {
+            const cx = (top.min.x + top.max.x) / 2, cz = (top.min.z + top.max.z) / 2, y = top.max.y - 0.1;
+            const rm = basic('runering');
+            for (let i = 0; i < 2; i++) {
+              const ring = new THREE.Mesh(new THREE.TorusGeometry(0.1 + i * 0.03, 0.007, 4, 20), rm);
+              ring.position.set(cx, y - i * 0.02, cz); ring.rotation.x = Math.PI / 2 + (i ? 0.5 : -0.35);
+              ring.userData.own = true;
+              const sp = i ? -1.3 : 1.8;
+              ring.onBeforeRender = () => { ring.rotation.z = performance.now() * 0.001 * sp; };
+              P.staff.add(ring);
+            }
+            if (!inst.staffOrb) { const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(0.06, 0), rm); orb.position.set(cx, y + 0.02, cz); orb.userData.own = true; P.staff.add(orb); }
+          }
+        }
+      }
+      for (const m of T.glow) m.color.copy(C(armHex));
+      // the blade and the spear's head: pale and burning with the light
+      for (const m of [T.blade, T.tip]) if (m) { m.color.copy(C('#e8fdff')); if (m.emissive) { m.emissive.copy(C(armHex)); m.emissiveIntensity = 1.1; } }
     },
     // Boats on the water: yours, the ferry you ride, and ferries waiting at the jetties.
     // Things to gather: berry bushes, mushrooms, herbs, wild bees' nests, birds' nests.
@@ -4673,14 +4853,15 @@
       R.scene.fog.far = R.camDistNow * (season === 3 ? 2.6 : 3.4) * fogK * (1 - 0.45 * dk);
       R.renderer.toneMappingExposure = 1.0 + (1 - dl) * 0.22;
       R.mat.window.emissiveIntensity = R.mat.windowFade.emissiveIntensity = (1 - dl) * 1.6;
+      if (R.techU) R.techU.uNight.value = U.clamp((0.75 - dl) / 0.55, 0, 1);
       // Point lights: game lights + scene lights, nearest first
       const cand = [];
       const push = (x, y, r, a, color, h = 1.1) => cand.push({ x, y, r, a, color, h, d: (x - tgt.x) ** 2 + (y - tgt.z) ** 2 });
       for (const L of (game._updLights || game.lights || [])) push(L.x, L.y, L.r, L.a, L.color, 1.3);
       if (R._fxLights) { for (const L of R._fxLights) push(L.x, L.y, L.r, L.a, L.color, 0.7); R._fxLights.length = 0; }
-      const night = dl < 0.65;
+      const night = dl < 0.65, techLook = !ECHO.Theme || ECHO.Theme.on();
       if (night) {
-        for (const t of Object.values(R.towns)) for (const l of t.lamps) push(l.x, l.y, l.era >= 4 ? 8 : 4.5, l.era >= 4 ? 1.3 : 1.0, l.arcane && l.era >= 4 ? '#bfe8ff' : '#ffc070', 1.7);
+        for (const t of Object.values(R.towns)) for (const l of t.lamps) push(l.x, l.y, l.era >= 4 ? 8 : 4.5, l.era >= 4 ? 1.3 : 1.0, techLook ? '#9feaff' : l.arcane && l.era >= 4 ? '#bfe8ff' : '#ffc070', 1.7);
       }
       for (const l of R.siteLights || []) push(l.x, l.y, l.r, l.a, l.color, l.h);
       for (const l of R.gateLights || []) push(l.x, l.y, l.r, l.a, l.color, l.h);
@@ -4847,6 +5028,7 @@
       R.updateFx(game, dt);
       R.updateFell(game, dt, room);
       R.updateLoose(game, dt, room);
+      R.updateSkiffs(game, dt, room);
       R.updatePush(game, dt, room);
       R.updateAura(game, dt);
       R.updateGlows(game);
@@ -4876,6 +5058,72 @@
     // Each drawn where the game has it, turned as it lies: standing, gone over on its side and
     // rolling across its length, tumbling through the air, settled on a face; afloat on the
     // water and rocking with it, or going down.
+    // Sky traffic (the Arcanotech look): skiffs that ply over the land high above the roofs, a
+    // few near you at a time, coming from some way off and going on out of sight. Seen, not kept:
+    // nothing of them is in the world or the save.
+    updateSkiffs(game, dt, room) {
+      const S = R.skiffs || (R.skiffs = []);
+      const on = !room && !!R.camTarget && (!ECHO.Theme || ECHO.Theme.on());
+      if (!on) { if (S.length) { for (const s of S) R.scene.remove(s.g); S.length = 0; } return; }
+      const tx = R.camTarget.x, tz = R.camTarget.z;
+      R.skiffT = (R.skiffT == null ? 2 : R.skiffT) - dt;
+      if (R.skiffT <= 0 && S.length < 3) {
+        R.skiffT = 7 + Math.random() * 12;
+        const a = Math.random() * Math.PI * 2, off = (Math.random() - 0.5) * 18, dx = Math.cos(a), dz = Math.sin(a);
+        const big = Math.random() < 0.25, sc = big ? 1.7 + Math.random() * 0.4 : 1.05 + Math.random() * 0.3;
+        const s = { g: R.skiffMesh(big), x: tx - dx * 36 - dz * off, z: tz - dz * 36 + dx * off, dx, dz, v: big ? 2.6 + Math.random() : 4.5 + Math.random() * 3, h: (big ? 6.2 : 4.4) + Math.random() * 1.8, t: 0, ph: Math.random() * 6.28, y: null };
+        s.g.scale.setScalar(sc);
+        R.scene.add(s.g); S.push(s);
+      }
+      for (let i = S.length - 1; i >= 0; i--) {
+        const s = S[i];
+        s.x += s.dx * s.v * dt; s.z += s.dz * s.v * dt; s.t += dt;
+        const gy = Math.max(0, R.groundH(s.x, s.z)) + s.h;
+        s.y = s.y == null ? gy : U.lerp(s.y, gy, Math.min(1, dt * 0.7));
+        s.g.position.set(s.x, s.y + Math.sin(s.t * 1.3 + s.ph) * 0.07, s.z);
+        s.g.rotation.set(Math.sin(s.t * 0.9 + s.ph) * 0.05, -Math.atan2(s.dz, s.dx), 0);
+        if (s.t > 3 && Math.hypot(s.x - tx, s.z - tz) > 44) { R.scene.remove(s.g); S.splice(i, 1); }
+      }
+    },
+    // a skiff: a white hull, a canopy of dark glass, swept wings, two engines burning cyan
+    // behind and a glow beneath it where it rides on the air (a hauler: longer, a cargo pod)
+    skiffMesh(big) {
+      const key = big ? '_skiffBig' : '_skiff';
+      if (!R[key]) {
+        const g = new THREE.Group();
+        const hullM = new THREE.MeshStandardMaterial({ color: C('#dfe4ea'), roughness: 0.4, metalness: 0.3 });
+        const darkM = new THREE.MeshStandardMaterial({ color: C('#353c4a'), roughness: 0.5, metalness: 0.5 });
+        const glassM = new THREE.MeshStandardMaterial({ color: C('#1b3442'), roughness: 0.15, metalness: 0.6 });
+        const glowM = new THREE.MeshBasicMaterial({ color: C('#7ff4ff') });
+        const haloM = new THREE.MeshBasicMaterial({ color: C('#4ff0ff'), transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+        const trailM = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
+        const add = (geo, m, x, y, z, shadow) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = !!shadow; g.add(o); return o; };
+        const L = big ? 1.5 : 1;
+        const hull = new THREE.CylinderGeometry(0.11, 0.24, 1.5 * L, 10); hull.rotateZ(-Math.PI / 2); hull.scale(1, 0.62, 1.25);
+        add(hull, hullM, 0, 0, 0, true);
+        const can = new THREE.SphereGeometry(0.17, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2); can.scale(1.7, 0.85, 1);
+        add(can, glassM, 0.3 * L, 0.08, 0);
+        const wing = new THREE.BoxGeometry(0.46, 0.035, 1.35 * (big ? 1.2 : 1)); add(wing, darkM, -0.22 * L, -0.02, 0, true);
+        for (const sz of [-1, 1]) {
+          const pod = new THREE.CylinderGeometry(0.075, 0.09, 0.46, 8); pod.rotateZ(-Math.PI / 2);
+          add(pod, darkM, -0.58 * L, -0.01, sz * 0.5 * (big ? 1.2 : 1), true);
+          const eng = new THREE.SphereGeometry(0.075, 8, 6); eng.scale(0.6, 1, 1);
+          add(eng, glowM, -0.82 * L, -0.01, sz * 0.5 * (big ? 1.2 : 1));
+          // the wake of the engine, fading behind it
+          const trail = new THREE.PlaneGeometry(0.9, 0.1, 6, 1); trail.rotateX(-Math.PI / 2);
+          const tp = trail.attributes.position, tc = new Float32Array(tp.count * 3), wc = C('#4ff0ff');
+          for (let i = 0; i < tp.count; i++) { const k = Math.pow((tp.getX(i) + 0.45) / 0.9, 1.6); tc[i * 3] = wc.r * k; tc[i * 3 + 1] = wc.g * k; tc[i * 3 + 2] = wc.b * k; }
+          trail.setAttribute('color', new THREE.BufferAttribute(tc, 3));
+          add(trail, trailM, -1.27 * L, -0.01, sz * 0.5 * (big ? 1.2 : 1));
+        }
+        if (big) { const pod = new THREE.BoxGeometry(0.9, 0.26, 0.42); add(pod, darkM, -0.1, -0.22, 0, true); add(new THREE.BoxGeometry(0.92, 0.03, 0.44), glowM, -0.1, -0.08, 0); }
+        add(new THREE.BoxGeometry(1.0 * L, 0.02, 0.05), glowM, -0.05 * L, 0.15, 0);   // (a line of light down its back)
+        const under = new THREE.CircleGeometry(0.34 * L, 16); under.rotateX(Math.PI / 2);
+        add(under, haloM, 0, -0.16, 0);
+        R[key] = g;
+      }
+      return R[key].clone();
+    },
     updateLoose(game, dt, room) {
       const L = ECHO.Loose, list = L && !room && !L.inside ? L.list : [];
       const M = R._loose || (R._loose = new Map()), seen = R._looseSeen || (R._looseSeen = new Set());
@@ -4895,6 +5143,8 @@
           mesh.position.set(-(bb.min.x + bb.max.x) / 2 * sc, -(bb.min.y + bb.max.y) / 2 * sc, -(bb.min.z + bb.max.z) / 2 * sc);
           mesh.castShadow = K.m >= 0.3; mesh.receiveShadow = true;
           g.add(mesh); R.scene.add(g);
+          // (built new: a canister's bands, a case's straps, lit)
+          if (baked.glow) { const gm = new THREE.Mesh(baked.glow, R.mat.glow); gm.scale.copy(mesh.scale); gm.position.copy(mesh.position); g.add(gm); }
           o = { g, q: new THREE.Quaternion().setFromAxisAngle(Q.Y, -(p.yaw || 0)), lx: p.x, ly: p.y, bob: Math.random() * 6.28 };
           M.set(p, o);
         }

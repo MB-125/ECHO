@@ -53,6 +53,8 @@ PALETTE = {
     'shroomglow': ('#5affc8', 5, .4), 'sicklight': ('#d8ff7a', 8, .3), 'gloamfur': ('#16141a', 0, .95), 'wendskin': ('#b8b0a0', 0, .8),
     'antlerdark': ('#4a3a2c', 0, .8), 'shroud': ('#d8dcd0', .5, .9), 'hairblack': ('#0c0a0c', 0, .9), 'paleskin': ('#c8ccc0', 0, .8),
     'leafcloak': ('#1a1e16', 0, .95), 'bloodred': ('#5a0a08', 0, .8),
+    # the new things (the Arcanotech look): the lines of light sewn into clothes, a helm's visor
+    'techglow': ('#4ff0ff', 6, .4),
 }
 
 
@@ -469,6 +471,17 @@ def person():
     m.part('helm', (0, 0, hz), head).box((.28, .28, .12), (0, 0, hz + .24), 'metal').box((.02, .04, .14), (-.14, 0, hz + .14), 'metal')
     m.part('hood', (0, 0, hz), head).box((.28, .3, .12), (.01, 0, hz + .25), 'cloth').box((.08, .3, .26), (.12, 0, hz + .14), 'cloth')
     m.part('bandana', (0, 0, hz), head).box((.27, .27, .07), (0, 0, hz + .22), 'red').box((.03, .27, .1), (-.135, 0, hz + .06), 'red')
+    # lines of light in the clothes (shown in the Arcanotech look): collar, a line down the
+    # chest, the belt; a cuff above each hand, a band below each knee; a visor on the helm
+    named = lambda n: next(p for p in m.parts if p.name == n)
+    tb = m.part('tglowBody', (0, 0, hip), body)
+    tb.box((.228, .348, .022), (0, 0, hip + .385), 'techglow').box((.012, .03, .3), (-.112, 0, hip + .22), 'techglow')
+    tb.box((.246, .366, .018), (0, 0, hip + .058), 'techglow')
+    m.part('tglowArmL', (0, -.22, sh), armL).box((.108, .108, .024), (0, -.22, sh - .31), 'techglow')
+    m.part('tglowArmR', (0, .22, sh), armR).box((.108, .108, .024), (0, .22, sh - .31), 'techglow')
+    m.part('tglowLegL', (0, -0.085, hip), named('legL')).box((.128, .128, .022), (0, -0.085, hip - .24), 'techglow')
+    m.part('tglowLegR', (0, 0.085, hip), named('legR')).box((.128, .128, .022), (0, 0.085, hip - .24), 'techglow')
+    m.part('visor', (0, 0, hz), named('helm')).box((.026, .25, .045), (-.148, 0, hz + .135), 'techglow')
     crown = m.part('crown', (0, 0, hz), head)
     crown.box((.26, .26, .05), (0, 0, hz + .27), 'gold')
     for i in range(4):

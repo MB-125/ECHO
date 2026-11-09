@@ -318,7 +318,10 @@
         <button data-a="save">Save now</button><button data-a="keys">Keys…</button><button data-a="report" title="Opens a short form on the game's page (GitHub), with your version and system filled in">Report a problem</button>
         <div class="upd-slot"></div>
         ${(() => { const st = UI.settings, opt = (k, v, lbl, def) => `<button class="small" data-gs="${k}:${v}" ${(st[k] || def) === v ? 'disabled' : ''}>${lbl}</button>`;
-          return `<div class="card"><h4>Gameplay</h4>
+          return `<div class="card"><h4>The look of the world</h4>
+          <div class="row"><span style="min-width:190px">World style</span>${opt('look', 'arcano', 'Arcanotech', 'arcano')}${opt('look', 'classic', 'Classic', 'arcano')}</div>
+          <div class="dim" style="margin:-2px 0 6px">Arcanotech: the towns built new — ceramic and sun-glass, framed in light — while the wilds, ruins and deeps stay old and strange. Classic: the world as it was first drawn. Only the look changes; your world is untouched.</div></div>
+          <div class="card"><h4>Gameplay</h4>
           <div class="row"><span style="min-width:190px">Challenge</span>${opt('difficulty', 'story', 'Story', 'normal')}${opt('difficulty', 'normal', 'Balanced', 'normal')}${opt('difficulty', 'hard', 'Hard', 'normal')}</div>
           <div class="dim" style="margin:-2px 0 6px">Story: foes hit half as hard and fall sooner. Hard: they hit harder and take more killing. Change it any time; your world is untouched.</div>
           <div class="row"><span style="min-width:190px">Journal (Tab, J)</span>${opt('journal', 'beasts', 'Beasts only', 'beasts')}${opt('journal', 'all', 'Every page', 'beasts')}</div>
@@ -378,6 +381,7 @@
         const [k, v] = b.dataset.gs.split(':'); UI.settings[k] = v;
         if (k === 'uiz') UI.applyZoom();
         try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ }
+        if (k === 'look' && ECHO.Renderer && ECHO.Renderer.setLook) ECHO.Renderer.setLook();
         Scr.openPause();
       }));
       body.querySelectorAll('button[data-z]').forEach(b => b.addEventListener('click', () => {

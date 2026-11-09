@@ -5,7 +5,7 @@
 //  • instance(name)      → a full clone with its named parts, for animated
 //    characters, creatures and bosses (each gets its own materials).
 (function () {
-  const GLOW = new Set(['glow', 'flame', 'eyeglow', 'rune', 'voidglow', 'shroomglow', 'sicklight']);
+  const GLOW = new Set(['glow', 'flame', 'eyeglow', 'rune', 'voidglow', 'shroomglow', 'sicklight', 'techglow']);
 
   const M = ECHO.Models = {
     scenes: {}, baked: {}, ready: false, failed: null,
@@ -112,14 +112,24 @@
       if (!scene) return null;
       scene.updateMatrixWorld(true);
       const buckets = { base: [], glow: [], window: [] };
+      // built new (render/theme.js): its own colours, the surfaces drawn on it, its lines of light
+      const T = ECHO.Theme, tech = !!(T && T.tech(name)) && colors.trim !== 'off';   // (a burned house is not)
+      // (its pieces depend on its shape alone: found once a model)
+      const PC = M._pieces || (M._pieces = {}), known = tech && !!PC[name], pieces = tech ? PC[name] || (PC[name] = []) : [];
       scene.traverse(o => {
         if (!o.isMesh) return;
         const mname = o.material.name;
-        const bucket = GLOW.has(mname) || mname === 'crystal' ? 'glow' : mname === 'window' ? 'window' : 'base';
+        let bucket = GLOW.has(mname) || mname === 'crystal' ? 'glow' : mname === 'window' ? 'window' : 'base';
         let g = o.geometry.clone();
         g.applyMatrix4(o.matrixWorld);
         if (g.index) g = g.toNonIndexed();
-        const col = colors[mname] ? M.srgb(colors[mname]) : o.material.color;
+        let col = colors[mname] ? M.srgb(colors[mname]) : o.material.color;
+        if (tech) {
+          col = M.srgb(T.remap(name, mname, colors[mname] || T.hex(o.material.color)));
+          if (bucket === 'base' && !known) for (const p of T.pieces(mname, g)) pieces.push(p);
+          const lit = T.lit(name, mname);
+          if (lit) { bucket = 'glow'; col = M.srgb(lit); }
+        }
         const n = g.attributes.position.count;
         const c = new Float32Array(n * 3);
         // Tiny per-face variation keeps large flat surfaces from looking plastic.
@@ -127,8 +137,13 @@
           const j = 1 + (((i * 2654435761) >>> 0) % 1000 / 1000 - 0.5) * 0.08;
           for (let k = 0; k < 3; k++) { c[(i + k) * 3] = col.r * j; c[(i + k) * 3 + 1] = col.g * j; c[(i + k) * 3 + 2] = col.b * j; }
         }
-        buckets[bucket].push({ pos: g.attributes.position.array, nor: g.attributes.normal ? g.attributes.normal.array : null, col: c });
+        buckets[bucket].push({ pos: g.attributes.position.array, nor: g.attributes.normal ? g.attributes.normal.array : null, col: c, tech: tech ? T.kind(mname) : 0 });
       });
+      if (tech && pieces.length) {
+        const tr = T.trims(name, pieces, T.accent(colors));
+        for (const p of tr.glow) buckets.glow.push(p);
+        for (const p of tr.base) buckets.base.push(p);
+      }
       const merge = (list) => {
         if (!list.length) return null;
         let n = 0;
@@ -139,6 +154,13 @@
         const g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
         g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        // what the surface shader draws on each part of it (built new: panels, sun-glass, metal)
+        if (list.some(p => p.tech)) {
+          const tk = new Float32Array(n / 3);
+          let q = 0;
+          for (const p of list) { const c = p.pos.length / 3; tk.fill(p.tech || 0, q, q + c); q += c; }
+          g.setAttribute('aTech', new THREE.BufferAttribute(tk, 1));
+        }
         // the normals the model was made with: smooth where it is round, sharp at its creases
         if (haveN) g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); else g.computeVertexNormals();
         g.computeBoundingSphere();
@@ -171,6 +193,7 @@
           }
           m.name = mname;
           if (colors && colors[mname]) m.color.copy(M.srgb(colors[mname]));
+          if (ECHO.Theme && ECHO.Theme.tech(name)) m.color.copy(M.srgb(ECHO.Theme.remap(name, mname, (colors && colors[mname]) || ECHO.Theme.hex(base.color))));
           const R3 = ECHO.Renderer3D;
           // a monster of its own shape: what it is made of drawn on it; ghost-stuff
           // drifts and shows through, crystal glows
@@ -186,8 +209,11 @@
           mats.push(m);
         }
       });
+      // (a person's lines of light and visor: off until the look turns them on)
+      if (name === 'person') for (const k of M.TECH_PARTS) if (parts[k]) parts[k].visible = false;
       return { root, parts, mats };
     },
+    TECH_PARTS: ['tglowBody', 'tglowArmL', 'tglowArmR', 'tglowLegL', 'tglowLegR', 'visor'],
     recolor(inst, mname, hex) {
       const c = M.srgb(hex);
       for (const m of inst.mats) if (m.name === mname) m.color.copy(c);

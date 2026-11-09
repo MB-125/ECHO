@@ -59,7 +59,7 @@
         if (In.pressed.has('m')) UI.openMap();
         // (C wakes your third relic; Ctrl sneaks; the character sheet is on K)
         if (In.pressed.has('k')) UI.openCharacter();
-        if (In.pressed.has('i') && ECHO.Arcana) ECHO.Arcana.open(game);
+        if (In.pressed.has('i')) { if (ECHO.Inv) ECHO.Inv.open(game); else if (ECHO.Arcana) ECHO.Arcana.open(game); }   // (gear & inventory: inventory.js)
         if (In.pressed.has('y') && ECHO.Apex) ECHO.Apex.cycle(game);
         if (In.pressed.has('o') && ECHO.Tame && !UI.blocksWorld()) ECHO.Tame.rally(game);
         if (In.pressed.has('u') && ECHO.Apex) UI.openJournal(ECHO.Tame && (ECHO.Tame.pack(game.pl).length || game.pl.horse || (game.world.titans && ECHO.Titans && ECHO.Titans.bound(game.world).length)) ? 'tamed' : 'animals');
@@ -69,6 +69,8 @@
         if ((In.pressed.has('Tab') || In.pressed.has('j')) && UI.panelKind === 'journal') UI.closePanel();
         else if (In.pressed.has('m') && UI.panelKind === 'map') UI.closePanel();
         else if (In.pressed.has('i') && UI.panelKind === 'relics') UI.closePanel();
+        else if (In.pressed.has('i') && UI.panelKind === 'char') { if (UI._csec === 'gear' || !ECHO.Inv) UI.closePanel(); else ECHO.Inv.open(game); }
+        else if (UI.panelKind === 'char' && UI._csec === 'gear' && ECHO.Inv) { for (const k of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter']) if (In.pressed.has(k)) ECHO.Inv.key(k); }
         else if (In.pressed.has('n') && UI.panelKind === 'nav') UI.closePanel();
         else if (In.pressed.has('k') && UI.panelKind === 'char') UI.closePanel();
         else if (In.pressed.has('u') && UI.panelKind === 'journal') UI.closePanel();
@@ -316,6 +318,7 @@
     },
     closeModal() { UI.modalOpen = false; $('#modal').classList.add('hidden'); },
     openPanel(title, html, kind) {
+      if (ECHO.Inv) { ECHO.Inv.tip(false); ECHO.Inv.closeMenu(); }
       UI.panelOpen = true; UI.panelKind = kind || null;
       ECHO.Input.clear();
       $('#panel').classList.remove('hidden');
@@ -328,7 +331,7 @@
       body.scrollTop = 0;
       return body;
     },
-    closePanel() { UI.panelOpen = false; UI.panelKind = null; $('#panel').classList.add('hidden'); ECHO.Input.clear(); },
+    closePanel() { UI.panelOpen = false; UI.panelKind = null; $('#panel').classList.add('hidden'); ECHO.Input.clear(); if (ECHO.Inv) { ECHO.Inv.tip(false); ECHO.Inv.closeMenu(); } },
     eventsDigest(events, title) {
       const big = events.filter(e => e.imp >= 2).slice(-12);
       if (!big.length) return '';
@@ -802,6 +805,11 @@
         <div class="dim" style="font-size:12px">You grow by defeating foes. The stronger they are than you, the more you learn; things far beneath you teach you nothing.</div></div></div>`;
       const extra = `${ECHO.Aura && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Aura.html(ECHO.Game), 'aura') : ''}${ECHO.Well && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Well.html(ECHO.Game), 'mana') : ''}${ECHO.Deep && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Deep.html(ECHO.Game), 'the Endless Deep') : ''}${ECHO.Atlas && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Atlas.html(ECHO.Game), 'the Atlas') : ''}${ECHO.Harvest && ECHO.Game.pl === pl ? UI.safe(() => ECHO.Harvest.paceHtml(ECHO.Game, false), 'felling and mining') : ''}${ECHO.Guard ? ECHO.Guard.cardHtml(world, pl) : ''}`;
       return part === 'core' ? core : part === 'extra' ? extra : core + extra;
+    },
+    // What you wear, in one line (the Gear tab — I — has all of it)
+    wornLineHtml(world, pl) {
+      const Gr = ECHO.Gear, it = id => id && world.items[id], one = (x, what) => x ? `<span style="color:${Gr.rarity(x.rarity).color}">${esc(x.name)}${x.plus ? ' +' + x.plus : ''}</span>` : `<span class="dim">no ${what}</span>`;
+      return `<div class="card"><h4>What you wear</h4><div>${one(it(pl.weapon), 'weapon')} · ${one(it(pl.bow), 'bow')} · ${one(it(pl.armor), 'armour')}</div><div class="row"><button class="small" data-csec-go="gear">Gear &amp; inventory (I)</button></div></div>`;
     },
     // What you carry and wear, drawn so that every upgrade shows.
     equipHtml(world, pl) {
@@ -1836,11 +1844,11 @@
         <p class="dim">Renown ${Math.round(pl.renown)} · Armour ${ECHO.Gear.def(world, pl)} (${Math.round((1 - ECHO.Gear.taken(world, pl, 'melee')) * 100)}% of every blow turned) · Fate ${pl.fate}/3${pl.knighted ? ' · Knight of ' + world.factions[pl.knighted].short : ''}${pl.legacyOf ? ' · kin of ' + esc((ECHO.Legacy.legendOf(world, pl.legacyOf) || {}).name || '') : ''}</p>
         ${pl.spells.length ? `<p class="gold">Secrets: ${pl.spells.map(k => ECHO.Mysteries.REWARDS[k].name).join(', ')}</p>` : ''}
         ${UI.prowessHtml(world, pl, 'core')}
-        ${UI.equipHtml(world, pl)}</section>
-        <section data-csec="gear">${ECHO.Arcana ? ECHO.Arcana.html(game) : ''}
+        ${ECHO.Inv ? UI.wornLineHtml(world, pl) : UI.equipHtml(world, pl)}</section>
+        <section data-csec="gear">${ECHO.Inv ? `<div class="inv-host"></div>${UI.shareAllHtml(game)}${ECHO.Mending ? ECHO.Mending.html(game) : ''}` : `${ECHO.Arcana ? ECHO.Arcana.html(game) : ''}
         ${ECHO.Mending ? ECHO.Mending.html(game) : ''}
-        <h3 class="gold">Belongings</h3>${UI.shareAllHtml(game)}<div class="list">${items.map(it => `<div class="card" style="display:flex;gap:10px">${it.kind === 'sword' || it.kind === 'bow' || it.kind === 'armor' || it.kind === 'relic' ? ECHO.GearArt.img(it, 'gear-ic small') : ''}<div style="flex:1"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}${UI.canGive(pl, it) ? `<div class="row"><button class="small" data-give="${it.id}">Give away…</button><button class="small" data-keep="${it.id}">${UI.kept(pl, it) ? '🔒 Kept — unlock' : '🔒 Keep (never sold in bulk)'}</button></div>` : ''}</div></div>`).join('')}</div>
-        ${ECHO.Gear.mats(pl).length ? `<h3 class="gold">Monster parts</h3><div>${ECHO.Gear.mats(pl).map(m => `<span style="color:${m.color}">◆</span> ${m.n} ${esc(m.name)}`).join(' · ')}</div><p class="dim" style="font-size:13px">Sell them at a market, or bring them to a smith to improve your gear.</p>` : ''}</section>
+        <h3 class="gold">Belongings</h3>${UI.shareAllHtml(game)}`}${ECHO.Inv ? '' : `<div class="list">${items.map(it => `<div class="card" style="display:flex;gap:10px">${it.kind === 'sword' || it.kind === 'bow' || it.kind === 'armor' || it.kind === 'relic' ? ECHO.GearArt.img(it, 'gear-ic small') : ''}<div style="flex:1"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}${UI.canGive(pl, it) ? `<div class="row"><button class="small" data-give="${it.id}">Give away…</button><button class="small" data-keep="${it.id}">${UI.kept(pl, it) ? '🔒 Kept — unlock' : '🔒 Keep (never sold in bulk)'}</button></div>` : ''}</div></div>`).join('')}</div>`}
+        ${!ECHO.Inv && ECHO.Gear.mats(pl).length ? `<h3 class="gold">Monster parts</h3><div>${ECHO.Gear.mats(pl).map(m => `<span style="color:${m.color}">◆</span> ${m.n} ${esc(m.name)}`).join(' · ')}</div><p class="dim" style="font-size:13px">Sell them at a market, or bring them to a smith to improve your gear.</p>` : ''}</section>
         <section data-csec="skills"><h3 class="gold">Skills — grown by use</h3>${skills}<h3 class="gold" style="margin-top:16px">Tendencies — what you keep doing</h3>${tends}
         <p class="dim" style="font-size:13px">Tendencies change how you fight: aggression quickens strikes and weakens your guard; patience cheapens guarding; recklessness strengthens fire and makes it unstable.</p>
         ${ECHO.Tech.pageHtml(pl)}
@@ -1854,9 +1862,11 @@
         ${ECHO.Life ? ECHO.Life.card(world, pl) : ''}</section>`, 'char');
       // one part at a time (the rest is there, a tab away); a part with nothing in it has no tab
       { const pb = document.querySelector('#panel .panel-body');
-        const show = k => { UI._csec = k; pb.querySelectorAll('section[data-csec]').forEach(x => x.classList.toggle('hidden', x.dataset.csec !== k)); pb.querySelectorAll('.csec button').forEach(b => b.classList.toggle('on', b.dataset.csec === k)); };
+        const ih = pb.querySelector('.inv-host'); if (ih && ECHO.Inv) ECHO.Inv.mount(ih, game);
+        const show = k => { UI._csec = k; ECHO.Inv && ECHO.Inv.tip(false); pb.querySelectorAll('section[data-csec]').forEach(x => x.classList.toggle('hidden', x.dataset.csec !== k)); pb.querySelectorAll('.csec button').forEach(b => b.classList.toggle('on', b.dataset.csec === k)); };
         pb.querySelectorAll('section[data-csec]').forEach(x => { if (!x.textContent.trim()) { const b = pb.querySelector(`.csec button[data-csec="${x.dataset.csec}"]`); if (b) b.remove(); } });
         pb.querySelectorAll('.csec button').forEach(b => b.addEventListener('click', () => show(b.dataset.csec)));
+        pb.querySelectorAll('[data-csec-go]').forEach(b => b.addEventListener('click', () => show(b.dataset.csecGo)));
         show(pb.querySelector(`.csec button[data-csec="${S}"]`) ? S : 'me'); }
       document.querySelectorAll('#panel button[data-tech]').forEach(b => b.addEventListener('click', () => { if (ECHO.Tech.toggle(b.dataset.tech) === false) UI.toast(`You can only carry ${ECHO.Tech.slots(pl)} techniques. Set one down first.`, 'warn', 3); UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-w]').forEach(b => b.addEventListener('click', () => { pl.weapon = b.dataset.w; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
