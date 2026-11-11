@@ -7,6 +7,18 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.43.0', items: [
+      'The wild is a meadow now, not a lawn. Grass grows thick and uneven over the open ground, long grass stands in drifts, and flowers come up in patches of one colour (not in winter). The ground itself is darker and lighter in places instead of one flat green.',
+      'Roads have smooth, worn edges and follow the way they run, instead of being drawn square by square.',
+      'The shadows of clouds drift over the land by day.',
+      'Butterflies over the grass in fair weather. They lift off when you walk through them.',
+      'Foes know about guns. Hold a gun on one with any sense and it stops walking down the barrel: it weaves from side to side as it comes. Mindless things still walk straight in.',
+      'Foes know about missiles. The one your launcher has locked runs to put a wall or a tree between you; the ones standing beside it get clear before it lands, and they clear the ground a salvo is about to hit.',
+      'A burning foe runs for water if there is any near, and is put out. It comes out soaked, which a bolt can use. With no water, a man rolls the worst of the fire out and is open while he does; a beast only runs.',
+      'Break a ward and its owner backs off behind the others for a few breaths. The ones still warded push to the front and strike first.',
+      'Shatter a frozen foe and the ones beside it flinch back, and the whole pack loses some of its nerve. Enough of that and they run.',
+      'On Low quality the extra grass, cloud shadows and butterflies are left out. Nothing here touches your save.'
+    ] },
     { v: '0.42.0', items: [
       'One menu instead of many. Your gear, your quests, the map, the world, your beasts and the codex are now six pages of a single menu, with the pages along the top of every one of them. Click a page, or step through them with Q and E.',
       'Hero: Gear, Hero (your story, numbers and progress together), Skills and Allies. It opens on your gear.',

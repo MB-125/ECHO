@@ -892,6 +892,63 @@ function main() {
   }
 
 
+  console.log('\nSavvy');
+  {
+    let seed = 777;
+    const M = Object.create(Math); M.random = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+    const ctx = { console, Math: M, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite };
+    ctx.globalThis = ctx; vm.createContext(ctx);
+    for (const f of ['core.js', 'game/aware.js', 'game/savvy.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx, { filename: f });
+    const E = ctx.ECHO, U = E.U;
+    let pond = null, wall = null; const floats = [];
+    E.World = { isSolid: () => false }; E.Water = { kind: (w, x, y) => pond && U.dist(x, y, pond.x, pond.y) < 1.2 ? 'shallow' : null };
+    E.Ent = { fits: () => true, lineOfSight: (w, ax, ay, bx, by) => !(wall && bx > wall), seek(w, e, x, y, sp, dt) { const d = U.dist(e.x, e.y, x, y); if (d > 0.01) { const s = Math.min(d, sp * dt); e.x += (x - e.x) / d * s; e.y += (y - e.y) / d * s; } }, travel(w, e, x, y, sp, dt) { this.seek(w, e, x, y, sp, dt); } };
+    E.Combat = { fx: [], proj: [], floater: (x, y, t) => floats.push(t) }; E.PlayerCtl = { heavyHold: false };
+    E.Guns = { aiming: false, lock: null }; E.React = { soak: (g, e) => { e.soaked = true; } };
+    E.Tactics = { fearless: () => false, ranged: () => false, squads: new Map() };
+    const pe = { type: 'player', x: 0, y: 0, r: 0.33, hp: 100, maxHp: 100, dir: 0 };
+    const game = E.Game = { time: 0, world: { npcs: {} }, pe, ents: [], hostileTo: (a, b) => (a === pe) !== (b === pe), shake() {}, light() {} };
+    const mk = (x, y, o) => Object.assign({ type: 'creature', humanoid: true, foe: { elite: true }, aggro: true, x, y, r: 0.36, speed: 3.8, hp: 50, maxHp: 50, state: 'chase', gear: {} }, o);
+    const run = (e, n) => { for (let i = 0; i < n; i++) { game.time += 0.05; E.Aware.tick(game, 0.05); E.Aware.preempt(game, e, 0.05); } };
+    // under the gun
+    const a = mk(8, 0); game.ents = [pe, a];
+    run(a, 60);
+    check('a foe you are not aiming at comes on as it would', a.x === 8 && a.y === 0);
+    E.Guns.aiming = true; let off = 0;
+    for (let i = 0; i < 80; i++) { run(a, 1); off = Math.max(off, Math.abs(a.y)); }
+    check('held under a gun, a foe with sense weaves off the line of the barrel', off > 0.8, `${off.toFixed(2)} off the line`);
+    const dull = mk(8, 0, { foe: {}, species: 'skeleton', humanoid: false }); game.ents = [pe, dull];
+    run(dull, 80);
+    check('…a mindless one walks straight down it', dull.y === 0);
+    E.Guns.aiming = false;
+    // locked by the launcher
+    const t1 = mk(8, 0), by = mk(8.8, 0.6); game.ents = [pe, t1, by];
+    E.Guns.lock = { e: t1, on: true, t: 1 };
+    run(by, 30);
+    check('those standing by the one your launcher has locked get clear of it', U.dist(by.x, by.y, t1.x, t1.y) > 2.6, `${U.dist(by.x, by.y, t1.x, t1.y).toFixed(1)} away`);
+    wall = 9.5; run(t1, 30);
+    check('…and the one it is meant for runs to put something between you', t1.x > 9.5, `x ${t1.x.toFixed(1)}`);
+    E.Guns.lock = null; wall = null;
+    // on fire
+    const b = mk(6, 0, { burn: 5 }); game.ents = [pe, b]; pond = { x: 6, y: 4 };
+    run(b, 80);
+    check('a burning foe runs for water, is put out, and is soaked for it', b.burn === 0 && b.soaked && U.dist(b.x, b.y, 6, 4) < 1.3, floats.join(', '));
+    pond = null; const c = mk(6, 0, { burn: 5 }); game.ents = [pe, c]; run(c, 30);
+    check('…with no water near, a man rolls the worst of it out, once, and is open while he does', c.burn < 2 && c.stagger >= 0.7 && c._rolled, `burn ${c.burn.toFixed(2)}`);
+    // a ward gone
+    const w = mk(2, 0, { token: true }); game.ents = [pe, w];
+    E.Savvy.wardBroke(game, w, false); run(w, 30);
+    check('a foe whose ward has just broken stands stunned a moment…', w.x === 2);
+    run(w, 40);
+    check('…then backs off behind the others, and gives up its turn to strike', w.x > 4 && !w.token, `x ${w.x.toFixed(1)}`);
+    // a shatter seen close
+    const s1 = mk(3, 0), s2 = mk(3.8, 0.5, { token: true }), s3 = mk(12, 0); game.ents = [pe, s1, s2, s3];
+    const sq = { shock: 0 }; E.Tactics.squads.set(pe, sq);
+    E.Savvy.spook(game, s1, pe);
+    check('one of them shattered beside the others: the near ones flinch back, the far ones do not, and the pack loses heart', !!s2._ev && !s2.token && !s3._ev && sq.shock > 0.1);
+  }
+
+
   console.log('\nAwareness');
   {
     // a small world of its own: open ground, a few minds, and the awareness module

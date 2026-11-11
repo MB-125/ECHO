@@ -243,6 +243,19 @@
       cone(g, FL(), 0.2, 0.42, 7, 0, 0.92, 0);
       ball(g, GL(), 0.12, 0, 1.0, 0);
     });
+    // the sward: a clump of long blades, dark at the foot and pale at the tip, to stand thick
+    // in the meadows (each blade two faces of one leaning sliver; they shade as the ground does)
+    make('sward', g => {
+      const blade = (mt, x, z, h, w, ry, lean) => {
+        const geo = new THREE.BufferGeometry(), tx = Math.sin(lean) * h;
+        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-w, 0, 0, w, 0, 0, tx, h, 0, w, 0, 0, -w, 0, 0, tx, h, 0]), 3));
+        geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array([0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0]), 3));
+        geo.rotateY(ry); geo.translate(x, 0, z);
+        g.add(new THREE.Mesh(geo, mt));
+      };
+      const A = m('grass', '#4f8a3a'), B = m('grasstip', '#86b85a');
+      for (let i = 0; i < 6; i++) { const a = i * 2.4, r = 0.05 + (i % 3) * 0.06; blade(i % 2 ? B : A, Math.cos(a) * r, Math.sin(a) * r, 0.2 + (i * 37 % 10) * 0.016, 0.022, a * 1.7, 0.25 + (i % 3) * 0.12); }
+    });
     make('lanternpost', g => {
       cyl(g, ST(), 0.14, 0.16, 0.18, 8, 0, 0, 0);
       cyl(g, DW(), 0.05, 0.06, 1.7, 7, 0, 0.18, 0);

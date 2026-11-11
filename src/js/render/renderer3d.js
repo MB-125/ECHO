@@ -196,8 +196,8 @@
     // the corner of a house) is stippled away in a soft circle, so you are never lost
     // behind it; the shadows it casts stay whole
     cutU: null,
-    FOLIAGE: new Set(['grass', 'crop', 'reeds', 'bush', 'pine', 'oak', 'willow', 'oakbare']),
-    LOWPLANT: new Set(['grass', 'crop', 'reeds', 'bush', 'thorns']),   // (what gives way round you as you walk through it)
+    FOLIAGE: new Set(['grass', 'sward', 'crop', 'reeds', 'bush', 'pine', 'oak', 'willow', 'oakbare']),
+    LOWPLANT: new Set(['grass', 'sward', 'crop', 'reeds', 'bush', 'thorns', 'flowers', 'tallgrass']),   // (what gives way round you as you walk through it)
     PUSH_N: 16,
     detail(mat, k, scale, seeThrough, sway, push) {
       if (!mat || mat.userData.detail) return mat;
@@ -418,11 +418,11 @@
     techify(mat) {
       if (!mat || mat.userData.tech) return mat;
       mat.userData.tech = true;
-      const U2 = R.techU || (R.techU = { uTech: { value: 1 }, uNight: { value: 0 }, uTechCol: { value: new THREE.Color('#4ff0ff') } });
+      const U2 = R.techU || (R.techU = { uTech: { value: 1 }, uNight: { value: 0 }, uTechCol: { value: new THREE.Color('#4ff0ff') }, uCT: { value: 0 }, uCloud: { value: 0 } });
       mat.defaultAttributeValues = Object.assign({}, mat.defaultAttributeValues || {}, { aTech: [0] });
       mat.extensions = Object.assign(mat.extensions || {}, { derivatives: true });
       const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey;
-      mat.customProgramCacheKey = () => (prevKey ? prevKey.call(mat) : '') + '|tech1';
+      mat.customProgramCacheKey = () => (prevKey ? prevKey.call(mat) : '') + '|tech2';
       mat.onBeforeCompile = (sh, r) => {
         if (prev) prev(sh, r);
         Object.assign(sh.uniforms, U2);
@@ -439,7 +439,7 @@
               tw = instanceMatrix * tw;
             #endif
             vTechW = (modelMatrix * tw).xyz; }`);
-        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uTech; uniform float uNight; uniform vec3 uTechCol; varying float vTech; varying vec3 vTechN; varying vec3 vTechW;')
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uTech; uniform float uNight; uniform vec3 uTechCol; uniform float uCT; uniform float uCloud; varying float vTech; varying vec3 vTechN; varying vec3 vTechW;\nfloat cN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); float a = fract(sin(dot(i, vec2(41.3, 289.1))) * 15731.743), b = fract(sin(dot(i + vec2(1.0, 0.0), vec2(41.3, 289.1))) * 15731.743), c = fract(sin(dot(i + vec2(0.0, 1.0), vec2(41.3, 289.1))) * 15731.743), d = fract(sin(dot(i + vec2(1.0, 1.0), vec2(41.3, 289.1))) * 15731.743); return mix(mix(a, b, f.x), mix(c, d, f.x), f.y); }\n          // the shadows of clouds, drifting over the land\n          float cloudSh(vec2 wp) { vec2 cp = wp * 0.05 + vec2(uCT * 0.011, uCT * 0.006); float c = cN(cp) * 0.62 + cN(cp * 2.3 + 7.0) * 0.38; return 1.0 - uCloud * smoothstep(0.5, 0.7, c) * 0.3; }')
           .replace('#include <color_fragment>', `#include <color_fragment>
           float tK = floor(vTech + 0.5); vec3 tEm = vec3(0.0); float tRough = 1.0, tMetal = 0.0;
           if (uTech > 0.5 && tK > 0.5) {
@@ -467,7 +467,8 @@
               tEm = uTechCol * frame * fade * uNight * 0.06;
               tRough = 0.55; tMetal = 0.12;
             } else { tRough = 0.5; tMetal = 0.55; }
-          }`)
+          }
+          if (uCloud > 0.0) diffuseColor.rgb *= cloudSh(vTechW.xz);`)
           .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
           roughnessFactor *= tRough;`)
           .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
@@ -496,16 +497,20 @@
     groundDetail(mat) {
       const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey;
       mat.extensions = Object.assign(mat.extensions || {}, { derivatives: true });
-      mat.customProgramCacheKey = () => prevKey.call(mat) + '|ground2';
-      const TU = R.techU || (R.techU = { uTech: { value: 1 }, uNight: { value: 0 }, uTechCol: { value: new THREE.Color('#4ff0ff') } });
+      mat.customProgramCacheKey = () => prevKey.call(mat) + '|ground3';
+      const TU = R.techU || (R.techU = { uTech: { value: 1 }, uNight: { value: 0 }, uTechCol: { value: new THREE.Color('#4ff0ff') }, uCT: { value: 0 }, uCloud: { value: 0 } });
       mat.onBeforeCompile = (sh, r) => {
         prev(sh, r);
         Object.assign(sh.uniforms, TU);
-        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aKind;\nvarying float vKind;')
-          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvKind = aKind;');
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aRoad;\nvarying float vKind;\nvarying float vRoad;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvKind = aKind; vRoad = aRoad;');
         sh.fragmentShader = sh.fragmentShader.replace('varying vec3 vDetailW;', `varying vec3 vDetailW;
           varying float vKind;
-          uniform float uTech; uniform float uNight; uniform vec3 uTechCol;
+          uniform float uTech; uniform float uNight; uniform vec3 uTechCol; uniform float uCT; uniform float uCloud;
+          varying float vRoad;
+          float cN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); float a = fract(sin(dot(i, vec2(41.3, 289.1))) * 15731.743), b = fract(sin(dot(i + vec2(1.0, 0.0), vec2(41.3, 289.1))) * 15731.743), c = fract(sin(dot(i + vec2(0.0, 1.0), vec2(41.3, 289.1))) * 15731.743), d = fract(sin(dot(i + vec2(1.0, 1.0), vec2(41.3, 289.1))) * 15731.743); return mix(mix(a, b, f.x), mix(c, d, f.x), f.y); }
+          // the shadows of clouds, drifting over the land
+          float cloudSh(vec2 wp) { vec2 cp = wp * 0.05 + vec2(uCT * 0.011, uCT * 0.006); float c = cN(cp) * 0.62 + cN(cp * 2.3 + 7.0) * 0.38; return 1.0 - uCloud * smoothstep(0.5, 0.7, c) * 0.3; }
           float gH(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 15731.743); }
           // distance to the nearest edge of the cell, with the cell's id
           float cellEdge(vec2 p, out vec2 id) { id = floor(p); vec2 f = fract(p); return min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)); }
@@ -566,6 +571,14 @@
               float crack = 1.0 - smoothstep(0.03, 0.03 + fw * 1.5, f2 - f1);
               shade = 1.0 + ((gH(cid) - 0.5) * (k == 7.0 ? 0.14 : 0.05) - crack * (k == 7.0 ? 0.22 : 0.06)) * fade;
             } else if (k == 0.0 && diffuseColor.g > diffuseColor.r * 1.05) {   // grass: short tufts
+              // (the meadow in patches: lusher and darker here, dry and pale there, never one flat green)
+              { vec2 q = wp * 0.11, qi = floor(q), qf = fract(q); qf = qf * qf * (3.0 - 2.0 * qf);
+                float n1 = mix(mix(gH(qi), gH(qi + vec2(1.0, 0.0)), qf.x), mix(gH(qi + vec2(0.0, 1.0)), gH(qi + vec2(1.0, 1.0)), qf.x), qf.y);
+                vec2 r = wp * 0.37 + 17.0, ri = floor(r), rf = fract(r); rf = rf * rf * (3.0 - 2.0 * rf);
+                float n2 = mix(mix(gH(ri), gH(ri + vec2(1.0, 0.0)), rf.x), mix(gH(ri + vec2(0.0, 1.0)), gH(ri + vec2(1.0, 1.0)), rf.x), rf.y);
+                float n = n1 * 0.65 + n2 * 0.35;
+                diffuseColor.rgb *= vec3(0.86 + n * 0.3, 0.9 + n * 0.2, 0.8 + n * 0.3);
+                diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.16, 1.06, 0.72), smoothstep(0.62, 0.9, n2) * 0.5); }
               vec2 p = wp * vec2(6.0, 6.0); vec2 id = floor(p); vec2 f = fract(p) - vec2(gH(id), gH(id + 5.0)) * 0.6 - 0.2;
               float fw = fwidth(p.x) + fwidth(p.y);
               float blade = 1.0 - smoothstep(0.02, 0.02 + fw, abs(f.x + f.y * 0.25) - 0.015) ;
@@ -574,6 +587,31 @@
               shade = 1.0 + blade * (gH(id + 4.0) > 0.5 ? 0.14 : -0.16) * fade;
             }
             diffuseColor.rgb *= shade;
+            // the road: drawn where the ways run, its edges smooth and worn (not tile by tile)
+            if (vRoad > 0.2) {
+              float rn = sin(wp.x * 1.9 + wp.y * 1.3) * 0.03 + sin(wp.x * 4.7 - wp.y * 3.1) * 0.015;
+              float rd = smoothstep(0.36, 0.43, vRoad + rn);
+              if (rd > 0.0) {
+                vec3 rc; float rs = 1.0;
+                if (uTech > 0.5) {
+                  vec2 p = wp * vec2(1.0, 2.0); p.x += mod(floor(p.y), 2.0) * 0.5;
+                  vec2 id = floor(p), f = fract(p), fw = max(fwidth(p), vec2(1e-4)), e = min(f, 1.0 - f) / fw;
+                  float joint = 1.0 - smoothstep(0.6, 1.7, min(e.x, e.y)), fade = 1.0 - smoothstep(0.1, 0.3, max(fw.x, fw.y));
+                  rc = vec3(0.27, 0.285, 0.315);
+                  rs = 1.0 + ((gH(id) - 0.5) * 0.08 - joint * 0.28) * fade;
+                  gEm += uTechCol * joint * fade * 0.05 * uNight * rd;
+                } else {
+                  rc = vec3(0.325, 0.236, 0.117);
+                  vec2 p = wp * 5.0; vec2 id = floor(p); vec2 c = vec2(gH(id), gH(id + 7.1)) * 0.6 + 0.2;
+                  float r = gH(id + 3.3) > 0.55 ? 0.13 + gH(id + 9.0) * 0.1 : 0.0, fw = fwidth(p.x) + fwidth(p.y);
+                  float dot1 = 1.0 - smoothstep(r - fw, r + fw, length(fract(p) - c));
+                  rs = 1.0 + (dot1 * (gH(id + 1.7) > 0.5 ? 0.16 : -0.2)) * (1.0 - smoothstep(0.2, 0.5, fw)) + (cN(wp * 0.8) - 0.5) * 0.12;
+                }
+                float rim = rd * (1.0 - smoothstep(0.43, 0.6, vRoad + rn));
+                diffuseColor.rgb = mix(diffuseColor.rgb, rc * rs * (1.0 - rim * 0.2), rd);
+              }
+            }
+            if (uCloud > 0.0) diffuseColor.rgb *= cloudSh(wp);
           }`)
           .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
           totalEmissiveRadiance += gEm;`);
@@ -1167,7 +1205,7 @@
       // --- ground
       const x0 = cx * CH, y0 = cy * CH, x1 = Math.min(world.W, x0 + CH), y1 = Math.min(world.H, y0 + CH);
       const ntile = (x1 - x0) * (y1 - y0);
-      const pos = new Float32Array(ntile * 18), col = new Float32Array(ntile * 18), kind = new Float32Array(ntile * 6);
+      const pos = new Float32Array(ntile * 18), col = new Float32Array(ntile * 18), kind = new Float32Array(ntile * 6), road = new Float32Array(ntile * 6);
       const KIND = R.GROUND_KIND || (R.GROUND_KIND = { [TILE.PLAZA]: 1, [TILE.ROAD]: 2, [TILE.BRIDGE]: 2, [TILE.FARM]: 3, [TILE.SAND]: 4, [TILE.SNOW]: 5, [TILE.ROCK]: 7, [TILE.HILL]: 8, [TILE.RUIN]: 6, [TILE.RUINWALL]: 6 });
       let o = 0, groundTop = 0;
       const tmp = new THREE.Color();
@@ -1176,13 +1214,17 @@
       // the tiles meeting there — so the land reads as one surface, not a chequerboard of squares;
       // what people built (paving, fields, ruins, bridges) keeps its own clean edge.
       const BUILT = R._BUILT || (R._BUILT = new Set([TILE.PLAZA, TILE.FARM, TILE.RUIN, TILE.RUINWALL, TILE.BRIDGE]));
-      const LW = x1 - x0 + 2, LH = y1 - y0 + 2, tcol = new Float32Array(LW * LH * 3), tnat = new Uint8Array(LW * LH);
+      const LW = x1 - x0 + 2, LH = y1 - y0 + 2, tcol = new Float32Array(LW * LH * 3), tnat = new Uint8Array(LW * LH), trd = new Uint8Array(LW * LH);
+      const tAt = (xx, yy) => world.tiles[Math.max(0, Math.min(world.H - 1, yy)) * world.W + (world.globe ? ((xx % world.W) + world.W) % world.W : Math.max(0, Math.min(world.W - 1, xx)))];
       for (let yy = y0 - 1; yy <= y1; yy++) for (let xx = x0 - 1; xx <= x1; xx++) {
         const yc = Math.max(0, Math.min(world.H - 1, yy)), xw = world.globe ? ((xx % world.W) + world.W) % world.W : Math.max(0, Math.min(world.W - 1, xx));
         const ii = yc * world.W + xw, t = world.tiles[ii];
         // (a town's paving in its people's stone; beaten earth on the steppe and in the north)
         const pv = t === TILE.PLAZA && ECHO.TownStyle ? ECHO.TownStyle.paveAt(world, xw, yc) : null;
-        tmp.copy(C(pv ? pv.col : tileColor(t, season, xw, yc, world.seed)));
+        // (a road is drawn over the ground by the shader, smooth-edged: under it, the ground beside it)
+        let tg = t;
+        if (t === TILE.ROAD) { tg = TILE.GRASS; for (const [dx, dy] of R._N8 || (R._N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]])) { const n = tAt(xx + dx, yy + dy); if (n !== TILE.ROAD && !BUILT.has(n) && n !== TILE.WATER && n !== TILE.DEEP) { tg = n; break; } } }
+        tmp.copy(C(pv ? pv.col : tileColor(tg, season, xw, yc, world.seed)));
         tmp.multiplyScalar(0.93 + hash(xw, yc, world.seed + 2) * 0.14);
         const trl = world._trail ? world._trail[ii] : 0, dwt = world._wd ? world._wd[ii] : 0;
         if (trl) tmp.lerp(C(dwt ? '#3e3528' : '#9a8258'), (dwt ? 0.75 : 0.82) * (0.88 + hash(xw, yc, world.seed + 4) * 0.24));
@@ -1196,8 +1238,9 @@
           }
         }
         const li = (yy - y0 + 1) * LW + (xx - x0 + 1);
-        tcol[li * 3] = tmp.r; tcol[li * 3 + 1] = tmp.g; tcol[li * 3 + 2] = tmp.b; tnat[li] = BUILT.has(t) ? 0 : 1;
+        tcol[li * 3] = tmp.r; tcol[li * 3 + 1] = tmp.g; tcol[li * 3 + 2] = tmp.b; tnat[li] = BUILT.has(t) ? 0 : 1; trd[li] = t === TILE.ROAD ? 1 : 0;
       }
+      const roadAt = (x, y, ox, oy) => { let n = 0; for (let dy = -1; dy <= 0; dy++) for (let dx = -1; dx <= 0; dx++) n += trd[(y + oy + dy - y0 + 1) * LW + (x + ox + dx - x0 + 1)]; return n / 4; };
       const cc = [0, 0, 0];
       // the colour at a corner of tile (x, y): ox, oy = 0|1 for which corner
       const cornerCol = (x, y, ox, oy) => {
@@ -1219,10 +1262,10 @@
         const a = R.cornerH(x, y), b = R.cornerH(x + 1, y), c2 = R.cornerH(x, y + 1), d = R.cornerH(x + 1, y + 1);
         if (a > groundTop) groundTop = a;
         const V = [[x, a, y], [x, c2, y + 1], [x + 1, b, y], [x + 1, b, y], [x, c2, y + 1], [x + 1, d, y + 1]];
-        let kd = KIND[t] || 0;
+        let kd = t === TILE.ROAD ? 0 : KIND[t] || 0;
         if (t === TILE.PLAZA && ECHO.TownStyle) { const pv = ECHO.TownStyle.paveAt(world, x, y); if (pv && pv.earth) kd = 2; }
         for (let i = 0; i < 6; i++) {
-          kind[o / 3] = kd;
+          kind[o / 3] = kd; road[o / 3] = roadAt(x, y, VC[i][0], VC[i][1]);
           pos[o] = V[i][0]; pos[o + 1] = V[i][1]; pos[o + 2] = V[i][2];
           const shade = i < 3 ? 1 : 0.985, q = cornerCol(x, y, VC[i][0], VC[i][1]);
           col[o] = q[0] * shade; col[o + 1] = q[1] * shade; col[o + 2] = q[2] * shade;
@@ -1233,6 +1276,7 @@
       g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
       g.setAttribute('color', new THREE.BufferAttribute(col, 3));
       g.setAttribute('aKind', new THREE.BufferAttribute(kind, 1));
+      g.setAttribute('aRoad', new THREE.BufferAttribute(road, 1));
       g.computeVertexNormals();
       const ground = new THREE.Mesh(g, R.mat.terrain);
       ground.receiveShadow = true;
@@ -1245,6 +1289,8 @@
         (sets[key] = sets[key] || { name, colors, list: [] }).list.push([x, y, s, rot, h]);
       };
       const regionOf = (x, y) => ECHO.World.regionAt(world, x, y);
+      const qn = (ECHO.UI && ECHO.UI.settings.quality) || 'high', swardN = qn === 'low' ? 0 : qn === 'medium' ? 3 : 5;
+      const SWARD = R._SWARD || (R._SWARD = SEASON.grass.map(hex => [0, 1, 2].map(i => { const c = new THREE.Color(hex), o = {}; c.getHSL(o); const k = [-0.05, 0, 0.05][i]; return { grass: '#' + new THREE.Color().setHSL(o.h + k * 0.3, Math.min(1, o.s * 1.1), o.l * (0.74 + k)).getHexString(), grasstip: '#' + new THREE.Color().setHSL(o.h - 0.02 + k * 0.3, Math.min(1, o.s * 1.05), Math.min(0.8, o.l * (1.22 + k * 2))).getHexString() }; })));
       const oakCols = (v) => {
         const sc = SEASON.oak[season];
         if (season === 2) { const p = sc[v % 2]; return { leaves: p[0], leaves2: p[1] }; }
@@ -1289,6 +1335,19 @@
           if (h1 < 0.32) add('grass', { grass: SEASON.grass[season] }, px, py, 1 + h2 * 0.6, h1 * 6.28);
           else if (h1 < 0.335) add('rock', null, px, py, 0.5 + h2 * 0.4, h1 * 6.28);
           else if (h1 < 0.36) add('bush', { leaves: SEASON.forest[season], leaves2: SEASON.forest[season] }, px, py, 0.7, h1 * 6.28);
+          // the sward: blades standing thick over the whole meadow, in three greens, thinner
+          // where the ground is poor (none on Low: it is the cost of it)
+          if (swardN) { const rich = hash(x >> 2, y >> 2, world.seed + 91);
+            for (let i = 0; i < swardN; i++) { const a = hash(x, y, world.seed + 100 + i * 3), b = hash(x, y, world.seed + 101 + i * 3), c = hash(x, y, world.seed + 102 + i * 3);
+              if (c > 0.45 + rich * 0.55) continue;
+              add('sward', SWARD[season][(a * 3) | 0], x + a, y + b, 0.8 + c * 1.1 + rich * 0.4, a * 40); } }
+          // a meadow, not a lawn: more grass, long grass in drifts, flowers in patches of a colour
+          { const e1 = hash(x, y, world.seed + 73), e2 = hash(x, y, world.seed + 74), e3 = hash(x, y, world.seed + 75);
+            const m1 = hash(x >> 3, y >> 3, world.seed + 71), m2 = hash((x + 4) >> 3, (y + 4) >> 3, world.seed + 72);
+            if (e1 < 0.42) add('grass', { grass: SEASON.grass[season] }, x + 0.12 + e2 * 0.76, y + 0.12 + e3 * 0.76, 0.7 + e1, e2 * 6.28);
+            if (m2 > 0.62 && e2 < 0.55) add('tallgrass', { grass: SEASON.grass[season] }, x + 0.2 + e3 * 0.6, y + 0.2 + e1 * 0.6, 0.8 + e3 * 0.5, e1 * 6.28);
+            if (season !== 3 && m1 > 0.66 && e3 < 0.5) { const P = R._PETALS || (R._PETALS = [['#f2d24a', '#fff6e0'], ['#e86a8a', '#ffd0dc'], ['#8a7ae8', '#d8d0ff'], ['#f08a3a', '#ffe0b0'], ['#f4f4fa', '#f2d24a']]), pc = P[Math.floor(m1 * 977) % P.length];
+              add('flowers', { grass: SEASON.grass[season], petal: pc[0], petal2: pc[1] }, x + 0.2 + e1 * 0.6, y + 0.2 + e2 * 0.6, 0.9 + e3 * 0.5, e3 * 6.28); } }
         } else if (t === TILE.SWAMP) {
           if (h1 < 0.55) add('reeds', null, px, py, 0.9 + h2 * 0.5, h1 * 6.28);
         } else if (t === TILE.HILL || t === TILE.SNOW) {
@@ -1349,7 +1408,7 @@
             im.setMatrixAt(i, m4);
           });
           im.instanceMatrix.needsUpdate = true;
-          im.castShadow = part === 'base' && set.name !== 'grass' && set.name !== 'crop' && set.name !== 'reeds';
+          im.castShadow = part === 'base' && set.name !== 'grass' && set.name !== 'sward' && set.name !== 'crop' && set.name !== 'reeds';
           im.receiveShadow = true;
           im.frustumCulled = false;
           R.groups.props.add(im); objs.push(im);
@@ -4922,7 +4981,7 @@
       R.scene.fog.far = R.camDistNow * (season === 3 ? 2.6 : 3.4) * fogK * (1 - 0.45 * dk);
       R.renderer.toneMappingExposure = 1.0 + (1 - dl) * 0.22;
       R.mat.window.emissiveIntensity = R.mat.windowFade.emissiveIntensity = (1 - dl) * 1.6;
-      if (R.techU) R.techU.uNight.value = U.clamp((0.75 - dl) / 0.55, 0, 1);
+      if (R.techU) { R.techU.uNight.value = U.clamp((0.75 - dl) / 0.55, 0, 1); R.techU.uCT.value = R.time; R.techU.uCloud.value = (ECHO.Interior && ECHO.Interior.cur) || ((ECHO.UI && ECHO.UI.settings.quality) === 'low') ? 0 : U.clamp((dl - 0.3) / 0.4, 0, 1); }
       // Point lights: game lights + scene lights, nearest first
       const cand = [];
       const push = (x, y, r, a, color, h = 1.1) => cand.push({ x, y, r, a, color, h, d: (x - tgt.x) ** 2 + (y - tgt.z) ** 2 });
@@ -5100,6 +5159,7 @@
       R.updateSkiffs(game, dt, room);
       R.updateGunships(game, dt);
       R.updateLive(game, dt);
+      R.updateFlutter(game, dt);
       R.updatePush(game, dt, room);
       R.updateAura(game, dt);
       R.updateGlows(game);
@@ -5158,6 +5218,57 @@
     },
     // Live events (live.js): the rift — a ring of light standing in the air, turning, a dark
     // heart in it — and the drop pod, a scorched capsule with its lamps still lit.
+    // Butterflies over the meadow: by day, in fair weather, out of winter, where there is grass.
+    // (Only to look at: nothing in the world knows of them, and nothing is saved.)
+    updateFlutter(game, dt) {
+      const world = game.world, pe = game.pe, qn = (ECHO.UI && ECHO.UI.settings.quality) || 'high';
+      const dl = T.daylight(world.minute), season = T.dateOf(world.day).seasonIdx;
+      const fair = pe && pe.x < 9000 && dl > 0.55 && season !== 3 && !(ECHO.Interior && ECHO.Interior.cur) && !(R.rain && R.rain.visible) && !(R.snow && R.snow.visible);
+      const want = !fair || qn === 'low' ? 0 : qn === 'medium' ? 8 : 16;
+      const F = R._flut || (R._flut = []);
+      if (!R._flutG) {
+        const tri = s => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, -0.035, 0, 0, 0.045, s * 0.085, 0, 0.07, 0, 0, -0.035, s * 0.085, 0, 0.07, s * 0.07, 0, -0.06]), 3)); g.computeVertexNormals(); return g; };
+        R._flutG = [tri(1), tri(-1)];
+        R._flutM = ['#f4b23a', '#f6f1e4', '#7fb6f2', '#e8785a', '#c9a0f0'].map(c => new THREE.MeshBasicMaterial({ color: C(c), side: THREE.DoubleSide }));
+      }
+      const grass = (x, y) => { const xi = Math.floor(x), yi = Math.floor(y); return yi >= 0 && yi < world.H && xi >= 0 && xi < world.W && world.tiles[yi * world.W + xi] === TILE.GRASS; };
+      while (F.length < want) {
+        const g = new THREE.Group(), m = R._flutM[F.length % R._flutM.length];
+        const a = new THREE.Mesh(R._flutG[0], m), b = new THREE.Mesh(R._flutG[1], m); g.add(a); g.add(b); g.visible = false; R.scene.add(g);
+        F.push({ g, a, b, on: false, x: 0, y: 0, ax: 0, ay: 0, h: 0.5, t: Math.random() * 10, ph: Math.random() * 6.28, wait: Math.random() * 3 });
+      }
+      for (let i = 0; i < F.length; i++) {
+        const f = F[i];
+        if (i >= want) { f.g.visible = false; f.on = false; continue; }
+        if (f.on && U.dist(f.x, f.y, pe.x, pe.y) > 15) f.on = false;
+        if (!f.on) {
+          f.g.visible = false;
+          if ((f.wait -= dt) > 0) continue;
+          f.wait = 0.4 + Math.random() * 2;
+          const a = Math.random() * 6.28, r = 5 + Math.random() * 8, x = pe.x + Math.cos(a) * r, y = pe.y + Math.sin(a) * r;
+          if (!grass(x, y)) continue;
+          f.on = true; f.x = f.ax = x; f.y = f.ay = y; f.tx = x; f.ty = y; f.h = 0.3;
+        }
+        f.t += dt;
+        // a wandering way about one patch of ground, never straight
+        if (U.dist(f.x, f.y, f.tx, f.ty) < 0.25 || f.t > 4) {
+          f.t = 0;
+          const a = Math.random() * 6.28, r = Math.random() * 2.6, x = f.ax + Math.cos(a) * r, y = f.ay + Math.sin(a) * r;
+          if (grass(x, y)) { f.tx = x; f.ty = y; }
+        }
+        const d = U.dist(f.x, f.y, f.tx, f.ty) || 1, w = R.time * 3 + f.ph, sp = 1.1 * dt;
+        const dx = (f.tx - f.x) / d, dy = (f.ty - f.y) / d;
+        f.x += dx * sp - dy * Math.sin(w) * 0.5 * dt; f.y += dy * sp + dx * Math.sin(w) * 0.5 * dt;
+        f.h += ((0.45 + Math.sin(w * 0.7) * 0.25) - f.h) * Math.min(1, dt * 3);
+        // startled up and off by anything going by
+        if (U.dist(f.x, f.y, pe.x, pe.y) < 1.1) { const a = Math.atan2(f.y - pe.y, f.x - pe.x); f.tx = f.x + Math.cos(a) * 3; f.ty = f.y + Math.sin(a) * 3; f.h += dt * 2.5; f.t = 0; }
+        f.g.visible = true;
+        f.g.position.set(f.x, R.groundH(f.x, f.y) + f.h + Math.sin(w * 2.3) * 0.04, f.y);
+        f.g.rotation.y = -Math.atan2(dy, dx) + Math.PI / 2;
+        const fl = Math.sin(R.time * 22 + f.ph) * 0.95;
+        f.a.rotation.z = fl; f.b.rotation.z = -fl;
+      }
+    },
     updateLive(game, dt) {
       const c = ECHO.Live && ECHO.Live.cur, want = c && (c.kind === 'rift' || (c.kind === 'pod' && c.landed)) ? c : null;
       if (R._liveFor !== want) {

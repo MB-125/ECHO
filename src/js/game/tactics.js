@@ -62,6 +62,7 @@
         s.size0 = Math.max(prev ? prev.size0 : 0, s.members.length);
         s.dead = prev ? prev.dead : 0;
         s.leaderDown = prev ? prev.leaderDown : false;
+        s.shock = prev && prev.shock > 0.01 ? prev.shock * 0.97 : 0;      // (what they have just seen done to one of their own)
         s.leaders = s.members.filter(e => T.isLeader(game, e));
         s.knownLeaders = new Set([...(prev ? prev.knownLeaders : []), ...s.leaders]);
         // the dead since last time
@@ -80,7 +81,9 @@
       const base = n ? Math.atan2(melee[0].y - tg.y, melee[0].x - tg.x) : 0;
       // strikers: the ones already closest, a couple at a time, rotating
       const tokens = tg === game.pe && ECHO.Director && ECHO.Director.mercy(game) ? 1 : n >= 6 ? 3 : 2;
-      const byDist = melee.slice().sort((a, b) => U.dist(a.x, a.y, tg.x, tg.y) - U.dist(b.x, b.y, tg.x, tg.y));
+      // (the warded go in first: they have the least to fear)
+      const near = e => U.dist(e.x, e.y, tg.x, tg.y) - (e.rxWard && e.rxWard.hp > 0 ? 3 : 0);
+      const byDist = melee.slice().sort((a, b) => near(a) - near(b));
       // a turn lasts until a little after your blow lands (or a few seconds without one)
       for (const e of melee) if (e.token && ((e.struckT && game.time - e.struckT > 1.1) || game.time - e.tokenT > 4.5)) { e.token = false; e.struckT = 0; e.restT = game.time + 0.6 + Math.random() * 0.8; }
       const keep = byDist.filter(e => e.token).slice(0, tokens);
@@ -112,6 +115,7 @@
       const p0 = s.members.find(o => o.type === 'person' && !o.isCompanion);
       if (p0 && ECHO.Odds) m += U.clamp((ECHO.Odds.odds(game, p0, tg, false) - 0.5) * 0.5, -0.3, 0.12);
       if (p0 && tg === game.pe && ECHO.Renown) m -= ECHO.Renown.dread(game.world);   // (they know your name)
+      m -= s.shock || 0;
       s.nerve = m;
       if (game.time - s.start < 3) return;
       for (const e of s.members) {

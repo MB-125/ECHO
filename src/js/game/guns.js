@@ -133,7 +133,7 @@
       GU.up = Math.max(0, GU.up - dt);
       const blocked = pe.swimming || game.ui.blocksWorld() || PC.dodgeT > 0 || pl.flying;
       const held = In.mdown[2] && !blocked;
-      GU.aiming = held;
+      GU.aiming = held; GU.aimA = aim;
       GU.heat = Math.max(0, GU.heat - dt * (held && K.auto ? 0 : 0.9));
       if (held) { GU.up = 1.4; GU.holdT += dt; } else GU.holdT = 0;
       // the launcher locks on to what you aim at, while you hold

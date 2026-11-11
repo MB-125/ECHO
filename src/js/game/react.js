@@ -116,6 +116,7 @@
       C().ring(e.x, e.y, 1.6, W.col, 0.35);
       if (ECHO.Sfx) ECHO.Sfx.play('parry', { pitch: 0.7 });
       game.hitStop(0.07);
+      if (ECHO.Savvy) ECHO.Savvy.wardBroke(game, e, worn);
       if (!worn && RX.ours(game, from)) {
         const wb = aug('warbreaker');
         RX.gain(game, wb >= 2 ? 2 : 1);
@@ -203,6 +204,7 @@
       for (let i = 0; i < 10; i++) C().puff(e.x, e.y, { h: 0.5, vx: Math.cos(a + (Math.random() - 0.5) * 2.4) * (3 + Math.random() * 5), vy: Math.sin(a + (Math.random() - 0.5) * 2.4) * (3 + Math.random() * 5), vz: 2 + Math.random() * 3, g: 9, life: 0.7, size: 2.2, color: '#cfefff', spark: true });
       if (ECHO.Sfx) { ECHO.Sfx.play('crit'); ECHO.Sfx.play('parry', { pitch: 1.8, vol: 0.7 }); }
       game.hitStop(0.09); game.shake(0.2);
+      if (ECHO.Savvy && RX.ours(game, from)) ECHO.Savvy.spook(game, e, game.pe);
       for (const o of RX.near(game, e.x, e.y, 2.2, e)) { RX.hit(o, dmg * 0.4, from, e.x, e.y, { knock: 0.25 }); if (!o.dead) RX.chill(game, o, aug('glacier') >= 2 ? 3 : 1); }
     },
     conduct(game, e, dmg, from) {

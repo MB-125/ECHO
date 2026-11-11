@@ -55,6 +55,8 @@ PALETTE = {
     'leafcloak': ('#1a1e16', 0, .95), 'bloodred': ('#5a0a08', 0, .8),
     # the new things (the Arcanotech look): the lines of light sewn into clothes, a helm's visor
     'techglow': ('#4ff0ff', 6, .4),
+    # meadow flowers (recoloured patch by patch)
+    'petal': ('#f2d24a', 0, .8), 'petal2': ('#fff6e0', 0, .8),
 }
 
 
@@ -1205,6 +1207,32 @@ def grass():
     for i in range(4):
         a = i * 1.7
         g.cone(.05, .26, (.08 * math.cos(a), .08 * math.sin(a), .13), 'grass', seg=3, rot=(10 * math.sin(a), 10 * math.cos(a), 0))
+    return m
+
+
+@model
+def flowers():
+    # a scatter of meadow flowers: thin stems, a bright head on each
+    m = Model('flowers')
+    g = m.part('flowers')
+    for i in range(5):
+        a = i * 2.4 + .3
+        r = .1 + .05 * (i % 3)
+        x, y, h = r * math.cos(a), r * math.sin(a), .16 + .05 * (i % 3)
+        g.cone(.012, h, (x, y, h / 2), 'grass', seg=3)
+        g.ball(.035, (x, y, h + .02), 'petal' if i % 2 == 0 else 'petal2', sub=0, scale=(1, 1, .7))
+    return m
+
+
+@model
+def tallgrass():
+    # a deep clump of long grass, the blades leaning out
+    m = Model('tallgrass')
+    g = m.part('tallgrass')
+    for i in range(7):
+        a = i * 0.9
+        r = .05 + .09 * (i % 3) / 2
+        g.cone(.045, .42 + .08 * (i % 2), (r * math.cos(a), r * math.sin(a), .22), 'grass', seg=3, rot=(16 * math.sin(a), 16 * math.cos(a), 0))
     return m
 
 

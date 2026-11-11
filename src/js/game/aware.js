@@ -142,6 +142,8 @@
       e._awT = (e._awT || 0) - dt;
       if (e._awT > 0) return false;
       e._awT = 0.1;
+      // the newer ways of being killed: guns held on it, missiles, fire, a ward gone
+      if (ECHO.Savvy && ECHO.Savvy.think(game, e, q)) { Aw.step(game, e, e._ev.x, e._ev.y, dt, e._ev.fast); Aw.idle(e, dt); return true; }
       // something flying at it
       if (Aw.dodge(game, e, q)) return true;
       // you, winding up a heavy blow in its face
