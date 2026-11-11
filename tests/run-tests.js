@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/guns.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/guns.js', 'game/react.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
 
 function loadEcho() {
@@ -2572,6 +2572,67 @@ function main() {
     const rf = many.find(e => e.gear.rifle);
     check('…and a guard with a rifle has put down spear and shield and shoots like an archer', rf.gear.bow && !rf.gear.spear && !rf.gear.shield);
     E.UI = UI0; E.Combat = C0; E.Sfx = S0; E.Game = G0; E.Prowess = P0; GU.reset();
+  }
+
+  console.log('\nReactions');
+  {
+    const E = ECHO, Ent = E.Ent, RX = E.React;
+    const UI0 = E.UI, C0 = E.Combat, S0 = E.Sfx, G0 = E.Game, P0 = E.Prowess;
+    const said = [], hits = [];
+    E.UI = { toast() {} }; E.Sfx = { play() {} }; E.Prowess = { level: () => 10 };
+    E.Combat = { fx: [], puff() {}, burst() {}, ring() {}, floater: (x, y, t) => said.push(t), damage: (e, d, s) => { hits.push({ e, d, s }); e.hp -= d; return d; } };
+    const pe = Ent.make({ type: 'player', x: 10, y: 10, r: 0.35, hp: 100, maxHp: 100 });
+    const pl = { mana: 0, maxMana: 100 };
+    const game = { world: {}, pe, pl, ents: [pe], time: 0, hostileTo: (a, b) => a !== b, shake() {}, light() {}, hitStop() {}, slowMo() {} };
+    E.Game = game; RX.reset();
+    const mk = (x, y) => { const e = Ent.make({ type: 'creature', species: 'wolf', x, y, r: 0.4, hp: 1000, maxHp: 1000 }); game.ents.push(e); return e; };
+    const blow = (e, d, s) => { s.from = pe; const out = RX.pre(game, e, d, s); e.hp -= out; RX.post(game, e, out, s); return out; };
+    // freeze, then shatter
+    const a = mk(12, 10), a2 = mk(13, 10);
+    blow(a, 5, { type: 'ranged', el: 'cold' }); blow(a, 5, { type: 'ranged', el: 'cold' });
+    check('two chills do not freeze a foe; the third does', !(a.rx.frozen > 0) && (blow(a, 5, { type: 'ranged', el: 'cold' }), a.rx.frozen > 0));
+    RX.tick(game, 0.1);
+    check('a frozen foe cannot act', a.stagger > 0);
+    const sh = blow(a, 100, { type: 'melee' });
+    check('a blade on the frozen shatters it: more than double the harm, shards for those near, and it thaws', sh >= 229 && !(a.rx.frozen > 0) && hits.some(h => h.e === a2 && h.s.noRx) && said.includes('SHATTER'));
+    check('…and it cannot be frozen again at once', (blow(a, 5, { type: 'ranged', el: 'cold' }), blow(a, 5, { type: 'ranged', el: 'cold' }), blow(a, 5, { type: 'ranged', el: 'cold' }), !(a.rx.frozen > 0)));
+    // conduct
+    hits.length = 0;
+    const b = mk(30, 30), b2 = mk(33.5, 30), b3 = mk(40, 30);
+    RX.soak(game, b); RX.soak(game, b2); RX.soak(game, b3);
+    blow(b, 50, { type: 'ranged', el: 'shock' });
+    check('a bolt into a soaked foe leaps to the soaked foes near it and stuns them, not to one far off', hits.some(h => h.e === b2) && !hits.some(h => h.e === b3) && b.stagger > 0.5 && b2.stagger > 0.5 && !(b.rx.wet > 0));
+    // overload
+    hits.length = 0;
+    const c = mk(50, 50), c2 = mk(51.5, 50);
+    blow(c, 20, { type: 'ranged', el: 'shock' });
+    check('a bolt leaves a dry foe charged', c.rx.charge > 0);
+    blow(c, 40, { type: 'fire' });
+    check('fire on the charged bursts it: it and those near are hit again', hits.some(h => h.e === c && h.d >= 60) && hits.some(h => h.e === c2) && !(c.rx.charge > 0));
+    // brittle
+    const d = mk(70, 70); d.burn = 3;
+    blow(d, 5, { type: 'ranged', el: 'cold' });
+    check('cold on the burning puts it out and leaves it brittle: a third more from everything', d.burn === 0 && d.rx.brittle > 0 && Math.abs(RX.pre(game, d, 100, { type: 'melee', from: pe }) - 135) < 0.01);
+    // wards
+    const w = mk(90, 90); w.rxWard = { k: 'frost', hp: 600, max: 600 };
+    const turned = RX.pre(game, w, 100, { type: 'melee', from: pe });
+    check('a warded foe turns most of a blow that is not its answer', Math.abs(turned - 30) < 0.01 && w.rxWard.hp > 0);
+    const through = RX.pre(game, w, 100, { type: 'fire', from: pe });
+    check('…and its answer breaks the ward at a stroke and staggers it', through === 100 && w.rxWard.hp === 0 && w.stagger >= 1.5);
+    const w2 = mk(95, 90); w2.rxWard = { k: 'stone', hp: 100, max: 100 };
+    RX.pre(game, w2, 100, { type: 'melee', from: pe }); RX.pre(game, w2, 100, { type: 'melee', from: pe });
+    check('a ward can also be worn through by plain blows', w2.rxWard.hp === 0);
+    let warded = 0; for (let i = 0; i < 400; i++) { const e = { type: 'creature', species: 'wolf', x: i * 7.3, y: i * 3.1, maxHp: 100 + i, aggro: true }; RX.ward(game, e); if (e.rxWard) warded++; }
+    check('about one in five of the wild things that fight you is warded, none below level 3', warded > 50 && warded < 115 && (() => { E.Prowess = { level: () => 2 }; const e = { type: 'creature', species: 'wolf', x: 1, y: 1, maxHp: 100 }; for (let i = 0; i < 50; i++) { e.x = i; e.rxWard = null; RX.ward(game, e); if (e.rxWard) return false; } return true; })(), `${warded} of 400`);
+    // surge
+    RX.reset(); pl.mana = 0;
+    for (let i = 0; i < 4; i++) RX.gain(game, 1);
+    check('four reactions are four pips', RX.surge === 4 && RX.od === 0 && pl.mana > 0);
+    RX.gain(game, 1);
+    check('the fifth is Overdrive: eight seconds, a full well, blows a third harder', RX.od === 8 && RX.surge === 0 && pl.mana === 100 && Math.abs(RX.pre(game, mk(120, 120), 100, { type: 'melee', from: pe }) - 130) < 0.01);
+    RX.tick(game, 9);
+    check('…and it ends', RX.od === 0);
+    E.UI = UI0; E.Combat = C0; E.Sfx = S0; E.Game = G0; E.Prowess = P0; RX.reset();
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

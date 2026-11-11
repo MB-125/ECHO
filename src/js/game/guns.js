@@ -28,9 +28,9 @@
     // what each kind does: seconds between shots, share of the gun's power each bolt, bolt
     // speed and life (so range), spread, bolts a shot, what it burns
     CLASSES: {
-      pistol: { name: 'Pistol', cd: 0.3, per: 0.44, spd: 24, life: 0.6, spread: 0.035, ammo: 'cells', kick: 0.05, noise: 5, sfx: 'zap', assist: 10, desc: 'Quick and sure: a bolt for each pull of the trigger.' },
+      pistol: { name: 'Pistol', cd: 0.3, per: 0.44, spd: 24, life: 0.6, spread: 0.035, ammo: 'cells', kick: 0.05, noise: 5, sfx: 'zap', assist: 10, desc: 'Quick and sure: a bolt for each pull of the trigger. Its bolts leave a foe charged.' },
       rifle: { name: 'Pulse rifle', cd: 0.11, per: 0.2, spd: 28, life: 0.72, spread: 0.02, grow: 0.014, max: 0.17, auto: true, ammo: 'cells', kick: 0.03, noise: 6, sfx: 'pulse', assist: 13, desc: 'Hold the trigger: a stream of bolts that strays the longer you hold it.' },
-      scatter: { name: 'Scattergun', cd: 0.8, per: 0.22, spd: 19, life: 0.33, spread: 0.46, pellets: 7, knock: 0.24, ammo: 'cells', kick: 0.14, noise: 7, sfx: 'blast', recoil: 0.16, assist: 6, desc: 'Seven bolts in a fan. Close in, nothing hits harder.' },
+      scatter: { name: 'Cryo scattergun', cd: 0.8, per: 0.22, spd: 19, life: 0.33, spread: 0.46, pellets: 7, knock: 0.24, ammo: 'cells', kick: 0.14, noise: 7, sfx: 'blast', recoil: 0.16, assist: 6, desc: 'Seven freezing bolts in a fan: three that land freeze a foe solid. Then strike it.' },
       launcher: { name: 'Missile launcher', cd: 1.35, per: 2.3, radius: 2, missile: true, lock: true, ammo: 'missiles', kick: 0.2, noise: 9, sfx: 'missile', recoil: 0.2, assist: 18, desc: 'Hold to lock on: the missile finds its mark and bursts, throwing whatever stands near.' }
     },
     ODDS: [['pistol', 0.36], ['rifle', 0.3], ['scatter', 0.19], ['launcher', 0.15]],
@@ -148,7 +148,7 @@
         GU.cd = 0.3; GU.lock = null;
         return;
       }
-      pl.inv[K.ammo] = have - 1;
+      if (!(ECHO.React && ECHO.React.od > 0)) pl.inv[K.ammo] = have - 1;   // (Overdrive: nothing burned)
       GU.cd = K.cd;
       GU.fire(game, it, K, aim);
       if (K.lock) GU.lock = null;
@@ -183,7 +183,7 @@
         for (let i = 0; i < n; i++) {
           const spr = n > 1 ? (i / (n - 1) - 0.5) * K.spread + (Math.random() - 0.5) * 0.05 : (Math.random() - 0.5) * (K.spread + GU.heat * 2);
           const p = C().shoot(pe, a0 + spr, { kind: 'laser', speed: K.spd * (0.93 + Math.random() * 0.14), dmg: base * K.per, life: K.life * (n > 1 ? 0.85 + Math.random() * 0.3 : 1), type: 'ranged', color: col });
-          p.gun = true; p.h = 0.88; p.knock = K.knock || 0.06;
+          p.gun = true; p.h = 0.88; p.knock = K.knock || 0.06; p.el = K.pellets ? 'cold' : 'shock';   // (what it leaves on what it hits: react.js)
         }
         if (K.grow) GU.heat = Math.min(K.max, GU.heat + K.grow);
       }
@@ -264,7 +264,7 @@
           const fall = 1 - Math.min(1, d / (R + e.r)) * 0.5;
           let dmg = p.dmg * fall;
           if (e === game.pe && p.pct) dmg = Math.max(dmg, game.pl.maxHp * p.pct * fall);   // (a gunship's missile: a share of your life)
-          Cc.damage(e, dmg, { type: 'fire', from: p.from, angle: Math.atan2(e.y - p.y, e.x - p.x), knock: p.knock * (0.6 + 0.4 * fall), unblockable: !!p.air });
+          Cc.damage(e, dmg, { type: 'fire', from: p.from, angle: Math.atan2(e.y - p.y, e.x - p.x), knock: p.knock * (0.6 + 0.4 * fall), unblockable: !!p.air, blast: true });
         }
       } finally { GU._shotGun = false; }
       for (const l of world.lairs || []) for (const r of l.rocks || []) if (r.hp > 0 && U.dist(p.x, p.y, r.x + 0.5, r.y + 0.5) < R + 0.6) Cc.hitRock(l, r, 30);

@@ -3835,9 +3835,11 @@
         // hurt flash (white-hot then red), attack tells, burning
         const flash = e.hurtT > 0 ? (e.hurtT > 0.12 ? 2 : 1) : 0;
         const tell = v.tell ? (Math.sin(R.time * 30) > 0 ? 2 : 1) : 0;
-        if (flash !== v.flash || tell !== v.tellW || e.burn > 0) {
-          v.flash = flash; v.tellW = tell;
+        const rxK = ECHO.React && (e.rx || e.rxWard) ? ECHO.React.key(e) : 0;
+        if (flash !== v.flash || tell !== v.tellW || e.burn > 0 || rxK !== v.rxK) {
+          v.flash = flash; v.tellW = tell; v.rxK = rxK;
           let r = 0, g2 = 0, b = 0;
+          if (rxK) [r, g2, b] = ECHO.React.tint(rxK);   // (frozen, charged, soaked, brittle, warded)
           if (e.burn > 0) { r = 0.5; g2 = 0.18; }
           if (tell) { const t = tell === 2 ? 0.55 : 0.3; r = t; g2 = t * 0.8; b = t * 0.6; }
           if (flash === 2) { r = 1.4; g2 = 1.3; b = 1.2; } else if (flash === 1) { r = 0.9; g2 = 0.15; b = 0.1; }

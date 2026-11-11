@@ -583,6 +583,7 @@
         if (K.mat === 'gourd' && C.decal) C.decal(p.x, p.y, 'slime', 0.6, 12);
       }
       if (ECHO.Sfx && L.heard(game, p)) ECHO.Sfx.play(K.mat === 'clay' ? 'shatter' : K.mat === 'wood' ? 'chop' : 'thud', { vol: 0.6, pitch: K.mat === 'wood' ? 0.8 : 1 });
+      if (p.k === 'barrel' && ECHO.React) ECHO.React.splash(game, p.x, p.y, 2.4);   // (a barrel of water, burst: everything near is soaked)
       // now and then there is something in it (for you)
       const mine = by && (by === game.pe || by.pal);
       if (mine && game.pl) L.loot(game, p);

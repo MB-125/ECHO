@@ -7,6 +7,18 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.39.0', items: [
+      'Fights are no longer all alike. What you hit a foe with now leaves something on it, and the next thing you hit it with reacts to that.',
+      'Fire burns. Cold chills, and three chills freeze a foe solid (the scattergun is now a cryo scattergun; the frost relic freezes too). Pistol and rifle bolts and the storm relic leave a foe charged. Rain, wading and a barrel burst beside a foe soak it.',
+      'SHATTER: strike a frozen foe for more than double harm, with shards for those near it.',
+      'CONDUCT: shoot a soaked foe and the bolt leaps to every soaked or nearby foe and stuns them.',
+      'OVERLOAD: burn a charged foe, or shoot a burning one, and it bursts where it stands.',
+      'BRITTLE: cold on a burning foe puts out the fire and leaves it taking a third more from everything.',
+      'STEAM: fire on a frozen foe makes a scalding cloud that blinds and soaks everything near.',
+      'Warded foes: from level 3, about one in five wild things that fight you wears a ward that turns most of what hits it. Its colour is the answer: blue, burn it; violet, shoot it with a bolt; grey, a heavy blow, a blast or a shatter. The right answer breaks the ward at a stroke and staggers it.',
+      'Surge: every reaction fills a pip under your bars. Five pips are OVERDRIVE: eight seconds of blows a third harder, guns that burn no ammunition, and a full well of mana.',
+      'Your saved game loads exactly as before.'
+    ] },
     { v: '0.38.0', items: [
       'Guns. A gun has its own slot beside your bow. Press ` (the key left of 1) to swap between them; the right mouse button fires whichever is ready.',
       'Four kinds: the pistol (a bolt for each pull of the trigger), the pulse rifle (hold for a stream of bolts that strays the longer you hold), the scattergun (seven bolts in a fan, brutal up close) and the missile launcher.',

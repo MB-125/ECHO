@@ -269,7 +269,7 @@
             else if (p.kind === 'missile' && GU) GU.blast(p);
             else {
               if (GU) GU._shotGun = !!p.gun;
-              try { C.damage(e, p.dmg, { type: 'ranged', from: p.from, angle: p.angle, knock: p.crit ? 0.22 : p.knock || 0.08, crit: p.crit, stagger: p.crit ? 0.35 : 0 }); } finally { if (GU) GU._shotGun = false; }
+              try { C.damage(e, p.dmg, { type: 'ranged', from: p.from, angle: p.angle, knock: p.crit ? 0.22 : p.knock || 0.08, crit: p.crit, stagger: p.crit ? 0.35 : 0, el: p.el }); } finally { if (GU) GU._shotGun = false; }
               if (p.kind === 'laser') C.burst(p.x, p.y, p.color || '#7ff4ff', 4, 2, 0.2, 1);
             }
             break;
@@ -410,6 +410,7 @@
       if (target === game.pe && from !== game.pe && game.pl.mounted && ECHO.Life) dmg = ECHO.Life.hitInSaddle(game, from, dmg);
       if (target === game.pe && from !== game.pe) dmg *= ECHO.Tech.taken() * (ECHO.Gear && !src.pure ? ECHO.Gear.taken(world, game.pl, type) : 1) * (ECHO.Companions ? ECHO.Companions.shield(game) : 1);
       if (target === game.pe && from && from !== game.pe && ECHO.Director && ECHO.Director.mercy(game)) dmg *= 0.82;
+      if (ECHO.React) dmg = ECHO.React.pre(game, target, dmg, src);   // (wards, the frozen and the brittle: react.js)
       if (!Number.isFinite(dmg)) dmg = amount;   // (never a blow that is not a number)
       dmg = Math.max(1, Math.round(dmg));
       // Your own fire can hurt you badly, but never below 15% of your life.
@@ -428,6 +429,7 @@
       if (ECHO.Aware && from) ECHO.Aware.hurtBy(target, from, dmg);
       if (target.pal && ECHO.Tame) { dmg = Math.max(1, Math.round(ECHO.Tame.guard(game, target, dmg))); }
       target.hp -= dmg;
+      if (ECHO.React) ECHO.React.post(game, target, dmg, src);   // (what the blow leaves on it, and sets off)
       if (target.pal && ECHO.Tame && target.hp > 0) ECHO.Tame.afterHit(game, target);
       if (from === game.pe && target !== game.pe && !target.pal && !target.tamed && ECHO.Mending) ECHO.Mending.onHit(game, dmg);
       if (from === game.pe && ECHO.Lore) ECHO.Lore.onHit(game, target, dmg);

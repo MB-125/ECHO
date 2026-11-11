@@ -235,7 +235,7 @@
           C.decal(f.x, f.y, 'scorch', R * 0.75, 16);
           game.shake(0.45); game.light(f.x, f.y, 9, 1, '#ffb84a', 0.35);
           if (ECHO.Sfx) ECHO.Sfx.play('explode', { pitch: 0.7 });
-          for (const e of A.foes(game, f.x, f.y, R)) { C.damage(e, f.p * 2.4, { type: 'magic', from: pe, angle: Math.atan2(e.y - f.y, e.x - f.x), knock: 3, arcana: true }); if (!e.dead) { e.burn = Math.max(e.burn || 0, 2); e.burnFrom = pe; } }
+          for (const e of A.foes(game, f.x, f.y, R)) { C.damage(e, f.p * 2.4, { type: 'magic', from: pe, angle: Math.atan2(e.y - f.y, e.x - f.x), knock: 3, arcana: true, el: 'fire' }); if (!e.dead) { e.burn = Math.max(e.burn || 0, 2); e.burnFrom = pe; } }
         }
       }
       F.falls = F.falls.filter(f => !f.done);
@@ -372,7 +372,7 @@
         hit.add(cur);
         C.fx.push({ kind: 'arc', x: from.x, y: from.y, x2: cur.x, y2: cur.y, h: 0.9, t: 0, life: 0.35, color: '#9fd8ff' });
         C.fx.push({ kind: 'arc', x: from.x, y: from.y, x2: cur.x, y2: cur.y, h: 0.9, t: 0, life: 0.25, color: '#ffffff' });
-        C.damage(cur, P * (n ? 0.85 : 1), { type: 'magic', from: pe, angle: Math.atan2(cur.y - from.y, cur.x - from.x), stagger: t >= 4 ? 0.7 : 0.3, arcana: true });
+        C.damage(cur, P * (n ? 0.85 : 1), { type: 'magic', from: pe, angle: Math.atan2(cur.y - from.y, cur.x - from.x), stagger: t >= 4 ? 0.7 : 0.3, arcana: true, el: 'shock' });
         C.burst(cur.x, cur.y, '#9fd8ff', 10, 3, 0.4, 2);
         from = { x: cur.x, y: cur.y };
         const c0 = cur; cur = A.foes(game, c0.x, c0.y, 5 + t * 0.5).filter(e => !hit.has(e)).sort((a, b) => U.dist(a.x, a.y, c0.x, c0.y) - U.dist(b.x, b.y, c0.x, c0.y))[0];
@@ -388,7 +388,7 @@
       C.burst(pe.x, pe.y, '#bfefff', 40 + t * 8, 6, 0.7, 3);
       for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2; C.puff(pe.x + Math.cos(a) * R * 0.6, pe.y + Math.sin(a) * R * 0.6, { h: 0.3, vz: 0.4, g: 0, life: 0.7, size: 7, color: '#e8f8ff', glow: true }); }
       for (const e of A.foes(game, pe.x, pe.y, R)) {
-        C.damage(e, P * 0.8, { type: 'magic', from: pe, angle: Math.atan2(e.y - pe.y, e.x - pe.x), arcana: true });
+        C.damage(e, P * 0.8, { type: 'magic', from: pe, angle: Math.atan2(e.y - pe.y, e.x - pe.x), arcana: true, el: 'cold' });
         if (!e.dead) { e.stagger = Math.max(e.stagger || 0, A.big(e) ? fr * 0.5 : fr); e.state = e.state === 'subdued' ? e.state : 'stagger'; e.wcast = null; C.burst(e.x, e.y, '#e8f8ff', 8, 1, 0.8, 2); }
       }
       game.light(pe.x, pe.y, 7, 0.8, '#bfefff', 0.3);
