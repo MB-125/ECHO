@@ -9,9 +9,9 @@
 (function () {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const G = () => ECHO.Gear, A = () => ECHO.Arcana;
-  const FILTERS = [['all', 'All'], ['sword', 'Weapons'], ['bow', 'Bows'], ['armor', 'Armour'], ['relic', 'Relics']];
+  const FILTERS = [['all', 'All'], ['sword', 'Weapons'], ['bow', 'Bows'], ['gun', 'Guns'], ['armor', 'Armour'], ['relic', 'Relics']];
   const SORTS = [['best', 'Best'], ['rarity', 'Rarity'], ['new', 'Newest']];
-  const SLOT_OF = { sword: 'weapon', bow: 'bow', armor: 'armor', relic: 'relic' };
+  const SLOT_OF = { sword: 'weapon', bow: 'bow', gun: 'gun', armor: 'armor', relic: 'relic' };
   const short = n => { n = Math.round(n || 0); return n >= 1e9 ? (n / 1e9).toFixed(n >= 1e10 ? 0 : 1) + 'b' : n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'm' : n >= 1e4 ? (n / 1e3).toFixed(n >= 1e5 ? 0 : 1) + 'k' : String(n); };
   const fmt = n => Math.round(n || 0).toLocaleString('en-US');
 
@@ -28,7 +28,7 @@
     worn(pl, it) {
       if (!it) return false;
       if (it.kind === 'relic') return !!(A() && A().worn(pl, it.id));
-      return it.id === pl.weapon || it.id === pl.bow || it.id === pl.armor;
+      return it.id === pl.weapon || it.id === pl.bow || it.id === pl.gun || it.id === pl.armor;
     },
     // what it would replace
     against(game, it) {
@@ -36,6 +36,7 @@
       if (!it) return null;
       if (it.kind === 'sword') return W.items[pl.weapon] || null;
       if (it.kind === 'bow') return W.items[pl.bow] || null;
+      if (it.kind === 'gun') return W.items[pl.gun] || null;
       if (it.kind === 'armor') return (pl.armor && W.items[pl.armor]) || null;
       if (it.kind === 'relic' && A()) {
         const worn = A().wornItems(pl, W).map(w => w.it);
@@ -62,13 +63,13 @@
     stats(game) {
       const PC = ECHO.PlayerCtl, D = PC && PC.derived, pl = game.pl, W = game.world;
       if (!D) return null;
-      return { dmg: D.meleeDmg, bow: D.bowDmg, turned: 1 - G().taken(W, pl, 'melee'), hp: D.maxHp, mana: D.maxMana, speed: D.speed };
+      return { dmg: D.meleeDmg, bow: D.bowDmg, gun: D.gunDmg || 0, turned: 1 - G().taken(W, pl, 'melee'), hp: D.maxHp, mana: D.maxMana, speed: D.speed };
     },
     // the same, as it would be with this piece on (worked out, and everything put back as it was)
     simulate(game, it) {
       const PC = ECHO.PlayerCtl, pl = game.pl;
       if (!PC || !PC.computeDerived || !it || Inv.worn(pl, it)) return null;
-      const keep = { weapon: pl.weapon, bow: pl.bow, armor: pl.armor, relics: Array.isArray(pl.relics) ? pl.relics.slice() : pl.relics, hp: pl.hp, maxHp: pl.maxHp, maxSta: pl.maxSta, maxMana: pl.maxMana, D: PC.derived };
+      const keep = { weapon: pl.weapon, bow: pl.bow, gun: pl.gun, armor: pl.armor, relics: Array.isArray(pl.relics) ? pl.relics.slice() : pl.relics, hp: pl.hp, maxHp: pl.maxHp, maxSta: pl.maxSta, maxMana: pl.maxMana, D: PC.derived };
       let out = null;
       try {
         Inv.put(game, it, null, true);
@@ -76,7 +77,7 @@
         out = Inv.stats(game);
       } catch (e) { out = null; }
       finally {
-        pl.weapon = keep.weapon; pl.bow = keep.bow; pl.armor = keep.armor; pl.relics = keep.relics;
+        pl.weapon = keep.weapon; pl.bow = keep.bow; pl.gun = keep.gun; pl.armor = keep.armor; pl.relics = keep.relics;
         pl.hp = keep.hp; pl.maxHp = keep.maxHp; pl.maxSta = keep.maxSta; pl.maxMana = keep.maxMana; PC.derived = keep.D;
       }
       return out;
@@ -87,6 +88,7 @@
       if (!it) return false;
       if (it.kind === 'sword') pl.weapon = it.id;
       else if (it.kind === 'bow') pl.bow = it.id;
+      else if (it.kind === 'gun') { pl.gun = it.id; if (!quiet) pl.ranged = 'gun'; }
       else if (it.kind === 'armor') pl.armor = it.id;
       else if (it.kind === 'relic' && A()) {
         if (slot == null) {
@@ -105,6 +107,7 @@
       const pl = game.pl;
       if (!it) return false;
       if (it.kind === 'armor' && pl.armor === it.id) pl.armor = null;
+      else if (it.kind === 'gun' && pl.gun === it.id) { pl.gun = null; pl.ranged = 'bow'; }
       else if (it.kind === 'relic' && A() && A().worn(pl, it.id)) A().takeOff(pl, it.id);
       else { if (ECHO.UI) ECHO.UI.toast(it.kind === 'bow' ? 'You keep a bow at your back: put another on in its place.' : 'You always carry a weapon: put another in its place.', 'info', 3); return false; }
       Inv.changed(game, it, false);
@@ -143,7 +146,7 @@
         }
         return `<div class="inv-st"><span>${label}</span><b>${f(v)}</b>${d}</div>`;
       };
-      return row('dmg', 'Damage', now.dmg, fmt) + row('bow', 'Bow', now.bow, fmt) + row('turned', 'Armour', now.turned, v => Math.round(v * 1000) / 10 + '% turned', true) +
+      return row('dmg', 'Damage', now.dmg, fmt) + row('bow', 'Bow', now.bow, fmt) + (now.gun || (then && then.gun) ? row('gun', 'Gun', now.gun, fmt) : '') + row('turned', 'Armour', now.turned, v => Math.round(v * 1000) / 10 + '% turned', true) +
         row('hp', 'Life', now.hp, fmt) + row('mana', 'Mana', now.mana, fmt) + row('speed', 'Pace', now.speed, v => v.toFixed(2));
     },
     html(game) {
@@ -163,6 +166,7 @@
           <div class="inv-slots">
             ${Inv.slotHtml(game, 'weapon', 'Weapon', W.items[pl.weapon], '⚔')}
             ${Inv.slotHtml(game, 'bow', 'Bow', W.items[pl.bow], '➶')}
+            ${Inv.slotHtml(game, 'gun', 'Gun', pl.gun && W.items[pl.gun], '⌖', { key: '`', title: '` (left of 1) swaps between bow and gun; the right mouse fires whichever is ready' })}
             ${Inv.slotHtml(game, 'armor', 'Armour', pl.armor && W.items[pl.armor], '⛨')}
             ${MW ? jewel('ring', ring, '◍') + jewel('amulet', amu, '◈') : ''}
           </div>
@@ -184,16 +188,16 @@
     tipHtml(game, it) {
       const pl = game.pl, R = G().rarity(it.rarity), o = Inv.against(game, it), worn = Inv.worn(pl, it);
       const p = Inv.power(it), q = Inv.power(o);
-      const kindName = it.kind === 'sword' ? ((G().wclass(it) || {}).name || 'Weapon') : it.kind === 'bow' ? 'Bow' : it.kind === 'armor' ? 'Armour' : 'Relic';
+      const kindName = it.kind === 'sword' ? ((G().wclass(it) || {}).name || 'Weapon') : it.kind === 'bow' ? 'Bow' : it.kind === 'gun' ? ((ECHO.Guns && ECHO.Guns.CLASSES[it.gclass || 'pistol']) || { name: 'Gun' }).name : it.kind === 'armor' ? 'Armour' : 'Relic';
       let cmp = '';
       if (worn) cmp = '<div class="tip-cmp now">Worn now</div>';
       else if (o) { const d = p - q, rel = q ? d / q : 0; cmp = `<div class="tip-cmp ${d > 0 ? 'up' : d < 0 ? 'dn' : ''}">${d > 0 ? '▲' : d < 0 ? '▼' : '='} ${fmt(Math.abs(d))}${q ? ` (${d >= 0 ? '+' : '−'}${Math.abs(Math.round(rel * 100))}%)` : ''} against <span style="color:${G().rarity(o.rarity).color}">${esc(o.name)}</span></div>`; }
       else cmp = `<div class="tip-cmp up">▲ Fills an empty slot</div>`;
       const D = it.kind === 'relic' && A() ? A().RELICS[it.relic] : null;
-      const line = it.kind === 'relic' && A() ? `${esc(D ? D.what : '')} — ${esc(A().descOf(it))}<br><b>${esc(D ? D.pas : '')}</b> — ${esc(D ? D.pasText(A().gift(it)) : '')}` : esc(G().line(it));
+      const line = it.kind === 'relic' && A() ? `${esc(D ? D.what : '')} — ${esc(A().descOf(it))}<br><b>${esc(D ? D.pas : '')}</b> — ${esc(D ? D.pasText(A().gift(it)) : '')}` : esc(G().line(it)) + (it.kind === 'gun' && ECHO.Guns ? `<br>${esc(ECHO.Guns.CLASSES[it.gclass || 'pistol'].desc)} Uses ${ECHO.Guns.AMMO[ECHO.Guns.CLASSES[it.gclass || 'pistol'].ammo]}.` : '');
       const T = ECHO.Temper && ECHO.Temper.ok(it) ? `<div class="tip-tmp">${esc(ECHO.Temper.line(it))}<div class="tip-bar"><i style="width:${Math.round(100 * Math.min(1, ((it.temper && it.temper.xp) || 0) / ECHO.Temper.need(ECHO.Temper.lv(it))))}%"></i></div></div>` : '';
       const hist = (it.history || []).slice(-2).map(h => `${ECHO.TIME ? ECHO.TIME.fmtShort(h.d) : ''}: ${esc(h.t)}`).join('<br>');
-      const act = worn ? (it.kind === 'armor' || it.kind === 'relic' ? 'Drag to the grid to take it off' : 'Worn — put another on in its place') : `Click to ${it.kind === 'sword' ? 'wield' : it.kind === 'bow' ? 'string' : 'put on'}`;
+      const act = worn ? (it.kind === 'armor' || it.kind === 'relic' || it.kind === 'gun' ? 'Drag to the grid to take it off' : 'Worn — put another on in its place') : `Click to ${it.kind === 'sword' ? 'wield' : it.kind === 'bow' ? 'string' : it.kind === 'gun' ? 'carry' : 'put on'}`;
       return `<div class="tip-name" style="color:${R.color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}</div>
         <div class="tip-sub">${esc(R.name)} ${esc(kindName.toLowerCase())}${it.level ? ` · level ${it.level}` : ''}${ECHO.UI && ECHO.UI.kept && ECHO.UI.kept(pl, it) ? ' · 🔒 kept' : ''}</div>
         <div class="tip-pow"><b>${fmt(p)}</b> ${it.kind === 'armor' ? 'armour' : 'power'}</div>${cmp}
@@ -234,7 +238,7 @@
       const pl = game.pl, UI = ECHO.UI, worn = Inv.worn(pl, it), m = document.createElement('div');
       m.className = 'inv-menu'; m.id = 'inv-menu';
       const items = [];
-      if (!worn) items.push([it.kind === 'sword' ? 'Wield' : it.kind === 'bow' ? 'String this bow' : 'Put on', () => { Inv.put(game, it); Inv.refresh(host, game); }]);
+      if (!worn) items.push([it.kind === 'sword' ? 'Wield' : it.kind === 'bow' ? 'String this bow' : it.kind === 'gun' ? 'Carry this gun' : 'Put on', () => { Inv.put(game, it); Inv.refresh(host, game); }]);
       if (worn && (it.kind === 'armor' || it.kind === 'relic')) items.push(['Take off', () => { Inv.takeOff(game, it); Inv.refresh(host, game); }]);
       if (it.kind === 'relic' && worn) items.push([it.auto === false ? 'Let it wake by itself in a fight' : 'Only when I press its key', () => { if (it.auto === false) delete it.auto; else it.auto = false; Inv.refresh(host, game); }]);
       if (UI && UI.canGive && UI.canGive(pl, it)) items.push(['Give away…', () => UI.giveAway(it)]);
@@ -345,7 +349,7 @@
       // the model, made again only when what you wear changes
       dress(game) {
         const P = Inv.Preview, L = ECHO.Progress.lookOf(game.world, game.pl), pe = game.pe || {};
-        const key = (L && L.key) + '|' + (game.pl.look ? JSON.stringify(game.pl.look) : '') + '|' + (game.pl.bow || '') + '|' + (game.pl.weapon || '');
+        const key = (L && L.key) + '|' + (game.pl.look ? JSON.stringify(game.pl.look) : '') + '|' + (game.pl.bow || '') + '|' + (game.pl.weapon || '') + '|' + (game.pl.gun || '');
         if (P.inst && P.key === key) return;
         if (P.inst) { P.scene.remove(P.inst.root); for (const m of P.inst.mats) m.dispose(); }
         const inst = ECHO.Models.instance('person');
@@ -356,7 +360,7 @@
         P.scene.add(inst.root);
         P.inst = inst; P.key = key; P.by0 = null;
         // the glow under you: the colour of the rarest thing you wear
-        const W = game.world, worn = [W.items[game.pl.weapon], W.items[game.pl.bow], game.pl.armor && W.items[game.pl.armor]].filter(Boolean);
+        const W = game.world, worn = [W.items[game.pl.weapon], W.items[game.pl.bow], game.pl.gun && W.items[game.pl.gun], game.pl.armor && W.items[game.pl.armor]].filter(Boolean);
         const top = worn.sort((a, b) => Inv.rank(b) - Inv.rank(a))[0];
         if (P.disc) P.disc.material.color.set(top ? G().rarity(top.rarity).color : '#7fd8ff');
       },

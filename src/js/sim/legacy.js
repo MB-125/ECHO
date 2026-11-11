@@ -23,6 +23,7 @@
       const id = 'i' + (world.nextItem++);
       const it = { id, kind: o.kind, name: o.name, dmg: o.dmg || 0, made: o.made || null, history: o.history || [], holder: o.holder || null, kills: 0, legend: null, droppedAt: null, tier: o.tier || 1 };
       if (o.wclass) it.wclass = o.wclass;
+      if (o.gclass) it.gclass = o.gclass;
       world.items[id] = it;
       return it;
     },

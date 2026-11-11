@@ -464,7 +464,7 @@
     // ------------------------------------------------------------ in the blow
     // Arcane weapons: each blow draws 3 mana and strikes 40% harder for it.
     dealt(game, type) {
-      const pl = game.pl, w = game.world.items[type === 'ranged' ? pl.bow : pl.weapon];
+      const pl = game.pl, w = game.world.items[type === 'ranged' ? (ECHO.Guns ? ECHO.Guns.rangedId(game) : pl.bow) : pl.weapon];
       if (!w || w.affix !== 'arcane' || pl.mana < 3) return 1;
       pl.mana -= 3;
       return 1.4;

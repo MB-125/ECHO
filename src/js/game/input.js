@@ -8,7 +8,7 @@
     // ('q' for fire); the key you press is turned into it here.
     ACTIONS: [
       ['w', 'Move up'], ['a', 'Move left'], ['s', 'Move down'], ['d', 'Move right'], [' ', 'Dodge roll'], ['Shift', 'Guard · fly fast'], ['Control', 'Sneak · fly lower'],
-      ['q', 'Fire (hold) · dragon dive'], ['r', 'Lock on'], ['e', 'Talk · enter · use · tame'], ['f', 'Study · dragon\'s art'], ['z', 'Relic 1'], ['x', 'Relic 2'], ['c', 'Relic 3'], ['i', 'Gear & relics'],
+      ['q', 'Fire (hold) · dragon dive'], ['r', 'Lock on'], ['e', 'Talk · enter · use · tame'], ['f', 'Study · dragon\'s art'], ['z', 'Relic 1'], ['x', 'Relic 2'], ['c', 'Relic 3'], ['i', 'Gear & relics'], ['`', 'Swap bow · gun'], ['-', 'Missile salvo'],
       ['1', 'Healing draught'], ['h', 'Eat'], ['g', 'Herbs'], ['b', 'Make camp'], ['v', 'Ride · fly'], ['y', 'Switch animal'], ['u', 'Tamed beasts'], ['o', 'Call your pack'], ['l', 'Kill · tame (last breath) · tame (leash)'],
       ['t', 'Orders for a companion'], ['p', 'Play'], ['Tab', 'Journal'], ['j', 'Guide'], ['m', 'Map'], ['k', 'Character'], ['n', 'Where to?']
     ],
@@ -58,7 +58,7 @@
     // A standard controller drives the same keys and buttons as the keyboard
     // and mouse: sticks move and aim, the rest map onto actions.
     padName: null, padAim: null, padPrev: [], padKeys: new Set(),
-    CHORD: { 0: 'o', 2: 'z', 3: 'x', 1: 'c' },
+    CHORD: { 0: 'o', 2: 'z', 3: 'x', 1: 'c', 14: '`', 15: '-' },
     PAD: { 0: ' ', 1: 'e', 2: 'g', 3: 'q', 4: 'r', 5: 'Shift', 7: 'M0', 6: 'M2', 8: 'Tab', 9: 'Escape', 10: 'Control', 11: 'v', 12: 'm', 13: 'k', 14: '1', 15: 'j' },
     pollPad() {
       const pads = navigator.getGamepads ? navigator.getGamepads() : [];

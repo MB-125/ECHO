@@ -228,15 +228,24 @@
     updateProjectiles(dt) {
       const game = G();
       const world = game.world;
+      const GU = ECHO.Guns;
       for (const p of C.proj) {
         p.t += dt;
         const steps = 3;
+        // a missile turns on what it seeks; one falling from a gunship goes over everything
+        if (p.kind === 'missile' && GU) {
+          GU.steer(p, dt);
+          if (Math.random() < 0.9) C.puff(p.x - Math.cos(p.angle) * 0.3, p.y - Math.sin(p.angle) * 0.3, { h: p.h, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, vz: 0.15, g: -0.1, life: p.mini ? 0.5 : 0.9, size: p.mini ? 3 : 4.5, color: '#c8cacf', smoke: true });
+          if (p.air) { p.x += p.vx * dt; p.y += p.vy * dt; if (p.t >= p.life) GU.blast(p); continue; }
+        }
         for (let s = 0; s < steps && !p.done; s++) {
           p.x += p.vx * dt / steps; p.y += p.vy * dt / steps;
           const tt = ECHO.World.tile(world, p.x, p.y);
           if (ECHO.World.isSolid(world, p.x, p.y) && tt !== ECHO.TILE.WATER && tt !== ECHO.TILE.DEEP) {
             p.done = true;
             if (p.kind === 'fire') C.explode(p);
+            else if (p.kind === 'missile' && GU) GU.blast(p);
+            else if (p.kind === 'laser') { C.burst(p.x, p.y, p.color || '#7ff4ff', 5, 2.5, 0.25, 1.2); if (p.from === game.pe && ECHO.Sfx) ECHO.Sfx.play('zapHit', { vol: 0.35 }); }
             else if (p.kind === 'orb') C.burst(p.x, p.y, p.color || '#b48aff', 8, 2, 0.35, 2);
             else { C.burst(p.x, p.y, '#c9b28a', 4, 2, 0.3, 1); if (p.from === game.pe && ECHO.Sfx) ECHO.Sfx.play('arrowHit', { vol: 0.4 }); }
             break;
@@ -245,24 +254,29 @@
           // a barrel, a crate, a bale in the way stops it (loose.js)
           if (ECHO.Loose && ECHO.Loose.list.length && p.kind !== 'orb' && ECHO.Loose.projHit(p)) {
             p.done = true;
-            if (p.kind === 'fire') C.explode(p); else if (p.from === game.pe && ECHO.Sfx) ECHO.Sfx.play('arrowHit', { vol: 0.4 });
+            if (p.kind === 'fire') C.explode(p); else if (p.kind === 'missile' && GU) GU.blast(p); else if (p.from === game.pe && ECHO.Sfx) ECHO.Sfx.play(p.kind === 'laser' ? 'zapHit' : 'arrowHit', { vol: 0.4 });
             break;
           }
           for (const e of game.ents) {
             if (e === p.from || e.dead || e.hidden || e.ghost) continue;
             if (p.contest && e.type !== 'creature') continue; // contest arrows fly over the crowd
-            if (U.dist(p.x, p.y, e.x, e.y - 0.15) > e.r + 0.15) continue;
+            if (U.dist(p.x, p.y, e.x, e.y - 0.15) > e.r + (p.kind === 'missile' ? 0.3 : 0.15)) continue;
             const canHit = p.from === game.pe ? !e.isCompanion && !e.ngWard : game.hostileTo(p.from, e);
             if (!canHit) continue;
             p.done = true;
             if (p.kind === 'fire') C.explode(p);
             else if (p.kind === 'orb') ECHO.Monsters.orbHit(game, p, e);
-            else C.damage(e, p.dmg, { type: 'ranged', from: p.from, angle: p.angle, knock: p.crit ? 0.22 : 0.08, crit: p.crit, stagger: p.crit ? 0.35 : 0 });
+            else if (p.kind === 'missile' && GU) GU.blast(p);
+            else {
+              if (GU) GU._shotGun = !!p.gun;
+              try { C.damage(e, p.dmg, { type: 'ranged', from: p.from, angle: p.angle, knock: p.crit ? 0.22 : p.knock || 0.08, crit: p.crit, stagger: p.crit ? 0.35 : 0 }); } finally { if (GU) GU._shotGun = false; }
+              if (p.kind === 'laser') C.burst(p.x, p.y, p.color || '#7ff4ff', 4, 2, 0.2, 1);
+            }
             break;
           }
         }
         if (p.kind === 'fire' && Math.random() < 0.6) C.fx.push({ kind: 'p', x: p.x, y: p.y, vx: (Math.random() - 0.5), vy: (Math.random() - 0.5) - 0.5, t: 0, life: 0.35, color: Math.random() < 0.5 ? '#ffcc66' : '#ff6a2a', size: 2 });
-        if (p.t > p.life && !p.done) { p.done = true; if (p.kind === 'fire') C.explode(p); }
+        if (p.t > p.life && !p.done) { p.done = true; if (p.kind === 'fire') C.explode(p); else if (p.kind === 'missile' && GU) GU.blast(p); }
       }
       C.proj = C.proj.filter(p => !p.done);
       for (const f of C.fx) {

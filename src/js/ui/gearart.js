@@ -72,6 +72,17 @@
         for (let i = 0; i < L.gems; i++) R(L.glowCol, 15, 12 + i * 2, 1, 1);
       }, Math.max(L.glow, 0.25), L.glowCol);
     },
+    // a gun, side on, muzzle to the right: its body, grip, the line of light along it
+    gun(L) {
+      return pixels(32, 32, (R) => {
+        const b = L.body || '#3a4150', d = shade(b, -0.35), g = L.bolt || '#7ff4ff', k = L.gclass || 'pistol';
+        if (k === 'pistol') { R(b, 7, 12, 16, 5); R(d, 7, 16, 16, 1); R(b, 9, 17, 5, 8); R(d, 13, 17, 1, 8); R(g, 9, 13, 12, 1); R(g, 23, 13, 2, 3); }
+        else if (k === 'rifle') { R(b, 2, 12, 26, 5); R(d, 2, 16, 26, 1); R(b, 2, 17, 5, 4); R(b, 11, 17, 4, 7); R(b, 17, 17, 4, 5); R(g, 8, 13, 17, 1); R(g, 28, 13, 2, 3); }
+        else if (k === 'scatter') { R(b, 3, 11, 22, 7); R(d, 3, 17, 22, 1); R(b, 6, 18, 5, 7); R(g, 25, 12, 3, 2); R(g, 25, 15, 3, 2); R(g, 8, 12, 14, 1); }
+        else { R(b, 2, 10, 27, 9); R(d, 2, 18, 27, 1); R(g, 28, 10, 2, 9); R(b, 12, 19, 4, 6); R(g, 5, 12, 18, 1); R('#c8ccd4', 30, 13, 1, 3); }
+        for (let i = 0; i < L.gems; i++) R(L.glowCol, 6 + i * 2, 21, 1, 1);
+      }, L.glow, L.glowCol);
+    },
     bow(L) {
       return pixels(32, 32, (R) => {
         const wood = L.wood || '#6a4a2a';
@@ -103,7 +114,7 @@
       const L = ECHO.Gear.look(it);
       const key = [it.kind, L.wclass, L.rarity, L.plus, L.affix, L.glow.toFixed(2), L.body, L.wood, L.helm, L.pauldrons].join('|');
       if (cache.has(key)) return cache.get(key);
-      const c = it.kind === 'armor' ? A.armor(L) : it.kind === 'bow' ? A.bow(L) : L.wclass === 'axe' ? A.axe(L) : L.wclass === 'spear' ? A.spear(L) : L.wclass === 'staff' ? A.staff(L) : A.sword(L);
+      const c = it.kind === 'armor' ? A.armor(L) : it.kind === 'bow' ? A.bow(L) : it.kind === 'gun' ? A.gun(L) : L.wclass === 'axe' ? A.axe(L) : L.wclass === 'spear' ? A.spear(L) : L.wclass === 'staff' ? A.staff(L) : A.sword(L);
       const url = c.toDataURL();
       cache.set(key, url);
       return url;

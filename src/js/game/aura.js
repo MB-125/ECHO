@@ -23,7 +23,7 @@
       const pl = game.pl, world = game.world, L = ECHO.Prowess ? ECHO.Prowess.level(pl) : 1;
       const s = 0.08 + 0.92 * U.clamp(Math.log(Math.max(1, L)) / Math.log(300), 0, 1);
       let g = 0;
-      for (const id of [pl.weapon, pl.bow, pl.armor, ...(Array.isArray(pl.relics) ? pl.relics : [])]) {
+      for (const id of [pl.weapon, pl.bow, pl.gun, pl.armor, ...(Array.isArray(pl.relics) ? pl.relics : [])]) {
         const it = id && world.items[id];
         if (it && it.rarity === 'legendary') g += 0.035; else if (it && it.rarity === 'epic') g += 0.02;
       }

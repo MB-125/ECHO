@@ -431,7 +431,7 @@ details summary { cursor: pointer; color: var(--hc); }
 .inv-3d:active { cursor: grabbing; }
 .inv-doll { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
 .inv-hint { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); pointer-events: none; }
-.inv-slots { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.inv-slots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .inv-relics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .inv-sub { font: 600 11px var(--disp); letter-spacing: .18em; text-transform: uppercase; color: var(--hc); margin-top: 2px; }
 .inv-sum { font-size: 12px; color: var(--ink-dim); line-height: 1.35; }

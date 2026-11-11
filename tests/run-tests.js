@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/guns.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
 
 function loadEcho() {
@@ -2511,6 +2511,67 @@ function main() {
     pe.x = 5; pe.y = 12; Th.hit(game, pe, 0.12, 0, man); const pr = fly(pe, 2);
     check('you are pushed by a common blow, and only a great one lifts you', pe.x - 5 > 0.1 && pr.top === 0);
     E.Combat = C0; E.Sfx = S0; E.Game = G0; E.Interior = I0; E.Water = Wt0; E.Ground.fn = null;
+  }
+
+  console.log('\nGuns and missiles');
+  {
+    const E = ECHO, Ent = E.Ent, GU = E.Guns, T = E.TILE;
+    const W = { W: 60, H: 60, seed: 4, day: 1, tiles: new Uint8Array(3600).fill(T.GRASS), blocked: new Uint8Array(3600), settlements: [], ruins: [], items: {}, nextItem: 1, factions: { k1: { id: 'k1', type: 'kingdom', name: 'Valdren' }, b1: { id: 'b1', type: 'bandits' } }, lairs: [] };
+    const rng = new E.RNG(11), kinds = {};
+    for (let i = 0; i < 200; i++) { const it = E.Gear.make(W, rng, 'gun', 10, 'rare', 'a test'); kinds[it.gclass] = (kinds[it.gclass] || 0) + 1; }
+    check('guns are made in all four kinds, pistols the most and launchers the fewest', Object.keys(kinds).length === 4 && kinds.pistol > kinds.launcher, JSON.stringify(kinds));
+    const g1 = E.Gear.make(W, rng, 'gun', 10, 'epic', 'a test'), b1 = E.Gear.make(W, rng, 'bow', 10, 'epic', 'a test');
+    check('a gun is as strong as a bow of its level and rarity, and says what kind it is', g1.dmg === b1.dmg && /pistol|rifle|scattergun|launcher/.test(E.Gear.line(g1)), E.Gear.line(g1));
+    check('…its affix, if any, is one a gun can carry', !g1.affix || ['ember', 'keen', 'thirst'].includes(g1.affix));
+    const pl = { items: [], inv: { arrows: 5 }, skills: { archery: 20 }, weapon: null, bow: b1.id, gun: undefined };
+    check('a gun you carry counts as worn (not sold, not given away)', (pl.gun = g1.id) && E.Gear.worn(pl, g1.id));
+    pl.gun = undefined;
+    // the first time: a sidearm
+    const toasts = []; const UI0 = E.UI, C0 = E.Combat, S0 = E.Sfx, G0 = E.Game, P0 = E.Prowess;
+    E.UI = { toast: (t) => toasts.push(t) }; E.Sfx = { play() {} }; E.Prowess = { level: () => 4, gearScale: () => 1 };
+    const pe = Ent.make({ type: 'player', x: 10, y: 10, r: 0.35, hp: 100, maxHp: 100 });
+    const hurt = [];
+    E.Combat = { proj: [], fx: [], puff() {}, burst() {}, ring() {}, decal() {}, floater() {}, telegraph() {}, hitRock() {},
+      shoot(att, a, o) { const p = { x: att.x, y: att.y, vx: Math.cos(a) * o.speed, vy: Math.sin(a) * o.speed, angle: a, from: att, t: 0, ...o }; E.Combat.proj.push(p); return p; },
+      damage: (e, d, s) => { hurt.push({ e, d, s }); return d; } };
+    const game = { world: W, pe, pl, ents: [pe], time: 0, hostileTo: (a, b) => (a === pe) !== (b === pe), shake() {}, light() {}, kick() {}, noise() {}, ui: { blocksWorld: () => false, toast() {} } };
+    E.Game = game;
+    pl.salvo = 0; GU.reset();
+    GU.gift(game); GU.gift(game);
+    const side = W.items[pl.gun];
+    check('an old save is given a sidearm and 40 cells, once', side && side.gclass === 'pistol' && pl.inv.cells === 40 && pl.items.filter(id => W.items[id].kind === 'gun').length === 1 && pl.gunGift === 1);
+    check('…and keeps its bow ready until you swap', pl.ranged === 'bow' && !GU.active(game));
+    pl.ranged = 'gun';
+    check('with the gun swapped in, the right mouse fires the gun', GU.active(game));
+    // a missile finds its mark
+    const foe = Ent.make({ type: 'creature', x: 10, y: 18, r: 0.4, hp: 100, maxHp: 100 }); game.ents.push(foe);
+    const m = GU.launch(pe, 0, { dmg: 50, radius: 2, seek: foe, by: 'gun' });
+    for (let i = 0; i < 40 && !m.done; i++) { game.time += 0.05; m.t += 0.05; GU.steer(m, 0.05); m.x += m.vx * 0.05; m.y += m.vy * 0.05; if (E.U.dist(m.x, m.y, foe.x, foe.y) < 0.7) GU.blast(m); }
+    check('a missile fired the wrong way turns and finds what it was locked on', m.done && hurt.some(h => h.e === foe && h.d > 25));
+    check('…its blast spares you, who fired it, and throws what it hits', !hurt.some(h => h.e === pe) && hurt.find(h => h.e === foe).s.knock > 0.3);
+    // a blast hurts the near more than the far, and not beyond its reach
+    hurt.length = 0;
+    const near = Ent.make({ type: 'creature', x: 30, y: 30, r: 0.4, hp: 100, maxHp: 100 }), edge = Ent.make({ type: 'creature', x: 31.9, y: 30, r: 0.4, hp: 100, maxHp: 100 }), far = Ent.make({ type: 'creature', x: 34, y: 30, r: 0.4, hp: 100, maxHp: 100 });
+    game.ents.push(near, edge, far);
+    GU.blast({ x: 30, y: 30, radius: 2, dmg: 100, from: pe, knock: 0.5 });
+    const dn = hurt.find(h => h.e === near), de = hurt.find(h => h.e === edge);
+    check('a blast hurts what is near it most, what is at its edge less, and nothing beyond', dn && de && dn.d > de.d && !hurt.some(h => h.e === far));
+    // a gunship's missile, from a soldier of a crown at war with you, falls on its mark
+    hurt.length = 0; pl.maxHp = 200;
+    const soldier = Ent.make({ type: 'person', x: 50, y: 50, r: 0.35, hp: 100, maxHp: 100 }); game.ents.push(soldier);
+    game.hostileTo = (a, b) => (a === soldier && b === pe) || (a === pe && b !== pe);
+    const sm = GU.launch(soldier, 0, { dmg: 10, radius: 1.6, to: { x: pe.x, y: pe.y }, t: 1.25, x: 20, y: 20, h: 6, pct: 0.085, ship: { target: pe } });
+    sm.from = soldier;
+    for (let i = 0; i < 30 && !sm.done; i++) { sm.t += 0.05; GU.steer(sm, 0.05); sm.x += sm.vx * 0.05; sm.y += sm.vy * 0.05; if (sm.t >= sm.life) GU.blast(sm); }
+    const ph = hurt.find(h => h.e === pe);
+    check('a gunship\'s missile comes down on its mark after the warning, and takes a share of your life', sm.done && Math.abs(sm.x - pe.x) < 0.2 && ph && ph.d >= 200 * 0.085 * 0.99 && sm.h < 0.5);
+    // guards' rifles, decided by who they are
+    const armed = n => { const e = { role: 'guard', gear: { bow: false, spear: true, shield: true }, armsTier: 1 }; GU.arm(game, e, { id: 'n' + n, faction: 'k1' }); return e; };
+    const many = Array.from({ length: 100 }, (_, i) => armed(i)), rifles = many.filter(e => e.gear.rifle).length;
+    check('some of a crown\'s guards carry rifles (and always the same ones), bandits none', rifles > 20 && rifles < 60 && armed(7).gear.rifle === armed(7).gear.rifle && (() => { const e = { role: 'guard', gear: {} }; GU.arm(game, e, { id: 'x', faction: 'b1' }); return !e.gear.rifle; })(), `${rifles} of 100`);
+    const rf = many.find(e => e.gear.rifle);
+    check('…and a guard with a rifle has put down spear and shield and shoots like an archer', rf.gear.bow && !rf.gear.spear && !rf.gear.shield);
+    E.UI = UI0; E.Combat = C0; E.Sfx = S0; E.Game = G0; E.Prowess = P0; GU.reset();
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

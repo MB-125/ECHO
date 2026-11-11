@@ -234,6 +234,7 @@
       }
       void f;
       if (ECHO.Arms) ECHO.Arms.outfit(game, e, npc);   // (the realm's arms: its research, worn)
+      if (ECHO.Guns && !e.wearing) ECHO.Guns.arm(game, e, npc);   // (not one who carries a blade of their own)   // (some guards and soldiers carry rifles: guns.js)
       if (ECHO.Growth) ECHO.Growth.adapt(game, e);
       return e;
     },

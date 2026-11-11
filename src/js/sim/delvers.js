@@ -202,7 +202,7 @@
     // to wears it if it beats theirs, or passes it to whoever in their town
     // needs it most, or sells it for the town's good. Returns what happened.
     gift(world, pl, to, it, town) {
-      if (!it || !pl.items.includes(it.id) || it.id === pl.weapon || it.id === pl.armor || it.id === pl.bow) return null;
+      if (!it || !pl.items.includes(it.id) || it.id === pl.weapon || it.id === pl.armor || it.id === pl.bow || it.id === pl.gun) return null;
       pl.items = pl.items.filter(id => id !== it.id);
       const R = ECHO.Gear ? ECHO.Gear.rarity(it.rarity).mult : 1;
       const s = town || (to && ECHO.Sim.settlement(world, to.loc || to.home));

@@ -44,6 +44,9 @@
         guardPenalty: aggr * 0.25,
         bowDmg: bow ? bow.dmg * (ECHO.Temper ? ECHO.Temper.mul(bow) : 1) * (0.7 + pl.skills.archery / 65) * lvM : 0,
         drawTime: 0.75 * (1 - pl.skills.archery / 250),
+        // a gun's bolts and missiles (guns.js): its power, your aim, your level
+        gunDmg: (() => { const g = pl.gun && game.world.items[pl.gun]; return g ? g.dmg * (ECHO.Temper ? ECHO.Temper.mul(g) : 1) * (0.7 + pl.skills.archery / 65) * lvM : 0; })(),
+        salvoDmg: 16 * (ECHO.Prowess ? ECHO.Prowess.gearScale(ECHO.Prowess.level(pl)) : 1) * (0.8 + pl.skills.archery / 70) * lvM,
         flameDmg: 19 * (ECHO.Prowess ? ECHO.Prowess.gearScale(ECHO.Prowess.level(pl)) : 1) * (0.8 + pl.skills.flame / 55) * (1 + 0.45 * reck) * (pl.spells.includes('starfire') ? 1.25 : 1) * lvM * WC.flame,
         flameInstab: pl.spells.includes('starfire') ? 0 : reck * 0.2,
         speed: 4.3 * (1 + pl.skills.endurance / 260) * (charm('swiftness') ? 1.08 : 1) * (ECHO.Atlas ? ECHO.Atlas.speedMul(pl) : 1),
@@ -122,6 +125,7 @@
         const mtd = !!pl.mounted;
         if (pe.blocking) sp *= 0.45;
         if (PC.drawing) sp *= mtd ? 0.85 : 0.55;
+        if (ECHO.Guns && ECHO.Guns.aiming) sp *= mtd ? 0.9 : ECHO.Guns.slow(game);
         if (PC.charging) sp *= mtd ? 0.8 : 0.6;
         if (PC.heavyHold && !mtd) sp *= 0.55;
         if (pe.attackT > 0 && !mtd) sp *= 0.5;
@@ -228,7 +232,7 @@
       // Face the mouse when fighting, otherwise movement.
       if (pe.attackT > 0) { /* keep the swing's facing */ }
       else if (PC.lock && PC.dodgeT <= 0) pe.dir = aim; // locked on: strafe, always facing the target
-      else if (pe.blocking || PC.drawing || PC.charging || PC.heavyHold || pe.cd > 0.1) pe.dir = aim;
+      else if (pe.blocking || PC.drawing || PC.charging || PC.heavyHold || pe.cd > 0.1 || (ECHO.Guns && ECHO.Guns.aiming)) pe.dir = aim;
       else if (pe.inBoat) { /* the boat's heading */ }
       else if (pl.mounted && PC.ride) pe.dir = PC.ride.dir;
       else if (len) pe.dir = Math.atan2(my, mx);
@@ -277,7 +281,7 @@
 
       // ---- Melee: a three-strike combo (the third is a spinning finisher),
       // or hold the button for a heavy, guard-breaking blow.
-      const canSwing = () => !pe.swimming && !game.ui.blocksWorld() && pe.cd <= 0 && pl.stamina >= 4 && PC.dodgeT <= 0 && pe.stagger <= 0 && !PC.drawing && !PC.charging;
+      const canSwing = () => !pe.swimming && !game.ui.blocksWorld() && pe.cd <= 0 && pl.stamina >= 4 && PC.dodgeT <= 0 && pe.stagger <= 0 && !PC.drawing && !PC.charging && !(ECHO.Guns && ECHO.Guns.aiming);
       if (In.mpressed[0] && !game.ui.blocksWorld()) { PC.atkBuf = 0.22; PC.holdT = 0; }
       PC.atkBuf = Math.max(0, (PC.atkBuf || 0) - dt);
       PC.comboT = (PC.comboT || 0) + dt;
@@ -309,8 +313,16 @@
 
       // ---- Bow (right mouse: hold to draw, release to loose; release just
       // as it reaches full draw for a perfect shot)
-      const bow = world.items[pl.bow];
+      // ---- or a gun (guns.js), when that is what is ready: ` swaps them, - is the salvo
+      const GU = ECHO.Guns, gunUp = !!(GU && GU.active(game));
+      if (GU) {
+        if (In.hit('`') && !game.ui.blocksWorld()) GU.swap(game);
+        if (In.hit('-') && !game.ui.blocksWorld()) GU.salvo(game);
+        if (gunUp) GU.playerUpdate(game, dt, aim); else GU.aiming = false;
+      }
+      const bow = gunUp ? null : world.items[pl.bow];
       if (In.mpressed[2] && !pe.swimming && !game.ui.blocksWorld() && bow && pl.inv.arrows > 0 && PC.dodgeT <= 0) { PC.drawing = true; PC.draw = 0; PC.fullT = -1; ECHO.Sfx.play('bowDraw'); }
+      if (PC.drawing && !bow) { PC.drawing = false; PC.draw = 0; }
       if (PC.drawing) {
         const was = PC.draw;
         PC.draw = Math.min(1, PC.draw + dt / D.drawTime);

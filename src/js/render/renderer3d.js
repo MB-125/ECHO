@@ -2657,6 +2657,53 @@
       }
       inst.root.scale.setScalar(scale);
     },
+    // A gun (guns.js): in the hands when it is up — aimed, just fired, or (a guard's) in a fight —
+    // and the arms held to it; else on the back (a pistol at the hip). Its colour is its bolts'.
+    gunOf(game, e) {
+      const GU = ECHO.Guns;
+      if (!GU || e.dead || e.sleeping) return null;
+      if (e === game.pe) {
+        const pl = game.pl, it = pl.gun && game.world.items[pl.gun];
+        if (!it) return null;
+        const on = GU.active(game);
+        return { cls: it.gclass || 'pistol', col: GU.color(it), up: on && (GU.up > 0 || GU.aiming), on };
+      }
+      if (e.gear && e.gear.rifle) return { cls: 'rifle', col: e.armsCol || '#ff8a5a', up: !!(e.aggro || e.state === 'chase' || e.state === 'windup' || e.state === 'attack' || e.burstN > 0), on: true };
+      return null;
+    },
+    gunMesh(cls, col) {
+      const g = new THREE.Group(), dark = new THREE.MeshStandardMaterial({ color: C('#2e3442'), roughness: 0.45, metalness: 0.55 }), glow = new THREE.MeshBasicMaterial({ color: C(col) });
+      const box = (w, h, d, x, y, z, m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m || dark); o.position.set(x, y, z); o.castShadow = true; g.add(o); return o; };
+      // (the barrel runs down the arm, along -y; the top of the gun is -x)
+      if (cls === 'pistol') { box(0.055, 0.22, 0.045, -0.01, -0.46, 0); box(0.1, 0.045, 0.04, 0.05, -0.38, 0); box(0.012, 0.16, 0.05, -0.04, -0.46, 0, glow); box(0.03, 0.02, 0.03, -0.01, -0.575, 0, glow); }
+      else if (cls === 'rifle') { box(0.07, 0.66, 0.05, -0.01, -0.5, 0); box(0.1, 0.05, 0.04, 0.05, -0.37, 0); box(0.09, 0.06, 0.045, 0.055, -0.52, 0); box(0.012, 0.44, 0.056, -0.047, -0.52, 0, glow); box(0.04, 0.025, 0.04, -0.01, -0.84, 0, glow); }
+      else if (cls === 'scatter') { box(0.085, 0.48, 0.075, -0.01, -0.48, 0); box(0.1, 0.05, 0.045, 0.06, -0.37, 0); for (const z of [-0.02, 0.02]) box(0.03, 0.02, 0.025, -0.02, -0.73, z, glow); box(0.012, 0.3, 0.08, -0.055, -0.48, 0, glow); }
+      else { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.08, 0.78, 10), dark); t.position.set(-0.1, -0.42, 0); t.castShadow = true; g.add(t); const rim = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.014, 4, 14).rotateX(Math.PI / 2), glow); rim.position.set(-0.1, -0.81, 0); g.add(rim); box(0.1, 0.05, 0.04, 0.02, -0.38, 0); box(0.02, 0.3, 0.02, -0.18, -0.42, 0, glow); }
+      g.userData.glow = glow;
+      return g;
+    },
+    gunPose(game, e, v, P) {
+      const G0 = R.gunOf(game, e);
+      if (!G0) { if (v.gun) { v.gun.parent && v.gun.parent.remove(v.gun); v.gun = null; if (v.gunHid) { if (P.sword) P.sword.visible = v.gunHid.sword; if (P.bow) P.bow.visible = v.gunHid.bow; v.gunHid = null; } } return; }
+      if (!v.gun || v.gunCls !== G0.cls) { if (v.gun && v.gun.parent) v.gun.parent.remove(v.gun); v.gun = R.gunMesh(G0.cls, G0.col); v.gunCls = G0.cls; }
+      v.gun.userData.glow.color.copy(C(G0.col));
+      if (!v.gunHid) v.gunHid = { sword: P.sword ? P.sword.visible : false, bow: P.bow ? P.bow.visible : false };
+      const busy = e.attackT > 0 || e.swimming || e.inBoat || e.rollT > 0;
+      const up = G0.up && !busy;
+      // the bow goes away while the gun is what you carry ready (and a guard with a rifle has none)
+      if (P.bow) P.bow.visible = G0.on && G0.cls !== 'pistol' ? false : v.gunHid.bow;
+      if (P.sword) P.sword.visible = up ? false : v.gunHid.sword;
+      const want = up ? P.armR : P.body;
+      if (v.gun.parent !== want) { if (v.gun.parent) v.gun.parent.remove(v.gun); want.add(v.gun); }
+      if (up) {
+        v.gun.position.set(0, 0, 0); v.gun.rotation.set(0, 0, 0);
+        const two = G0.cls !== 'pistol';
+        P.armR.rotation.z = G0.cls === 'launcher' ? -1.62 : -1.52; P.armR.rotation.x = 0;
+        if (two) { P.armL.rotation.z = -1.4; P.armL.rotation.x = 0.62; }
+      } else if (G0.cls === 'pistol') { v.gun.position.set(0.02, 0.36, -0.2); v.gun.rotation.set(0, 0, 0); }
+      else { v.gun.position.set(0.24, 0.62, 0); v.gun.rotation.set(0, 0, 0.5); }
+      v.gun.visible = !e.hidden;
+    },
     // A person in the new things: the lines of light in their clothes shown (the visor with a
     // helm), belts and boots of dark weave, and what they carry made of light — a blade in a
     // sheath of glow, a bowstring of light, a shield of hard light, a staff ringed with runes.
@@ -3198,6 +3245,7 @@
         P.body.rotation.z = e.moving ? 0.55 : 0.2; P.head.rotation.z = e.moving ? -0.5 : -0.2;
         P.body.position.y = 0.42;
       }
+      R.gunPose(game, e, v, P);
       v.inst.root.rotation.z = 0; v.yOff = 0;
       if (e.sleeping) { v.inst.root.rotation.z = Math.PI / 2; v.yOff = e.indoor && e.indoor.pose === 'bed' && !e.indoor.floor ? 0.62 : 0.18; }
       else if (e.yielded || e.role === 'captive') v.yOff = -0.18;
@@ -4594,11 +4642,30 @@
           if (p.kind === 'fire') m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16 + p.radius * 0.08, 1), new THREE.MeshBasicMaterial({ color: p.star ? '#cfeaff' : '#ffb347' }));
           else if (p.kind === 'spit') m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.14, 0), new THREE.MeshBasicMaterial({ color: '#9ad84a' }));
           else if (p.kind === 'orb') m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.15, 1), new THREE.MeshBasicMaterial({ color: p.color || '#b48aff' }));
+          else if (p.kind === 'laser') {
+            // a bolt: a white-hot core in a sheath of its colour
+            m = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.03, 0.03), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+            m.add(new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.09, 0.09), new THREE.MeshBasicMaterial({ color: C(p.color || '#7ff4ff'), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })));
+          } else if (p.kind === 'missile') {
+            // a missile: a pale body, a dark head, fins, and its engine burning behind
+            const s = p.mini ? 0.6 : 1;
+            m = new THREE.Mesh(new THREE.CylinderGeometry(0.05 * s, 0.05 * s, 0.42 * s, 8).rotateZ(Math.PI / 2), new THREE.MeshStandardMaterial({ color: C('#d8dce2'), roughness: 0.4, metalness: 0.4 }));
+            const head = new THREE.Mesh(new THREE.ConeGeometry(0.05 * s, 0.12 * s, 8).rotateZ(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: C(p.color || '#ff6a4a'), roughness: 0.5 })); head.position.x = 0.27 * s; m.add(head);
+            for (let i = 0; i < 4; i++) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.1 * s, 0.01, 0.14 * s), new THREE.MeshStandardMaterial({ color: C('#3a4150') })); fin.position.x = -0.17 * s; fin.rotation.x = i * Math.PI / 2; m.add(fin); }
+            const fl = new THREE.Mesh(new THREE.ConeGeometry(0.045 * s, 0.28 * s, 8).rotateZ(Math.PI / 2), new THREE.MeshBasicMaterial({ color: C('#ffd48a'), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); fl.position.x = -0.35 * s; m.add(fl);
+            m.castShadow = true;
+          }
           else m = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.035, 0.035), new THREE.MeshStandardMaterial({ color: p.kind === 'bolt' ? '#4a4a52' : '#d8c8a0' }));
           R.projMeshes.set(p, m); R.groups.fx.add(m);
         }
-        m.position.set(p.x, R.groundH(p.x, p.y) + 0.6, p.y);
+        m.position.set(p.x, R.groundH(p.x, p.y) + (p.h != null ? p.h : 0.6), p.y);
         m.rotation.y = -p.angle;
+        if (p.kind === 'missile') {
+          // nose down as it falls from the sky, a light where it goes, a spark in its wake
+          m.rotation.z = p.air ? -0.5 : 0; m.rotation.x += dt * 9;
+          (R._fxLights = R._fxLights || []).push({ x: p.x, y: p.y, r: p.mini ? 1.6 : 2.6, a: 0.8, color: '#ffb46a' });
+          if (Math.random() < dt * 40) ECHO.Combat.puff(p.x - Math.cos(p.angle) * 0.3, p.y - Math.sin(p.angle) * 0.3, { h: p.h, vz: 0, g: 0, life: 0.12, size: p.mini ? 2.5 : 4, color: '#ffc27a', glow: true });
+        } else if (p.kind === 'laser') (R._fxLights = R._fxLights || []).push({ x: p.x, y: p.y, r: 1.4, a: 0.5, color: p.color || '#7ff4ff' });
         if (p.kind === 'fire' || p.kind === 'orb') {
           m.rotation.x += dt * 8;
           // a fireball lights the ground it passes over and trails a glow
@@ -4606,7 +4673,7 @@
           if (Math.random() < dt * 40) ECHO.Combat.puff(p.x, p.y, { h: 0.6, vz: 0.3, g: -0.5, life: 0.25, size: 4, color: p.kind === 'fire' ? (p.star ? '#cfeaff' : '#ffb35a') : (p.color || '#b48aff'), glow: true });
         } else if ((p.kind === 'arrow' || p.kind === 'bolt' || !p.kind) && Math.random() < dt * 30) ECHO.Combat.puff(p.x, p.y, { h: 0.6, vz: 0, g: 0, life: 0.14, size: 1.4, color: '#f4ecd8', glow: true });
       }
-      for (const [p, m] of R.projMeshes) if (!pl.has(p)) { R.groups.fx.remove(m); m.geometry.dispose(); m.material.dispose(); R.projMeshes.delete(p); }
+      for (const [p, m] of R.projMeshes) if (!pl.has(p)) { R.groups.fx.remove(m); m.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); R.projMeshes.delete(p); }
       // Loot
       const ll = new Set();
       for (const l of game.loot) {
@@ -5029,6 +5096,7 @@
       R.updateFell(game, dt, room);
       R.updateLoose(game, dt, room);
       R.updateSkiffs(game, dt, room);
+      R.updateGunships(game, dt);
       R.updatePush(game, dt, room);
       R.updateAura(game, dt);
       R.updateGlows(game);
@@ -5084,6 +5152,28 @@
         s.g.rotation.set(Math.sin(s.t * 0.9 + s.ph) * 0.05, -Math.atan2(s.dz, s.dx), 0);
         if (s.t > 3 && Math.hypot(s.x - tx, s.z - tz) > 44) { R.scene.remove(s.g); S.splice(i, 1); }
       }
+    },
+    // Gunships (guns.js): a crown's, over a fight — a dark armoured hull in its colours, two gun
+    // pods, engines burning red; its searchlight on the ground below it.
+    updateGunships(game, dt) {
+      const GU = ECHO.Guns, S = GU ? GU.ships : [], M = R._ships || (R._ships = new Map());
+      for (const s of S) {
+        let g = M.get(s);
+        if (!g) {
+          g = R.skiffMesh(true);
+          g.traverse(o => { if (o.isMesh && o.material && o.material.color) { o.material = o.material.clone(); const c = o.material.color.getHexString(); if (c !== '000000' && o.material.type === 'MeshStandardMaterial') o.material.color.multiplyScalar(0.2); else if (o.material.type === 'MeshBasicMaterial') o.material.color.copy(C(s.col)); } });
+          for (const z of [-0.55, 0.55]) { const pod = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 8).rotateZ(Math.PI / 2), new THREE.MeshStandardMaterial({ color: C('#1c2028'), metalness: 0.6, roughness: 0.4 })); pod.position.set(0.3, -0.18, z); g.add(pod); }
+          const beam = new THREE.Mesh(new THREE.CircleGeometry(1.4, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: C(s.col), transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false }));
+          g.userData.beam = beam; R.groups.fx.add(beam);
+          g.scale.setScalar(1.45); R.scene.add(g); M.set(s, g);
+        }
+        const gy = Math.max(0, R.groundH(s.x, s.y));
+        g.position.set(s.x, gy + s.h + Math.sin(s.t * 1.4) * 0.1, s.y);
+        const a = Math.hypot(s.vx, s.vy) > 0.4 ? Math.atan2(s.vy, s.vx) : g.userData.a || 0; g.userData.a = a;
+        g.rotation.set(0, -a, 0); g.rotation.x = U.clamp(-(s.vy * Math.cos(a) - s.vx * Math.sin(a)) * 0.03, -0.25, 0.25);
+        const b = g.userData.beam; b.position.set(s.x, gy + 0.06, s.y); b.visible = s.state === 'hold';
+      }
+      for (const [s, g] of M) if (!S.includes(s)) { R.scene.remove(g); if (g.userData.beam) R.groups.fx.remove(g.userData.beam); M.delete(s); }
     },
     // a skiff: a white hull, a canopy of dark glass, swept wings, two engines burning cyan
     // behind and a glow beneath it where it rides on the air (a hauler: longer, a cargo pod)
@@ -5630,6 +5720,14 @@
           ctx.fillStyle = gr; ctx.fillRect(0, 0, R.cw, R.ch);
         }
       }
+      // a launcher's lock: a diamond closing on what it has, bright when it is locked
+      { const GU = ECHO.Guns, L = GU && GU.aiming && GU.lock; if (L && L.e && !L.e.dead) {
+        const p = R.project(L.e.x, L.e.y, 0.6), k = Math.min(1, L.t / 0.45), r = (34 - 18 * k) * R.dpr;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.PI / 4 + (1 - k) * 1.2);
+        ctx.strokeStyle = L.on ? '#ff6a4a' : 'rgba(255,200,150,0.75)'; ctx.lineWidth = (L.on ? 3 : 2) * R.dpr;
+        ctx.strokeRect(-r / 2, -r / 2, r, r); ctx.restore();
+        if (L.on) text('LOCKED', p.x, p.y - 26 * R.dpr, '#ff8a6a', 'rgba(0,0,0,0.6)');
+      } }
       // bow / flame / study gauge under the player
       if (game.pe) {
         const PC = ECHO.PlayerCtl;

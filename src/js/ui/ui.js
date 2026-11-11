@@ -162,7 +162,7 @@
       const dz = ECHO.Danger && !ECHO.Interior.cur && !(ECHO.GateWorld && ECHO.GateWorld.cur) ? ECHO.Danger.at(world, game.pe.x, game.pe.y) : null;
       set('#hud-place', [s && s.name, reg && U.cap(reg.name), land && land.short, dz != null && `danger ${dz}`].filter(Boolean).join(' · '));
       const w = world.items[pl.weapon];
-      const inv = `<span>${w ? esc(w.name) : 'Bare hands'}</span><span>Arrows <b>${pl.inv.arrows}</b></span><span title="Eaten for you when you are hungry">Food <b>${ECHO.Camp ? ECHO.Camp.ORDER.reduce((a, k) => a + (pl.inv[k] || 0), 0) : pl.inv.food + (pl.inv.meat || 0)}</b></span>${Object.entries(ECHO.Gear.POTIONS).filter(([id]) => (pl.potions || {})[id] > 0).map(([id, P0]) => `<span style="color:${P0.color}">${P0.key}·${P0.short} <b>${pl.potions[id]}</b></span>`).join('')}${Object.entries(pl.buffs || {}).filter(([k, v]) => v > 0 && ECHO.Gear.POTIONS[k]).map(([k, v]) => `<span style="color:${ECHO.Gear.POTIONS[k].color}">✦${ECHO.Gear.POTIONS[k].short} ${Math.ceil(v)}s</span>`).join('')}${ECHO.Arcana ? ECHO.Arcana.hud(game) : ''}${ECHO.Mending ? ECHO.Mending.hud(game) : ''}${pl.flying && ECHO.Apex && ECHO.Apex.airHud ? ECHO.Apex.airHud(game) : ''}${ECHO.Tame ? (m => m === 'leash' ? '<span style="color:#ffcf6a" title="L: what you strike down kneels instead of dying">⛓ taming: leash</span>' : m === 'breath' ? '<span style="color:#ffe08a" title="L: what you strike down kneels on its last breath">✦ taming: last breath</span>' : '') (ECHO.Tame.mode(pl)) : ''}<span>Crowns <b>${Math.floor(pl.gold)}</b></span>${pl.companion && world.npcs[pl.companion] ? `<span>With <b>${esc(world.npcs[pl.companion].first)}</b></span>` : ''}${pl.inv.starshard ? `<span style="color:#bfe8ff">✦ <b>${pl.inv.starshard}</b></span>` : ''}${ECHO.Letters && ECHO.Letters.unread(world).length ? `<span class="gold">✉ <b>${ECHO.Letters.unread(world).length}</b> (J)</span>` : ''}`;
+      const inv = `<span>${w ? esc(w.name) : 'Bare hands'}</span>${ECHO.Guns ? ECHO.Guns.hud(game) : `<span>Arrows <b>${pl.inv.arrows}</b></span>`}<span title="Eaten for you when you are hungry">Food <b>${ECHO.Camp ? ECHO.Camp.ORDER.reduce((a, k) => a + (pl.inv[k] || 0), 0) : pl.inv.food + (pl.inv.meat || 0)}</b></span>${Object.entries(ECHO.Gear.POTIONS).filter(([id]) => (pl.potions || {})[id] > 0).map(([id, P0]) => `<span style="color:${P0.color}">${P0.key}·${P0.short} <b>${pl.potions[id]}</b></span>`).join('')}${Object.entries(pl.buffs || {}).filter(([k, v]) => v > 0 && ECHO.Gear.POTIONS[k]).map(([k, v]) => `<span style="color:${ECHO.Gear.POTIONS[k].color}">✦${ECHO.Gear.POTIONS[k].short} ${Math.ceil(v)}s</span>`).join('')}${ECHO.Arcana ? ECHO.Arcana.hud(game) : ''}${ECHO.Mending ? ECHO.Mending.hud(game) : ''}${pl.flying && ECHO.Apex && ECHO.Apex.airHud ? ECHO.Apex.airHud(game) : ''}${ECHO.Tame ? (m => m === 'leash' ? '<span style="color:#ffcf6a" title="L: what you strike down kneels instead of dying">⛓ taming: leash</span>' : m === 'breath' ? '<span style="color:#ffe08a" title="L: what you strike down kneels on its last breath">✦ taming: last breath</span>' : '') (ECHO.Tame.mode(pl)) : ''}<span>Crowns <b>${Math.floor(pl.gold)}</b></span>${pl.companion && world.npcs[pl.companion] ? `<span>With <b>${esc(world.npcs[pl.companion].first)}</b></span>` : ''}${pl.inv.starshard ? `<span style="color:#bfe8ff">✦ <b>${pl.inv.starshard}</b></span>` : ''}${ECHO.Letters && ECHO.Letters.unread(world).length ? `<span class="gold">✉ <b>${ECHO.Letters.unread(world).length}</b> (J)</span>` : ''}`;
       if (UI._inv !== inv) { $('#hud-inv').innerHTML = inv; UI._inv = inv; }
       const rel = ECHO.Arcana ? ECHO.Arcana.bar(game) : '';
       if (UI._rel !== rel) { const rb = $('#hud-relics'); if (rb) rb.innerHTML = rel; UI._rel = rel; }
@@ -511,8 +511,8 @@
     },
     // What each shop is for — used by the signs over buildings and by prompts.
     SHOPS: {
-      market: { title: 'Market', sub: 'arrows · food · herbs · trade goods', icon: '⚖' },
-      smithy: { title: 'Smithy', sub: 'swords · bows · arrows', icon: '⚒' },
+      market: { title: 'Market', sub: 'arrows · cells · food · herbs · trade goods', icon: '⚖' },
+      smithy: { title: 'Smithy', sub: 'swords · bows · guns · ammunition', icon: '⚒' },
       inn: { title: 'Inn', sub: 'beds · hot meals · rest', icon: '☕' },
       shrine: { title: 'Shrine', sub: 'healing · blessings', icon: '✚' },
       temple: { title: 'Temple', sub: 'healing · blessings', icon: '✚' },
@@ -576,6 +576,10 @@
             <div class="ware-top"><b>Arrows</b><span class="gold">10 for ${arrowP} cr</span></div>
             <div class="ware-use">Ammunition for your bow (right mouse). You have <b>${pl.inv.arrows}</b>.</div>
             <div class="row"><button data-arrows="1" ${pl.gold < arrowP ? 'disabled' : ''}>Buy 10</button><button data-arrows="3" ${pl.gold < arrowP * 3 ? 'disabled' : ''}>Buy 30</button></div></div></div>
+          ${ECHO.Guns ? `<div class="ware featured"><div class="ware-ic">⚡</div><div class="ware-main">
+            <div class="ware-top"><b>Energy cells</b><span class="gold">10 for ${arrowP + 2} cr</span></div>
+            <div class="ware-use">Ammunition for your gun (&#96; swaps bow and gun). You have <b>${pl.inv.cells || 0}</b>.</div>
+            <div class="row"><button data-mcells="1" ${pl.gold < arrowP + 2 ? 'disabled' : ''}>Buy 10</button><button data-mcells="3" ${pl.gold < (arrowP + 2) * 3 ? 'disabled' : ''}>Buy 30</button></div></div></div>` : ''}
           <div class="ware featured"><div class="ware-ic">🗝</div><div class="ware-main">
             <div class="ware-top"><b>Lockpicks</b><span class="gold">3 for ${Math.round(9 * am)} cr</span></div>
             <div class="ware-use">For strongboxes and iron doors in the deep places. They snap if your hand slips. You have <b>${pl.inv.lockpick || 0}</b>.</div>
@@ -626,6 +630,7 @@
           if (d.sellgear) { const it = world.items[d.sellgear]; if (it && !ECHO.Gear.worn(pl, it.id)) { const got = UI.gearPrice(world, pl, s, it); pl.items = pl.items.filter(x => x !== it.id); it.holder = null; it.history.push({ d: world.day, t: `sold at the market in ${s.name}` }); pl.gold += got; ECHO.Sfx.play('coin'); UI.toast(`Sold ${it.name} for ${got} crowns.`, 'info', 3); } }
           if (d.picks) { const c = Math.round(9 * am); if (pl.gold >= c) { pl.gold -= c; pl.inv.lockpick = (pl.inv.lockpick || 0) + 3; s.wealth += c; ECHO.Sfx.play('coin'); } }
           if (d.arrows) { const n = +d.arrows; if (pl.gold >= arrowP * n) { pl.gold -= arrowP * n; pl.inv.arrows += 10 * n; s.wealth += arrowP * n; ECHO.Sfx.play('coin'); } }
+          if (d.mcells) { const n = +d.mcells, c = arrowP + 2; if (pl.gold >= c * n) { pl.gold -= c * n; pl.inv.cells = (pl.inv.cells || 0) + 10 * n; s.wealth += c * n; ECHO.Sfx.play('coin'); } }
           if (d.rare && pl.inv[d.rare] > 0) {
             pl.inv[d.rare]--; const got = d.rare === 'starshard' ? rare.star : rare.hide; pl.gold += got; s.wealth = Math.max(0, s.wealth - got * 0.5); ECHO.Sfx.play('coin');
             if (d.rare === 'whitehide') ECHO.Chronicle.deed(world, { text: `${pl.first} ${pl.last} sold the hide of the White Hind in ${s.name}.`, importance: 1, sid: s.id, rep: -2, tag: 'cruel' });
@@ -698,7 +703,8 @@
         { kind: 'sword', wclass: 'spear', name: 'Ash spear', dmg: 14, price: 55 },
         { kind: 'sword', wclass: 'staff', name: 'Oak staff', dmg: 10, price: 70 },
         { kind: 'bow', name: 'Recurve bow', dmg: 16, price: 90 },
-        { kind: 'bow', name: era >= 2 ? (arcane ? 'Wand-bow' : 'Spring bow') : null, dmg: 22, price: 210 }
+        { kind: 'bow', name: era >= 2 ? (arcane ? 'Wand-bow' : 'Spring bow') : null, dmg: 22, price: 210 },
+        ...(ECHO.Guns ? ECHO.Guns.smithWares(world, s, era, arcane) : [])
       ].filter(w => w.name);
       const pm = ECHO.Minds.priceMult(world, s, pl);
       for (const w of wares) w.price = Math.round(w.price * pm);
@@ -709,16 +715,18 @@
           <p>You have <b class="gold">${Math.floor(pl.gold)}</b> crowns. Wielding: <b>${esc(world.items[pl.weapon] ? world.items[pl.weapon].name : 'nothing')}</b>.</p>
           ${UI.smithGearHtml(world, pl, s, smith)}
           <h4 class="ware-h">Buy from the forge</h4>
-          <table class="grid"><tr><th>Item</th><th>Power</th><th>Price</th><th></th></tr>${wares.map((w, i) => `<tr><td>${w.name}${w.wclass ? ` <span class="dim">(${ECHO.Gear.WCLASS[w.wclass].name.toLowerCase()})</span>` : ''}</td><td>${w.dmg}${(() => { const cur = world.items[w.kind === 'bow' ? pl.bow : pl.weapon]; if (!cur || cur.dmg == null) return ''; const d = w.dmg - cur.dmg; return d ? ` <span style="color:${d > 0 ? '#8fe07a' : '#e0806a'};font-size:0.9em">${d > 0 ? '▲ +' + d : '▼ ' + d}</span>` : ' <span class="dim" style="font-size:0.9em">= yours</span>'; })()}</td><td class="gold">${w.price}</td><td><button class="small" data-i="${i}" ${pl.gold < w.price ? 'disabled' : ''}>Buy</button></td></tr>`).join('')}</table>
+          <table class="grid"><tr><th>Item</th><th>Power</th><th>Price</th><th></th></tr>${wares.map((w, i) => `<tr><td>${w.name}${w.wclass ? ` <span class="dim">(${ECHO.Gear.WCLASS[w.wclass].name.toLowerCase()})</span>` : w.gclass ? ` <span class="dim">(${ECHO.Guns.CLASSES[w.gclass].name.toLowerCase()})</span>` : ''}</td><td>${w.dmg}${(() => { const cur = world.items[w.kind === 'bow' ? pl.bow : w.kind === 'gun' ? pl.gun : pl.weapon]; if (!cur || cur.dmg == null) return ''; const d = w.dmg - cur.dmg; return d ? ` <span style="color:${d > 0 ? '#8fe07a' : '#e0806a'};font-size:0.9em">${d > 0 ? '▲ +' + d : '▼ ' + d}</span>` : ' <span class="dim" style="font-size:0.9em">= yours</span>'; })()}</td><td class="gold">${w.price}</td><td><button class="small" data-i="${i}" ${pl.gold < w.price ? 'disabled' : ''}>Buy</button></td></tr>`).join('')}</table>
           <div class="ware featured" style="margin-top:10px"><div class="ware-ic">🏹</div><div class="ware-main"><div class="ware-top"><b>Arrows</b><span class="gold">20 for 13 cr</span></div><div class="ware-use">You have <b>${pl.inv.arrows}</b>.</div><div class="row"><button data-arrows="1" ${pl.gold < 13 ? 'disabled' : ''}>Buy 20 arrows</button></div></div></div>
+          ${ECHO.Guns ? `<div class="ware featured" style="margin-top:10px"><div class="ware-ic">⚡</div><div class="ware-main"><div class="ware-top"><b>Energy cells</b><span class="gold">20 for 16 cr</span></div><div class="ware-use">A bolt each from a pistol, rifle or scattergun. You have <b>${pl.inv.cells || 0}</b>.</div><div class="row"><button data-cells="1" ${pl.gold < 16 ? 'disabled' : ''}>Buy 20 cells</button></div></div></div>
+          <div class="ware featured" style="margin-top:10px"><div class="ware-ic">🚀</div><div class="ware-main"><div class="ware-top"><b>Missiles</b><span class="gold">2 for 30 cr</span></div><div class="ware-use">For a missile launcher. You have <b>${pl.inv.missiles || 0}</b>.</div><div class="row"><button data-missiles="1" ${pl.gold < 30 ? 'disabled' : ''}>Buy 2 missiles</button></div></div></div>` : ''}
           <p class="dim">The smith buys hides at ${UI.priceOf(s, 'hide')} each.</p><button data-hides="1" ${!(pl.inv.hide > 0) ? 'disabled' : ''}>Sell all hides (${pl.inv.hide || 0})</button>
           ${pl.inv.starshard && smith ? (() => { const wpn = world.items[pl.weapon]; const n = wpn ? wpn.starforged || 0 : 0; return `<div class="ware featured" style="margin-top:10px;border-color:#9fd3ff"><div class="ware-ic">✦</div><div class="ware-main"><div class="ware-top"><b>Forge star-iron into your blade</b><span class="gold">1 shard + 40 cr</span></div><div class="ware-use">${wpn ? `${esc(smith.first)} turns the shard over in the firelight. "I've heard of this. Never thought I'd hold it." Your ${esc(wpn.name)} would strike harder (+${Math.max(4, Math.round(wpn.dmg * 0.08))}) — and shine a little in the dark.${n >= 3 ? ' <span class="ember">It can take no more.</span>' : ''}` : 'You need a sword to forge it into.'}</div><div class="row"><button data-forge="1" ${!wpn || n >= 3 || pl.gold < 40 ? 'disabled' : ''}>Forge it</button></div></div></div>`; })() : ''}`;
         body.querySelectorAll('button[data-i]').forEach(b => b.addEventListener('click', () => {
           const w = wares[+b.dataset.i];
           pl.gold -= w.price;
-          const it = ECHO.Character.makeItem(world, { kind: w.kind, wclass: w.wclass, name: w.name, dmg: w.dmg, holder: 'player', made: { by: smith ? P().name(smith) : 'a smith', at: s.name, d: world.day }, history: [{ d: world.day, t: `forged by ${smith ? P().name(smith) : 'a smith'} of ${s.name}` }] });
+          const it = ECHO.Character.makeItem(world, { kind: w.kind, wclass: w.wclass, gclass: w.gclass, name: w.name, dmg: w.dmg, holder: 'player', made: { by: smith ? P().name(smith) : 'a smith', at: s.name, d: world.day }, history: [{ d: world.day, t: `forged by ${smith ? P().name(smith) : 'a smith'} of ${s.name}` }] });
           pl.items.push(it.id);
-          if (w.kind === 'sword') pl.weapon = it.id; else pl.bow = it.id;
+          if (w.kind === 'sword') pl.weapon = it.id; else if (w.kind === 'gun') { pl.gun = it.id; pl.ranged = 'gun'; if (w.gclass === 'launcher' && !(pl.inv.missiles > 0)) pl.inv.missiles = 2; } else pl.bow = it.id;
           s.wealth += w.price; if (smith) smith.wealth += w.price * 0.5;
           ECHO.PlayerCtl.derivedT = 0;
           UI.toast(`You buy ${w.name}, made by ${smith ? smith.first : 'the smith'}.`, 'info', 3);
@@ -726,6 +734,9 @@
         }));
         const ab = body.querySelector('button[data-arrows]');
         if (ab) ab.addEventListener('click', () => { if (pl.gold >= 13) { pl.gold -= 13; pl.inv.arrows += 20; s.wealth += 13; ECHO.Sfx.play('coin'); } render(); });
+        const cb = body.querySelector('button[data-cells]'), mb = body.querySelector('button[data-missiles]');
+        if (cb) cb.addEventListener('click', () => { if (pl.gold >= 16) { pl.gold -= 16; pl.inv.cells = (pl.inv.cells || 0) + 20; s.wealth += 16; ECHO.Sfx.play('coin'); } render(); });
+        if (mb) mb.addEventListener('click', () => { if (pl.gold >= 30) { pl.gold -= 30; pl.inv.missiles = (pl.inv.missiles || 0) + 2; s.wealth += 30; ECHO.Sfx.play('coin'); } render(); });
         const fb = body.querySelector('button[data-forge]');
         if (fb) fb.addEventListener('click', () => {
           const wpn = world.items[pl.weapon];
@@ -865,7 +876,7 @@
     // how a spare piece measures against what you use in its place: 1 better, -1 weaker, 0 about the same
     gearVs(world, pl, it) {
       if (!it || !['sword', 'bow', 'armor'].includes(it.kind)) return 0;
-      const cur = world.items[it.kind === 'armor' ? pl.armor : it.kind === 'bow' ? pl.bow : pl.weapon];
+      const cur = world.items[it.kind === 'armor' ? pl.armor : it.kind === 'bow' ? pl.bow : it.kind === 'gun' ? pl.gun : pl.weapon];
       const sc = x => !x ? 0 : x.kind === 'armor' ? (x.def || 0) * (1 + (x.plus || 0) * 0.05) : (x.dmg || 0) * (1 + (x.plus || 0) * 0.1);
       if (!cur) return 1;
       const a = sc(it), b = sc(cur);
@@ -915,7 +926,7 @@
       if (!smith) return '';
       const Gr = ECHO.Gear;
       const cost = c => `<span class="gold">${c.gold} cr</span>${Object.entries(c.mats).map(([k, n]) => ` + <span style="color:${(Gr.MATS[k] || { color: '#c8b890' }).color}" class="${(pl.inv[k] || 0) >= n ? '' : 'ember'}">${n} ${esc(Gr.MATS[k] ? Gr.MATS[k].name : k === 'hide' ? 'hides' : k)} (${pl.inv[k] || 0})</span>`).join('')}`;
-      const gear = [[pl.weapon, 'Hone the blade'], [pl.bow, 'Restring and tiller the bow'], [pl.armor, 'Reinforce the armour']].map(([id, verb]) => [world.items[id], verb]).filter(([it]) => it);
+      const gear = [[pl.weapon, 'Hone the blade'], [pl.bow, 'Restring and tiller the bow'], [pl.gun, 'Tune the gun'], [pl.armor, 'Reinforce the armour']].map(([id, verb]) => [world.items[id], verb]).filter(([it]) => it);
       let html = `<h4 class="ware-h">Improve your gear</h4><p class="dim">"Bring me what you take off the things down there, and I can do things with steel you wouldn't believe."</p><div class="wares">`;
       const nextOf = it => ({ ...it, plus: (it.plus || 0) + 1 });
       html += gear.map(([it, verb]) => { const c = Gr.honeCost(it); return `<div class="ware"><div class="ware-main"><div class="upg-arrow">${ECHO.GearArt.img(it, 'gear-ic small')}${c ? `<span class="gold">➜</span>${ECHO.GearArt.img(nextOf(it), 'gear-ic small')}` : ''}</div><div class="ware-top"><b style="color:${Gr.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}</b><span class="dim">${esc(Gr.line(it))}</span></div>${c ? `<div class="ware-use">${verb} to +${(it.plus || 0) + 1} (${it.kind === 'armor' ? 'armour +' : 'power +'}${Gr.honeAdd(it)}): ${cost(c)}</div><div class="row"><button class="small" data-hone="${it.id}" ${Gr.canPay(pl, c) ? '' : 'disabled'}>${verb}</button></div>` : '<div class="ware-use gold">It can be made no finer.</div>'}</div></div>`; }).join('');

@@ -279,7 +279,7 @@
       const bits = [`${gold} crowns`];
       if (Math.random() < 0.45) {
         const rng = new ECHO.RNG(Math.floor(Math.random() * 1e9));
-        const kind = pick(['sword', 'bow', 'armor']);
+        const kind = pick(['sword', 'bow', 'gun', 'armor']);
         const it = ECHO.Gear.make(world, rng, kind, lv, ECHO.Gear.rollRarity(rng, lv, 12), 'in a buried chest');
         game.loot.push({ x: pe.x + 0.5, y: pe.y, kind: 'item', itemId: it.id, qty: 1 });
         bits.push(it.name);

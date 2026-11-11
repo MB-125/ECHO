@@ -38,7 +38,7 @@
     // the piece a blow of this kind was struck with
     used(game, type) {
       const pl = game.pl, items = game.world.items;
-      if (type === 'ranged') return items[pl.bow] || null;
+      if (type === 'ranged') return items[ECHO.Guns ? ECHO.Guns.rangedId(game) : pl.bow] || null;
       const w = items[pl.weapon] || null;
       if (type === 'melee') return w;
       if ((type === 'fire' || type === 'magic') && w && w.wclass === 'staff') return w;
@@ -76,7 +76,7 @@
     },
     onKill(game, target) {
       const it = T._last && game.world.items[T._last];
-      if (!T.ok(it) || !game.pl || (it.id !== game.pl.weapon && it.id !== game.pl.bow)) return;
+      if (!T.ok(it) || !game.pl || (it.id !== game.pl.weapon && it.id !== game.pl.bow && it.id !== game.pl.gun)) return;
       T.gain(game, it, 5 * T.worth(target), true);
     },
     onStruck(game, from) {

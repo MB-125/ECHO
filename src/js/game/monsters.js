@@ -272,13 +272,13 @@
     // Your gear's properties, when your blow lands.
     playerHit(game, target, dmg, type) {
       const world = game.world, pl = game.pl;
-      const w = type === 'ranged' ? world.items[pl.bow] : world.items[pl.weapon];
+      const w = type === 'ranged' ? world.items[ECHO.Guns ? ECHO.Guns.rangedId(game) : pl.bow] : world.items[pl.weapon];
       if (!w || !w.affix || target.dead) return;
       if (w.affix === 'ember' && Math.random() < 0.35) { target.burn = Math.max(target.burn || 0, 1.5); target.burnFrom = game.pe; }
       if (w.affix === 'venom') { target.venomT = 4; target.venomDps = Math.max(target.venomDps || 0, 2 + (w.level || 1)); }
       if (w.affix === 'thirst') { game.pe.hp = Math.min(game.pl.maxHp, game.pe.hp + dmg * 0.08); game.pl.hp = game.pe.hp; }
     },
-    keen(game, type) { const w = game.world.items[type === 'ranged' ? game.pl.bow : game.pl.weapon]; return w && w.affix === 'keen' ? 0.15 : 0; },
+    keen(game, type) { const w = game.world.items[type === 'ranged' ? (ECHO.Guns ? ECHO.Guns.rangedId(game) : game.pl.bow) : game.pl.weapon]; return w && w.affix === 'keen' ? 0.15 : 0; },
 
     // ------------------------------------------------------------ death and loot
     onKill(game, e) {
@@ -323,7 +323,7 @@
     dropGear(game, x, y, level, boost, where) {
       const world = game.world, rng = M.rng();
       const roll = rng.next();
-      const kind = roll < 0.45 ? 'sword' : roll < 0.65 ? 'bow' : 'armor';
+      const kind = roll < 0.42 ? 'sword' : roll < 0.58 ? 'bow' : roll < 0.7 ? 'gun' : 'armor';   // (guns too, now: guns.js)
       const rarity = Gr().rollRarity(rng, level, boost);
       // now and then, a relic that wakes with mana — more often on the strong
       const it = ECHO.Arcana && rng.next() < 0.1 + Math.min(0.12, boost * 0.004) ? ECHO.Arcana.make(world, rng, level, rarity, where) : Gr().make(world, rng, kind, level, rarity, where);

@@ -582,7 +582,8 @@
           e.state = 'attack'; e.t = 0;
           if (archer && !e.meleeWind) {
             // (a battle-mage of the realm casts a bolt from a wand: magic, and coloured as its arms are)
-            if (e.mage) ECHO.Combat.shoot(e, (ECHO.Aware ? ECHO.Aware.lead(game, e, target, 12, e.aimAngle) : e.aimAngle) + (Math.random() - 0.5) * 0.08, { kind: 'orb', speed: 12, dmg: Math.max(6 + skill * 0.13, (e.wdmg || 0) * (0.6 + skill / 200)) * (e.dmgMul || 1) * 1.15, life: 1.4, type: 'magic', color: e.armsCol || '#b89aff' });
+            if (e.gear.rifle && ECHO.Guns) ECHO.Guns.npcFire(game, e, target, skill, npc);   // (a rifle: a burst of three)
+            else if (e.mage) ECHO.Combat.shoot(e, (ECHO.Aware ? ECHO.Aware.lead(game, e, target, 12, e.aimAngle) : e.aimAngle) + (Math.random() - 0.5) * 0.08, { kind: 'orb', speed: 12, dmg: Math.max(6 + skill * 0.13, (e.wdmg || 0) * (0.6 + skill / 200)) * (e.dmgMul || 1) * 1.15, life: 1.4, type: 'magic', color: e.armsCol || '#b89aff' });
             else ECHO.Combat.shoot(e, (ECHO.Aware ? ECHO.Aware.lead(game, e, target, e.gear.crossbow ? 17 : 13, e.aimAngle) : e.aimAngle) + (Math.random() - 0.5) * 0.12 * (e.aimMul || 1), { kind: e.gear.crossbow ? 'bolt' : 'arrow', speed: e.gear.crossbow ? 17 : 13, dmg: Math.max(5 + skill * 0.11 + (e.gear.crossbow ? 4 : 0), (e.wdmg || 0) * (0.55 + skill / 220)) * (e.dmgMul || 1), life: 1.3, type: 'ranged' });
           } else {
             const reach = spear ? 2.1 : 1.25;
@@ -600,7 +601,7 @@
         }
         return;
       }
-      if (e.state === 'attack') { if (e.t > 0.2) { e.state = 'chase'; } return; }
+      if (e.state === 'attack') { if (e.burstN > 0 && ECHO.Guns) { ECHO.Guns.npcBurst(game, e, target, dt); return; } if (e.t > 0.2) { e.state = 'chase'; } return; }
       e.state = 'chase';
       const sp = e.speed * (e.role === 'soldier' || e.role === 'guard' ? 1.05 : 1);
       if (!e.isCompanion && ECHO.Wits && ECHO.Wits.move(game, e, target, d, ang, sp, dt, { archer: archer && d > 2.6 })) return;

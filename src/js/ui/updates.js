@@ -7,6 +7,18 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.38.0', items: [
+      'Guns. A gun has its own slot beside your bow. Press ` (the key left of 1) to swap between them; the right mouse button fires whichever is ready.',
+      'Four kinds: the pistol (a bolt for each pull of the trigger), the pulse rifle (hold for a stream of bolts that strays the longer you hold), the scattergun (seven bolts in a fan, brutal up close) and the missile launcher.',
+      'The missile launcher: hold the right mouse on a foe until it says LOCKED, then let go. The missile turns to find its mark and bursts, throwing bodies, barrels and crates and scorching the ground.',
+      'The missile salvo: from level 10 a pod on your shoulder looses four little missiles, each after a foe of its own (press -). It takes about 20 seconds to load again, less as your archery grows.',
+      'Pistols, rifles and scatterguns burn energy cells; the launcher uses missiles. Smiths sell guns, cells and missiles, markets sell cells, and guns now turn up as loot (each comes with some ammunition). Guns are honed, tempered and carry affixes like any weapon.',
+      'You are given an old sidearm and 40 cells the first time you play this version.',
+      'Some guards and soldiers of the crowns carry pulse rifles now and fire them in bursts of three. Beasts and monsters keep to their teeth and their magic.',
+      'Gunships: a crown whose soldiers are fighting you, or a great beast at its gates, sends a gunship over the roofs. It marks the ground in red and a missile follows each mark, so keep moving.',
+      'The gear screen has a Gun slot and a Guns filter, and your gun\'s damage shows with your other numbers. The bar at the foot of the screen shows what the right mouse fires and how much it has left.',
+      'Your saved game loads exactly as before.'
+    ] },
     { v: '0.37.0', items: [
       'A new look: Arcanotech, high tech and old magic together. The towns are built new: white ceramic walls, roofs of sun-glass laid in cells, doors framed in light, a line of light round the foot of every wall and the eaves of every roof, beacons on the spires, and squares and roads paved in long slabs. Each realm\'s towns glow in its own colour.',
       'At night the joints of the paving, the frames of the roofs and the windows glow softly, the street lamps burn with cool white light, and here and there a paving slab is a lamp.',

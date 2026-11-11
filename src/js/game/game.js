@@ -20,7 +20,7 @@
       Game.ents = []; Game.loot = [];
       ECHO.Interior.cur = null;
       if (Game.pl.x >= 9000 || !isFinite(Game.pl.x)) { const h = ECHO.Sim.settlement(world, Game.pl.homeId) || world.settlements[0]; Game.pl.x = h.x + 0.5; Game.pl.y = h.y + 2.5; }
-      ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset(); if (ECHO.Riders) ECHO.Riders.reset(); if (ECHO.Water) ECHO.Water.ripples = [];
+      ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset(); if (ECHO.Guns) ECHO.Guns.reset(); if (ECHO.Riders) ECHO.Riders.reset(); if (ECHO.Water) ECHO.Water.ripples = [];
       if (ECHO.Wonders) ECHO.Wonders.state(world);
       if (ECHO.Globe && !world.globe) { try { ECHO.Globe.ensure(world); } catch (err) { console.error('ECHO: the world could not be made round', err); } }
       if (ECHO.Globe && world.globe && !world._filled) { try { ECHO.Globe.fill(world); } catch (err) { console.error('ECHO: the far lands could not be drawn', err); } }
@@ -162,6 +162,7 @@
       ECHO.Ent.pathBudget = 3;   // (route plans allowed in the next frame)
       for (const e of Game.ents) if (!e.dead || (e.deathT || 0) < 0.5) ECHO.Ent.applyPush(world, e);
       if (ECHO.Thrown) ECHO.Thrown.update(Game, dt);   // (what a blow has sent flying, or sliding: thrown.js)
+      if (ECHO.Guns) ECHO.Guns.tick(Game, dt);   // (guns, the salvo, gunships: guns.js)
       ECHO.Combat.updateProjectiles(dt);
       if (ECHO.Loose) ECHO.Loose.update(Game, dt);   // (barrels, crates, pots and the rest: loose.js)
       ECHO.Combat.updateBurning(dt);
@@ -607,6 +608,8 @@
       const cur = world.items[pl.weapon];
       if (it.kind === 'sword' && (!cur || (eff(it) >= eff(cur) && (it.wclass || 'sword') === (cur.wclass || 'sword')) || eff(it) > eff(cur) * 1.25 || it.legend)) pl.weapon = it.id;
       if (it.kind === 'bow' && (!world.items[pl.bow] || ECHO.Gear.power(it) > ECHO.Gear.power(world.items[pl.bow]))) pl.bow = it.id;
+      if (it.kind === 'gun' && !it.loaded) { it.loaded = 1; if (it.gclass === 'launcher') pl.inv.missiles = (pl.inv.missiles || 0) + 3; else pl.inv.cells = (pl.inv.cells || 0) + 25; }   // (a gun comes with what it fires)
+      { const g = world.items[pl.gun]; if (it.kind === 'gun' && (!g || (ECHO.Gear.power(it) > ECHO.Gear.power(g) && (it.gclass || 'pistol') === (g.gclass || 'pistol')))) pl.gun = it.id; }   // (a gun of a new kind you put in the slot yourself)
       if (it.kind === 'armor' && (!world.items[pl.armor] || ECHO.Gear.power(it) > ECHO.Gear.power(world.items[pl.armor]))) pl.armor = it.id;
       const worn = it.kind === 'relic' && ECHO.Arcana && ECHO.Arcana.onTake(pl, it);
       if (it.rarity && ECHO.Gear && !quiet) ECHO.UI.toast(`${it.name} — ${ECHO.Gear.line(it)}${worn ? ` (worn — its gift is on you now, and it wakes by itself when it is needed${ECHO.Arcana.slots(pl).indexOf(it.id) < 3 ? `, or with ${ECHO.Arcana.keyName(ECHO.Arcana.slots(pl).indexOf(it.id))}` : ''}; I for your relics)` : [pl.weapon, pl.bow, pl.armor].includes(it.id) ? ' (equipped)' : ' (in your pack; sell it, or equip it from your character page)'}`, it.rarity === 'common' ? 'info' : 'legend', 5);

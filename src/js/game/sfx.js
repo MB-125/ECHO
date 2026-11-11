@@ -119,6 +119,17 @@
         case 'perfect': S.tone(t, 0.3, 'sine', 1320, 1320, 0.18 * v); S.tone(t + 0.06, 0.3, 'sine', 1980, 1980, 0.12 * v); break;
         case 'fireCharge': S.noise(t, 0.25, 'bandpass', 300, 800, 1.2, 0.12 * v, 0.1); break;
         case 'fireCast': S.noise(t, 0.35, 'bandpass', 600, 2400, 0.9, 0.45 * v, 0.03); S.tone(t, 0.3, 'sawtooth', 90, 180, 0.08 * v); break;
+        // guns (guns.js): a zap, a pulse, a scattergun's crack, a missile's whoosh, a boom
+        case 'zap': S.tone(t, 0.12, 'square', 1500 * r(), 300, 0.12 * v); S.tone(t, 0.08, 'sawtooth', 900 * r(), 200, 0.08 * v); S.noise(t, 0.05, 'highpass', 3000, 6000, 0.7, 0.18 * v); break;
+        case 'pulse': S.tone(t, 0.07, 'square', 1100 * r(), 420, 0.09 * v); S.noise(t, 0.04, 'bandpass', 2600, 1400, 1.5, 0.12 * v); break;
+        case 'blast': S.noise(t, 0.25, 'lowpass', 3500 * p, 400, 0.8, 0.55 * v, 0.003); S.tone(t, 0.16, 'square', 420 * r(), 90, 0.14 * v); break;
+        case 'missile': S.noise(t, 0.55, 'bandpass', 700 * p, 2600, 0.8, 0.35 * v, 0.02); S.tone(t, 0.3, 'sawtooth', 160 * p, 320, 0.06 * v); break;
+        case 'boom': S.noise(t, 1.0, 'lowpass', 2200 * p, 60, 0.7, 0.95 * v, 0.004); S.tone(t, 0.7, 'sine', 70 * p, 24, 0.85 * v); break;
+        case 'zapHit': S.noise(t, 0.05, 'bandpass', 2400 * r(), 900, 1.5, 0.25 * v); S.tone(t, 0.05, 'sine', 700, 200, 0.12 * v); break;
+        case 'gunEmpty': S.tone(t, 0.03, 'square', 1800, 1700, 0.08 * v); S.tone(t + 0.06, 0.03, 'square', 1500, 1400, 0.06 * v); break;
+        case 'gunSwap': S.noise(t, 0.08, 'bandpass', 1400, 2400, 2, 0.15 * v); S.tone(t + 0.05, 0.08, 'sine', 900, 1300, 0.08 * v); break;
+        case 'lockOn': S.tone(t, 0.07, 'square', 1700, 1700, 0.08 * v); S.tone(t + 0.09, 0.1, 'square', 2200, 2200, 0.08 * v); break;
+        case 'shipIn': S.noise(t, 1.6, 'bandpass', 180, 420, 1.2, 0.3 * v, 0.6); S.tone(t, 1.6, 'sawtooth', 55, 70, 0.08 * v); break;
         case 'explode':
           S.noise(t, 0.7, 'lowpass', 1600 * p, 80, 0.7, 0.85 * v, 0.005);
           S.tone(t, 0.5, 'sine', 90, 30, 0.7 * v);

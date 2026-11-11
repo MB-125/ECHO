@@ -148,7 +148,7 @@
     // What a piece of a given kind, level and rarity is worth in power (armour for armour).
     statFor(kind, level, rarity) {
       const R = G.rarity(rarity), L = Math.max(1, level || 1);
-      return kind === 'armor' ? Math.round((4 + L * 4) * R.mult) : Math.round((kind === 'bow' ? 13 : 12) + L * 3.2 * R.mult + (R.mult - 1) * 10);
+      return kind === 'armor' ? Math.round((4 + L * 4) * R.mult) : Math.round((kind === 'bow' || kind === 'gun' ? 13 : 12) + L * 3.2 * R.mult + (R.mult - 1) * 10);
     },
     // Smith's work is made for the one who will carry it: never weaker than its
     // recipe, and as strong as gear of their level and its quality.
@@ -169,16 +169,20 @@
       const R = G.rarity(rarity);
       let wclass = null;
       if (kind === 'sword') { const r = rng.next(); wclass = r < 0.5 ? 'sword' : r < 0.7 ? 'axe' : r < 0.9 ? 'spear' : 'staff'; }
-      const bl = wclass ? WBASES[wclass] : BASES[kind];
+      // (a gun: pistol, pulse rifle, scattergun or launcher — game/guns.js)
+      let gclass = null;
+      if (kind === 'gun') { const GU = ECHO.Guns; gclass = GU ? GU.pickClass(rng) : 'pistol'; }
+      const bl = wclass ? WBASES[wclass] : gclass ? (ECHO.Guns ? ECHO.Guns.NAMES[gclass] : ['sidearm']) : BASES[kind];
       const base = bl[rng.int(0, bl.length - 1)];
       const pre = PREFIX[R.k][rng.int(0, PREFIX[R.k].length - 1)];
       let affix = null;
-      if (rng.next() < R.affix) { const opts = Object.keys(AFFIX).filter(a => AFFIX[a].slot === (kind === 'armor' ? 'armor' : 'weapon') && (kind !== 'bow' || a !== 'venom')); affix = opts[rng.int(0, opts.length - 1)]; }
-      const stat = kind === 'armor' ? Math.round((4 + level * 4) * R.mult) : Math.round((kind === 'bow' ? 13 : 12) + level * 3.2 * R.mult + (R.mult - 1) * 10);
+      if (rng.next() < R.affix) { const opts = Object.keys(AFFIX).filter(a => AFFIX[a].slot === (kind === 'armor' ? 'armor' : 'weapon') && (kind !== 'bow' || a !== 'venom') && (kind !== 'gun' || a === 'ember' || a === 'keen' || a === 'thirst')); affix = opts[rng.int(0, opts.length - 1)]; }
+      const stat = kind === 'armor' ? Math.round((4 + level * 4) * R.mult) : Math.round((kind === 'bow' || kind === 'gun' ? 13 : 12) + level * 3.2 * R.mult + (R.mult - 1) * 10);
       const name = `${pre} ${base}${affix ? ' of ' + AFFIX[affix].name : ''}`;   // (an affix's colour is in look())
       const it = ECHO.Character.makeItem(world, { kind, name: U.cap(name), dmg: kind === 'armor' ? 0 : stat, holder: null, history: [{ d: world.day, t: where ? `found ${where}` : 'found' }] });
       it.rarity = R.k; it.affix = affix; it.level = level; it.plus = 0;
       if (wclass) it.wclass = wclass;
+      if (gclass) it.gclass = gclass;
       if (kind === 'armor') it.def = stat;
       return it;
     },
@@ -228,7 +232,7 @@
       it.plus = (it.plus || 0) + 1;
       // each step adds a fixed amount or a twentieth of the piece, whichever is more
       if (it.kind === 'armor') it.def = (it.def || 0) + add; else it.dmg += add;
-      it.history.push({ d: world.day, t: `${it.kind === 'armor' ? 'reinforced' : it.kind === 'bow' ? 'restrung and tillered' : 'honed'} to +${it.plus}` });
+      it.history.push({ d: world.day, t: `${it.kind === 'armor' ? 'reinforced' : it.kind === 'bow' ? 'restrung and tillered' : it.kind === 'gun' ? 'tuned' : 'honed'} to +${it.plus}` });
       return null;
     },
     craft(world, pl, id) {
@@ -271,17 +275,19 @@
         L.helm = (it.def || 0) >= 12 || plus >= 2;
         L.pauldrons = plus >= 3 || R.k === 'epic' || R.k === 'legendary';
         L.crest = plus >= 5 || R.k === 'legendary';
-      } else if (it.kind === 'bow') L.wood = { common: '#6a4a2a', fine: '#7a5634', rare: '#3a4a6a', epic: '#4a2a5a', legendary: '#8a6a2a' }[R.k] || '#6a4a2a';
+      } else if (it.kind === 'gun') { L.gclass = it.gclass || 'pistol'; L.body = { common: '#3a4150', fine: '#3c4658', rare: '#2e3c5a', epic: '#3a2e5a', legendary: '#5a4a2a' }[R.k] || '#3a4150'; L.bolt = !it.affix && (R.k === 'common' || R.k === 'fine') ? '#7ff4ff' : glowCol; }
+      else if (it.kind === 'bow') L.wood = { common: '#6a4a2a', fine: '#7a5634', rare: '#3a4a6a', epic: '#4a2a5a', legendary: '#8a6a2a' }[R.k] || '#6a4a2a';
       return L;
     },
     // Describe an item in a line.
     // what you have on: weapon, bow, armour, and the relics you wear
-    worn(pl, id) { return !!id && (id === pl.weapon || id === pl.bow || id === pl.armor || (Array.isArray(pl.relics) && pl.relics.includes(id))); },
+    worn(pl, id) { return !!id && (id === pl.weapon || id === pl.bow || id === pl.gun || id === pl.armor || (Array.isArray(pl.relics) && pl.relics.includes(id))); },
     line(it) {
       if (!it) return '';
       if (it.kind === 'relic') return `${G.rarity(it.rarity).name} · ${ECHO.Arcana ? ECHO.Arcana.line(it) : 'relic'}`;
       const R = G.rarity(it.rarity);
-      const stat = it.kind === 'armor' ? `armour ${G.power(it)}` : `${it.kind === 'sword' && it.wclass && it.wclass !== 'sword' ? WCLASS[it.wclass].name.toLowerCase() + ' · ' : ''}power ${G.power(it)}`;
+      const gk = it.kind === 'gun' && ECHO.Guns ? ECHO.Guns.CLASSES[it.gclass || 'pistol'] : null;
+      const stat = it.kind === 'armor' ? `armour ${G.power(it)}` : `${it.kind === 'sword' && it.wclass && it.wclass !== 'sword' ? WCLASS[it.wclass].name.toLowerCase() + ' · ' : gk ? gk.name.toLowerCase() + ' · ' : ''}power ${G.power(it)}`;
       const tp = ECHO.Temper && ECHO.Temper.ok(it) ? ` · ${ECHO.Temper.line(it)}` : '';
       return `${R.name !== 'Common' || it.rarity ? R.name + ' · ' : ''}${stat}${it.plus ? ` · +${it.plus}` : ''}${it.affix && AFFIX[it.affix] ? ` · ${AFFIX[it.affix].desc}` : ''}${tp}`;
     }
