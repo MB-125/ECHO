@@ -19,7 +19,7 @@
 
   const N = ECHO.Nav = {
     route: null, t: 0,
-    reset() { N.route = null; N.t = 0; N._known = null; },
+    reset() { N.route = null; N.job = null; N.t = 0; N._known = null; },
 
     // How costly a tile is to travel (roads cheapest; deep water, cliffs, walls never).
     // (rough: for the far stretch planned on the coarse grid, where what stands on a tile — a cart, a
@@ -81,19 +81,8 @@
     },
     // Plan the way from (sx,sy) to (tx,ty). Long journeys are planned on a coarser
     // grid first and the near stretch refined, so it stays quick on a grown world.
-    plan(world, sx, sy, tx, ty) {
-      // Round the world the short way may cross the east-west join: then the way is planned in a
-      // frame turned half the world round (the join out of the way), and given back in yours.
-      if (world.globe && N._xo == null && ECHO.Globe) {
-        const W0 = world.W, tx2 = sx + ECHO.Globe.dx(world, sx, tx);
-        if (tx2 < 0 || tx2 >= W0) {
-          const o = W0 / 2, su = (((sx + o) % W0) + W0) % W0, tu = (((tx2 + o) % W0) + W0) % W0;
-          let p = null;
-          N._xo = o;
-          try { p = N.plan(world, su, sy, tu, ty); } finally { N._xo = null; }
-          return p && p.map(q => ({ x: q.x - su + sx, y: q.y }));
-        }
-      }
+    // how coarsely a way that long is planned, and what each cell of it costs
+    _grid(world, sx, sy, tx, ty) {
       const pl = ECHO.Game && ECHO.Game.pl, G = ECHO.Gates;
       N._weak = !!(G && pl && ECHO.Prowess.level(pl) < G.MIN && !G.list(world).some(g => U.dist(g.x, g.y, tx, ty) < G.R_HURT + 3));
       N._weakR2 = G ? (G.R_HURT + 1.5) ** 2 : 0;
@@ -124,7 +113,67 @@
           return v === 999 ? Infinity : v;
         };
       }
-      const p = ECHO.World.findPath({ W: cw, H: ch }, sx / k, sy / k, tx / k, ty / k, cost, Math.min(150000, 30000 + d * d * 4 / (k * k)));
+      return { k, cw, ch, cost, maxIter: Math.min(150000, 30000 + d * d * 4 / (k * k)) };
+    },
+    // A way planned a little each frame (see World.pathJob), so that no plan, however far or
+    // however blocked, stops the game while it is made. planStep(J) → true when it is done, and
+    // J.pts is the way (or null). A far way is two searches: the whole of it coarsely, then the
+    // stretch just ahead in full.
+    planStart(world, sx, sy, tx, ty) {
+      let o = null, su = sx, tu = tx;
+      if (world.globe && ECHO.Globe) {
+        const W0 = world.W, tx2 = sx + ECHO.Globe.dx(world, sx, tx);
+        if (tx2 < 0 || tx2 >= W0) { o = W0 / 2; su = (((sx + o) % W0) + W0) % W0; tu = (((tx2 + o) % W0) + W0) % W0; }
+      }
+      const J = { world, sx, sy, tx, ty, su, tu, o, pts: null, tail: null, all: null };
+      N._xo = o;
+      try { N._leg(J, su, sy, tu, ty); } finally { N._xo = null; }
+      return J;
+    },
+    // one search of it: coarse over the whole world, or tile by tile within a window about its ends
+    _leg(J, ax, ay, bx, by) {
+      const world = J.world, S = N._grid(world, ax, ay, bx, by);
+      J.weak = N._weak; J.k = S.k; J.bx = bx; J.by = by;
+      if (S.k > 1) { J.cw = S.cw; J.ox = 0; J.oy = 0; J.pf = ECHO.World.pathJob({ W: S.cw, H: S.ch }, ax / S.k, ay / S.k, bx / S.k, by / S.k, S.cost, S.maxIter); return; }
+      const W = world.W || 200, H = world.H || 150, m = 110;
+      const x0 = Math.max(0, Math.floor(Math.min(ax, bx)) - m), y0 = Math.max(0, Math.floor(Math.min(ay, by)) - m);
+      const x1 = Math.min(W, Math.ceil(Math.max(ax, bx)) + m + 1), y1 = Math.min(H, Math.ceil(Math.max(ay, by)) + m + 1);
+      J.cw = x1 - x0; J.ox = x0; J.oy = y0;
+      J.pf = ECHO.World.pathJob({ W: x1 - x0, H: y1 - y0 }, ax - x0, ay - y0, bx - x0, by - y0, (x, y) => S.cost(x + x0, y + y0), S.maxIter);
+    },
+    planStep(J) {
+      N._xo = J.o; N._weak = J.weak;
+      try {
+        if (!J.pf.run(5000, 2.5)) return false;
+        const p = J.pf.path, k = J.k, cw = J.cw;
+        let pts = p ? p.map(i => ({ x: (i % cw) * k + k / 2 + J.ox, y: ((i / cw) | 0) * k + k / 2 + J.oy })) : null;
+        if (pts && pts.length) pts[pts.length - 1] = { x: J.bx, y: J.by };
+        if (J.all) pts = pts && pts.length ? pts.concat(J.tail) : J.all;       // (that was the stretch just ahead)
+        else if (pts && k > 1 && pts.length > 3) {
+          const j = Math.min(pts.length - 1, Math.ceil(40 / k));
+          J.tail = pts.slice(j + 1); J.all = pts;
+          N._leg(J, J.su, J.sy, pts[j].x, pts[j].y);
+          return false;
+        }
+        J.pts = pts && J.o != null ? pts.map(q => ({ x: q.x - J.su + J.sx, y: q.y })) : pts;
+        return true;
+      } finally { N._xo = null; }
+    },
+    plan(world, sx, sy, tx, ty) {
+      // Round the world the short way may cross the east-west join: then the way is planned in a
+      // frame turned half the world round (the join out of the way), and given back in yours.
+      if (world.globe && N._xo == null && ECHO.Globe) {
+        const W0 = world.W, tx2 = sx + ECHO.Globe.dx(world, sx, tx);
+        if (tx2 < 0 || tx2 >= W0) {
+          const o = W0 / 2, su = (((sx + o) % W0) + W0) % W0, tu = (((tx2 + o) % W0) + W0) % W0;
+          let p = null;
+          N._xo = o;
+          try { p = N.plan(world, su, sy, tu, ty); } finally { N._xo = null; }
+          return p && p.map(q => ({ x: q.x - su + sx, y: q.y }));
+        }
+      }
+      const S = N._grid(world, sx, sy, tx, ty), k = S.k, cw = S.cw, ch = S.ch, cost = S.cost;
+      const p = ECHO.World.findPath({ W: cw, H: ch }, sx / k, sy / k, tx / k, ty / k, cost, S.maxIter);
       if (!p) return null;
       const pts = p.map(i => ({ x: (i % cw) * k + k / 2, y: ((i / cw) | 0) * k + k / 2 }));
       pts[pts.length - 1] = { x: tx, y: ty };
@@ -152,7 +201,7 @@
     // ------------------------------------------------------------ every frame
     update(game, dt) {
       const world = game.world, pe = game.pe, g = ECHO.Purpose && ECHO.Purpose.goal;
-      if (!world || !pe || ECHO.Interior.cur || !g || !g.where || g.where.x == null) { N.route = null; return; }
+      if (!world || !pe || ECHO.Interior.cur || !g || !g.where || g.where.x == null) { N.route = null; N.job = null; return; }
       const w0 = g.where;
       let key = Math.round(w0.x) + ',' + Math.round(w0.y);
       // (round the world: the copy of the place nearest you, so every distance and heading is the short way)
@@ -166,6 +215,7 @@
       // on a dragon's back the land's roads don't matter: the line points straight
       // there, and no route is planned while you fly
       if (game.pl && game.pl.flying) {
+        N.job = null;
         if (!R || R.key !== key || !R.air) N.route = { key, to: { x: w.x, y: w.y }, pts: [{ x: pe.x, y: pe.y }, { x: w.x, y: w.y }], i: 0, ok: false, air: true, vague: !!w.vague, ms: 0, len: 0 };
         const Ra = N.route;
         Ra.pts[0] = { x: pe.x, y: pe.y };
@@ -175,22 +225,33 @@
       // at a gallop you leave the line quickly: re-plan a little less eagerly
       const settle = game.pl && game.pl.mounted && game.pe && (ECHO.PlayerCtl.ride || {}).v > 5 ? 4 : 2.5;
       // strayed from a long way: only the stretch back onto it is planned again, not the whole of it
-      let spliced = false;
-      if (R && R.key === key && !R.air && R.ok && strayed && N.t <= 0 && N.t > -20 && R.pts.length > 4) {
-        const P0 = R.pts; let j = Math.max(1, R.i + 1);
-        while (j < P0.length - 1 && U.dist(pe.x, pe.y, P0[j].x, P0[j].y) < 30) j++;
-        if (j < P0.length - 1) {
-          const near = N.plan(world, pe.x, pe.y, P0[j].x, P0[j].y);
-          if (near && near.length) { const pts = N.thin(near).concat(P0.slice(j + 1)); N.route = { ...R, pts, i: 0, len: N.length(pts, 0) }; N.t = settle; spliced = true; }
+      if (N.job && (N.job.key !== key || N.job.world !== world)) N.job = null;
+      const begin = (tx, ty, splice) => { const J = N.planStart(world, pe.x, pe.y, tx, ty); J.key = key; J.t0 = performance.now(); J.to = { x: w.x, y: w.y }; J.vague = !!w.vague; J.splice = splice || null; N.job = J; N.t = settle; };
+      if (!N.job) {
+        let spliced = false;
+        if (R && R.key === key && !R.air && R.ok && strayed && N.t <= 0 && N.t > -20 && R.pts.length > 4) {
+          const P0 = R.pts; let j = Math.max(1, R.i + 1);
+          while (j < P0.length - 1 && U.dist(pe.x, pe.y, P0[j].x, P0[j].y) < 30) j++;
+          if (j < P0.length - 1) { begin(P0[j].x, P0[j].y, P0.slice(j + 1)); spliced = true; }
+        }
+        if (!spliced && (!R || R.key !== key || R.air || (strayed && N.t <= 0) || (N.t <= -20))) {
+          // (the way is worked out over the next frames — all at once, it stopped the game for a
+          //  moment every time: until it is, the old way stands, or a straight line if there is none)
+          begin(w.x, w.y);
+          if (!R || R.key !== key || R.air) N.route = { key, to: { x: w.x, y: w.y }, pts: [{ x: pe.x, y: pe.y }, { x: w.x, y: w.y }], i: 0, ok: false, vague: !!w.vague, ms: 0, len: U.dist(pe.x, pe.y, w.x, w.y), wait: true };
         }
       }
-      if (!spliced && (!R || R.key !== key || R.air || (strayed && N.t <= 0) || (N.t <= -20))) {
-        N.t = settle;
-        const t0 = performance.now();
-        // a vague place: head for the middle of the search area
-        const raw = N.plan(world, pe.x, pe.y, w.x, w.y);
-        const pts = raw ? N.thin(raw) : [{ x: pe.x, y: pe.y }, { x: w.x, y: w.y }];
-        N.route = { key, to: { x: w.x, y: w.y }, pts, i: 0, ok: !!raw, vague: !!w.vague, ms: Math.round(performance.now() - t0), len: N.length(pts, 0) };
+      if (N.job && N.planStep(N.job)) {
+        const J = N.job, raw = J.pts; N.job = null;
+        if (J.splice) {
+          // only the stretch back onto the way was planned: if there is none, the whole of it is
+          if (raw && raw.length && N.route && N.route.key === key) { const pts = N.thin(raw).concat(J.splice); N.route = { ...N.route, pts, i: 0, len: N.length(pts, 0) }; N.t = settle; }
+          else begin(w.x, w.y);
+        } else {
+          const pts = raw ? N.thin(raw) : [{ x: pe.x, y: pe.y }, { x: J.to.x, y: J.to.y }];
+          N.route = { key: J.key, to: J.to, pts, i: 0, ok: !!raw, vague: J.vague, ms: Math.round(performance.now() - J.t0), len: N.length(pts, 0) };
+          N.t = settle;
+        }
       }
       // where we are along it
       const Rt = N.route, P = Rt.pts;

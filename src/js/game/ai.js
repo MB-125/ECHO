@@ -177,7 +177,7 @@
           const want = 2.4;
           let tx = target.x - Math.cos(ang + e.circleDir * 0.6) * want, ty = target.y - Math.sin(ang + e.circleDir * 0.6) * want;
           // a pack spreads round its prey; the ones without a turn hang back on the far side
-          if (e.slotA != null && (e.squadN || 1) >= 2) { const r = e.token ? want : want + 1.4; tx = target.x + Math.cos(e.slotA) * r; ty = target.y + Math.sin(e.slotA) * r; }
+          if (e.slotA != null && (e.squadN || 1) >= 2) { const r = e.token ? want : U.clamp(d, want, want + 0.8); tx = target.x + Math.cos(e.slotA) * r; ty = target.y + Math.sin(e.slotA) * r; }
           if ((e.stuck || 0) > 0.4 || d > 7) { const I = ECHO.Aware && d > 7 ? ECHO.Aware.intercept(game, e, target) : target; ECHO.Ent.travel(world, e, I.x, I.y, speed, dt); }
           else ECHO.Ent.seek(world, e, tx, ty, speed * (d > 6 ? 1 : 0.75), dt, 0.3);
           e.state = 'stalk';

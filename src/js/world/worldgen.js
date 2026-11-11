@@ -211,6 +211,81 @@
       const path = [];
       for (let c = goal, k = 0; c !== -1 && k < N; c = came[c], k++) { path.push(c); if (c === start) break; }
       return path.reverse();
+    },
+    // The same search, a little at a time: for a long way planned while the game runs (the line
+    // to where you are going), which done all at once stopped everything for a third of a second.
+    // It has buffers of its own (only one such search at a time), so the ordinary searches made
+    // meanwhile do not disturb it. job.run(steps, ms) → true when it is over; job.path (or null).
+    pathJob(world, sx, sy, tx, ty, costFn, maxIter = 60000) {
+      const W = world.W || 200, H = world.H || 150;
+      sx |= 0; sy |= 0; tx |= 0; ty |= 0;
+      const J = { done: false, path: null, iter: 0 };
+      if (sx < 0 || sy < 0 || tx < 0 || ty < 0 || sx >= W || sy >= H || tx >= W || ty >= H) { J.done = true; J.run = () => true; return J; }
+      const N = W * H;
+      const B = World._pfJ || (World._pfJ = { n: 0 });
+      if (B.n < N) { B.n = N; B.g = new Float32Array(N); B.came = new Int32Array(N); B.stamp = new Uint32Array(N); B.closed = new Uint32Array(N); B.gen = 0; }
+      if (B.gen > 4e9) { B.stamp.fill(0); B.closed.fill(0); B.gen = 0; }
+      const gen = ++B.gen, g = B.g, came = B.came, stamp = B.stamp, closed = B.closed;
+      let hf = new Float64Array(4096), hi = new Int32Array(4096), hn = 0;
+      const push = (i, f) => {
+        if (hn === hf.length) { const nf = new Float64Array(hn * 2), ni = new Int32Array(hn * 2); nf.set(hf); ni.set(hi); hf = nf; hi = ni; }
+        let c = hn++;
+        hf[c] = f; hi[c] = i;
+        while (c > 0) { const p = (c - 1) >> 1; if (hf[p] <= hf[c]) break; const tf = hf[p], ti = hi[p]; hf[p] = hf[c]; hi[p] = hi[c]; hf[c] = tf; hi[c] = ti; c = p; }
+      };
+      const pop = () => {
+        const top = hi[0];
+        hn--;
+        if (hn > 0) {
+          hf[0] = hf[hn]; hi[0] = hi[hn]; let c = 0;
+          for (;;) {
+            const l = 2 * c + 1, r = l + 1; let m = c;
+            if (l < hn && hf[l] < hf[m]) m = l;
+            if (r < hn && hf[r] < hf[m]) m = r;
+            if (m === c) break; const tf = hf[m], ti = hi[m]; hf[m] = hf[c]; hi[m] = hi[c]; hf[c] = tf; hi[c] = ti; c = m;
+          }
+        }
+        return top;
+      };
+      const start = sy * W + sx, goal = ty * W + tx, DX = [1, -1, 0, 0], DY = [0, 0, 1, -1];
+      const clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      stamp[start] = gen; g[start] = 0; came[start] = -1; push(start, 0);
+      let found = start === goal;
+      const finish = () => {
+        J.done = true;
+        if (!found || B.gen !== gen) return true;      // (another began before this one ended: this one is void)
+        const path = [];
+        for (let c = goal, k = 0; c !== -1 && k < N; c = came[c], k++) { path.push(c); if (c === start) break; }
+        J.path = path.reverse();
+        return true;
+      };
+      J.run = (steps, ms) => {
+        if (J.done) return true;
+        if (B.gen !== gen || found) return finish();
+        const t0 = clock();
+        let n = 0;
+        while (hn && J.iter < maxIter) {
+          if (n >= steps || (n >= 32 && (n & 15) === 0 && clock() - t0 > ms)) return false;
+          n++; J.iter++;
+          const cur = pop();
+          if (cur === goal) { found = true; break; }
+          if (closed[cur] === gen) continue;
+          closed[cur] = gen;
+          const cx = cur % W, cy = (cur / W) | 0, gc = g[cur];
+          for (let d = 0; d < 4; d++) {
+            const nx = cx + DX[d], ny = cy + DY[d];
+            if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+            const ni = ny * W + nx;
+            if (closed[ni] === gen) continue;
+            const c = costFn(nx, ny, ni, cx, cy);
+            if (!isFinite(c)) continue;
+            const ng = gc + c;
+            if (ng < (stamp[ni] === gen ? g[ni] : Infinity)) { stamp[ni] = gen; g[ni] = ng; came[ni] = cur; push(ni, ng + (Math.abs(nx - tx) + Math.abs(ny - ty)) * 0.9); }
+          }
+        }
+        return finish();
+      };
+      return J;
     }
   };
 

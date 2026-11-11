@@ -892,6 +892,46 @@ function main() {
   }
 
 
+  console.log('\nNo twitching, no stalls');
+  {
+    // a way found a little at a time is the same way found all at once
+    const Wd = { W: 60, H: 40 }, wall = (x, y) => (x === 30 && y > 2) || (x === 15 && y < 36);
+    const cost = (x, y) => wall(x, y) ? Infinity : 1;
+    const whole = ECHO.World.findPath(Wd, 2, 20, 55, 20, cost, 60000);
+    const J = ECHO.World.pathJob(Wd, 2, 20, 55, 20, cost, 60000);
+    let calls = 0, mid = null;
+    while (!J.run(40, 0)) { calls++; if (calls === 3) mid = ECHO.World.findPath(Wd, 5, 5, 50, 30, cost, 60000); if (calls > 5000) break; }
+    check('a long way planned a little each frame comes out the same as planned at once, and other searches made meanwhile do not disturb it', !!whole && !!J.path && J.path.length === whole.length && calls > 5 && !!mid, `${whole && whole.length} tiles in ${calls + 1} slices`);
+    const J2 = ECHO.World.pathJob(Wd, 2, 20, 55, 20, () => Infinity, 60000);
+    while (!J2.run(40, 0)) { /* */ }
+    check('…and where there is no way, it says so', J2.done && J2.path === null);
+    // places round the prey are kept, not dealt afresh
+    const ctx = { console, Math, JSON, Set, Map, WeakSet, Object, Array, String, Number, isFinite };
+    ctx.globalThis = ctx; vm.createContext(ctx);
+    for (const f of ['core.js', 'game/tactics.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx, { filename: f });
+    const E = ctx.ECHO, U = E.U, Tc = E.Tactics;
+    let moved = 0;
+    E.Ent = { seek(w, e, x, y, sp, dt) { moved++; const d = U.dist(e.x, e.y, x, y); if (d > 0.01) { const s = Math.min(d, sp * dt); e.x += (x - e.x) / d * s; e.y += (y - e.y) / d * s; } }, travel() {}, lineOfSight: () => true };
+    const pe = { type: 'player', x: 0, y: 0, hp: 100, maxHp: 100 };
+    const game = { time: 10, pe, pl: { hp: 100, maxHp: 100 }, world: { npcs: {} }, ents: [], hostileTo: () => true };
+    const foes = [0.3, 1.9, 3.4, 5.1].map((a, i) => ({ id: i + 1, type: 'creature', humanoid: true, foe: {}, species: 'skeleton', aggro: true, target: pe, x: Math.cos(a) * 3, y: Math.sin(a) * 3, hp: 30, maxHp: 30, speed: 3, sayT: 0, gear: {} }));
+    game.ents = [pe, ...foes];
+    Tc.t = 0; Tc.update(game, 0.3);
+    const before = foes.map(e => e.slotA);
+    foes.forEach((e, i) => { const a = [0.9, 1.5, 3.9, 4.6][i]; e.x = Math.cos(a) * 2.6; e.y = Math.sin(a) * 2.6; });
+    game.time += 0.3; Tc.t = 0; Tc.update(game, 0.3);
+    check('each keeps the place round its prey it was given, however the others shift about', foes.every((e, i) => e.slotA === before[i]) && new Set(foes.map(e => e.slotI)).size === 4);
+    // one that has struck holds its ground
+    const w = foes.find(e => !e.token);
+    w.x = Math.cos(w.slotA) * 1.6; w.y = Math.sin(w.slotA) * 1.6; moved = 0;
+    for (let i = 0; i < 40; i++) Tc.move(game, w, pe, U.dist(w.x, w.y, 0, 0), Math.atan2(-w.y, -w.x), 3, 0.05, { reach: 1.2 });
+    check('a foe waiting its turn just outside its reach stands its ground: no stepping out and back in', moved === 0 && Math.abs(U.dist(w.x, w.y, 0, 0) - 1.6) < 0.01);
+    w.x = Math.cos(w.slotA) * 6; w.y = Math.sin(w.slotA) * 6;
+    for (let i = 0; i < 60; i++) Tc.move(game, w, pe, U.dist(w.x, w.y, 0, 0), Math.atan2(-w.y, -w.x), 3, 0.05, { reach: 1.2 });
+    check('…and one left far out comes in to the ring and stops there', U.dist(w.x, w.y, 0, 0) < 3.2 && U.dist(w.x, w.y, 0, 0) > 1.3, `${U.dist(w.x, w.y, 0, 0).toFixed(2)} away`);
+  }
+
+
   console.log('\nSavvy');
   {
     let seed = 777;

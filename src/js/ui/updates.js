@@ -7,6 +7,16 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.43.1', items: [
+      'Foes no longer twitch back and forth in a fight. Each one keeps the place around you it was given instead of being dealt a new one every quarter of a second, and one that has just struck stands its ground for its next turn instead of walking out and straight back in. The step-in-step-out feint is gone.',
+      'A body no longer snaps round to a heading that flips straight back: it turns only to a way it has faced for a moment.',
+      'A foe weaving under your gun now comes on at a slant and keeps to one side for a while, instead of jerking left and right. A burning beast runs one way; a foe whose ward has broken backs off one way.',
+      'Fixed a freeze of a third of a second or more when the line to your goal was worked out. Every route is now planned a little each frame.',
+      'Fixed a freeze when a foe or a townsman looked for a path just after new country had been made around you.',
+      'Fixed a hitch as you travelled when the currents of the rivers were worked out again: that is spread over several frames too.',
+      'The autosave waits for a lull in a fight (never more than a minute longer) so it does not land in the middle of a blow.',
+      'Your save is untouched.'
+    ] },
     { v: '0.43.0', items: [
       'The wild is a meadow now, not a lawn. Grass grows thick and uneven over the open ground, long grass stands in drifts, and flowers come up in patches of one colour (not in winter). The ground itself is darker and lighter in places instead of one flat green.',
       'Roads have smooth, worn edges and follow the way they run, instead of being drawn square by square.',

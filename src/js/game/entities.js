@@ -249,9 +249,22 @@
       let S = Ent._spots;
       if (!S || S.world !== world || S.W !== W) S = Ent._spots = { world, W, ep, m: new Map() };
       if (S.ep !== ep) {
-        const ok = ECHO.Nav && ECHO.Nav.forget && ECHO.Nav.forget(world, S.ep, (x0, y0, x1, y1) => {
-          for (const M of S.m.values()) for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const k = y * W + x; M.spot.delete(k); for (let d = 0; d < 9; d++) M.edge.delete(k * 9 + d); }
-        });
+        // (what changed is gathered first: a little of it is forgotten tile by tile; a great deal
+        //  of it — new country made, as you travel — and it is quicker to go through what is
+        //  remembered, or to forget the lot, than to visit every changed tile: that froze the game)
+        const rects = []; let area = 0;
+        let ok = ECHO.Nav && ECHO.Nav.forget && ECHO.Nav.forget(world, S.ep, (x0, y0, x1, y1) => { rects.push([x0, y0, x1, y1]); area += (x1 - x0) * (y1 - y0); });
+        if (ok && rects.length > 12) ok = false;
+        if (ok && area <= 600) {
+          for (const [x0, y0, x1, y1] of rects) for (const M of S.m.values()) for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const k = y * W + x; M.spot.delete(k); for (let d = 0; d < 9; d++) M.edge.delete(k * 9 + d); }
+        } else if (ok) {
+          const hit = k => { const x = k % W, y = (k / W) | 0; for (const r of rects) if (x >= r[0] && x < r[2] && y >= r[1] && y < r[3]) return true; return false; };
+          for (const M of S.m.values()) {
+            if (M.spot.size + M.edge.size > 60000) { M.spot.clear(); M.edge.clear(); continue; }
+            for (const k of M.spot.keys()) if (hit(k)) M.spot.delete(k);
+            for (const k of M.edge.keys()) if (hit(Math.floor(k / 9))) M.edge.delete(k);
+          }
+        }
         if (!ok) S.m = new Map();
         S.ep = ep;
       }

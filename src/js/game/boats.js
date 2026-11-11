@@ -20,6 +20,7 @@
       // On a big (round) world only the water within a few hundred tiles of you is worked out —
       // the whole globe would take seconds, every time new country is made — and it is worked
       // out again when you move on (or a few seconds after the land changes).
+      if (B._job) { if (B._job.world === world) { B.work(!B.F || B.F.world !== world); return; } B._job = null; }
       const W = world.W || 200, H = world.H || 150, G = ECHO.Game, pe = G && G.world === world ? G.pe : null;
       let x0 = 0, y0 = 0, x1 = W, y1 = H;
       if (W * H > 250000) {
@@ -42,6 +43,17 @@
         if (ok && !wet) { B._ep = ep; return; }
       }
       B._key = key; B._ep = ep; B._at = now; B._wh = W + 'x' + H;
+      // (worked out over the next few frames, the old water standing meanwhile: all at once it
+      //  stopped the game for a moment each time you travelled on. The first time, there is no
+      //  old water to stand, and it is done at once.)
+      B._job = { world, it: B.build(world, W, H, x0, y0, x1, y1) };
+      B.work(!B.F || B.F.world !== world);
+    },
+    work(all) {
+      const J = B._job, clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now()), t0 = clock();
+      for (;;) { const r = J.it.next(); if (r.done) { B._job = null; return; } if (!all && clock() - t0 > 2.5) return; }
+    },
+    *build(world, W, H, x0, y0, x1, y1) {
       const w = x1 - x0, h = y1 - y0, N = w * h, tiles = new Uint8Array(N);
       for (let y = 0; y < h; y++) tiles.set(world.tiles.subarray((y + y0) * W + x0, (y + y0) * W + x1), y * w);
       // distance to the open sea through water, from every water tile
@@ -52,14 +64,18 @@
         if (tiles[i] === T().DEEP && (x === 0 || y === 0 || x === w - 1 || y === h - 1)) { dist[i] = 0; q[qt++] = i; }
       }
       const step = (c, n) => { if (dist[n] < 0 && isW(tiles[n])) { dist[n] = dist[c] + 1; q[qt++] = n; } };
+      yield;
       while (qh < qt) {
+        if ((qh & 16383) === 16383) yield;
         const c = q[qh++], cx = c % w, cy = (c / w) | 0;
         if (cx + 1 < w) step(c, c + 1); if (cx > 0) step(c, c - 1); if (cy + 1 < h) step(c, c + w); if (cy > 0) step(c, c - w);
       }
       // components of connected water, for ferries
       const comp = new Int32Array(N).fill(-1); let id = 0;
       const st = new Int32Array(N);
+      yield;
       for (let i = 0; i < N; i++) {
+        if ((i & 32767) === 32767) yield;
         if (comp[i] >= 0 || !isW(tiles[i])) continue;
         let sp = 0; st[sp++] = i; comp[i] = id;
         while (sp) {
@@ -73,7 +89,8 @@
       }
       // the flow: toward the sea, strongest where the channel is narrow
       const fx = new Float32Array(N), fy = new Float32Array(N);
-      for (let y = 2; y < h - 2; y++) for (let x = 2; x < w - 2; x++) {
+      yield;
+      for (let y = 2; y < h - 2; y++) { if ((y & 31) === 31) yield; for (let x = 2; x < w - 2; x++) {
         const i = y * w + x; if (!isW(tiles[i]) || dist[i] <= 0) continue;
         let vx = 0, vy = 0; const di = dist[i];
         if (dist[i + 1] >= 0 && dist[i + 1] < di) vx++; if (dist[i - 1] >= 0 && dist[i - 1] < di) vx--;
@@ -82,10 +99,11 @@
         let wide = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (isW(tiles[i + dy * w + dx])) wide++;
         const k = U.clamp((22 - wide) / 14, 0, 1) * 1.3;    // a river runs; a lake barely moves
         fx[i] = vx / L * k; fy[i] = vy / L * k;
-      }
-      B.F = { x0, y0, w, h, fx, fy, comp, tiles };
+      } }
+      yield;
+      const F = { x0, y0, w, h, fx, fy, comp, tiles };
       // jetties: each town on the water keeps one
-      B.docks = [];
+      const docks = [];
       for (const s of world.settlements) {
         if (s.x < x0 + 15 || s.y < y0 + 15 || s.x >= x1 - 15 || s.y >= y1 - 15) continue;   // (only the towns in the water worked out)
         let best = null, bd = Infinity;
@@ -99,16 +117,19 @@
             if (d < bd) { bd = d; best = { sid: s.id, name: s.name, land: { x: lx + 0.5, y: ly + 0.5 }, water: { x: x + 0.5, y: y + 0.5 }, dir: Math.atan2(-oy, -ox), comp: comp[(y - y0) * w + x - x0] }; }
           }
         }
-        if (best) B.docks.push(best);
+        if (best) docks.push(best);
+        yield;
       }
       // ferry crossings: only where the water route is reasonably direct (no rowing round half the coast)
       const cost = (x, y, i) => isW(world.tiles[i]) ? 1 : Infinity;
-      for (const d of B.docks) {
+      for (const d of docks) {
+        yield;
         d.to = []; d.routes = {};
-        const cands = B.docks.filter(o => o !== d && o.comp === d.comp && U.dist(o.water.x, o.water.y, d.water.x, d.water.y) > 10 && U.dist(o.water.x, o.water.y, d.water.x, d.water.y) < 90)
+        const cands = docks.filter(o => o !== d && o.comp === d.comp && U.dist(o.water.x, o.water.y, d.water.x, d.water.y) > 10 && U.dist(o.water.x, o.water.y, d.water.x, d.water.y) < 90)
           .sort((a, b) => U.dist(a.water.x, a.water.y, d.water.x, d.water.y) - U.dist(b.water.x, b.water.y, d.water.x, d.water.y));
         for (const o of cands) {
           if (d.to.length >= 3) break;
+          yield;
           const straight = U.dist(o.water.x, o.water.y, d.water.x, d.water.y);
           const p = ECHO.World.findPath(world, d.water.x, d.water.y, o.water.x, o.water.y, cost, 30000);
           if (!p || p.length > straight * 1.7 + 15) continue;
@@ -117,6 +138,8 @@
           d.to.push(o);
         }
       }
+      F.world = world;
+      B.F = F; B.docks = docks;
     },
     flow(world, x, y) {
       if (x >= 9000) return { x: 0, y: 0 };

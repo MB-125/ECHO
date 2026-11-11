@@ -70,9 +70,12 @@
         C().floater(e.x, e.y - 1.2, 'rolls out the fire', '#ffb070');
         return false;
       }
-      e._burnT = now + 1.4;
-      const pe = game.pe, a = Math.atan2(e.y - pe.y, e.x - pe.x) + (Math.random() - 0.5) * 2.2;
-      return W.go(game, e, e.x + Math.cos(a) * 2.6, e.y + Math.sin(a) * 2.6, 0.7);
+      // (one way, and it keeps to it: not a new way every moment)
+      e._burnT = now + 0.9;
+      const pe = game.pe;
+      if (e._boltA == null || now > (e._boltU || 0)) { e._boltA = Math.atan2(e.y - pe.y, e.x - pe.x) + (Math.random() - 0.5) * 1.6; e._boltU = now + 4; }
+      for (const off of [0, 0.8, -0.8]) if (W.go(game, e, e.x + Math.cos(e._boltA + off) * 3.2, e.y + Math.sin(e._boltA + off) * 3.2, 0.9)) { e._boltA += off; return true; }
+      return false;
     },
     // ------------------------------------------------------------ its ward just broke
     shaken(game, e, q) {
@@ -83,7 +86,9 @@
       if (d > 6) return false;
       e.token = false; e.restT = now + 1.5;
       const a = Math.atan2(e.y - pe.y, e.x - pe.x);
-      for (const off of [0, 0.7, -0.7]) if (W.go(game, e, e.x + Math.cos(a + off) * 2.4, e.y + Math.sin(a + off) * 2.4, 0.5)) return true;
+      // (the way back it chose first, held: not a fresh one every tenth of a second)
+      if (S.a == null) S.a = a;
+      for (const off of [0, 0.7, -0.7]) if (W.go(game, e, e.x + Math.cos(S.a + off) * 2.4, e.y + Math.sin(S.a + off) * 2.4, 0.5)) { S.a += off; return true; }
       return false;
     },
     // ------------------------------------------------------------ a missile is coming (or about to)
@@ -130,13 +135,15 @@
       if (d < 2.6 || d > 15) return false;
       const a = Math.atan2(e.y - pe.y, e.x - pe.x);
       if (Math.abs(U.angleDiff(GU.aimA != null ? GU.aimA : pe.dir || 0, a)) > 0.3) return false;
-      e._wvT = now + 1.7 - q + Math.random() * 0.6;
+      e._wvT = now + 2.2 - q + Math.random() * 0.8;
       if (Math.random() > 0.3 + 0.6 * q) return false;
       if (!ECHO.Ent.lineOfSight(game.world, pe.x, pe.y, e.x, e.y)) return false;
-      e._wvS = -(e._wvS || (Math.random() < 0.5 ? 1 : -1));
-      const s = e._wvS, fw = ECHO.Tactics && ECHO.Tactics.ranged(e) ? 0 : -0.7;
-      return W.go(game, e, e.x - Math.sin(a) * s * 1.4 + Math.cos(a) * fw, e.y + Math.cos(a) * s * 1.4 + Math.sin(a) * fw, 0.42)
-        || W.go(game, e, e.x + Math.sin(a) * s * 1.4 + Math.cos(a) * fw, e.y - Math.cos(a) * s * 1.4 + Math.sin(a) * fw, 0.42);
+      // it comes on at a slant, off the line of the barrel, and keeps to that side for a while
+      // (never out and straight back: that only looks like a twitch)
+      if (!e._wvS || (e._wvN = (e._wvN || 0) + 1) % 2 === 0) e._wvS = e._wvS ? -e._wvS : (Math.random() < 0.5 ? 1 : -1);
+      const s = e._wvS, shooter = ECHO.Tactics && ECHO.Tactics.ranged(e), fw = shooter ? 0 : -1.5, sd = shooter ? 1.8 : 1.3;
+      return W.go(game, e, e.x - Math.sin(a) * s * sd + Math.cos(a) * fw, e.y + Math.cos(a) * s * sd + Math.sin(a) * fw, 0.8)
+        || W.go(game, e, e.x + Math.sin(a) * s * sd + Math.cos(a) * fw, e.y - Math.cos(a) * s * sd + Math.sin(a) * fw, 0.8);
     },
     // ------------------------------------------------------------ told of things by React
     wardBroke(game, e, worn) { e._shaken = { from: game.time + (worn ? 0.6 : 1.6), until: game.time + (worn ? 2.6 : 4.6) }; },

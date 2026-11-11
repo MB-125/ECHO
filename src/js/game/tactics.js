@@ -62,6 +62,7 @@
         s.size0 = Math.max(prev ? prev.size0 : 0, s.members.length);
         s.dead = prev ? prev.dead : 0;
         s.leaderDown = prev ? prev.leaderDown : false;
+        s.base = prev ? prev.base : null;
         s.shock = prev && prev.shock > 0.01 ? prev.shock * 0.97 : 0;      // (what they have just seen done to one of their own)
         s.leaders = s.members.filter(e => T.isLeader(game, e));
         s.knownLeaders = new Set([...(prev ? prev.knownLeaders : []), ...s.leaders]);
@@ -78,7 +79,19 @@
       // order by the angle they already stand at, so nobody crosses over
       melee.sort((a, b) => Math.atan2(a.y - tg.y, a.x - tg.x) - Math.atan2(b.y - tg.y, b.x - tg.x));
       const n = melee.length;
-      const base = n ? Math.atan2(melee[0].y - tg.y, melee[0].x - tg.x) : 0;
+      // each keeps the place round its prey it was given, for as long as the same number are in it
+      // (places dealt out afresh every quarter-second had them all shuffling to and fro)
+      if (s.base == null) s.base = n ? Math.atan2(melee[0].y - tg.y, melee[0].x - tg.x) : 0;
+      const base = s.base;
+      const held = new Set();
+      let keepAll = n > 0;
+      for (const e of melee) { if (e.slotN !== n || e.slotI == null || e.slotI >= n || held.has(e.slotI) || e.slotOf !== tg) { keepAll = false; break; } held.add(e.slotI); }
+      if (!keepAll && n) {
+        // dealt in order round the ring, turned to whichever start costs the least walking
+        let bestK = 0, bc = Infinity;
+        for (let k = 0; k < n; k++) { let c = 0; for (let i = 0; i < n; i++) c += Math.abs(angDiff(base + ((i + k) % n) / n * Math.PI * 2, Math.atan2(melee[i].y - tg.y, melee[i].x - tg.x))); if (c < bc) { bc = c; bestK = k; } }
+        melee.forEach((e, i) => { e.slotI = (i + bestK) % n; e.slotN = n; e.slotOf = tg; });
+      }
       // strikers: the ones already closest, a couple at a time, rotating
       const tokens = tg === game.pe && ECHO.Director && ECHO.Director.mercy(game) ? 1 : n >= 6 ? 3 : 2;
       // (the warded go in first: they have the least to fear)
@@ -89,7 +102,7 @@
       const keep = byDist.filter(e => e.token).slice(0, tokens);
       for (const e of melee) if (!keep.includes(e)) e.token = false;
       for (const e of byDist) { if (keep.length >= tokens) break; if (!keep.includes(e) && !(e.restT > game.time)) { keep.push(e); e.token = true; e.tokenT = game.time; } }
-      melee.forEach((e, i) => { e.slotA = base + (i / Math.max(1, n)) * Math.PI * 2; e.squadN = n; });
+      melee.forEach(e => { e.slotA = base + (e.slotI / Math.max(1, n)) * Math.PI * 2; e.squadN = n; });
       // shields: a wall in front of the archers
       const shields = s.members.filter(e => e.gear && e.gear.shield && e.type === 'person');
       const archers = s.members.filter(e => T.ranged(e));
@@ -185,18 +198,18 @@
       if (e.slotA == null || (e.squadN || 1) < 2) return false;
       // pressing in, or circling for a turn
       if (e.token) return false;
-      const ring = reach + 1.7 + (e.type === 'creature' ? 0.6 : 0);
+      const ring = reach + 1.1 + (e.type === 'creature' ? 0.5 : 0);
       // drift round toward your place on the ring (the far side, if you can get there)
       const cur = Math.atan2(e.y - target.y, e.x - target.x);
       const step = U.clamp(angDiff(e.slotA, cur), -0.6, 0.6);
       const a = cur + step;
-      // a feint now and then: step in, then back out
-      e.feintT = (e.feintT || 0) - dt;
-      let r = ring;
-      if (e.feintT <= 0) { e.feintT = 2.5 + Math.random() * 3; e.feint = 0.6; }
-      if (e.feint > 0) { e.feint -= dt; r = ring - 1.1; }
-      const tx = target.x + Math.cos(a) * r, ty = target.y + Math.sin(a) * r;
-      if (U.dist(e.x, e.y, tx, ty) > 0.35) ECHO.Ent.seek(world, e, tx, ty, speed * 0.75, dt, 0.25); else e.moving = false;
+      // (it holds its ground there: no stepping in and out while it waits, and no shuffling for a
+      //  pace or two of error — it moves when it is well out of place, and then all the way)
+      // (and anywhere from just outside its own reach to the ring is near enough: one that has just
+      //  struck stays where it stands for its next turn, instead of walking out and back in again)
+      const rr = U.clamp(d, reach + 0.15, ring);
+      const tx = target.x + Math.cos(a) * rr, ty = target.y + Math.sin(a) * rr, off = U.dist(e.x, e.y, tx, ty);
+      if (off > (e._ringGo ? 0.3 : 0.9)) { e._ringGo = true; ECHO.Ent.seek(world, e, tx, ty, speed * 0.75, dt, 0.25); } else { e._ringGo = false; e.moving = false; }
       e.dir = ang; e.flip = Math.cos(ang) < 0;
       if (e.type === 'person' && e.sayT <= 0 && Math.random() < dt * 0.08) { e.say = ['Surround them!', 'Take the flank!', 'Wait for it…', 'Now — together!'][Math.floor(Math.random() * 4)]; e.sayT = 1.6; }
       return true;

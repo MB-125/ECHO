@@ -234,7 +234,9 @@
       Game.exploreTimer -= dt;
       if (Game.exploreTimer <= 0) { Game.exploreTimer = 1; if (!ECHO.Interior.cur) { Game.explore(); Game.checkPlace(); } ECHO.Court.tick(Game); Game.healthTick(1); }
       Game.saveTimer += dt;
-      if (Game.saveTimer > 60) { Game.saveTimer = 0; Game.save(); }
+      // (writing the world down takes a moment: it waits for a lull in a fight — though never more
+      //  than a minute longer — so that the moment does not fall in the middle of a blow)
+      if (Game.saveTimer > 60 && (Game.saveTimer > 120 || !(Game.combatT != null && Game.time - Game.combatT < 6))) { Game.saveTimer = 0; Game.save(); }
       // Camera
       const k = Math.min(1, dt * 8);
       Game.cam.x = U.lerp(Game.cam.x, Game.pe.x, k);
