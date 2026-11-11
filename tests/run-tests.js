@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/guns.js', 'game/react.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/guns.js', 'game/react.js', 'game/build.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
 ];
 
 function loadEcho() {
@@ -2632,7 +2632,28 @@ function main() {
     check('the fifth is Overdrive: eight seconds, a full well, blows a third harder', RX.od === 8 && RX.surge === 0 && pl.mana === 100 && Math.abs(RX.pre(game, mk(120, 120), 100, { type: 'melee', from: pe }) - 130) < 0.01);
     RX.tick(game, 9);
     check('…and it ends', RX.od === 0);
-    E.UI = UI0; E.Combat = C0; E.Sfx = S0; E.Game = G0; E.Prowess = P0; RX.reset();
+    // trials and augments (build.js)
+    const B = E.Build; B.reset(); RX.reset(); E.Prowess = { level: () => 10 };
+    const T = B.state(pl);
+    check('three trials are always open, the first three the gentle ones', T.act.length === 3 && ['overload', 'shatter', 'ward'].every(k => T.act.some(a => a.k === k)));
+    const ov = T.act.find(a => a.k === 'overload'), g0 = pl.gold || 0;
+    for (let i = 0; i < ov.need; i++) B.note(game, 'overload');
+    check('finishing a trial gives crowns and an augment to choose, and a new trial opens', T.pick === 1 && T.done === 1 && pl.gold > g0 && T.act.length === 3 && !T.act.includes(ov));
+    const off = B.offer(pl);
+    check('the choice is of three different augments, and stays the same until taken', off.length === 3 && new Set(off).size === 3 && B.offer(pl) === off);
+    B.take(pl, 'glacier'); B.take(pl, 'glacier');
+    check('an augment taken twice is rank 2, and the choice is used up', pl.aug.glacier === 2 && T.pick === 0);
+    const f1 = mk(200, 200), f2 = mk(201, 200);
+    RX.st(f1).frozen = 3; said.length = 0;
+    const g = blow(f1, 100, { type: 'melee' });
+    check('Glacier: shatter does 40% more at rank 2, and its shards freeze', g >= 320 && f2.rx && f2.rx.frozen > 0, `${g}`);
+    pl.aug.stormfront = 1; const ch1 = mk(220, 220); RX.st(ch1).charge = 3;
+    check('Storm front: the charged take a tenth more from you', Math.abs(RX.pre(game, ch1, 100, { type: 'melee', from: pe }) - 110) < 0.01);
+    pl.aug.soaker = 1; const so1 = mk(240, 240);
+    blow(so1, 10, { type: 'ranged' });
+    check('Rain-arrows: your arrows soak', so1.rx.wet > 0);
+    pl.aug = {}; delete pl.trials;
+    E.UI = UI0; E.Combat = C0; E.Sfx = S0; E.Game = G0; E.Prowess = P0; RX.reset(); B.reset();
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.40.0', items: [
+      'Trials: three goals are always open under your Surge pips, such as "Shatter 4 frozen foes", "Break 2 wards with the right answer" or "Conduct through 3 foes at once". Finishing one pays crowns, opens a new one, and gives you an augment. They get harder and never run out.',
+      'Augments: each time, choose one of three. They change what your reactions do, so your hero fights your way. There are fifteen, each with three ranks.',
+      'Some of them: Glacier (shatters hit harder and their shards freeze), Chain reaction (overloads leave everything charged, ready to burst again), Live wire (conduct leaps further and to more foes), Pyre (burning foes you kill burst), Rain-arrows (your arrows soak), Pack tactics (your beasts leave foes charged), Cryo rounds (some of your bolts chill), Capacitor (Surge never drains and reactions mend you).',
+      'The choice appears when the fight is over, never in the middle of one. Click the trials on the screen to see your trials and augments at any time.',
+      'Your saved game loads exactly as before.'
+    ] },
     { v: '0.39.0', items: [
       'Fights are no longer all alike. What you hit a foe with now leaves something on it, and the next thing you hit it with reacts to that.',
       'Fire burns. Cold chills, and three chills freeze a foe solid (the scattergun is now a cryo scattergun; the frost relic freezes too). Pistol and rifle bolts and the storm relic leave a foe charged. Rain, wading and a barrel burst beside a foe soak it.',

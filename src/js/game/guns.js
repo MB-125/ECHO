@@ -183,7 +183,7 @@
         for (let i = 0; i < n; i++) {
           const spr = n > 1 ? (i / (n - 1) - 0.5) * K.spread + (Math.random() - 0.5) * 0.05 : (Math.random() - 0.5) * (K.spread + GU.heat * 2);
           const p = C().shoot(pe, a0 + spr, { kind: 'laser', speed: K.spd * (0.93 + Math.random() * 0.14), dmg: base * K.per, life: K.life * (n > 1 ? 0.85 + Math.random() * 0.3 : 1), type: 'ranged', color: col });
-          p.gun = true; p.h = 0.88; p.knock = K.knock || 0.06; p.el = K.pellets ? 'cold' : 'shock';   // (what it leaves on what it hits: react.js)
+          p.gun = true; p.h = 0.88; p.knock = K.knock || 0.06; p.el = K.pellets || (ECHO.Build && ECHO.Build.cryoShot()) ? 'cold' : 'shock';   // (what it leaves on what it hits: react.js)
         }
         if (K.grow) GU.heat = Math.min(K.max, GU.heat + K.grow);
       }
@@ -300,7 +300,7 @@
       if (!e || !npc || !(e.role === 'guard' || e.role === 'soldier') || e.mage || e.isCompanion) return;
       const f = game.world.factions[npc.faction];
       if (!f || !(f.type === 'kingdom' || f.type === 'order')) return;
-      const h = ECHO.hashStr(npc.id + ':rifle') % 10;
+      const h = (ECHO.hashStr(npc.id + ':rifle') >>> 0) % 10;
       if (h >= (e.armsTier >= 3 ? 5 : 4)) return;
       e.gear.rifle = true; e.gear.bow = true; e.gear.crossbow = false; e.gear.spear = false; e.gear.shield = false;
     },

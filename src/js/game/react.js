@@ -41,6 +41,7 @@
     surge: 'Each reaction fills a pip of Surge. Five pips are OVERDRIVE: eight seconds of harder blows, free ammunition and a full well of mana.'
   };
 
+  const aug = k => (ECHO.Build ? ECHO.Build.r(k) : 0);   // (the rank of an augment of yours: build.js)
   const RX = ECHO.React = {
     WARDS, COL,
     surge: 0, surgeT: 0, od: 0, _busy: 0, _hudT: 0, _scanT: 0, n: 0,
@@ -80,12 +81,14 @@
       const from = src.from;
       if (target === game.pe) return dmg;
       const mine = RX.ours(game, from);
-      if (mine && from === game.pe && RX.od > 0) dmg *= 1.3;
+      if (mine && from === game.pe && RX.od > 0) dmg *= 1.3 + 0.1 * aug('overclock');
       const s = target.rx;
-      if (s && s.brittle > 0) dmg *= 1.35;
+      if (s && s.brittle > 0) dmg *= 1.35 + 0.1 * aug('hairline');
+      if (s && s.charge > 0 && from === game.pe) dmg *= 1 + 0.1 * aug('stormfront');
       const el = RX.el(src);
       // a ward turns most of it — unless this is its answer
       const w = target.rxWard;
+      if (w && w.hp > 0 && !WARDS[w.k]) w.hp = 0;
       if (w && w.hp > 0 && mine) {
         const W = WARDS[w.k];
         const answer = (W.by === 'fire' && el === 'fire') || (W.by === 'shock' && el === 'shock') || (W.by === 'heavy' && (RX.heavy(src) || (s && s.frozen > 0 && el === 'phys')));
@@ -101,7 +104,7 @@
         }
       }
       // shatter: a blow on the frozen
-      if (s && s.frozen > 0 && mine && !src.noRx && (el === 'phys' || (el === 'fire' && src.blast))) { dmg *= RX.big(target) ? 1.6 : 2.3; src._shatter = true; }
+      if (s && s.frozen > 0 && mine && !src.noRx && (el === 'phys' || (el === 'fire' && src.blast))) { dmg *= (RX.big(target) ? 1.6 : 2.3) * (1 + 0.2 * aug('glacier')); src._shatter = true; }
       return dmg;
     },
     breakWard(game, e, from, worn) {
@@ -113,43 +116,57 @@
       C().ring(e.x, e.y, 1.6, W.col, 0.35);
       if (ECHO.Sfx) ECHO.Sfx.play('parry', { pitch: 0.7 });
       game.hitStop(0.07);
-      if (!worn && from === game.pe) RX.gain(game, 1);
+      if (!worn && RX.ours(game, from)) {
+        const wb = aug('warbreaker');
+        RX.gain(game, wb >= 2 ? 2 : 1);
+        if (ECHO.Build) ECHO.Build.note(game, 'ward');
+        if (wb) RX.hit(e, e.maxHp * 0.1 * wb, game.pe, e.x, e.y);
+      }
     },
     // ------------------------------------------------------------ after it
     post(game, target, dmg, src) {
-      if (target === game.pe || target.dead && !src._shatter) return;
       const from = src.from;
+      if (ECHO.Build && target !== game.pe && target.hp <= 0 && !target.dead && RX.ours(game, from) && !RX.ours(game, target)) ECHO.Build.kill(game, target, src);
+      if (target === game.pe || target.dead && !src._shatter) return;
       if (!RX.ours(game, from) || RX.ours(game, target) || src.noRx) return;
       const el = RX.el(src);
       if (!el) return;
       const s = RX.st(target), a = src.angle != null ? src.angle : 0;
       if (src._shatter) { RX.shatter(game, target, dmg, from, a); return; }
-      if (target.dead) return;
+      if (target.dead || target.hp <= 0) return;
+      // augments: a heavy blow that burns, arrows that soak, beasts that charge
+      if (el === 'phys') {
+        const ed = aug('edge'), so = aug('soaker'), pk = aug('pack');
+        if (ed && from === game.pe && src.type === 'melee' && RX.heavy(src)) { target.burn = Math.max(target.burn || 0, 2 + ed); target.burnFrom = game.pe; if (s.charge > 0) RX.overload(game, target, dmg, from); }
+        else if (so && from === game.pe && src.type === 'ranged' && !src.el) { RX.soak(game, target, 4 + 2 * so); if (s.charge > 0) RX.conduct(game, target, dmg * 0.6, from); }
+        else if (pk && from !== game.pe && Math.random() < [0, 0.2, 0.35, 0.5][pk]) s.charge = 5;
+        return;
+      }
       if (el === 'fire') {
         if (s.frozen > 0) RX.steam(game, target, from);
         else if (s.charge > 0) RX.overload(game, target, dmg, from);
         else if (s.wet > 0) { s.wet = 0; target.burn = 0; RX.say(game, target, 'dried', '#cfd8e0'); }
         s.chill = 0;
       } else if (el === 'cold') {
-        if (target.burn > 0) { target.burn = 0; s.brittle = 6; RX.name(game, target, 'BRITTLE', '#d8e8f0', from, 'brittle'); C().burst(target.x, target.y - 0.3, '#e8f4ff', 12, 4, 0.5, 2); }
+        if (target.burn > 0) { target.burn = 0; s.brittle = 6 + 2 * aug('hairline'); RX.name(game, target, 'BRITTLE', '#d8e8f0', from, 'brittle'); C().burst(target.x, target.y - 0.3, '#e8f4ff', 12, 4, 0.5, 2); }
         else RX.chill(game, target, s.wet > 0 ? 3 : 1);
       } else if (el === 'shock') {
         if (s.wet > 0) RX.conduct(game, target, dmg, from);
         else if (target.burn > 0) RX.overload(game, target, dmg, from);
-        else s.charge = 5;
+        else s.charge = 5 + 2 * aug('stormfront');
       } else if (el === 'water') RX.soak(game, target);
     },
     name(game, e, text, col, from, hint) {
       RX.say(game, e, text, col, true);
-      if (from === game.pe || RX.ours(game, from)) { RX.gain(game, 1); if (hint) RX.hint(game, hint); }
+      if (from === game.pe || RX.ours(game, from)) { RX.gain(game, 1); if (hint) RX.hint(game, hint); if (ECHO.Build && hint) ECHO.Build.note(game, hint, RX._n || 0); }
     },
     chill(game, e, n) {
       const s = RX.st(e);
       if (s.frozen > 0 || s.thawed > 0) return;
       s.chill += n; s.chillT = 4;
-      if (s.chill >= 3) {
+      if (s.chill >= (aug('deepcold') >= 3 ? 2 : 3)) {
         s.chill = 0; s.wet = 0; s.charge = 0;
-        s.frozen = RX.big(e) ? 1.4 : n >= 3 ? 3.6 : 2.6;
+        s.frozen = (RX.big(e) ? 1.4 : n >= 3 ? 3.6 : 2.6) * (1 + 0.3 * aug('deepcold'));
         e.wcast = null; e.moving = false;
         RX.say(game, e, 'frozen', COL.cold);
         C().burst(e.x, e.y - 0.3, '#dff6ff', 14, 3, 0.5, 2);
@@ -186,16 +203,19 @@
       for (let i = 0; i < 10; i++) C().puff(e.x, e.y, { h: 0.5, vx: Math.cos(a + (Math.random() - 0.5) * 2.4) * (3 + Math.random() * 5), vy: Math.sin(a + (Math.random() - 0.5) * 2.4) * (3 + Math.random() * 5), vz: 2 + Math.random() * 3, g: 9, life: 0.7, size: 2.2, color: '#cfefff', spark: true });
       if (ECHO.Sfx) { ECHO.Sfx.play('crit'); ECHO.Sfx.play('parry', { pitch: 1.8, vol: 0.7 }); }
       game.hitStop(0.09); game.shake(0.2);
-      for (const o of RX.near(game, e.x, e.y, 2.2, e)) { RX.hit(o, dmg * 0.4, from, e.x, e.y, { knock: 0.25 }); if (!o.dead) RX.chill(game, o, 1); }
+      for (const o of RX.near(game, e.x, e.y, 2.2, e)) { RX.hit(o, dmg * 0.4, from, e.x, e.y, { knock: 0.25 }); if (!o.dead) RX.chill(game, o, aug('glacier') >= 2 ? 3 : 1); }
     },
     conduct(game, e, dmg, from) {
       const s = RX.st(e);
       s.wet = 0; s.charge = 0;
+      const lw = aug('livewire');
+      const L = RX.near(game, e.x, e.y, 4.5 + lw, null).filter(o => o === e || (o.rx && o.rx.wet > 0) || U.dist(o.x, o.y, e.x, e.y) < 2.4 + lw * 0.5).slice(0, 8 + 3 * lw);
+      RX._n = L.length;
       RX.name(game, e, 'CONDUCT', COL.shock, from, 'conduct');
-      const L = RX.near(game, e.x, e.y, 4.5, null).filter(o => o === e || (o.rx && o.rx.wet > 0) || U.dist(o.x, o.y, e.x, e.y) < 2.4).slice(0, 8);
+      RX._n = 0;
       let prev = e;
       for (const o of L) {
-        if (o !== e) { RX.hit(o, dmg * 0.9, from, prev.x, prev.y); C().fx.push({ kind: 'arc', x: prev.x, y: prev.y, x2: o.x, y2: o.y, h: 0.8, t: 0, life: 0.3, color: COL.shock }); if (o.rx) o.rx.wet = 0; }
+        if (o !== e) { RX.hit(o, dmg * (0.9 + 0.2 * lw), from, prev.x, prev.y); C().fx.push({ kind: 'arc', x: prev.x, y: prev.y, x2: o.x, y2: o.y, h: 0.8, t: 0, life: 0.3, color: COL.shock }); if (o.rx) o.rx.wet = 0; }
         if (!o.dead) { o.stagger = Math.max(o.stagger || 0, RX.big(o) ? 0.5 : 1.1); o.wcast = null; C().burst(o.x, o.y - 0.3, COL.shock, 8, 4, 0.3, 2); }
         prev = o;
       }
@@ -212,7 +232,8 @@
       if (ECHO.Sfx) ECHO.Sfx.play('boom', { pitch: 1.5, vol: 0.7 });
       game.shake(0.22); game.light(e.x, e.y, 6, 1, '#ffc27a', 0.2);
       const P = Math.max(dmg * 1.5, e.maxHp * (RX.big(e) ? 0.02 : 0.08));
-      for (const o of RX.near(game, e.x, e.y, 2.3, null)) RX.hit(o, o === e ? P : P * 0.7, from, e.x, e.y, { type: 'fire', knock: o === e ? 0.2 : 0.45, blast: true });
+      const ch = aug('chain'), R = 2.3 * (1 + 0.15 * ch);
+      for (const o of RX.near(game, e.x, e.y, R, null)) { RX.hit(o, o === e ? P : P * 0.7, from, e.x, e.y, { type: 'fire', knock: o === e ? 0.2 : 0.45, blast: true }); if (ch && o !== e && !o.dead) RX.st(o).charge = 5; }
       if (ECHO.Loose) ECHO.Loose.blast(e.x, e.y, 2.3, { fire: false, power: 1, by: from });
     },
     steam(game, e, from) {
@@ -225,14 +246,15 @@
     },
     // ------------------------------------------------------------ surge and overdrive
     gain(game, n) {
-      if (RX.od > 0) { RX.od = Math.min(8, RX.od + 0.8); return; }
+      if (RX.od > 0) { RX.od = Math.min(8 + 2 * aug('momentum'), RX.od + 0.8); return; }
       RX.n++;
       RX.surge = Math.min(5, RX.surge + n); RX.surgeT = 14;
       const pl = game.pl;
       if (pl.maxMana) pl.mana = Math.min(pl.maxMana, (pl.mana || 0) + pl.maxMana * 0.06);
       if (RX.n === 2) RX.hint(game, 'surge');
       if (RX.surge >= 5) {
-        RX.surge = 0; RX.od = 8;
+        RX.surge = 0; RX.od = 8 + 2 * aug('momentum');
+        if (ECHO.Build) ECHO.Build.note(game, 'overdrive');
         if (pl.maxMana) pl.mana = pl.maxMana;
         C().floater(game.pe.x, game.pe.y - 1.5, 'OVERDRIVE', '#7ff4ff', true);
         C().ring(game.pe.x, game.pe.y, 3, '#7ff4ff', 0.5);
@@ -249,7 +271,7 @@
       if (lv < 3 || e.pal || e.tamed || e.isCompanion || e.titan || e.type === 'boss' || e.ngWard || e.ward || e.species === 'hare' || e.species === 'deer') return;
       if (!(e.type === 'creature' || e.type === 'monster')) return;
       if (!e.foe && !ECHO.SPECIES[e.species]) return;
-      const h = ECHO.hashStr(`${e.species || e.type}:${Math.round((e.home ? e.home.x : e.x) * 3)}:${Math.round((e.home ? e.home.y : e.y) * 3)}:${Math.round(e.maxHp)}`);
+      const h = ECHO.hashStr(`${e.species || e.type}:${Math.round((e.home ? e.home.x : e.x) * 3)}:${Math.round((e.home ? e.home.y : e.y) * 3)}:${Math.round(e.maxHp)}`) >>> 0;   // (never a negative number: it picks from a list)
       if (h % 100 >= 20) return;
       const k = ['frost', 'veil', 'stone'][(h >> 8) % 3];
       e.rxWard = { k, hp: e.maxHp * 0.6, max: e.maxHp * 0.6 };
@@ -259,7 +281,7 @@
       const pe = game.pe;
       if (!pe) return;
       if (RX.od > 0) { RX.od = Math.max(0, RX.od - dt); if (Math.random() < dt * 20) C().fx.push({ kind: 'p', x: pe.x + (Math.random() - 0.5) * 0.6, y: pe.y - Math.random() * 0.8, vx: 0, vy: -1.5, t: 0, life: 0.35, color: '#7ff4ff', size: 1.6, spark: true }); }
-      else if (RX.surge > 0) { RX.surgeT -= dt; if (RX.surgeT <= 0) { RX.surge--; RX.surgeT = 4; } }
+      else if (RX.surge > 0 && !aug('capacitor')) { RX.surgeT -= dt; if (RX.surgeT <= 0) { RX.surge--; RX.surgeT = 4; } }
       RX._scanT -= dt;
       const scan = RX._scanT <= 0;
       if (scan) RX._scanT = 0.5;
@@ -269,7 +291,7 @@
         if (scan && !e.rxScan && (e.aggro || e.target === pe || e.foe) && U.dist(e.x, e.y, pe.x, pe.y) < 16) RX.ward(game, e);
         if (scan && (rain || e._inWater) && (e.type === 'creature' || e.type === 'monster') && U.dist(e.x, e.y, pe.x, pe.y) < 20) RX.soak(game, e, 4);
         const w = e.rxWard;
-        if (w && w.hp > 0 && Math.random() < dt * 9) { const a = Math.random() * 6.28, r = (e.r || 0.4) + 0.35; C().fx.push({ kind: 'p', x: e.x + Math.cos(a) * r, y: e.y - 0.2 + Math.sin(a) * r * 0.6, vx: 0, vy: -0.9, t: 0, life: 0.5, color: WARDS[w.k].col, size: 1.7, spark: true }); }
+        if (w && w.hp > 0 && WARDS[w.k] && Math.random() < dt * 9) { const a = Math.random() * 6.28, r = (e.r || 0.4) + 0.35; C().fx.push({ kind: 'p', x: e.x + Math.cos(a) * r, y: e.y - 0.2 + Math.sin(a) * r * 0.6, vx: 0, vy: -0.9, t: 0, life: 0.5, color: WARDS[w.k].col, size: 1.7, spark: true }); }
         const s = e.rx;
         if (!s) continue;
         if (s.frozen > 0) {
@@ -295,7 +317,7 @@
         if (!host) return;
         el = document.createElement('div'); el.id = 'hud-surge';
         el.title = 'Surge: set off reactions (shatter, conduct, overload, brittle, steam, breaking a ward) to fill it. Five pips are Overdrive.';
-        el.style.cssText = 'display:flex;gap:5px;align-items:center;margin:6px 0 2px;font:600 11px/1 inherit;letter-spacing:.12em;color:#7fe9ff';
+        el.style.cssText = 'display:flex;gap:5px;align-items:center;margin:6px 0 2px;font-size:11px;line-height:1;font-weight:600;letter-spacing:.12em;color:#7fe9ff';
         host.appendChild(el);
       }
       const key = RX.od > 0 ? 'od' + Math.ceil(RX.od) : 's' + RX.surge;
