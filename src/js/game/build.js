@@ -137,6 +137,14 @@
       if (!mine.length) return '';
       return `<div class="card"><h4>Your augments</h4>${mine.map(k => `<div class="row"><span style="min-width:170px">${AUG[k].icon} <b>${esc(AUG[k].name)}</b> ${'●'.repeat(pl.aug[k])}${'○'.repeat(MAXR - pl.aug[k])}</span><span class="dim">${esc(AUG[k].what(pl.aug[k]))}</span></div>`).join('')}</div>`;
     },
+    // the Trials page of the menu (Quests)
+    pageHtml(game) {
+      const pl = game.pl, T = B.state(pl);
+      return `${T.pick > 0 ? `<div class="card"><div class="row"><b class="gold">★ ${T.pick} augment${T.pick > 1 ? 's' : ''} to choose</b><button data-augpick="1">Choose now</button></div></div>` : ''}
+        <div class="card"><h4>Open trials</h4>${T.act.map(a => `<div class="row"><span style="min-width:320px">${esc(TRIALS[a.k].text(a.need))}</span><div class="t" style="flex:1;height:6px;background:rgba(127,233,255,.14)"><div style="height:100%;width:${Math.round(100 * a.n / a.need)}%;background:#4ff0ff;box-shadow:0 0 8px #4ff0ff"></div></div><b style="min-width:54px;text-align:right">${a.n} / ${a.need}</b></div>`).join('')}<div class="dim">Each trial finished gives crowns and an augment. ${T.done} done so far${pl.riftsClosed ? ` · ${pl.riftsClosed} rift${pl.riftsClosed > 1 ? 's' : ''} closed` : ''}.</div></div>`
+        + (B.listHtml(pl) || '<p class="dim">No augments yet: finish a trial to choose your first.</p>');
+    },
+    pageBind(body, game, render) { const b = body.querySelector('button[data-augpick]'); if (b) b.addEventListener('click', () => { ECHO.UI.closePanel(); B.choose(game); void render; }); },
     // the whole of it, to read (click the trials on the screen)
     open(game) {
       const pl = game.pl, T = B.state(pl);
@@ -165,7 +173,7 @@
         el = document.createElement('div'); el.id = 'hud-trials';
         el.title = 'Trials: finish one for crowns and an augment. Click to see them and your augments.';
         el.style.cssText = 'margin:4px 0 2px;font-size:11px;line-height:1.5;font-weight:500;color:#bfe9f5;cursor:pointer;pointer-events:auto;max-width:250px';
-        el.addEventListener('click', () => { if (!ECHO.UI.modalOpen) B.open(ECHO.Game); });
+        el.addEventListener('click', () => { if (!ECHO.UI.modalOpen) { if (ECHO.Game.pl.trials && ECHO.Game.pl.trials.pick > 0) B.choose(ECHO.Game); else ECHO.UI.openJournal('trials'); } });
         host.appendChild(el);
       }
       const key = T.act.map(a => a.k + a.n + '/' + a.need).join('|') + T.pick;

@@ -66,6 +66,8 @@
         if (In.pressed.has('n') && ECHO.Nav) ECHO.Nav.openPicker(game);
         if (In.pressed.has('F1') || In.pressed.has('/') || In.pressed.has('?')) UI.toggleHelp();
       } else if (UI.panelOpen) {
+        // (the menu's pages: Q and E step through them — not while you are typing)
+        if (UI._hub && !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '')) { if (In.pressed.has('q')) { UI.hubStep(-1); In.clear(); return; } if (In.pressed.has('e')) { UI.hubStep(1); In.clear(); return; } }
         if ((In.pressed.has('Tab') || In.pressed.has('j')) && UI.panelKind === 'journal') UI.closePanel();
         else if (In.pressed.has('m') && UI.panelKind === 'map') UI.closePanel();
         else if (In.pressed.has('i') && UI.panelKind === 'relics') UI.closePanel();
@@ -326,10 +328,47 @@
       $('#panel .panel-inner').classList.toggle('wide', kind === 'map');
       $('#panel .panel-inner').classList.toggle('holo', kind === 'map');   // (the map is a navigation console)
       $('#panel h2').textContent = title;
+      UI._hub = null;
+      { const hb = $('#panel .hubbar'); if (hb) hb.classList.add('hidden'); $('#panel .panel-inner').classList.remove('hubbed'); }
       const body = $('#panel .panel-body');
       body.innerHTML = html;
       body.scrollTop = 0;
       return body;
+    },
+    // The one menu. Every screen that is yours (not a shop's or a town's) is a page of it, and
+    // the pages run along the top of the panel: click one, or step through them with Q and E.
+    HUBS: [
+      { k: 'hero', name: 'Hero', icon: '◈', open: () => UI.openCharacter() },
+      { k: 'quests', name: 'Quests', icon: '◇', tabs: ['trials', 'ambition', 'story', 'tasks'], more: [] },
+      { k: 'map', name: 'Map', icon: '⌖', open: () => UI.openMap() },
+      { k: 'world', name: 'World', icon: '◎', tabs: ['nearby', 'people', 'places', 'letters'], more: ['realm', 'powers', 'wonders', 'heard'] },
+      { k: 'beasts', name: 'Beasts', icon: '❖', tabs: ['tamed', 'animals'], more: [] },
+      { k: 'codex', name: 'Codex', icon: '☰', tabs: ['guide', 'help', 'self'], more: ['name', 'guild', 'pastimes', 'guard'] }
+    ],
+    hubGo(k) {
+      const h = UI.HUBS.find(x => x.k === k);
+      if (!h || k === UI._hub) return;
+      if (ECHO.Sfx) ECHO.Sfx.play('uiTick', { vol: 0.5 });
+      if (h.open) h.open();
+      else UI.openJournal((UI._jLast && UI._jLast[k]) || h.tabs[0]);
+    },
+    hubStep(d) {
+      const i = UI.HUBS.findIndex(x => x.k === UI._hub);
+      if (i < 0) return;
+      UI.hubGo(UI.HUBS[(i + d + UI.HUBS.length) % UI.HUBS.length].k);
+    },
+    hub(cur) {
+      UI._hub = cur;
+      const inner = $('#panel .panel-inner');
+      let bar = inner.querySelector('.hubbar');
+      if (!bar) { bar = document.createElement('div'); bar.className = 'hubbar'; inner.insertBefore(bar, inner.firstChild); }
+      bar.classList.remove('hidden');
+      inner.classList.add('hubbed');
+      const game = ECHO.Game, pl = game.pl, world = game.world;
+      const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0, picks = pl.trials ? pl.trials.pick || 0 : 0;
+      const badge = { quests: picks, world: unread };
+      bar.innerHTML = `<span class="hubkey">Q</span>${UI.HUBS.map(h => `<button data-hub="${h.k}" class="${h.k === cur ? 'on' : ''}"><i>${h.icon}</i>${h.name}${badge[h.k] ? `<b>${badge[h.k]}</b>` : ''}</button>`).join('')}<span class="hubkey">E</span>`;
+      bar.querySelectorAll('button[data-hub]').forEach(b => b.addEventListener('click', () => UI.hubGo(b.dataset.hub)));
     },
     closePanel() { UI.panelOpen = false; UI.panelKind = null; $('#panel').classList.add('hidden'); ECHO.Input.clear(); if (ECHO.Inv) { ECHO.Inv.tip(false); ECHO.Inv.closeMenu(); } },
     eventsDigest(events, title) {
@@ -1288,7 +1327,14 @@
       const body = UI.openPanel(`Notice board — ${s.name}`, '', 'board');
       const render = () => {
         const tabs = [['pleas', 'Pleas'], ['events', `Great events${ECHO.WorldEvents && ECHO.WorldEvents.active(world).length ? ' (' + ECHO.WorldEvents.active(world).length + ')' : ''}`], ['realm', 'Lord & garrison'], ['guild', 'The Guild'], ['jobs', 'Odd jobs'], ['requests', 'Requests'], ['post', 'Deliveries'], ['bounty', 'Bounties'], ['watch', 'The watch'], ['law', 'The law here'], ['deeds', 'Property & business'], ['coin', 'Spend your coin'], ['affairs', 'Town affairs']];
-        let html = `<div class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+        // three pages (work to take, the town itself, what is yours here), and the few of the one you are on beneath
+        const BG = [['Work', ['pleas', 'bounty', 'jobs', 'requests', 'post', 'guild']], ['The town', ['events', 'realm', 'watch', 'law', 'affairs']], ['Yours', ['deeds', 'coin']]];
+        const blbl = Object.fromEntries(tabs), bgs = BG.map(([n, ks]) => [n, ks.filter(k => blbl[k])]).filter(g => g[1].length);
+        for (const t of tabs) if (!bgs.some(g => g[1].includes(t[0]))) bgs[bgs.length - 1][1].push(t[0]);
+        const bcur = bgs.find(g => g[1].includes(tab)) || bgs[0];
+        UI._bLast = UI._bLast || {}; UI._bLast[bcur[0]] = tab;
+        let html = `<div class="tabs jgroups tidy-skip">${bgs.map(g => `<button data-tab="${UI._bLast[g[0]] && g[1].includes(UI._bLast[g[0]]) ? UI._bLast[g[0]] : g[1][0]}" class="${g === bcur ? 'on' : ''}">${g[0]}</button>`).join('')}</div>`
+          + (bcur[1].length > 1 ? `<div class="tabs jsub tidy-skip">${bcur[1].map(k => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${blbl[k]}</button>`).join('')}</div>` : '');
         if (tab === 'pleas') html += '<p class="dim">Pleas, bounties and warnings, nailed up by people who will not wait forever. The Guild\'s people read them too: whoever finishes a job first is paid.</p><div class="list" id="pl"></div>';
         else if (tab === 'guild') html += ECHO.Guild ? ECHO.Guild.html(game) : '';
         else if (tab === 'realm') html += ECHO.Military ? ECHO.Military.html(game, s) : '';
@@ -1658,24 +1704,31 @@
     openJournal(tab0) {
       const game = ECHO.Game, world = game.world, pl = game.pl;
       let tab = tab0 || (pl.focus !== undefined ? 'ambition' : 'tasks'), kind = 'all';
-      const body = UI.openPanel(UI.settings.journal !== 'all' ? 'Your beasts' : 'Journal', '', 'journal');
+      const body = UI.openPanel('Journal', '', 'journal');
       const render = () => {
         const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0;
-        const tabs = [['guide', 'Guide'], ['nearby', 'Nearby'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['animals', 'Animals'], ['tamed', `Tamed beasts${(n => n ? ' (' + n + ')' : '')((ECHO.Tame ? ECHO.Tame.pack(pl).length : 0) + (world.titans && ECHO.Titans ? ECHO.Titans.bound(world).length : 0))}`], ['powers', 'Rising powers'], ['guard', 'The Guard'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['name', 'Your name'], ['guild', 'The Guild'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
+        const tabs = [['trials', 'Trials'], ['guide', 'Guide'], ['nearby', 'Nearby'], ['story', 'The Story'], ['ambition', 'Ambitions'], ['tasks', 'Promises'], ['people', 'People'], ['animals', 'Animals'], ['tamed', `Tamed beasts${(n => n ? ' (' + n + ')' : '')((ECHO.Tame ? ECHO.Tame.pack(pl).length : 0) + (world.titans && ECHO.Titans ? ECHO.Titans.bound(world).length : 0))}`], ['powers', 'Rising powers'], ['guard', 'The Guard'], ['letters', `Letters${unread ? ' (' + unread + ')' : ''}`], ['places', 'Places'], ['realm', 'The realm'], ['wonders', 'Wonders'], ['heard', 'Heard & witnessed'], ['self', 'Your deeds'], ['name', 'Your name'], ['guild', 'The Guild'], ['pastimes', 'Crafts & pastimes'], ['help', 'How the world works']];
         // your choice (Esc → Gameplay → Journal): only your beasts and animals, or every page
-        if (UI.settings.journal !== 'all') { const keep = ['tamed', 'animals']; for (let i = tabs.length - 1; i >= 0; i--) if (!keep.includes(tabs[i][0])) tabs.splice(i, 1); tabs.sort((a, b) => keep.indexOf(a[0]) - keep.indexOf(b[0])); }
-        if (!tabs.some(t => t[0] === tab)) tab = UI.settings.journal !== 'all' ? 'tamed' : tab === 'quests' ? 'tasks' : 'guide';   // (a page not shown: the nearest one, lit)
+        // (Esc → Gameplay → Menu pages: the essentials of each, or every page)
+        const every = UI.settings.journal === 'all';
+        if (!tabs.some(t => t[0] === tab)) tab = tab === 'quests' ? 'tasks' : 'trials';
         // six pages along the top, and the few of the one you are on beneath them
-        const GROUPS = [['Goals', ['ambition', 'story', 'tasks']], ['Around you', ['nearby', 'places', 'wonders']], ['People', ['people', 'letters', 'heard', 'realm', 'powers']], ['Beasts', ['tamed', 'animals']], ['You', ['self', 'name', 'pastimes', 'guild', 'guard']], ['Help', ['guide', 'help']]];
+        // one menu (UI.HUBS): its pages along the top of every panel, and here the few of the one you are on
+        const GROUPS = UI.HUBS.filter(h => h.tabs).map(h => [h.k, h.tabs.concat(every || UI._jMore || h.more.includes(tab) ? h.more : [])]);
         const lbl = Object.fromEntries(tabs), has = k => tabs.some(t => t[0] === k);
         const groups = GROUPS.map(([n, ks]) => [n, ks.filter(has)]).filter(g => g[1].length);
-        for (const t of tabs) if (!groups.some(g => g[1].includes(t[0]))) groups[groups.length - 1][1].push(t[0]);
+        for (const t of tabs) if (!UI.HUBS.some(h => h.tabs && (h.tabs.includes(t[0]) || h.more.includes(t[0])))) groups[groups.length - 1][1].push(t[0]);
         const cur = groups.find(g => g[1].includes(tab)) || groups[0];
         UI._jLast = UI._jLast || {}; UI._jLast[cur[0]] = tab;
         const badge = ks => { const n = ks.reduce((s, k) => s + (+(String(lbl[k]).match(/\((\d+)\)/) || [0, 0])[1]), 0); return n ? ` <span class="jbadge">${n}</span>` : ''; };
-        let html = `<div class="tabs jgroups tidy-skip">${groups.map(([n, ks]) => `<button data-tab="${(UI._jLast[n] && ks.includes(UI._jLast[n])) ? UI._jLast[n] : ks[0]}" class="${cur === groups.find(g => g[0] === n) ? 'on' : ''}">${n}${n === 'People' || n === 'Beasts' ? badge(ks) : ''}</button>`).join('')}</div>`;
-        if (cur[1].length > 1) html += `<div class="tabs jsub tidy-skip">${cur[1].map(k => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${lbl[k]}</button>`).join('')}</div>`;
-        if (tab === 'animals') html += ECHO.Apex ? ECHO.Apex.animalsHtml(game) : '';
+        let html = '';
+        UI.hub(cur[0]);
+        const hubNow = UI.HUBS.find(h => h.k === cur[0]);
+        $('#panel h2').textContent = hubNow.name;
+        void badge;
+        if (cur[1].length > 1 || hubNow.more.length) html += `<div class="tabs jsub tidy-skip">${cur[1].map(k => `<button data-tab="${k}" class="${tab === k ? 'on' : ''}">${lbl[k]}</button>`).join('')}${!every && hubNow.more.length ? `<button data-jmore="1" class="jmore">${UI._jMore ? 'Less' : 'More…'}</button>` : ''}</div>`;
+        if (tab === 'trials') html += ECHO.Build ? ECHO.Build.pageHtml(game) : '';
+        else if (tab === 'animals') html += ECHO.Apex ? ECHO.Apex.animalsHtml(game) : '';
         else if (tab === 'tamed') html += ECHO.Tame ? ECHO.Tame.page(game) : '';
         else if (tab === 'powers') html += ECHO.Growth ? ECHO.Growth.html(game) : '';
         else if (tab === 'guard') html += ECHO.GuardField ? ECHO.GuardField.html(game) : '';
@@ -1793,6 +1846,8 @@
         body.querySelectorAll('button[data-focus]').forEach(b => b.addEventListener('click', () => { pl.focus = b.dataset.focus; pl.tracked = null; ECHO.Purpose._html = null; ECHO.Purpose.t = 0; render(); }));
         body.querySelectorAll('button[data-track]').forEach(b => b.addEventListener('click', () => { pl.tracked = pl.tracked === b.dataset.track ? null : b.dataset.track; ECHO.Purpose._html = null; ECHO.Purpose.t = 0; render(); }));
         body.querySelectorAll('button[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; render(); }));
+        body.querySelectorAll('button[data-jmore]').forEach(b => b.addEventListener('click', () => { UI._jMore = !UI._jMore; if (!UI._jMore && hubNow.more.includes(tab)) tab = hubNow.tabs[0]; render(); }));
+        if (tab === 'trials' && ECHO.Build) ECHO.Build.pageBind(body, game, render);
         if (tab === 'animals' && ECHO.Apex) ECHO.Apex.animalsBind(body, game, render);
         if (tab === 'tamed' && ECHO.Tame) ECHO.Tame.bind(body, game, () => setTimeout(render, 60));
         if (tab === 'name' && ECHO.Renown) ECHO.Renown.bind(body, game, render);
@@ -1848,8 +1903,8 @@
         .map(([k, l]) => `<div class="skill tend"><span>${l}</span><div class="t"><div style="width:${Math.round(Ch.tendency(pl, k) * 100)}%"></div></div><span></span></div>`).join('');
       const items = pl.items.map(id => world.items[id]).filter(Boolean);
       const reps = world.settlements.filter(s => s.rep && s.rep[pl.charId]).map(s => `${s.name}: ${s.rep[pl.charId] > 0 ? '+' : ''}${Math.round(s.rep[pl.charId])}`);
-      const S = UI._csec || 'me';
-      const secs = [['me', 'You'], ['gear', 'Gear'], ['skills', 'Skills'], ['growth', 'Progress'], ['company', 'Companions']];
+      const S = UI._csec || 'gear';
+      const secs = [['gear', 'Gear'], ['me', 'Hero'], ['skills', 'Skills'], ['company', 'Allies']];   // (Progress is on the Hero page now)
       UI.openPanel(`${pl.first} ${pl.last}, ${Ch.title(pl)}`, `<div class="tabs csec tidy-skip">${secs.map(([k, l]) => `<button data-csec="${k}" class="${S === k ? 'on' : ''}">${l}</button>`).join('')}</div>
         <section data-csec="me"><p class="prose">${bio.map(esc).join(' ')}</p>
         <p class="dim">Renown ${Math.round(pl.renown)} · Armour ${ECHO.Gear.def(world, pl)} (${Math.round((1 - ECHO.Gear.taken(world, pl, 'melee')) * 100)}% of every blow turned) · Fate ${pl.fate}/3${pl.knighted ? ' · Knight of ' + world.factions[pl.knighted].short : ''}${pl.legacyOf ? ' · kin of ' + esc((ECHO.Legacy.legendOf(world, pl.legacyOf) || {}).name || '') : ''}</p>
@@ -1872,13 +1927,14 @@
         ${ECHO.Apex ? ECHO.Apex.html(game) : ''}
         ${ECHO.Life ? ECHO.Life.card(world, pl) : ''}</section>`, 'char');
       // one part at a time (the rest is there, a tab away); a part with nothing in it has no tab
+      UI.hub('hero');
       { const pb = document.querySelector('#panel .panel-body');
         const ih = pb.querySelector('.inv-host'); if (ih && ECHO.Inv) ECHO.Inv.mount(ih, game);
-        const show = k => { UI._csec = k; ECHO.Inv && ECHO.Inv.tip(false); pb.querySelectorAll('section[data-csec]').forEach(x => x.classList.toggle('hidden', x.dataset.csec !== k)); pb.querySelectorAll('.csec button').forEach(b => b.classList.toggle('on', b.dataset.csec === k)); };
+        const show = k => { UI._csec = k; ECHO.Inv && ECHO.Inv.tip(false); pb.querySelectorAll('section[data-csec]').forEach(x => x.classList.toggle('hidden', x.dataset.csec !== k && !(k === 'me' && x.dataset.csec === 'growth'))); pb.querySelectorAll('.csec button').forEach(b => b.classList.toggle('on', b.dataset.csec === k)); };
         pb.querySelectorAll('section[data-csec]').forEach(x => { if (!x.textContent.trim()) { const b = pb.querySelector(`.csec button[data-csec="${x.dataset.csec}"]`); if (b) b.remove(); } });
         pb.querySelectorAll('.csec button').forEach(b => b.addEventListener('click', () => show(b.dataset.csec)));
         pb.querySelectorAll('[data-csec-go]').forEach(b => b.addEventListener('click', () => show(b.dataset.csecGo)));
-        show(pb.querySelector(`.csec button[data-csec="${S}"]`) ? S : 'me'); }
+        show(pb.querySelector(`.csec button[data-csec="${S}"]`) ? S : 'gear'); }
       document.querySelectorAll('#panel button[data-tech]').forEach(b => b.addEventListener('click', () => { if (ECHO.Tech.toggle(b.dataset.tech) === false) UI.toast(`You can only carry ${ECHO.Tech.slots(pl)} techniques. Set one down first.`, 'warn', 3); UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-w]').forEach(b => b.addEventListener('click', () => { pl.weapon = b.dataset.w; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-dismiss]').forEach(b => b.addEventListener('click', () => { ECHO.Companions.dismiss(game); UI.openCharacter(); }));

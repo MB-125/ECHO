@@ -7,6 +7,16 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.42.0', items: [
+      'One menu instead of many. Your gear, your quests, the map, the world, your beasts and the codex are now six pages of a single menu, with the pages along the top of every one of them. Click a page, or step through them with Q and E.',
+      'Hero: Gear, Hero (your story, numbers and progress together), Skills and Allies. It opens on your gear.',
+      'Quests: Trials (with progress bars and your augments), Ambitions, The Story and Promises.',
+      'World: Nearby, People, Places and Letters. Beasts: your tamed beasts and the animals you know. Codex: the guide, how the world works, and your deeds.',
+      'The journal went from twenty tabs to at most four on a page. The rarer pages are behind "More…", or always shown if you choose Esc → Gameplay → Menu pages → Every page.',
+      'The notice board went from thirteen tabs in a row to three pages: Work, The town, and Yours.',
+      'I still opens your gear, Tab the quests, M the map. Unread letters and augments waiting to be chosen show as a number on their page.',
+      'Your saved game loads exactly as before.'
+    ] },
     { v: '0.41.0', items: [
       'The world breaks in on you. Every few minutes out of doors, when things have been quiet, a live event happens near you, with a banner, a marker at the top of the screen showing the way and how far, and a clock.',
       'RIFTS: a ring of light tears open and three waves pour out of it: the restless dead, a goblin warband, stone things or a cult, all warded the same colour, with something greater in the last wave. Empty it within two minutes and it bursts, leaving crowns, gear and an augment to choose.',

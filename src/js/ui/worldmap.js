@@ -412,6 +412,7 @@
           <div class="wmap-tabs"><button data-tab="near">Nearby</button><button data-tab="dun">Dungeons</button><button data-tab="key">Key</button></div>
           <div id="map-list"></div>
         </div></div>`, 'map');
+      UI.hub('map');
       const c = body.querySelector('#worldmap'), main = body.querySelector('.wmap-main'), wrap = body.querySelector('.wmap');
       // a round world opens on the globe (◐ switches to the flat chart and back)
       WM.mode = round ? (WM.mode || 'globe') : 'chart';

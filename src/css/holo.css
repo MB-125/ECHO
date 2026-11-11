@@ -512,3 +512,18 @@ details summary { cursor: pointer; color: var(--hc); }
 .inv-menu button { display: block; width: 100%; text-align: left; padding: 7px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: 13px var(--ui); cursor: pointer; }
 .inv-menu button:hover { background: var(--hc-s); }
 @media (max-width: 760px) { .inv { grid-template-columns: 1fr; } .inv-hero { height: 220px; } }
+
+/* ---- the one menu: its pages along the top of the panel (UI.HUBS) ---- */
+#panel .panel-inner.hubbed { padding-top: 0; min-height: min(80vh, 720px); }
+.hubbar { display: flex; align-items: stretch; justify-content: center; gap: 2px; margin: 0 -24px 6px; padding: 0 18px; border-bottom: 1px solid rgba(127,233,255,0.22); background: linear-gradient(180deg, rgba(10,28,42,0.9), rgba(6,16,26,0.55)); }
+.hubbar.hidden { display: none; }
+.hubbar button { position: relative; flex: 0 1 150px; padding: 15px 10px 13px; background: none; border: 0; border-radius: 0; box-shadow: none; color: rgba(190,225,238,0.62); font: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; cursor: pointer; transition: color .15s, background .15s; }
+.hubbar button i { font-style: normal; margin-right: 8px; opacity: 0.7; }
+.hubbar button:hover { color: #eafcff; background: rgba(127,233,255,0.07); }
+.hubbar button.on { color: #ffffff; background: linear-gradient(180deg, rgba(79,240,255,0.0), rgba(79,240,255,0.14)); text-shadow: 0 0 12px rgba(79,240,255,0.7); }
+.hubbar button::after { content: ''; position: absolute; left: 50%; right: 50%; bottom: -1px; height: 3px; background: #4ff0ff; box-shadow: 0 0 12px #4ff0ff; transition: left .18s ease, right .18s ease; }
+.hubbar button.on::after { left: 10%; right: 10%; }
+.hubbar button b { position: absolute; top: 8px; right: 10px; min-width: 16px; padding: 1px 4px; font-size: 10px; letter-spacing: 0; color: #04121e; background: #ffe08a; border-radius: 8px; }
+.hubbar .hubkey { align-self: center; margin: 0 10px; padding: 3px 8px; font-size: 11px; font-weight: 700; color: rgba(190,225,238,0.7); border: 1px solid rgba(127,233,255,0.35); border-radius: 3px; }
+.tabs.jsub .jmore { opacity: 0.7; border-style: dashed; }
+@media (max-width: 900px) { .hubbar button { letter-spacing: 0.08em; padding: 12px 6px 10px; font-size: 12px; } .hubbar button i, .hubbar .hubkey { display: none; } }
