@@ -7,6 +7,15 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.41.0', items: [
+      'The world breaks in on you. Every few minutes out of doors, when things have been quiet, a live event happens near you, with a banner, a marker at the top of the screen showing the way and how far, and a clock.',
+      'RIFTS: a ring of light tears open and three waves pour out of it: the restless dead, a goblin warband, stone things or a cult, all warded the same colour, with something greater in the last wave. Empty it within two minutes and it bursts, leaving crowns, gear and an augment to choose.',
+      'DROP PODS: a pod comes down out of the sky in a streak of fire some way off, and scavengers are on it at once. Clear them and reach it before the clock runs out for crowns, 40 cells, 3 missiles, 20 arrows and a piece of gear.',
+      'TEMPESTS: a storm breaks over a fight. Everything is soaked, so every bolt conducts, and lightning falls on the yellow marks. Stand clear, and draw your foes under it: the sky\'s bolts count as yours.',
+      'Monsters that used to live only in dungeons (skeletons, ghouls, goblins and their shamans, trolls, wraiths, cultists, stonelings) now come at you in the open through the rifts.',
+      'Two new trials: close a rift, and claim a drop pod.',
+      'Nothing of an event is saved, and your saved game loads exactly as before.'
+    ] },
     { v: '0.40.0', items: [
       'Trials: three goals are always open under your Surge pips, such as "Shatter 4 frozen foes", "Break 2 wards with the right answer" or "Conduct through 3 foes at once". Finishing one pays crowns, opens a new one, and gives you an augment. They get harder and never run out.',
       'Augments: each time, choose one of three. They change what your reactions do, so your hero fights your way. There are fifteen, each with three ranks.',

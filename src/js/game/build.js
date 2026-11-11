@@ -40,7 +40,9 @@
     conduct3: { need: t => 1 + Math.floor(t / 2), text: n => `Conduct through 3 foes at once${n > 1 ? ', ' + n + ' times' : ''}` },
     odkill: { need: t => 3 + 2 * t, text: n => `Kill ${n} foes while in Overdrive` },
     trio: { need: t => 1 + Math.floor(t / 2), text: n => `Three different reactions within 10 s${n > 1 ? ', ' + n + ' times' : ''}` },
-    icekill: { need: t => 2 + t, text: n => `Kill ${n} foes with a shatter` }
+    icekill: { need: t => 2 + t, text: n => `Kill ${n} foes with a shatter` },
+    rift: { need: () => 1, text: () => 'Close a rift' },
+    pod: { need: () => 1, text: () => 'Claim a drop pod' }
   };
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -69,7 +71,7 @@
       const pl = game.pl;
       if (!pl) return;
       const now = game.time;
-      if (k !== 'ward' && k !== 'overdrive' && k !== 'odkill' && k !== 'icekill') {
+      if (k !== 'ward' && k !== 'overdrive' && k !== 'odkill' && k !== 'icekill' && k !== 'rift' && k !== 'pod') {
         B.recent.push({ k, t: now });
         B.recent = B.recent.filter(x => now - x.t < 10);
         if (new Set(B.recent.map(x => x.k)).size >= 3) { B.recent = []; B.bump(game, 'trio', 1); }

@@ -20,7 +20,7 @@
       Game.ents = []; Game.loot = [];
       ECHO.Interior.cur = null;
       if (Game.pl.x >= 9000 || !isFinite(Game.pl.x)) { const h = ECHO.Sim.settlement(world, Game.pl.homeId) || world.settlements[0]; Game.pl.x = h.x + 0.5; Game.pl.y = h.y + 2.5; }
-      ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset(); if (ECHO.Guns) ECHO.Guns.reset(); if (ECHO.React) ECHO.React.reset(); if (ECHO.Build) ECHO.Build.reset(); if (ECHO.Riders) ECHO.Riders.reset(); if (ECHO.Water) ECHO.Water.ripples = [];
+      ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset(); if (ECHO.Guns) ECHO.Guns.reset(); if (ECHO.React) ECHO.React.reset(); if (ECHO.Build) ECHO.Build.reset(); if (ECHO.Live) ECHO.Live.reset(); if (ECHO.Riders) ECHO.Riders.reset(); if (ECHO.Water) ECHO.Water.ripples = [];
       if (ECHO.Wonders) ECHO.Wonders.state(world);
       if (ECHO.Globe && !world.globe) { try { ECHO.Globe.ensure(world); } catch (err) { console.error('ECHO: the world could not be made round', err); } }
       if (ECHO.Globe && world.globe && !world._filled) { try { ECHO.Globe.fill(world); } catch (err) { console.error('ECHO: the far lands could not be drawn', err); } }
@@ -164,7 +164,8 @@
       if (ECHO.Thrown) ECHO.Thrown.update(Game, dt);   // (what a blow has sent flying, or sliding: thrown.js)
       if (ECHO.Guns) ECHO.Guns.tick(Game, dt);   // (guns, the salvo, gunships: guns.js)
       if (ECHO.React) ECHO.React.tick(Game, dt);
-      if (ECHO.Build) ECHO.Build.tick(Game, dt);   // (trials and augments: build.js)
+      if (ECHO.Build) ECHO.Build.tick(Game, dt);
+      if (ECHO.Live) ECHO.Live.tick(Game, dt);   // (rifts, drop pods, tempests: live.js)   // (trials and augments: build.js)
         // (what bodies carry, wards, surge: react.js)
       ECHO.Combat.updateProjectiles(dt);
       if (ECHO.Loose) ECHO.Loose.update(Game, dt);   // (barrels, crates, pots and the rest: loose.js)

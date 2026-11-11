@@ -5099,6 +5099,7 @@
       R.updateLoose(game, dt, room);
       R.updateSkiffs(game, dt, room);
       R.updateGunships(game, dt);
+      R.updateLive(game, dt);
       R.updatePush(game, dt, room);
       R.updateAura(game, dt);
       R.updateGlows(game);
@@ -5154,6 +5155,41 @@
         s.g.rotation.set(Math.sin(s.t * 0.9 + s.ph) * 0.05, -Math.atan2(s.dz, s.dx), 0);
         if (s.t > 3 && Math.hypot(s.x - tx, s.z - tz) > 44) { R.scene.remove(s.g); S.splice(i, 1); }
       }
+    },
+    // Live events (live.js): the rift — a ring of light standing in the air, turning, a dark
+    // heart in it — and the drop pod, a scorched capsule with its lamps still lit.
+    updateLive(game, dt) {
+      const c = ECHO.Live && ECHO.Live.cur, want = c && (c.kind === 'rift' || (c.kind === 'pod' && c.landed)) ? c : null;
+      if (R._liveFor !== want) {
+        if (R._liveM) { R.scene.remove(R._liveM); R._liveM.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); R._liveM = null; }
+        R._liveFor = want;
+        if (want) {
+          const g = new THREE.Group(), col = C(want.col);
+          if (want.kind === 'rift') {
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.09, 8, 40), new THREE.MeshBasicMaterial({ color: col })); ring.position.y = 1.7; g.add(ring);
+            const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.035, 6, 40), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.6 })); ring2.position.y = 1.7; g.add(ring2);
+            const heart = new THREE.Mesh(new THREE.CircleGeometry(1.2, 32), new THREE.MeshBasicMaterial({ color: C('#05030a'), side: THREE.DoubleSide, transparent: true, opacity: 0.92 })); heart.position.y = 1.7; g.add(heart);
+            const halo = new THREE.Mesh(new THREE.CircleGeometry(2.1, 32), new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false })); halo.position.y = 1.7; g.add(halo);
+            const pool = new THREE.Mesh(new THREE.CircleGeometry(2.2, 28).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false })); pool.position.y = 0.06; g.add(pool);
+            g.userData = { ring, ring2, heart, halo };
+          } else {
+            const dark = new THREE.MeshStandardMaterial({ color: C('#39404e'), roughness: 0.5, metalness: 0.6 }), glow = new THREE.MeshBasicMaterial({ color: col });
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.7, 1.5, 10), dark); body.position.y = 0.7; body.rotation.z = 0.22; body.castShadow = true; g.add(body);
+            const cap = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.5, 10), new THREE.MeshStandardMaterial({ color: C('#d8dce2'), roughness: 0.4, metalness: 0.4 })); cap.position.set(-0.36, 1.62, 0); cap.rotation.z = 0.22; g.add(cap);
+            for (let i = 0; i < 3; i++) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.63 + i * 0.03, 0.035, 5, 20).rotateX(Math.PI / 2), glow); band.position.set(-0.08 * (1 - i), 1.1 - i * 0.4, 0); band.rotation.z = 0.22; g.add(band); }
+            for (let i = 0; i < 3; i++) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.6, 0.5), dark); const a = i * 2.094; fin.position.set(Math.cos(a) * 0.75, 0.3, Math.sin(a) * 0.75); fin.rotation.y = -a; g.add(fin); }
+          }
+          g.position.set(want.x, R.groundH(want.x, want.y), want.y);
+          R.scene.add(g); R._liveM = g;
+        }
+      }
+      if (R._liveM && want && want.kind === 'rift') {
+        const u = R._liveM.userData, t = R.time;
+        R._liveM.rotation.y = t * 0.5;
+        u.ring.rotation.z = t * 1.3; u.ring2.rotation.z = -t * 0.8;
+        const s = 1 + Math.sin(t * 3) * 0.04; u.ring.scale.setScalar(s); u.halo.scale.setScalar(1 + Math.sin(t * 2.1) * 0.08);
+        (R._fxLights = R._fxLights || []).push({ x: want.x, y: want.y, r: 6, a: 0.9, color: want.col });
+      } else if (R._liveM && want) (R._fxLights = R._fxLights || []).push({ x: want.x, y: want.y, r: 4, a: 0.7, color: want.col });
     },
     // Gunships (guns.js): a crown's, over a fight — a dark armoured hull in its colours, two gun
     // pods, engines burning red; its searchlight on the ground below it.
