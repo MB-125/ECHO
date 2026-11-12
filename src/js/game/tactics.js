@@ -209,7 +209,10 @@
       //  struck stays where it stands for its next turn, instead of walking out and back in again)
       const rr = U.clamp(d, reach + 0.15, ring);
       const tx = target.x + Math.cos(a) * rr, ty = target.y + Math.sin(a) * rr, off = U.dist(e.x, e.y, tx, ty);
-      if (off > (e._ringGo ? 0.3 : 0.9)) { e._ringGo = true; ECHO.Ent.seek(world, e, tx, ty, speed * 0.75, dt, 0.25); } else { e._ringGo = false; e.moving = false; }
+      // (left standing inside its prey after a lunge, it steps back out at once, rather than be
+      //  shoved out; and a place it cannot stand in — a wall, a cart — it does not walk at)
+      const inside = d < ((target.r || 0.33) + (e.r || 0.36)) * 1.05;
+      if ((inside || off > (e._ringGo ? 0.3 : 0.9)) && (!ECHO.Ent.fits || ECHO.Ent.fits(world, tx, ty, Math.min(0.4, e.r || 0.3)))) { e._ringGo = true; ECHO.Ent.seek(world, e, tx, ty, speed * 0.75, dt, inside ? 0.1 : 0.25); } else { e._ringGo = false; e.moving = false; }
       e.dir = ang; e.flip = Math.cos(ang) < 0;
       if (e.type === 'person' && e.sayT <= 0 && Math.random() < dt * 0.08) { e.say = ['Surround them!', 'Take the flank!', 'Wait for it…', 'Now — together!'][Math.floor(Math.random() * 4)]; e.sayT = 1.6; }
       return true;

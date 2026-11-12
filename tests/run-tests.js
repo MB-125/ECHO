@@ -921,6 +921,7 @@ function main() {
     foes.forEach((e, i) => { const a = [0.9, 1.5, 3.9, 4.6][i]; e.x = Math.cos(a) * 2.6; e.y = Math.sin(a) * 2.6; });
     game.time += 0.3; Tc.t = 0; Tc.update(game, 0.3);
     check('each keeps the place round its prey it was given, however the others shift about', foes.every((e, i) => e.slotA === before[i]) && new Set(foes.map(e => e.slotI)).size === 4);
+    check('the walking look-ahead and the stop-and-stare no longer share one timer (that made everyone near you stare, step, stare, step)', !/_lookT/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', 'game', 'entities.js'), 'utf8')) && !/_lookT/.test(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', 'game', 'ai.js'), 'utf8')));
     // one that has struck holds its ground
     const w = foes.find(e => !e.token);
     w.x = Math.cos(w.slotA) * 1.6; w.y = Math.sin(w.slotA) * 1.6; moved = 0;
@@ -2544,7 +2545,10 @@ function main() {
     for (let i = 0; i < 20; i++) { game.time += 0.05; Ent.seek(P, man, 45, 30, 4, 0.05); }
     check('…a wall in the way takes the way off it', man.x < 40 && Math.abs(man._mvx) < 0.5);
     const man2 = mk(0.35, { type: 'person', x: 10, y: 30 }); man2._mvx = 4; man2._mvy = 0; man2._mvT = game.time; man2._mpx = 30; man2._mpy = 30;
-    game.time += 0.05; Ent.seek(P, man2, 2, 30, 4, 0.05);
+    game.time += 0.05; Ent.seek(P, man2, 2, 30, 4, 0.05);      // (told once, it does not set off…)
+    const still = man2.x === 10 && !man2.moving;
+    game.time += 0.05; Ent.seek(P, man2, 2, 30, 4, 0.05);      // (…told two frames running, it does)
+    check('one standing does not set off on the word of a single frame (no one-step twitches)', still);
     check('…and carried off in a blink (through a door, say), it keeps none of the way it had', man2._mvx < 0 && man2._mvx > -1.5);
     // the lie of the land
     Gd.fn = (x, y) => 0.3 * x;

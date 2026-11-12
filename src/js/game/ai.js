@@ -542,16 +542,16 @@
         return true;
       }
       // Admiration (or a cold stare): they stop and look at you.
-      if (sees && d < 3.2 && Math.abs(op) > 45 && !e._lookT && npc._staredDay !== world.day && !(performance.now() < (ECHO._lookGate || 0))) { e._lookT = 4 + Math.random() * 3; npc._staredDay = world.day; ECHO._lookGate = performance.now() + 9000; }
-      if (e._lookT > 0) {
-        e._lookT -= dt;
-        if (e._lookT <= 0) { e._lookT = -20; return false; }
+      if (sees && d < 3.2 && Math.abs(op) > 45 && !e._stareT && npc._staredDay !== world.day && !(performance.now() < (ECHO._lookGate || 0))) { e._stareT = 4 + Math.random() * 3; npc._staredDay = world.day; ECHO._lookGate = performance.now() + 9000; }
+      if (e._stareT > 0) {
+        e._stareT -= dt;
+        if (e._stareT <= 0) { e._stareT = -20; return false; }
         e.moving = false; e.dir = Math.atan2(pe.y - e.y, pe.x - e.x);
         if (op > 45) say(Dialogue().praise(world, npc, pl), 2.6);
         else say(['We know what you are.', 'Keep walking.', 'I know your face.', 'Move along.'][ECHO.hashStr(npc.id) % 4], 2);
         return true;
       }
-      if (e._lookT < 0) e._lookT = Math.min(0, e._lookT + dt);
+      if (e._stareT < 0) e._stareT = Math.min(0, e._stareT + dt);
       // Friends warn you of danger.
       if (op > 25 && d < 3 && mind.v && mind.v.safety < 0.6 && mind.v.threat && mind._warned !== world.day && Math.random() < 0.3) { mind._warned = world.day; say(`Careful out there — ${mind.v.threat}.`, 3); }
       return false;
@@ -683,7 +683,20 @@
       e.dancing = false; e.danceA = null;
       // Mind the folk in the way: step round someone standing in your path.
       Person.courtesy(game, e, dt);
-      const arrived = ECHO.Ent.travel(world, e, e.goal.x + (e._sideX || 0), e.goal.y + (e._sideY || 0), e.speed * (e.goal.why === 'storm' || e.goal.why === 'rain' ? 0.75 : 0.55), dt);
+      // (its place taken, or no way to the last pace of it: it stands where it has got to, rather
+      //  than push at it for ever — and looks again in a while)
+      const gk = e.goal.x.toFixed(1) + ',' + e.goal.y.toFixed(1);
+      if (e._npK !== gk) { e._npK = gk; e._npD = Infinity; e._npT = 0; e._npStay = 0; }
+      let arrived;
+      if (e._npStay > game.time) { arrived = true; e.path = null; }
+      else {
+        arrived = ECHO.Ent.travel(world, e, e.goal.x + (e._sideX || 0), e.goal.y + (e._sideY || 0), e.speed * (e.goal.why === 'storm' || e.goal.why === 'rain' ? 0.75 : 0.55), dt);
+        if (!arrived && !e.goal.inside) {
+          const dG = U.dist(e.x, e.y, e.goal.x, e.goal.y);
+          if (dG < e._npD - 0.2) { e._npD = dG; e._npT = 0; }
+          else if ((e._npT += dt) > 1.2 && dG < 3) { e._npStay = game.time + 8 + Math.random() * 6; e._npD = Infinity; e._npT = 0; e._mvx = 0; e._mvy = 0; arrived = true; }
+        }
+      }
       if (arrived) {
         e.moving = false; e._fails = 0;
         if (e.goal.inside) e.hidden = true;

@@ -25,7 +25,7 @@
         if (d > r) continue;
         if (e.x >= 9000 !== x >= 9000) continue;
         const hostile = e.foe || game.hostileTo(e, game.pe) || (e.type === 'creature' && e.species === 'wolf');
-        if (!hostile) { if (e.type === 'person' && !e.target && o.kind !== 'step') S.turnTo(e, x, y); continue; }
+        if (!hostile) { if (e.type === 'person' && !e.target && !e.moving && o.kind !== 'step') S.turnTo(e, x, y); continue; }   // (one on its way somewhere does not jerk its head round and back)
         if (e.target || e.aggro && e.foe) continue;
         // muffled by distance: the far ones only half-hear it
         const clear = 1 - d / r;

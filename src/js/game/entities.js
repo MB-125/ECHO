@@ -176,6 +176,14 @@
       const d = Math.hypot(dx, dy);
       // Once settled, don't twitch back into motion for a nudge of a few inches.
       if (d < arrive || (!e.moving && d < arrive + 0.45 && e.type !== 'player')) { e.moving = false; return true; }
+      // One that is standing does not set off on the word of a single frame: it must be told to
+      // go two frames running. (Something that asks it to walk only now and then — one frame in
+      // eight — otherwise makes it take one tiny step and turn about, over and over: a shiver.)
+      if (e.type !== 'player' && dt > 0 && ECHO.Game && ECHO.Game.time != null) {
+        const now = ECHO.Game.time;
+        if (now !== e._drvT) { e._drvOK = e._drvT != null && now > e._drvT && now - e._drvT <= dt * 1.6 + 0.002; e._drvT = now; }
+        if (!e._drvOK && !e.moving) return false;
+      }
       const sp = speed * ECHO.World.speedAt(world, e.x, e.y) * (ECHO.Climate && e.x < 9000 ? ECHO.Climate.moveMul(world, e.x, e.y, e.mounted) : 1) * (ECHO.Ground && e.x < 9000 ? ECHO.Ground.slopeMul(world, e.x, e.y, dx, dy) : 1) * dt;
       // not getting any closer (stuck, or dithering at a corner)? plan a real route
       // there for a while, instead of pushing at the obstacle
@@ -192,24 +200,61 @@
       }
       let k = Math.min(1, sp / d), mx = dx * k, my = dy * k;
       // eyes ahead: something in the way? bear round it, keeping to one side
-      if (d > 0.7 && e.type !== 'player' && !e.ghost && !e._onPath && (e._lookT = (e._lookT || 0) - dt) <= 0) {
-        e._lookT = 0.12;
-        const a0 = Math.atan2(dy, dx), look = Math.min(d, 0.9 + speed * 0.12);
+      // (and someone standing in the way is gone round like a post, by those on a planned way
+      //  too: nobody walks into a standing body and grinds against it)
+      if (d > 0.7 && e.type !== 'player' && !e.ghost && (e._aheadT = (e._aheadT || 0) - dt) <= 0) {
+        e._aheadT = 0.12;
+        const a0 = Math.atan2(dy, dx), look = Math.min(d, 0.9 + speed * 0.12), onPath = !!e._onPath;
+        const free = (a, L) => (onPath && a === a0 ? true : Ent.clearAhead(world, e, a, L)) && !Ent.bodyAhead(e, a, L);
         e._bear = 0;
-        if (!Ent.clearAhead(world, e, a0, look)) {
+        if (!free(a0, look)) {
           const side = e._side || (Math.random() < 0.5 ? 1 : -1);
           for (const off of [0.4, 0.8, 1.2, 1.6, 2.1]) {
-            if (Ent.clearAhead(world, e, a0 + off * side, look * 0.8)) { e._bear = off * side; break; }
-            if (Ent.clearAhead(world, e, a0 - off * side, look * 0.8)) { e._bear = -off * side; e._side = -side; break; }
+            if (free(a0 + off * side, look * 0.8)) { e._bear = off * side; break; }
+            if (free(a0 - off * side, look * 0.8)) { e._bear = -off * side; e._side = -side; break; }
           }
           if (e._bear) e._side = Math.sign(e._bear);
         } else if (Math.random() < 0.05) e._side = 0;
       }
-      if (e._onPath) e._bear = 0;
       if (e._bear && d > 0.7) { const a = Math.atan2(dy, dx) + e._bear, L = Math.min(sp, d); mx = Math.cos(a) * L; my = Math.sin(a) * L; }
       // other bodies: it does not walk into them, it slides round them
+      // Going, and getting nowhere (walking on the spot against a corner, a cart, a trunk — legs
+      // working, body shuddering): it stops, stands, and the next try plans a way round it.
+      if (e.type !== 'player' && !e.ghost && dt > 0 && ECHO.Game && ECHO.Game.time != null) {
+        const now = ECHO.Game.time;
+        // (it stands until its moment is up — or until where it is going has moved off: a foe whose
+        //  prey walks away does not stand and watch it go)
+        if (e._holdT > now) { if (Math.abs(tx - e._holdGX) + Math.abs(ty - e._holdGY) < 1.4) { e._bodyBlock = true; e._mvx = 0; e._mvy = 0; e.moving = false; return false; } e._holdT = 0; }
+        const P = e._np && now >= e._np.t ? e._np : (e._np = { x: e.x, y: e.y, t: now, drv: 0 });
+        if (now - P.t > 0.45) {
+          if (P.drv > 0.36 && d > arrive + 0.6 && Math.hypot(e.x - P.x, e.y - P.y) < (sp / dt) * 0.45 * 0.15) { e.stuck = Math.max(e.stuck || 0, 0.7); Ent.holdFor(e, now, tx, ty, 0.15); e._mvx = 0; e._mvy = 0; e.moving = false; e._np = null; return false; }
+          P.x = e.x; P.y = e.y; P.t = now; P.drv = 0;
+        }
+        P.drv += dt;
+      }
+      // (Everyone, not only those in a fight: walking into a body and being shoved back out of
+      //  it, every frame, is a shiver. And one that finds its way taken does not grind against
+      //  whoever is in it, running on the spot: it stops, stands a moment, and tries again.)
       e._bodyBlock = false;
-      if (e.type !== 'player' && !e.ghost && (e.aggro || e.pal || e.target)) { const m0 = Math.hypot(mx, my), v = Ent.slideBodies(e, mx, my); mx = v.x; my = v.y; e._bodyBlock = Math.hypot(mx, my) < m0 * 0.5; }
+      if (e.type !== 'player' && !e.ghost) {
+        const now = ECHO.Game ? ECHO.Game.time : 0, fighter = !!(e.aggro || e.pal || e.target);
+        if (fighter || !(e._thruT > now)) {
+          let held = false;
+          if (!held) {
+            const m0 = Math.hypot(mx, my), v = Ent.slideBodies(e, mx, my);
+            if (m0 > 0 && Math.hypot(v.x, v.y) < m0 * 0.5) {
+              held = true;
+              Ent.holdFor(e, now, tx, ty, 0);
+              // (townsfolk held up again and again are let through, rather than stand all day)
+              if (!fighter) { e._heldN = (now - (e._heldAt || 0) < 1.5 ? e._heldN || 0 : 0) + 1; e._heldAt = now; if (e._heldN >= 4) { e._heldN = 0; e._thruT = now + 1.2; } }
+            } else { mx = v.x; my = v.y; }
+          }
+          if (held) {
+            e._bodyBlock = true; e._mvx = 0; e._mvy = 0; e.moving = false;   // (and it looks where it was looking)
+            return false;
+          }
+        }
+      }
       // weight: it gathers way and loses it as heavily as it is built, turns by changing it, and
       // comes to its stop rather than at it (no faster than it can stop in, the last few steps)
       if (e.type !== 'player' && dt > 0 && !e.ghost && !e.noWeight) {
@@ -231,7 +276,11 @@
       e.moving = true;
       if (e._mvT != null && dt > 0) { const ax = (e.x - before.x) / dt, ay = (e.y - before.y) / dt; if (Math.hypot(ax, ay) < Math.hypot(e._mvx, e._mvy) * 0.85) { e._mvx = ax; e._mvy = ay; } e._mpx = e.x; e._mpy = e.y; }   // (what it ran into took the way off it)
       // turn toward where we actually went (not where a wall deflected us)
-      if (d > arrive + 0.12) e.dir = Math.atan2(dy, dx); // no last-inch spins on arrival
+      // (one closing with, or working round, what it is fighting keeps its eyes on it: it does not
+      //  look where it is stepping one frame and at its foe the next)
+      const tg = e.target;
+      if (tg && !tg.dead && tg.x != null && e.type !== 'player' && !e.rout && Math.abs(tg.x - e.x) < 4.5 && Math.abs(tg.y - e.y) < 4.5) e.dir = Math.atan2(tg.y - e.y, tg.x - e.x);
+      else if (d > arrive + 0.12) e.dir = Math.atan2(dy, dx); // no last-inch spins on arrival
       if (Math.abs(dx) > 0.3 || (Math.abs(dx) > 0.05 && Math.abs(dx) > Math.abs(dy) * 0.5)) e.flip = dx < 0;
       // stuck detection → try a path
       // (held up by other bodies is not stuck: no route round a crowd is needed, it will part)
@@ -319,6 +368,31 @@
       const st = Math.min(0.3, Math.max(0.15, len / 3));
       for (let t = st; t <= len + 1e-6; t += st) if (Ent.blockedAt(world, e, e.x + ca * t, e.y + sa * t)) return false;
       return true;
+    },
+    // Its way is taken: it stands a moment before it tries again — and each time it is stopped
+    // again on the same spot, it stands longer (a step, a stop, a step, a stop, every half second,
+    // is a twitch too). Moved on a pace or more, it is back to a short wait.
+    holdFor(e, now, tx, ty, extra) {
+      const again = e._holdX != null && Math.abs(e.x - e._holdX) + Math.abs(e.y - e._holdY) < 0.45 && now - (e._holdEnd || 0) < 1.2;
+      e._holdN = again ? Math.min(4, (e._holdN || 0) + 1) : 0;
+      e._holdX = e.x; e._holdY = e.y; e._holdGX = tx; e._holdGY = ty;
+      e._holdT = e._holdEnd = now + [0.3, 0.8, 1.5, 2.2, 3][e._holdN] + extra + ((e.id || 0) % 7) * 0.02;
+    },
+    // someone standing (not walking, and not the one it is after) in the next few paces that way
+    bodyAhead(e, a, len) {
+      const ents = ECHO.Game && ECHO.Game.ents;
+      if (!ents || (e.alt || 0) > 1) return false;
+      const ca = Math.cos(a), sa = Math.sin(a), re = Ent.bodyR(e);
+      for (const o of ents) {
+        if (o === e || o === e.target || o.dead || o.hidden || o.ghost || o.seated || o.burrowed || (o.moving && o.type !== 'player') || (o.alt || 0) > 1) continue;
+        const ox = o.x - e.x, oy = o.y - e.y;
+        if (Math.abs(ox) > len + 1.2 || Math.abs(oy) > len + 1.2) continue;
+        if ((e.pal || o.pal) && Ent.flows(e, o)) continue;
+        const t = ox * ca + oy * sa;
+        if (t < 0.05 || t > len + 0.3) continue;
+        if (Math.abs(oy * ca - ox * sa) < (re + Ent.bodyR(o)) * 0.95) return true;
+      }
+      return false;
     },
     // Can a body of radius r walk straight from a to b?
     clearLine(world, ax, ay, bx, by, r = 0.3) {
@@ -518,7 +592,11 @@
             else { ux = dx / d; uy = dy / d; }
             if (settled && d > min * 0.85) continue;  // standing shoulder to shoulder is fine
             // sunk deep into one another: out at once; a graze: eased apart
-            const push = (min - d) * 0.5 * (d < min * 0.7 ? 0.9 : Math.min(1, dt * (settled ? 6 : 12)));
+            // (between two that are not you, never at once unless they are all but on top of each
+            //  other: being popped out and walking back in, over and over, is a shudder)
+            // (and you shove them aside only while you are walking: standing, you part from them gently)
+            const pl = a.type === 'player' ? a : b.type === 'player' ? b : null, mine = !!(pl && pl.moving);
+            const push = (min - d) * 0.5 * (d < min * (mine ? 0.7 : 0.3) ? 0.9 : Math.min(1, dt * (settled ? 6 : mine ? 12 : 9)));
             // the heavier gives less ground (a lair's beast hardly at all)
             const ma = a.type === 'boss' ? 9 : ra * ra, mb = b.type === 'boss' ? 9 : rb * rb;
             const wa = ma / (ma + mb);   // (the share of the push b takes: the heavier a is, the more b gives)

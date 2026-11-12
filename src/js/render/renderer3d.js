@@ -3807,8 +3807,13 @@
         // (a heading that flips about and flips back within a moment is not turned to at all: the
         //  body turns only to a way it has been asked to face for a tenth of a second or so)
         if (e !== game.pe && !e.dead && !(e.rollT > 0)) {
-          if (v.wantDir == null || Math.abs(U.angleDiff(v.wantDir, target)) > 1.1) { v.wantDir = target; v.wantT = 0; } else { v.wantDir = target; v.wantT = (v.wantT || 0) + dt; }
-          if (v.wantT < 0.12 && Math.abs(U.angleDiff(v.dir, target)) > 1.1) target = v.dir;
+          //  (any change of more than a few degrees must hold for a tenth of a second before the
+          //   body follows it; a steady turn, a little each frame, passes straight through; and one
+          //   that never settles is followed anyway after a third of a second)
+          const jump = v.wantDir == null ? 9 : Math.abs(U.angleDiff(v.wantDir, target));
+          if (jump > 0.3) { v.wantT = 0; v.wantAge = (v.wantAge || 0) + dt; } else { v.wantT = (v.wantT || 0) + dt; if (v.wantT > 0.1) v.wantAge = 0; }
+          v.wantDir = target;
+          if (v.wantT < 0.1 && (v.wantAge || 0) < 0.35 && Math.abs(U.angleDiff(v.dir, target)) > 0.2) target = v.dir;
         }
         const turn = U.angleDiff(v.dir, target);
         // NPCs ignore tiny heading wobbles and turn at a natural pace

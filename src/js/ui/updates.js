@@ -7,6 +7,16 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.43.2', items: [
+      'Found the main cause of the shivering. The walking code and the stop-and-stare-at-you code were using the same timer, so everyone walking near you stopped to face you for a tenth of a second, took one step, and stopped again, over and over. They have separate timers now.',
+      'Nobody walks into a standing body and gets shoved back out any more. Walkers steer round people who are standing, slide past those who are moving, and if the way is taken they stop and wait instead of running on the spot. Each time they are stopped on the same spot they wait longer.',
+      'A body going nowhere against a wall, cart or tree stops and plans a way round instead of shuddering against it.',
+      'A person whose place is taken stands where they have got to instead of pushing at it for ever.',
+      'One standing does not set off on the word of a single frame, so there are no more one-step twitches.',
+      'Fighters keep their eyes on their foe while they step, and a body follows a change of facing only once it has held for a tenth of a second. Heads no longer jerk round at a shout while walking.',
+      'Bodies part from each other gently instead of being popped apart. A foe left inside you after a lunge steps back out by itself.',
+      'Your save is untouched.'
+    ] },
     { v: '0.43.1', items: [
       'Foes no longer twitch back and forth in a fight. Each one keeps the place around you it was given instead of being dealt a new one every quarter of a second, and one that has just struck stands its ground for its next turn instead of walking out and straight back in. The step-in-step-out feint is gone.',
       'A body no longer snaps round to a heading that flips straight back: it turns only to a way it has faced for a moment.',
