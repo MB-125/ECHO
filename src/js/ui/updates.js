@@ -7,6 +7,14 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.44.0', items: [
+      'The map opens on the flat chart, close in on where you are, instead of on the far-off globe. The globe is one button away, and the map remembers which of the two you used last.',
+      'The chart is sharp close up. Once you stop moving it, the country on screen is painted again at full size: every tile clear, the shore inked, each tree where it stands. Before, it was a small picture stretched into a blur.',
+      'Each land is labelled as one block: its name, and under it on one line its level range (coloured by how dangerous it is for you) and what kind of country it is.',
+      'Dungeon names are in plain cream that reads on any ground. Only the level is coloured by danger.',
+      'Where places are left off for want of room, the nearest token shows how many more are there (+3). Zoom in to see them.',
+      'Nothing here touches your save.'
+    ] },
     { v: '0.43.2', items: [
       'Found the main cause of the shivering. The walking code and the stop-and-stare-at-you code were using the same timer, so everyone walking near you stopped to face you for a tenth of a second, took one step, and stopped again, over and over. They have separate timers now.',
       'Nobody walks into a standing body and gets shoved back out any more. Walkers steer round people who are standing, slide past those who are moving, and if the way is taken they stop and wait instead of running on the spot. Each time they are stopped on the same spot they wait longer.',

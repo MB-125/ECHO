@@ -415,7 +415,11 @@
       UI.hub('map');
       const c = body.querySelector('#worldmap'), main = body.querySelector('.wmap-main'), wrap = body.querySelector('.wmap');
       // a round world opens on the globe (◐ switches to the flat chart and back)
-      WM.mode = round ? (WM.mode || 'globe') : 'chart';
+      // (it opens on the flat chart, close on where you are — the thing a map is opened for; ◐ goes
+      //  to the globe and back, and whichever you used last is the one it opens on next time)
+      let lastMode = null; try { lastMode = localStorage.getItem('echo.mapMode'); } catch (e) { /* no storage */ }
+      WM.mode = round ? (WM.mode || (lastMode === 'globe' ? 'globe' : 'chart')) : 'chart';
+      { const sp = body.querySelector('[data-globe] span'); if (sp) sp.textContent = WM.mode === 'chart' ? 'Globe' : 'Chart'; }
       if (round) WM.globeInit(main, c);
       const fit = () => { c.width = main.clientWidth; c.height = main.clientHeight; if (WM.G && round) WM.globeSize(c); };
       fit();
@@ -424,6 +428,7 @@
       WM.view = WM.view && WM.view.world === world.id ? WM.view : { world: world.id, cx: pl.x, cy: pl.y, z: Math.max(zFit, 3) };
       WM.view.cx = pl.x; WM.view.cy = pl.y;
       WM.view.min = zFit * 0.9; WM.view.max = 14;
+      if (WM.mode === 'chart' && WM.view.z < 2) WM.view.z = 3.2;
       WM.fogC = WM.fog(world, pl);
       if (round) {
         WM.globeTex(game);
@@ -607,6 +612,7 @@
         if (WM.mode === 'globe') { const p = WM.gWorld(c, c.width / 2, c.height / 2); WM.mode = 'chart'; if (p.x >= 0) { V.cx = p.x; V.cy = p.y; } V.z = Math.max(V.z, 2.5); }
         else { WM.mode = 'globe'; WM.globeTex(game); WM.globeFocus(V.cx, V.cy, null, true); }
         gb.querySelector('span').textContent = WM.mode === 'chart' ? 'Globe' : 'Chart';
+        try { localStorage.setItem('echo.mapMode', WM.mode); } catch (e) { /* no storage */ }
         WM.globeShow(main); WM.draw(game, c);
       });
       const helpEl = body.querySelector('.wmap-help');
@@ -864,6 +870,7 @@
         o = WM.toScreen(c, 0, 0);
         g.imageSmoothingEnabled = true;
         g.drawImage(WM.base(world), o.x, o.y, world.W * V.z, world.H * V.z);
+        WM.chartDetail(game, c, g);
       }
       const all = WM.revealed(pl), seenAt = (x, y) => all || game.explored(x, y);
       // roads: drawn as roads, a pale verge under a brown way
@@ -898,7 +905,18 @@
       g.textAlign = 'center'; g.textBaseline = 'middle';
       if (WM.layers.regions && V.z >= 1.6 && V.z < 9) {
         const font = `italic ${Math.round(U.clamp(V.z * 3.4, 11, 19))}px "Cormorant Garamond", Georgia, serif`;
-        for (const r of WM.regions) { const p = WM.toScreen(c, r.x, r.y); if (r.land && r.land.roster) (WM._later = WM._later || []).push({ text: r.land.short, x: p.x, y: p.y + Math.round(U.clamp(V.z * 3.4, 11, 19)) * 0.95, font: `600 ${Math.round(U.clamp(V.z * 2.6, 9, 14))}px Inter, system-ui, sans-serif`, fill: r.land.col, stroke: 'rgba(20,14,8,0.7)', pri: 0 }); (WM._later = WM._later || []).push({ text: U.cap(r.name).toUpperCase().split('').join(String.fromCharCode(8202)), x: p.x, y: p.y, font, fill: 'rgba(58,42,24,0.66)', stroke: 'rgba(236,226,196,0.5)', pri: 0 }); if (r.danger && V.z >= 2.2) { const me = ECHO.Prowess ? ECHO.Prowess.level(ECHO.Game.pl) : 1, D = ECHO.Danger.word(r.danger[1], me); (WM._later = WM._later || []).push({ text: `Lv ${r.danger[0]}${r.danger[1] !== r.danger[0] ? '–' + r.danger[1] : ''}`, x: p.x, y: p.y - Math.round(U.clamp(V.z * 3.4, 11, 19)) * 1.05, font: `700 ${Math.round(U.clamp(V.z * 2.4, 9, 13))}px Inter, system-ui, sans-serif`, fill: D.color, stroke: 'rgba(20,14,8,0.8)', pri: 0 }); } }
+        // (one block for each land: its name, and under it, on one line, how dangerous it is for
+        //  you and what kind of country it is — placed together, or not at all)
+        const me = ECHO.Prowess ? ECHO.Prowess.level(ECHO.Game.pl) : 1, fs = Math.round(U.clamp(V.z * 3.4, 12, 20)), ss = Math.round(U.clamp(V.z * 2.5, 10, 13));
+        for (const r of WM.regions) {
+          const p = WM.toScreen(c, r.x, r.y);
+          if (p.x < -200 || p.y < -60 || p.x > c.width + 200 || p.y > c.height + 60) continue;
+          const D = r.danger ? ECHO.Danger.word(r.danger[1], me) : null, bits = [];
+          if (r.danger) bits.push(`Lv ${r.danger[0]}${r.danger[1] !== r.danger[0] ? '–' + r.danger[1] : ''}`);
+          if (r.land && r.land.roster) bits.push(r.land.short);
+          (WM._later = WM._later || []).push({ text: U.cap(r.name).toUpperCase().split('').join(String.fromCharCode(8202)), x: p.x, y: p.y, font: `italic 700 ${fs}px "Cormorant Garamond", Georgia, serif`, fill: 'rgba(40,28,14,0.92)', stroke: 'rgba(246,238,212,0.8)', pri: 1,
+            sub: bits.length && V.z >= 2 ? { text: bits.join('  ·  '), font: `700 ${ss}px Inter, system-ui, sans-serif`, fill: D ? D.color : (r.land && r.land.col) || '#efe3c8', stroke: 'rgba(20,14,8,0.85)', dy: fs * 0.62 + ss * 0.62 } : null });
+        }
       }
       // the way there: the planned route, or a straight line if there is none yet
       const goal = ECHO.Purpose && ECHO.Purpose.current(game);
@@ -931,19 +949,29 @@
       const all0 = WM.visible().map(f => ({ f, p: WM.toScreen(c, f.x, f.y) })).filter(({ p }) => p.x > -30 && p.y > -30 && p.x < c.width + 30 && p.y < c.height + 30);
       for (const o of all0) o.w = weight(o.f);
       all0.sort((a, b) => b.w - a.w);
-      const pos = [], gap = (ppl < 3.6 ? 24 : 19) * k, drawn = [];
+      const pos = [], left = [], gap = (ppl < 3.6 ? 24 : 19) * k, drawn = [];
       for (const o of all0) {
         if (o.f.isGoal) { drawn.push({ f: o.f, p: o.p, r: 14 }); continue; }
-        if (o.w < 99 && o.w < minPri) continue;
-        if (o.w < 99 && pos.some(q => Math.abs(q.p.x - o.p.x) < gap && Math.abs(q.p.y - o.p.y) < gap)) continue;
-        pos.push(o);
+        if (o.w < 99 && o.w < minPri) { left.push(o); continue; }
+        if (o.w < 99 && pos.some(q => Math.abs(q.p.x - o.p.x) < gap && Math.abs(q.p.y - o.p.y) < gap)) { left.push(o); continue; }
+        o.more = 0; pos.push(o);
       }
+      // what was left off for want of room is counted on the token nearest it ("+3": come closer)
+      for (const o of left) { let best = null, bd = gap * 1.7; for (const q of pos) { if (q.f.layer !== o.f.layer) continue; const d = Math.max(Math.abs(q.p.x - o.p.x), Math.abs(q.p.y - o.p.y)); if (d < bd) { bd = d; best = q; } } if (best) best.more++; }
       for (const { f, p } of pos.slice().reverse()) {
         const hi = f === WM.hover || f === WM.sel;
         const pulse = (f.ref && sug && f.ref === sug) || (pl.tracked === 'site:' + (f.ref && f.ref.id));
         WM.icon(g, f.kind, p.x, p.y, f.color, k * (hi ? 1.25 : f.layer === 'pins' ? 1.15 : 1), pulse ? now : 0);
         rects.push({ x: p.x - 9 * k, y: p.y - 9 * k, w: 18 * k, h: 18 * k });
         drawn.push({ f, p, r: 12 * k });
+      }
+      g.font = '700 9px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      for (const o of pos) {
+        if (!o.more) continue;
+        const t = '+' + o.more, tw = g.measureText(t).width + 7, bx = o.p.x + 9 * k, by = o.p.y - 9 * k;
+        g.fillStyle = 'rgba(12,18,26,0.92)'; g.strokeStyle = 'rgba(126,232,255,0.7)'; g.lineWidth = 1;
+        g.beginPath(); if (g.roundRect) g.roundRect(bx - tw / 2, by - 6.5, tw, 13, 6.5); else g.rect(bx - tw / 2, by - 6.5, tw, 13); g.fill(); g.stroke();
+        g.fillStyle = '#dff6ff'; g.fillText(t, bx, by + 0.5);
       }
       WM._drawn = { c, list: drawn };
       // what the pointer is over, and what is chosen: rings of light round them
@@ -967,14 +995,20 @@
         const text = f.layer === 'dungeons' && f.kind === 'dungeon' ? `${f.name} ${f.stars}` : f.name;
         const w = g.measureText(text).width, y = p.y + 13 * k + size * 0.6;
         if (!hi && !fits(p.x - w / 2 - 2, y - size / 2, w + 4, size)) continue;
-        g.lineWidth = 3; g.strokeStyle = 'rgba(20,14,8,0.85)'; g.strokeText(text, p.x, y);
-        g.fillStyle = f.layer === 'dungeons' ? f.color : f.layer === 'towns' ? '#fff4dc' : '#efe3c8'; g.fillText(text, p.x, y);
+        g.lineWidth = 3.5; g.strokeStyle = 'rgba(16,12,8,0.9)'; g.strokeText(text, p.x, y);
+        if (f.layer === 'dungeons' && f.kind === 'dungeon' && f.stars) {
+          // (the name in plain cream, easy to read on any ground; only its level in the colour of its danger)
+          const nm = f.name + ' ', nw = g.measureText(nm).width, x0 = p.x - w / 2;
+          g.textAlign = 'left'; g.fillStyle = '#f6ead0'; g.fillText(nm, x0, y); g.fillStyle = f.color; g.fillText(f.stars, x0 + nw, y); g.textAlign = 'center';
+        } else { g.fillStyle = f.layer === 'dungeons' ? f.color : f.layer === 'towns' ? '#fff4dc' : '#efe3c8'; g.fillText(text, p.x, y); }
       }
       // the names of the land, where they fit among the rest
       for (const L of (WM._later || []).sort((a, b) => b.pri - a.pri)) {
-        g.font = L.font; const w = g.measureText(L.text).width, hh = parseInt(L.font.match(/(\d+)px/)[1], 10);
-        if (!fits(L.x - w / 2, L.y - hh / 2, w, hh) && L.pri < 2) continue;
-        g.lineWidth = 3; g.strokeStyle = L.stroke; g.strokeText(L.text, L.x, L.y); g.fillStyle = L.fill; g.fillText(L.text, L.x, L.y);
+        g.font = L.font; let w = g.measureText(L.text).width; const hh = parseInt(L.font.match(/(\d+)px/)[1], 10);
+        let sh = 0; if (L.sub) { g.font = L.sub.font; w = Math.max(w, g.measureText(L.sub.text).width); sh = L.sub.dy + parseInt(L.sub.font.match(/(\d+)px/)[1], 10) / 2 - hh / 2; g.font = L.font; }
+        if (!fits(L.x - w / 2 - 3, L.y - hh / 2, w + 6, hh + sh) && L.pri < 2) continue;
+        g.lineWidth = 3.5; g.strokeStyle = L.stroke; g.strokeText(L.text, L.x, L.y); g.fillStyle = L.fill; g.fillText(L.text, L.x, L.y);
+        if (L.sub) { g.font = L.sub.font; g.lineWidth = 3; g.strokeStyle = L.sub.stroke; g.strokeText(L.sub.text, L.x, L.y + L.sub.dy); g.fillStyle = L.sub.fill; g.fillText(L.sub.text, L.x, L.y + L.sub.dy); }
       }
       WM._later = [];
       // where you are headed, and you
@@ -998,6 +1032,32 @@
       g.fillStyle = '#efe3c8'; g.fillRect(16, c.height - 16, px, 3); g.font = '600 11px Inter, system-ui, sans-serif'; g.textAlign = 'left'; g.fillText(`${lg} leagues`, 22 + px, c.height - 15);
       g.textAlign = 'center';
       void INK;
+    },
+    // The flat chart, close up: once the view has been still a moment, the stretch of country on
+    // screen is painted again at the size it is shown (every tile its own colour, the shore inked,
+    // each tree where it stands) and laid over the small painting of the whole world — which,
+    // stretched that large, was only a blur. It stays where it was painted while you drag.
+    chartDetail(game, c, g) {
+      const world = game.world, V = WM.view, D = WM._det, now = performance.now();
+      if (D && D.world === world.id && V.z >= 1.4) { const p = WM.toScreen(c, D.x0, D.y0); g.imageSmoothingEnabled = true; g.drawImage(D.cv, p.x, p.y, (D.x1 - D.x0) * V.z, (D.y1 - D.y0) * V.z); }
+      if (V.z < 1.8) return;
+      const key = V.cx.toFixed(1) + ',' + V.cy.toFixed(1) + ',' + V.z.toFixed(2) + ',' + c.width + 'x' + c.height;
+      if (key !== WM._detKey) {
+        WM._detKey = key; WM._detT = now; clearTimeout(WM._detTm);
+        WM._detTm = setTimeout(() => { const cc = document.getElementById('worldmap'); if (cc && cc.isConnected && !WM.isGlobe()) WM.drawSoon(ECHO.Game, cc); }, 240);
+        return;
+      }
+      if (now - WM._detT < 200 || (D && D.key === key && D.world === world.id && now - D.t < 20000)) return;
+      const a = WM.toWorld(c, 0, 0), b = WM.toWorld(c, c.width, c.height);
+      const x0 = U.clamp(Math.floor(a.x) - 2, 0, world.W), y0 = U.clamp(Math.floor(a.y) - 2, 0, world.H), x1 = U.clamp(Math.ceil(b.x) + 2, 0, world.W), y1 = U.clamp(Math.ceil(b.y) + 2, 0, world.H);
+      if (x1 - x0 < 2 || y1 - y0 < 2) return;
+      let S = U.clamp(Math.round(V.z), 2, 8);
+      while (S > 2 && (x1 - x0) * (y1 - y0) * S * S > 1.5e6) S--;
+      if ((x1 - x0) * (y1 - y0) * S * S > 2.4e6) return;
+      const img = WM.paint(world, x0, y0, x1, y1, S), cv = D && D.cv ? D.cv : document.createElement('canvas');
+      cv.width = img.width; cv.height = img.height; cv.getContext('2d').putImageData(img, 0, 0);
+      WM._det = { cv, x0, y0, x1, y1, key, world: world.id, t: now };
+      const p = WM.toScreen(c, x0, y0); g.drawImage(cv, p.x, p.y, (x1 - x0) * V.z, (y1 - y0) * V.z);
     },
     // ------------------------------------------------------------ the globe
     isGlobe(world) { world = world || (ECHO.Game && ECHO.Game.world); return WM.mode === 'globe' && !!WM.G && !!world && !!world.globe; },
