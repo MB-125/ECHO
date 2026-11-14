@@ -933,6 +933,26 @@ function main() {
   }
 
 
+  console.log('\nLevel against level');
+  {
+    const P = ECHO.Prowess, om = (a, d) => P.overmatch(P.steps(a, d));
+    check('a level 5 striking a level 10 does less than half, and is struck nearly twice as hard', om(5, 10) < 0.5 && om(5, 10) > 0.35 && om(10, 5) > 1.7 && om(10, 5) < 2.1, `x${om(5, 10).toFixed(2)} dealt, x${om(10, 5).toFixed(2)} taken`);
+    check('…one level apart changes nothing much, and the same level nothing at all', om(5, 5) === 1 && om(5, 6) > 0.9 && om(6, 5) < 1.1);
+    check('…it is the same danger at every height: 500 against 1000 as 5 against 10; 596 against 620 as good as even', Math.abs(om(500, 1000) - om(5, 10)) < 0.01 && om(596, 620) === 1);
+    check('…and it has an end: never less than a fifth, never more than two and a half times', om(1, 1500) === 0.2 && om(1500, 1) === 2.5);
+    let mono = true; for (let d = 1; d < 40; d++) if (om(5, 5 + d) > om(5, 4 + d) + 1e-9 || om(5 + d, 5) < om(4 + d, 5) - 1e-9) mono = false;
+    check('…the further apart, the more it tells, without a step backwards', mono);
+    const sword = L => ({ kind: 'sword', dmg: Math.round(12 + L * 3.2) }), mail = L => ({ kind: 'armor', def: 4 + L * 4 });
+    check('gear counts: a level 10 blade in level 5 hands strikes at level 7.5, and level 10 mail is struck at 7.5', Math.abs(5 + P.gearShift(5, sword(10)) - 7.5) < 0.2 && Math.abs(5 + P.gearShift(5, mail(10)) - 7.5) < 0.01, `strikes at ${(5 + P.gearShift(5, sword(10))).toFixed(1)}`);
+    check('…poor gear is never held against its bearer, and the best gear only carries so far (three steps)', P.gearShift(50, sword(3)) === 0 && P.gearShift(5, sword(400)) === 3 && P.gearShift(100, sword(1400)) === 30);
+    const pe = { type: 'player' }, game = { pe, pl: { prowess: { lv: 5, xp: 0 }, weapon: 'w', armor: 'a' }, world: { items: { w: sword(5), a: mail(5) }, npcs: { n1: { id: 'n1', lv: 10, skill: { fight: 30 } } } } };
+    const gob = { type: 'creature', foe: {}, lvl: 10 }, guard = { type: 'person', npcId: 'n1' };
+    const a = P.clash(game, pe, gob, { type: 'melee' }), b2 = P.clash(game, gob, pe, { type: 'melee' }), c = P.clash(game, guard, pe, { type: 'melee' });
+    game.world.items.w = sword(10); const a2 = P.clash(game, pe, gob, { type: 'melee' });
+    check('in a fight: you at 5 on a level 10 goblin, it on you, and a level 10 soldier on you — and a better blade closes the gap', a < 0.5 && b2 > 1.7 && c > 1.7 && a2 > a + 0.15, `x${a.toFixed(2)} → x${a2.toFixed(2)} with a level 10 blade; it hits x${b2.toFixed(2)}`);
+    check('…things that do not fight (a door, a barrel) are struck as ever', P.clash(game, pe, { type: 'prop' }, { type: 'melee' }) === 1);
+  }
+
   console.log('\nSavvy');
   {
     let seed = 777;

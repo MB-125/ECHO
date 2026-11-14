@@ -325,6 +325,18 @@
         if (ours(target) && !ours(from)) dmg *= dif.taken;
         else if (ours(from) && !ours(target)) dmg *= dif.dealt;
       }
+      // level against level (prowess.js): a blow from below is blunted, a blow from above bites
+      // deeper; what each wields and wears counts
+      if (from && from !== target && ECHO.Prowess && ECHO.Prowess.clash && !src.pure) {
+        const k = ECHO.Prowess.clash(game, from, target, src);
+        if (k !== 1) {
+          dmg *= k;
+          // (and what stands well above the striker is not rocked by the blow)
+          if (k < 0.72) src = Object.assign({}, src, { stagger: (src.stagger || 0) * k * 0.6, knock: (src.knock || 0) * k });
+          if (from === game.pe && k < 0.72 && game.time - (C._omT || -9) > 3) { C._omT = game.time; C.floater(target.x, target.y - 1.5, 'outmatched', '#ff9a7a'); }
+          else if (target === game.pe && k > 1.38 && game.time - (C._omT2 || -9) > 4) { C._omT2 = game.time; C.floater(target.x, target.y - 1.5, 'overpowered', '#ff7a4a'); }
+        }
+      }
       const incoming = src.angle != null ? src.angle + Math.PI : null;
       const facingIncoming = incoming != null && Math.abs(U.angleDiff(target.dir, incoming)) < 1.25;
       // Blocking

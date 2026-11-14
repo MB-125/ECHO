@@ -7,6 +7,15 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.45.0', items: [
+      'A level is power now, for everyone. When two fight, every blow is weighed by how far apart their levels stand. A level 5 striking a level 10 does less than half its damage and no longer staggers or shoves it, and the level 10 strikes back nearly twice as hard.',
+      'It is the same rule for you, soldiers, townsfolk, beasts and things from the gates. A level 10 soldier cuts through level 5 bandits; a pack that sets on something far above it loses its nerve sooner.',
+      'The gap is measured in steps of a tenth of the higher level (never less than one level), so 500 against 1000 is the same danger as 5 against 10, and 596 against 620 is as good as even. Within half a step nothing changes.',
+      'Gear counts. A weapon better than your level raises the level you strike at, and armour better than your level raises the level you are struck at, by half the difference (up to three steps). Quality, honing and tempering all count. Soldiers and townsfolk who wear better gear get the same.',
+      'Poor gear is never held against you: it is only weaker, as it always was.',
+      'When your blows are being blunted you see "outmatched" over the foe; when its blows are biting deeper, "overpowered" over you. The Hero page shows the level you strike at and the level you are struck at.',
+      'Your save is untouched. Fights against foes of your own level are exactly as before; foes well above you are harder, and foes well below you fall faster.'
+    ] },
     { v: '0.44.0', items: [
       'The map opens on the flat chart, close in on where you are, instead of on the far-off globe. The globe is one button away, and the map remembers which of the two you used last.',
       'The chart is sharp close up. Once you stop moving it, the country on screen is painted again at full size: every tile clear, the shore inked, each tree where it stands. Before, it was a small picture stretched into a blur.',

@@ -129,6 +129,61 @@
     // What a level's gear hits for, against level 1: flame and other powers that
     // carry no weapon grow by this, so they keep pace with what you wield.
     gearScale(L) { return (12 + 3.68 * Math.max(1, L)) / 15.68; },
+    // ------------------------------------------------------------ level against level
+    // A level is power, for everyone: you, a soldier, a wolf, a thing out of a gate. When two
+    // fight, every blow is weighed by how far apart they stand (in steps: see above):
+    //   – struck from below, a blow loses 16% for each step (a level 5 on a level 10 does less
+    //     than half), down to a fifth at the worst — and it no longer staggers or shoves;
+    //   – struck from above, it gains 15% for each step (that level 10 on the level 5: nearly
+    //     double), up to two and a half times.
+    // Within half a step, nothing changes. GEAR COUNTS: a weapon of a higher level than its
+    // bearer raises the level they strike at, and armour of a higher level the level they are
+    // struck at — by half the difference, up to three steps (what it is worth is read from its
+    // real power, so quality, honing and tempering all count). Poor gear is never held against
+    // anyone: it is only weaker, as it always was.
+    fightLv(game, e) {
+      if (!e) return 1;
+      if (game && e === game.pe) return P.level(game.pl);
+      const n = e.npcId != null && game && game.world && game.world.npcs ? game.world.npcs[e.npcId] : null;
+      if (n && ECHO.Delvers) return Math.max(ECHO.Delvers.lv(n), e._plv || 0, 1);
+      return P.foeLevel(e);
+    },
+    itemLv(it) {
+      if (!it) return 0;
+      const pw = ECHO.Gear ? ECHO.Gear.power(it) : (it.kind === 'armor' ? it.def : it.dmg) || 0;
+      return it.kind === 'armor' ? (pw - 4) / 4 : (pw - (it.kind === 'bow' || it.kind === 'gun' ? 13 : 12)) / 3.2;
+    },
+    gearShift(L, it) { return it ? U.clamp((P.itemLv(it) - L) * 0.5, 0, 3 * P.step(L)) : 0; },
+    // what it strikes with (src: the blow), and what it wears
+    gearOf(game, e, src) {
+      const world = game && game.world; if (!world || !e) return null;
+      if (e === game.pe) {
+        const pl = game.pl, I = world.items || {};
+        if (!src) return I[pl.armor] || null;
+        if (src.type === 'melee') return I[pl.weapon] || null;
+        if (src.blast || (src.type === 'ranged' && ECHO.Guns && ECHO.Guns._shotGun)) return I[pl.gun] || null;
+        if (src.type === 'ranged') return I[pl.bow] || null;
+        return null;
+      }
+      const n = e.npcId != null && world.npcs ? world.npcs[e.npcId] : null;
+      if (!n || !ECHO.Delvers) return null;
+      return src ? (src.type === 'melee' || src.type === 'ranged' ? ECHO.Delvers.weapon(world, n) : null) : ECHO.Delvers.armor(world, n);
+    },
+    armLv(game, e, src) { const L = P.fightLv(game, e); return L + P.gearShift(L, P.gearOf(game, e, src || { type: 'melee' })); },
+    guardLv(game, e) { const L = P.fightLv(game, e); return L + P.gearShift(L, P.gearOf(game, e, null)); },
+    // how many steps the striker stands above (+) or below (−) the struck
+    steps(aL, dL) { return (aL - dL) / Math.max(1, Math.max(aL, dL) / 10); },
+    overmatch(s) {
+      if (s <= -0.5) return Math.max(0.2, Math.pow(0.84, -s - 0.5));
+      if (s >= 0.5) return Math.min(2.5, Math.pow(1.15, s - 0.5));
+      return 1;
+    },
+    fights(e) { return !!e && (e.type === 'player' || e.type === 'person' || e.type === 'creature' || e.type === 'boss' || !!e.foe); },
+    // what a blow from one to the other is multiplied by
+    clash(game, from, target, src) {
+      if (!from || !target || from === target || !P.fights(from) || !P.fights(target)) return 1;
+      return P.overmatch(P.steps(P.armLv(game, from, src), P.guardLv(game, target)));
+    },
     diff(foeL, plL) {
       const d = P.gap(foeL, plL);
       return DIFF.find(x => d <= x.max) || DIFF[DIFF.length - 1];

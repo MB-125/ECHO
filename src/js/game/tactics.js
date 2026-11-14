@@ -128,6 +128,12 @@
       const p0 = s.members.find(o => o.type === 'person' && !o.isCompanion);
       if (p0 && ECHO.Odds) m += U.clamp((ECHO.Odds.odds(game, p0, tg, false) - 0.5) * 0.5, -0.3, 0.12);
       if (p0 && tg === game.pe && ECHO.Renown) m -= ECHO.Renown.dread(game.world);   // (they know your name)
+      // (and every one of them can feel it when what they have set on stands far above them)
+      if (ECHO.Prowess && ECHO.Prowess.steps && s.members.length) {
+        let sum = 0; for (const e of s.members) sum += ECHO.Prowess.fightLv(game, e);
+        const st = ECHO.Prowess.steps(sum / s.members.length, ECHO.Prowess.guardLv(game, tg));
+        m += st <= -5 ? -0.3 : st <= -3 ? -0.15 : st >= 3 ? 0.08 : 0;
+      }
       m -= s.shock || 0;
       s.nerve = m;
       if (game.time - s.start < 3) return;
