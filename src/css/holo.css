@@ -527,3 +527,10 @@ details summary { cursor: pointer; color: var(--hc); }
 .hubbar .hubkey { align-self: center; margin: 0 10px; padding: 3px 8px; font-size: 11px; font-weight: 700; color: rgba(190,225,238,0.7); border: 1px solid rgba(127,233,255,0.35); border-radius: 3px; }
 .tabs.jsub .jmore { opacity: 0.7; border-style: dashed; }
 @media (max-width: 900px) { .hubbar button { letter-spacing: 0.08em; padding: 12px 6px 10px; font-size: 12px; } .hubbar button i, .hubbar .hubkey { display: none; } }
+
+/* A window that asks you something never hides its answer: with one to three choices, they stay
+   at the bottom of the window however long the text above them is (a long "while you were away"
+   pushed the only button off the screen, and the game sat paused behind it, looking frozen). */
+.modal-choices.pin { position: sticky; bottom: -22px; z-index: 3; margin: 0 -26px -22px; padding: 14px 26px 22px;
+  background: linear-gradient(180deg, rgba(4,12,22,0) 0, rgba(4,12,22,0.97) 14px, rgba(3,10,18,0.99) 100%); }
+.modal-body .digest-scroll { max-height: 38vh; overflow-y: auto; }

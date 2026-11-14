@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.45.1', items: [
+      'Fixed the game seeming to freeze when you come back to a world after some days away. The "days have passed" window could be longer than the screen, with its only button ("Step back into the world") pushed off the bottom, so the game sat paused behind it. The buttons of a window now stay in view however long the text is.',
+      'A window with a single button can also be answered with Enter, Space or Esc.',
+      'Your save is untouched.'
+    ] },
     { v: '0.45.0', items: [
       'A level is power now, for everyone. When two fight, every blow is weighed by how far apart their levels stand. A level 5 striking a level 10 does less than half its damage and no longer staggers or shoves it, and the level 10 strikes back nearly twice as hard.',
       'It is the same rule for you, soldiers, townsfolk, beasts and things from the gates. A level 10 soldier cuts through level 5 bandits; a pack that sets on something far above it loses its nerve sooner.',

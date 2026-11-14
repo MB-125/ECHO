@@ -317,8 +317,25 @@
         b.addEventListener('click', () => { UI.closeModal(); c.onPick && c.onPick(); });
         ch.appendChild(b);
       }
+      // its answer is never out of sight, and the window always opens at its top
+      const few = (o.choices || []).length <= 3;
+      ch.classList.toggle('pin', few);
+      const inner = $('#modal .modal-inner'); if (inner) inner.scrollTop = 0;
+      // a window with one thing to say yes to is answered by Enter, Space or Esc as well as a click
+      // (not in its first moment: a key still held from the game must not answer it)
+      if (UI._modalKey) document.removeEventListener('keydown', UI._modalKey, true);
+      const opened = performance.now();
+      UI._modalKey = ev => {
+        if (!UI.modalOpen || performance.now() - opened < 450) return;
+        if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Escape') return;
+        const tg = ev.target; if (tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA' || tg.tagName === 'SELECT')) return;
+        const bs = [...ch.querySelectorAll('button')].filter(x => !x.disabled);
+        if (bs.length !== 1) return;
+        ev.preventDefault(); ev.stopPropagation(); bs[0].click();
+      };
+      document.addEventListener('keydown', UI._modalKey, true);
     },
-    closeModal() { UI.modalOpen = false; $('#modal').classList.add('hidden'); },
+    closeModal() { UI.modalOpen = false; $('#modal').classList.add('hidden'); if (UI._modalKey) { document.removeEventListener('keydown', UI._modalKey, true); UI._modalKey = null; } },
     openPanel(title, html, kind) {
       if (ECHO.Inv) { ECHO.Inv.tip(false); ECHO.Inv.closeMenu(); }
       UI.panelOpen = true; UI.panelKind = kind || null;
