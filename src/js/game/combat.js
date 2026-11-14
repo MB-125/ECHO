@@ -269,7 +269,10 @@
             else if (p.kind === 'missile' && GU) GU.blast(p);
             else {
               if (GU) GU._shotGun = !!p.gun;
-              try { C.damage(e, p.dmg, { type: 'ranged', from: p.from, angle: p.angle, knock: p.crit ? 0.22 : p.knock || 0.08, crit: p.crit, stagger: p.crit ? 0.35 : 0, el: p.el }); } finally { if (GU) GU._shotGun = false; }
+              // (a bolt of yours through the middle of it: a headshot)
+              const weak = !!(GU && p.hsMul && p.from === game.pe && GU.weakHit(p, e));
+              try { C.damage(e, weak ? p.dmg * GU.weakMul(p, e) : p.dmg, { type: 'ranged', from: p.from, angle: p.angle, knock: p.crit ? 0.22 : p.knock || 0.08, crit: p.crit || weak, stagger: p.crit ? 0.35 : weak ? 0.3 : 0, el: p.el, weak }); } finally { if (GU) GU._shotGun = false; }
+              if (weak) GU.onWeak(game, p, e);
               if (p.kind === 'laser') C.burst(p.x, p.y, p.color || '#7ff4ff', 4, 2, 0.2, 1);
             }
             break;

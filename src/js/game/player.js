@@ -73,7 +73,9 @@
       const mouse = game.screenToWorld(In.mx, In.my);
       let aim = Math.atan2(mouse.y - (pe.y - 0.3), mouse.x - pe.x);
       // ---- Target lock (R or middle mouse): you always face and aim at the target
-      if ((In.hit('r') || In.mpressed[1]) && !game.ui.blocksWorld()) {
+      // (with the gun out and room in its magazine, R reloads instead)
+      const rKey = In.hit('r') && !(ECHO.Guns && ECHO.Guns.tryReload(game));
+      if ((rKey || In.mpressed[1]) && !game.ui.blocksWorld()) {
         if (PC.lock) PC.unlock(game, true);
         else PC.acquire(game, mouse);
       }

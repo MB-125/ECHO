@@ -127,7 +127,7 @@
     // ------------------------------------------------------------ after it
     post(game, target, dmg, src) {
       const from = src.from;
-      if (ECHO.Build && target !== game.pe && target.hp <= 0 && !target.dead && RX.ours(game, from) && !RX.ours(game, target)) ECHO.Build.kill(game, target, src);
+      if (ECHO.Build && target !== game.pe && target.hp <= 0 && !target.dead && RX.ours(game, from) && !RX.ours(game, target)) { ECHO.Build.kill(game, target, src); if (ECHO.Guns && from === game.pe) ECHO.Guns.kill(game, target, src); }
       if (target === game.pe || target.dead && !src._shatter) return;
       if (!RX.ours(game, from) || RX.ours(game, target) || src.noRx) return;
       const el = RX.el(src);

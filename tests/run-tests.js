@@ -933,6 +933,24 @@ function main() {
   }
 
 
+  console.log('\nMagazines, headshots, fittings');
+  {
+    const ctx = { console, Math, JSON, Set, Map, Object, Array, String, Number, isFinite };
+    ctx.globalThis = ctx; vm.createContext(ctx);
+    for (const f of ['core.js', 'game/guns.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx, { filename: f });
+    const GU = ctx.ECHO.Guns, pistol = { kind: 'gun', gclass: 'pistol' }, tube = { kind: 'gun', gclass: 'launcher' };
+    check('a gun never fired since magazines came in is full: 12 in a pistol, 30 in a rifle, 6 in a scattergun, none in a launcher', GU.loaded(pistol) === 12 && pistol.mag === 12 && GU.magSize({ kind: 'gun', gclass: 'rifle' }) === 30 && GU.magSize({ kind: 'gun', gclass: 'scatter' }) === 6 && GU.magSize(tube) === 0);
+    pistol.att = { mag: 'ext', sight: 'reflex', barrel: 'comp' };
+    check('fittings change the gun: an extended magazine holds half as many again, a compensator strays 40% less, a reflex sight widens the weak spot', GU.magSize(pistol) === 18 && Math.abs(GU.mod(pistol, 'spread') - 0.6) < 1e-9 && GU.mod(pistol, 'zone') === 1.5);
+    pistol.att.mag = 'quick'; pistol.mag = 18;
+    check('…and taking the big magazine off leaves no more in the gun than it holds', GU.loaded(pistol) === 12 && Math.abs(GU.mod(pistol, 'rl') - 0.65) < 1e-9);
+    const pl = { gunKills: { pistol: 29, scatter: 500 } };
+    check('each kind of gun earns its own, by its own kills — and a scattergun never takes a scope', GU.earned(pl, 'pistol', 'reflex') && GU.earned(pl, 'pistol', 'ext') && !GU.earned(pl, 'pistol', 'comp') && !GU.earned(pl, 'rifle', 'reflex') && !GU.earned(pl, 'scatter', 'scope') && GU.earned(pl, 'scatter', 'hush') && !GU.fits('launcher', 'ext'));
+    const bolt = (y) => ({ x: 0, y: y - 0.15, vx: 24, vy: 0, hsMul: 1.8, hsZone: 0.3 }), man = { x: 5, y: 0, r: 0.36, type: 'creature', humanoid: true };
+    check('a bolt through the middle of a body is a headshot; one that clips its edge is not; nothing that is not a body has one', GU.weakHit(bolt(0.05), man) && !GU.weakHit(bolt(0.25), man) && !GU.weakHit(bolt(0), { x: 5, y: 0, r: 0.5, type: 'prop' }) && !GU.weakHit({ x: 0, y: 0, vx: 24, vy: 0 }, man));
+    check('…a great foe takes half the bonus', GU.weakMul(bolt(0), man) === 1.8 && Math.abs(GU.weakMul(bolt(0), { type: 'boss' }) - 1.4) < 1e-9);
+  }
+
   console.log('\nLevel against level');
   {
     const P = ECHO.Prowess, om = (a, d) => P.overmatch(P.steps(a, d));

@@ -7,6 +7,16 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.46.0', items: [
+      'Guns have magazines. The pistol holds 12 shots, the pulse rifle 30, the scattergun 6; the rest of your cells stay in your pack. An empty gun reloads by itself, and R reloads early. You cannot fire while reloading. The bar at the foot of the screen shows shots loaded and cells in reserve.',
+      'With your gun out and room in the magazine, R reloads. Otherwise R is still the target lock.',
+      'Headshots. A bolt that goes through the middle of a body is a HEADSHOT (on a beast, a WEAK SPOT): 1.8 times the harm from a pistol, 1.5 from a rifle, 1.25 from each scattergun bolt, and it staggers. Great foes take half the bonus.',
+      'Bolts stray. A pistol strays less than a rifle, standing strays less than walking, and the first shots of a held stream stray less than the last. A foe that is frozen, staggered or has not seen you is the easiest to hit in the middle.',
+      'Fittings. Each kind of gun earns fittings from the kills you make with it: reflex sight (5 kills), extended magazine (15), compensator (30), quick-change magazine (50), long barrel (75), marksman scope (105), suppressor (140). One sight, one barrel and one magazine at a time.',
+      'Fit them at the gunsmith\'s bench: open your gear (I), click your gun, and choose Fittings. They cost nothing and can be swapped freely.',
+      'The missile launcher is unchanged: one missile at a time, no fittings.',
+      'An old save gets all of this the first time it is used. Your guns start with a full magazine; nothing is taken from you.'
+    ] },
     { v: '0.45.1', items: [
       'Fixed the game seeming to freeze when you come back to a world after some days away. The "days have passed" window could be longer than the screen, with its only button ("Step back into the world") pushed off the bottom, so the game sat paused behind it. The buttons of a window now stay in view however long the text is.',
       'A window with a single button can also be answered with Enter, Space or Esc.',

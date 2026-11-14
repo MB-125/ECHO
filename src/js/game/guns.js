@@ -28,9 +28,9 @@
     // what each kind does: seconds between shots, share of the gun's power each bolt, bolt
     // speed and life (so range), spread, bolts a shot, what it burns
     CLASSES: {
-      pistol: { name: 'Pistol', cd: 0.3, per: 0.44, spd: 24, life: 0.6, spread: 0.035, ammo: 'cells', kick: 0.05, noise: 5, sfx: 'zap', assist: 10, desc: 'Quick and sure: a bolt for each pull of the trigger. Its bolts leave a foe charged.' },
-      rifle: { name: 'Pulse rifle', cd: 0.11, per: 0.2, spd: 28, life: 0.72, spread: 0.02, grow: 0.014, max: 0.17, auto: true, ammo: 'cells', kick: 0.03, noise: 6, sfx: 'pulse', assist: 13, desc: 'Hold the trigger: a stream of bolts that strays the longer you hold it.' },
-      scatter: { name: 'Cryo scattergun', cd: 0.8, per: 0.22, spd: 19, life: 0.33, spread: 0.46, pellets: 7, knock: 0.24, ammo: 'cells', kick: 0.14, noise: 7, sfx: 'blast', recoil: 0.16, assist: 6, desc: 'Seven freezing bolts in a fan: three that land freeze a foe solid. Then strike it.' },
+      pistol: { name: 'Pistol', mag: 12, rl: 1.0, hs: 1.8, cd: 0.3, per: 0.44, spd: 24, life: 0.6, spread: 0.035, ammo: 'cells', kick: 0.05, noise: 5, sfx: 'zap', assist: 10, desc: 'Quick and sure: a bolt for each pull of the trigger. Its bolts leave a foe charged.' },
+      rifle: { name: 'Pulse rifle', mag: 30, rl: 1.5, hs: 1.5, cd: 0.11, per: 0.2, spd: 28, life: 0.72, spread: 0.02, grow: 0.014, max: 0.17, auto: true, ammo: 'cells', kick: 0.03, noise: 6, sfx: 'pulse', assist: 13, desc: 'Hold the trigger: a stream of bolts that strays the longer you hold it.' },
+      scatter: { name: 'Cryo scattergun', mag: 6, rl: 1.7, hs: 1.25, cd: 0.8, per: 0.22, spd: 19, life: 0.33, spread: 0.46, pellets: 7, knock: 0.24, ammo: 'cells', kick: 0.14, noise: 7, sfx: 'blast', recoil: 0.16, assist: 6, desc: 'Seven freezing bolts in a fan: three that land freeze a foe solid. Then strike it.' },
       launcher: { name: 'Missile launcher', cd: 1.35, per: 2.3, radius: 2, missile: true, lock: true, ammo: 'missiles', kick: 0.2, noise: 9, sfx: 'missile', recoil: 0.2, assist: 18, desc: 'Hold to lock on: the missile finds its mark and bursts, throwing whatever stands near.' }
     },
     ODDS: [['pistol', 0.36], ['rifle', 0.3], ['scatter', 0.19], ['launcher', 0.15]],
@@ -41,11 +41,110 @@
       launcher: ['missile launcher', 'missile tube', 'rocket pod']
     },
     AMMO: { cells: 'energy cells', missiles: 'missiles' },
+    // ------------------------------------------------------------ the magazine, the weak spot, and what is fitted
+    //   • THE MAGAZINE. A gun holds so many shots (12 the pistol, 30 the rifle, 6 the scattergun);
+    //     the rest of your cells are in your pack. Empty, it reloads by itself; R reloads it early
+    //     (with the gun out and the magazine not full, R reloads instead of locking on). You
+    //     cannot fire while you reload. The launcher loads one missile at a time, as before.
+    //   • THE WEAK SPOT. A bolt that goes through the middle of a body is a HEADSHOT (on a beast,
+    //     a WEAK SPOT): far more harm, and it staggers. Bolts stray: less from a pistol than a
+    //     rifle, less standing than walking, less in the first shots of a stream than the last —
+    //     and what is still (frozen, staggered, unaware) is easier to hit there than what runs.
+    //   • WHAT IS FITTED. Each kind of gun earns its own fittings by the kills made with it: a
+    //     sight, a barrel and a magazine, one of each at a time (the gunsmith's bench: the gun's
+    //     menu on the gear screen). What is fitted is kept on the gun (it.att); what a kind has
+    //     earned is yours (pl.gunKills). None of it is there in an old save until it is used.
+    ATT: {
+      reflex: { slot: 'sight', name: 'Reflex sight', at: 5, zone: 1.5, desc: 'The weak spot is half as large again.' },
+      scope: { slot: 'sight', name: 'Marksman scope', at: 105, range: 1.3, hs: 0.5, slow: 0.82, not: ['scatter'], desc: 'Bolts fly a third farther and a weak-spot hit does much more. You walk slower while you aim.' },
+      comp: { slot: 'barrel', name: 'Compensator', at: 30, spread: 0.6, desc: 'Bolts stray 40% less, and a held stream strays more slowly.' },
+      long: { slot: 'barrel', name: 'Long barrel', at: 75, range: 1.25, dmg: 1.08, desc: 'Bolts fly faster and a quarter farther, and hit a little harder.' },
+      hush: { slot: 'barrel', name: 'Suppressor', at: 140, noise: 0.3, dmg: 0.95, desc: 'Heard at a third of the distance. A little less punch.' },
+      ext: { slot: 'mag', name: 'Extended magazine', at: 15, mag: 1.5, desc: 'Half as many shots again before you reload.' },
+      quick: { slot: 'mag', name: 'Quick-change magazine', at: 50, rl: 0.65, desc: 'Reloads a third faster.' }
+    },
+    SLOTS: [['sight', 'Sight'], ['barrel', 'Barrel'], ['mag', 'Magazine']],
+    rl: null,
+    fitted(it) { const a = (it && it.att) || {}, out = []; for (const [k] of GU.SLOTS) if (a[k] && GU.ATT[a[k]]) out.push(GU.ATT[a[k]]); return out; },
+    mod(it, key) { let m = 1; for (const A of GU.fitted(it)) if (A[key] != null && key !== 'hs') m *= A[key]; return m; },
+    plus(it, key) { let m = 0; for (const A of GU.fitted(it)) if (A[key] != null) m += A[key]; return m; },
+    magSize(it) { const K = GU.cls(it); return K && K.mag ? Math.round(K.mag * GU.mod(it, 'mag')) : 0; },
+    kills(pl, gclass) { return (pl.gunKills && pl.gunKills[gclass]) || 0; },
+    fits(gclass, id) { const A = GU.ATT[id]; return !!A && !!GU.CLASSES[gclass] && !!GU.CLASSES[gclass].mag && !(A.not && A.not.includes(gclass)); },
+    earned(pl, gclass, id) { return GU.fits(gclass, id) && GU.kills(pl, gclass) >= GU.ATT[id].at; },
+    // what is in it now (a gun never fired since magazines came in is full)
+    loaded(it) { const M = GU.magSize(it); if (!M) return 0; if (it.mag == null || it.mag > M) it.mag = M; return it.mag; },
+    // R, or an empty magazine: fill it from the pack
+    reload(game, quiet) {
+      const pl = game.pl, it = game.world.items[pl.gun], K = GU.cls(it), M = GU.magSize(it);
+      if (!M || GU.rl || GU.loaded(it) >= M || !((pl.inv[K.ammo] || 0) > 0)) return false;
+      const T = K.rl * GU.mod(it, 'rl');
+      GU.rl = { id: it.id, t: T, T };
+      if (ECHO.Sfx) ECHO.Sfx.play('gunSwap', { pitch: 0.8 });
+      if (!quiet) C().floater(game.pe.x, game.pe.y - 1.3, 'reloading', '#9fd3ff');
+      return true;
+    },
+    // R with the gun out and room in the magazine reloads (otherwise R is the target lock)
+    tryReload(game) { return !!(game.pl && game.pl.gun && GU.active(game) && !game.ui.blocksWorld() && GU.reload(game)); },
+    // did that bolt go through the middle of it
+    weakHit(p, e) {
+      if (!p.hsMul || !e || e.type === 'prop') return false;
+      const v = Math.hypot(p.vx, p.vy) || 1, perp = Math.abs((e.x - p.x) * p.vy - (e.y - 0.15 - p.y) * p.vx) / v;   // (bolts fly a hand above the feet they are aimed from)
+      return perp < Math.min(e.r || 0.36, 0.6) * (p.hsZone || 0.3);
+    },
+    weakMul(p, e) { const big = e.titan || e.type === 'boss' || e.boss2 || e.lord; return big ? 1 + (p.hsMul - 1) * 0.5 : p.hsMul; },
+    onWeak(game, p, e) {
+      const man = e.humanoid || e.type === 'person';
+      C().floater(e.x, e.y - 1.7, man ? 'HEADSHOT' : 'WEAK SPOT', '#ffe27a');
+      C().burst(e.x, e.y - 0.3, '#fff2b0', 7, 4, 0.3, 1.4);
+      if (ECHO.Sfx) ECHO.Sfx.play('crit', { pitch: 1.25 });
+      game.hitStop(0.035);
+    },
+    // a kill with the gun in your hand: that kind of gun has earned it
+    kill(game, e, src) {
+      const pl = game.pl, it = pl && game.world.items[pl.gun];
+      if (!it || !GU._shotGun || !src || (src.type !== 'ranged' && !src.blast)) return;
+      const c = it.gclass || 'pistol';
+      pl.gunKills = pl.gunKills || {};
+      const was = pl.gunKills[c] || 0, now = pl.gunKills[c] = was + 1;
+      for (const id in GU.ATT) if (GU.fits(c, id) && was < GU.ATT[id].at && now >= GU.ATT[id].at && ECHO.UI) {
+        ECHO.UI.toast(`${GU.CLASSES[c].name}: ${GU.ATT[id].name} earned (${now} kills). Fit it at the gunsmith's bench: open your gear (I), click your gun, "Fittings".`, 'legend', 8);
+        if (ECHO.Sfx) ECHO.Sfx.play('lockOn');
+      }
+    },
+    // the gunsmith's bench: what this gun can be fitted with
+    bench(game, it, after) {
+      const pl = game.pl, UI = ECHO.UI, c = it.gclass || 'pistol', K = GU.cls(it), n = GU.kills(pl, c);
+      const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+      if (!K.mag) { UI.modal({ title: it.name, html: `<p class="dim">A launcher takes no fittings: it loads one missile at a time and finds its own mark.</p>`, choices: [{ label: 'Done', onPick: () => after && after() }] }); return; }
+      it.att = it.att || {};
+      const next = Object.values(GU.ATT).filter(A => !(A.not && A.not.includes(c)) && A.at > n).sort((a, b2) => a.at - b2.at)[0];
+      const row = (slot, label) => {
+        const opts = Object.entries(GU.ATT).filter(([id, A]) => A.slot === slot && GU.fits(c, id));
+        return `<div class="card"><h4>${label}</h4>${opts.map(([id, A]) => {
+          const has = n >= A.at, on = it.att[slot] === id;
+          return `<div style="display:flex;flex-wrap:nowrap;align-items:center;gap:12px;margin:7px 0"><button class="small" data-att="${slot}:${id}" ${has ? '' : 'disabled'} style="min-width:92px;flex:0 0 auto${on ? ';border-color:#7fe8ff;color:#dffaff' : ''}">${on ? '✓ Fitted' : has ? 'Fit' : `${A.at} kills`}</button><div><b>${esc(A.name)}</b><div class="dim" style="font-size:12px">${esc(A.desc)}</div></div></div>`;
+        }).join('')}</div>`;
+      };
+      UI.modal({ title: `Fittings · ${it.name}`,
+        html: `<p class="dim">${esc(K.name)} · <b>${n}</b> kill${n === 1 ? '' : 's'} with this kind of gun${next ? ` · next: ${esc(next.name)} at ${next.at}` : ' · everything earned'}. One sight, one barrel, one magazine. Click a fitted one again to take it off.</p>
+          <p style="font-size:13px">Holds <b>${GU.magSize(it)}</b> shots · reloads in <b>${(K.rl * GU.mod(it, 'rl')).toFixed(1)}s</b> · weak-spot hit <b>×${(K.hs + GU.plus(it, 'hs')).toFixed(1)}</b></p>
+          ${GU.SLOTS.map(([s2, l]) => row(s2, l)).join('')}`,
+        choices: [{ label: 'Done', onPick: () => after && after() }] });
+      document.querySelectorAll('#modal [data-att]').forEach(b2 => b2.addEventListener('click', () => {
+        const [slot, id] = b2.dataset.att.split(':');
+        if (!GU.earned(pl, c, id)) return;
+        if (it.att[slot] === id) delete it.att[slot]; else it.att[slot] = id;
+        GU.loaded(it);
+        if (ECHO.Sfx) ECHO.Sfx.play('gunSwap');
+        GU.bench(game, it, after);
+      }));
+    },
     SALVO_LV: 10,
     // ------------------------------------------------------------ the state of your guns (not saved)
     cd: 0, heat: 0, up: 0, aiming: false, holdT: 0, lock: null, salvoT: 0, said: {},
     ships: [], queue: [], callT: 3, lastShip: {}, _shotGun: false,
-    reset() { GU.cd = 0; GU.heat = 0; GU.up = 0; GU.aiming = false; GU.lock = null; GU.ships = []; GU.queue = []; GU.callT = 3; GU.lastShip = {}; GU.salvoT = 0; },
+    reset() { GU.rl = null; GU.cd = 0; GU.heat = 0; GU.up = 0; GU.aiming = false; GU.lock = null; GU.ships = []; GU.queue = []; GU.callT = 3; GU.lastShip = {}; GU.salvoT = 0; },
     cls(it) { return it && it.kind === 'gun' ? GU.CLASSES[it.gclass] || GU.CLASSES.pistol : null; },
     // the gun is what the right mouse button fires now
     active(game) {
@@ -58,13 +157,13 @@
     hud(game) {
       const pl = game.pl, W = game.world, gun = pl.gun && W.items[pl.gun], K = GU.cls(gun), on = GU.active(game);
       const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-      let h = on && K ? `<span title="Right mouse fires it · &#96; swaps to your bow" style="color:#9ff6ff">⌖ ${esc(K.name)} <b>${pl.inv[K.ammo] || 0}</b> ${K.ammo === 'missiles' ? 'missiles' : 'cells'}</span>${pl.bow ? `<span class="dim" title="&#96; swaps to it">Arrows ${pl.inv.arrows}</span>` : ''}`
+      let h = on && K ? `<span title="Right mouse fires it · R reloads · &#96; swaps to your bow" style="color:#9ff6ff">⌖ ${esc(K.name)} ${K.mag ? (GU.rl ? '<b style="color:#ffd9a0">reloading…</b>' : `<b${GU.loaded(gun) <= Math.ceil(GU.magSize(gun) * 0.25) ? ' style="color:#ff9a7a"' : ''}>${GU.loaded(gun)}</b>/${GU.magSize(gun)}`) + ' · ' : ''}<b>${pl.inv[K.ammo] || 0}</b> ${K.ammo === 'missiles' ? 'missiles' : 'cells'}</span>${pl.bow ? `<span class="dim" title="&#96; swaps to it">Arrows ${pl.inv.arrows}</span>` : ''}`
         : `<span title="Right mouse draws your bow${gun ? ' · &#96; swaps to your gun' : ''}">Arrows <b>${pl.inv.arrows}</b></span>${gun ? `<span class="dim" title="&#96; swaps to it">⌖ ${pl.inv[K.ammo] || 0} ${K.ammo === 'missiles' ? 'missiles' : 'cells'}</span>` : ''}`;
       if (pl.salvo) h += GU.salvoT > 0 ? `<span class="dim" title="-: missile salvo">Salvo ${Math.ceil(GU.salvoT)}s</span>` : `<span style="color:#ffd9a0" title="-: missile salvo">-·Salvo</span>`;
       return h;
     },
     // how much aiming slows you on foot (a launcher on the shoulder most)
-    slow(game) { const K = GU.cls(game.world.items[game.pl.gun]); return K && K.lock ? 0.6 : K && K.pellets ? 0.8 : 0.75; },
+    slow(game) { const it = game.world.items[game.pl.gun], K = GU.cls(it); return (K && K.lock ? 0.6 : K && K.pellets ? 0.8 : 0.75) * GU.mod(it, 'slow'); },
     // which of your pieces a ranged blow came from (for its affix, and what it tempers)
     rangedId(game) { return GU._shotGun ? game.pl.gun : game.pl.bow; },
     // ------------------------------------------------------------ making them
@@ -118,7 +217,7 @@
       if (!gun) { ECHO.UI.toast('You carry no gun. Smiths sell them.', 'info', 3); return; }
       if (!bow) { pl.ranged = 'gun'; ECHO.UI.toast(`${gun.name} ready: you carry no bow.`, 'info', 2); return; }
       pl.ranged = GU.active(game) ? 'bow' : 'gun';
-      const PC = ECHO.PlayerCtl; PC.drawing = false; PC.draw = 0; GU.lock = null;
+      const PC = ECHO.PlayerCtl; PC.drawing = false; PC.draw = 0; GU.lock = null; GU.rl = null;
       const K = GU.cls(gun);
       ECHO.UI.toast(pl.ranged === 'gun' ? `${gun.name} ready · ${K.name.toLowerCase()} · ${pl.inv[K.ammo] || 0} ${GU.AMMO[K.ammo]}` : `${bow.name} ready · ${pl.inv.arrows || 0} arrows`, 'info', 2);
       if (ECHO.Sfx) ECHO.Sfx.play('gunSwap');
@@ -140,18 +239,31 @@
       if (K.lock) { if (held) GU.lockOn(game, aim, dt); else if (!In.mreleased[2]) GU.lock = null; }
       const pull = In.mpressed[2] && !blocked;
       const fireNow = K.lock ? In.mreleased[2] && !blocked : K.auto ? held : pull || (held && GU.holdT > K.cd * 1.8 && GU.cd <= -K.cd * 0.7);
+      // the magazine: a reload under way finishes (or is dropped, if the gun was changed)
+      const M = GU.magSize(it);
+      if (GU.rl && GU.rl.id !== it.id) GU.rl = null;
+      if (GU.rl) {
+        GU.rl.t -= dt;
+        if (GU.rl.t <= 0) {
+          const take = Math.min(M - GU.loaded(it), pl.inv[K.ammo] || 0);
+          it.mag = GU.loaded(it) + take; pl.inv[K.ammo] = (pl.inv[K.ammo] || 0) - take; GU.rl = null;
+          if (ECHO.Sfx) ECHO.Sfx.play('gunSwap', { pitch: 1.2 });
+        }
+      }
       if (!fireNow) return;
-      if (GU.cd > 0) return;
-      const have = pl.inv[K.ammo] || 0;
+      if (GU.cd > 0 || GU.rl) return;
+      const have = M ? GU.loaded(it) : pl.inv[K.ammo] || 0;
       if (have <= 0) {
+        if (M && GU.reload(game)) return;           // (empty, with cells in the pack: it reloads)
         if (pull || (K.lock && In.mreleased[2])) { if (ECHO.Sfx) ECHO.Sfx.play('gunEmpty'); C().floater(pe.x, pe.y - 1.2, `no ${GU.AMMO[K.ammo]}`, '#9fd3ff'); }
         GU.cd = 0.3; GU.lock = null;
         return;
       }
-      if (!(ECHO.React && ECHO.React.od > 0)) pl.inv[K.ammo] = have - 1;   // (Overdrive: nothing burned)
+      if (!(ECHO.React && ECHO.React.od > 0)) { if (M) it.mag = have - 1; else pl.inv[K.ammo] = have - 1; }   // (Overdrive: nothing burned)
       GU.cd = K.cd;
       GU.fire(game, it, K, aim);
       if (K.lock) GU.lock = null;
+      if (M && it.mag <= 0) GU.reload(game, true);
     },
     // hold on a foe for a moment and it is locked: the missile will find it
     lockOn(game, aim, dt) {
@@ -172,6 +284,7 @@
     fire(game, it, K, aim) {
       const pe = game.pe, pl = game.pl, PC = ECHO.PlayerCtl, D = PC.derived || {};
       const base = D.gunDmg || 10, col = GU.color(it);
+      const sprM = GU.mod(it, 'spread'), rngM = GU.mod(it, 'range'), dmgM = GU.mod(it, 'dmg');
       const target = K.pellets ? null : PC.assist(game, aim, K.assist || 10, K.lock ? 0.32 : 0.16);
       const a0 = target ? Math.atan2(target.y - pe.y, target.x - pe.x) : aim;
       pe.dir = a0;
@@ -181,18 +294,20 @@
       } else {
         const n = K.pellets || 1;
         for (let i = 0; i < n; i++) {
-          const spr = n > 1 ? (i / (n - 1) - 0.5) * K.spread + (Math.random() - 0.5) * 0.05 : (Math.random() - 0.5) * (K.spread + GU.heat * 2);
-          const p = C().shoot(pe, a0 + spr, { kind: 'laser', speed: K.spd * (0.93 + Math.random() * 0.14), dmg: base * K.per, life: K.life * (n > 1 ? 0.85 + Math.random() * 0.3 : 1), type: 'ranged', color: col });
+          // (bolts stray: more walking than standing, more as a stream goes on, less with a compensator)
+          const spr = n > 1 ? (i / (n - 1) - 0.5) * K.spread + (Math.random() - 0.5) * 0.05 : (Math.random() - 0.5) * (K.spread + GU.heat * 2 + (pe.moving ? 0.045 : 0)) * sprM;
+          const p = C().shoot(pe, a0 + spr, { kind: 'laser', speed: K.spd * (0.93 + Math.random() * 0.14) * (rngM > 1 ? 1.12 : 1), dmg: base * K.per * dmgM, life: K.life * rngM / (rngM > 1 ? 1.12 : 1) * (n > 1 ? 0.85 + Math.random() * 0.3 : 1), type: 'ranged', color: col });
+          p.hsMul = (K.hs || 1.5) + GU.plus(it, 'hs'); p.hsZone = 0.3 * GU.mod(it, 'zone');
           p.gun = true; p.h = 0.88; p.knock = K.knock || 0.06; p.el = K.pellets || (ECHO.Build && ECHO.Build.cryoShot()) ? 'cold' : 'shock';   // (what it leaves on what it hits: react.js)
         }
-        if (K.grow) GU.heat = Math.min(K.max, GU.heat + K.grow);
+        if (K.grow) GU.heat = Math.min(K.max, GU.heat + K.grow * sprM);
       }
       GU.muzzle(game, pe, a0, col, K.missile ? 1.6 : K.pellets ? 1.3 : 0.9);
       if (ECHO.Sfx) ECHO.Sfx.play(K.sfx, { pitch: 0.95 + Math.random() * 0.1 });
       game.kick(a0 + Math.PI, K.kick);
       if (K.recoil && !pl.mounted) ECHO.Ent.move(game.world, pe, -Math.cos(a0) * K.recoil, -Math.sin(a0) * K.recoil);
       Ch().train(pl, 'archery', K.missile ? 0.06 : 0.015);
-      game.noise(pe.x, pe.y, K.noise);
+      game.noise(pe.x, pe.y, K.noise * GU.mod(it, 'noise'));
       if (ECHO.Wits) ECHO.Wits.note(game, 'ranged');
       GU.up = 1.4;
     },

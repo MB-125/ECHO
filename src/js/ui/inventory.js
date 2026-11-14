@@ -239,6 +239,7 @@
       m.className = 'inv-menu'; m.id = 'inv-menu';
       const items = [];
       if (!worn) items.push([it.kind === 'sword' ? 'Wield' : it.kind === 'bow' ? 'String this bow' : it.kind === 'gun' ? 'Carry this gun' : 'Put on', () => { Inv.put(game, it); Inv.refresh(host, game); }]);
+      if (it.kind === 'gun' && ECHO.Guns) items.push(['Fittings… (sight, barrel, magazine)', () => { UI.closePanel(); ECHO.Guns.bench(game, it, () => UI.openCharacter && UI.openCharacter()); }]);
       if (worn && (it.kind === 'armor' || it.kind === 'relic')) items.push(['Take off', () => { Inv.takeOff(game, it); Inv.refresh(host, game); }]);
       if (it.kind === 'relic' && worn) items.push([it.auto === false ? 'Let it wake by itself in a fight' : 'Only when I press its key', () => { if (it.auto === false) delete it.auto; else it.auto = false; Inv.refresh(host, game); }]);
       if (UI && UI.canGive && UI.canGive(pl, it)) items.push(['Give away…', () => UI.giveAway(it)]);
