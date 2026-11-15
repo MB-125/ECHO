@@ -314,7 +314,7 @@
       UI.pauseOpen = true;
       const body = UI.openPanel('Paused', `<div class="list" style="max-width:600px;margin:0 auto">
         <button data-a="resume" class="primary">Resume</button>
-        <button data-a="journal">Journal (Tab)</button><button data-a="map">Map (M)</button><button data-a="char">Character (K)</button>
+        <button data-a="char">Hero (Tab)</button><button data-a="map">Map (M)</button>
         <button data-a="save">Save now</button><button data-a="keys">Keys…</button><button data-a="report" title="Opens a short form on the game's page (GitHub), with your version and system filled in">Report a problem</button>
         <div class="upd-slot"></div>
         ${(() => { const st = UI.settings, opt = (k, v, lbl, def) => `<button class="small" data-gs="${k}:${v}" ${(st[k] || def) === v ? 'disabled' : ''}>${lbl}</button>`;
@@ -346,7 +346,6 @@
           <div class="row"><span>Music</span><input type="range" id="musvol" min="0" max="100" value="${Math.round(ECHO.Music.volume * 100)}" ${ECHO.Music.enabled ? '' : 'disabled'} style="flex:1"><button class="small" data-mu="${ECHO.Music.enabled ? 'off' : 'on'}">${ECHO.Music.enabled ? 'Mute music' : 'Play music'}</button></div></div>
         <div class="card"><h4>If you fall</h4><div class="row"><button class="small" data-pd="off" ${ECHO.Game.world && !ECHO.Game.world.permadeath ? 'disabled' : ''}>Keep my hero</button><button class="small" data-pd="on" ${ECHO.Game.world && ECHO.Game.world.permadeath ? 'disabled' : ''}>Legacy: die for good</button></div><div class="dim">${ECHO.Game.world && ECHO.Game.world.permadeath ? 'When your fate runs out, your hero dies for good and becomes history; you go on as someone new, starting over.' : 'Your hero never dies for good. A fall costs a few days and some coin, but your level and gear stay yours.'}</div></div>
         <div class="card"><h4>While you are away</h4><div class="row"><button class="small" data-lo="on" ${ECHO.Game.world && ECHO.Game.world.livesOn !== false ? 'disabled' : ''}>The world lives on</button><button class="small" data-lo="off" ${ECHO.Game.world && ECHO.Game.world.livesOn === false ? 'disabled' : ''}>The world waits</button></div><div class="dim">When the world lives on, a day passes for every two hours you are gone (at most five), and you come back to news, letters and changes.</div></div>
-        <button data-a="help">How the world works</button>
         <button data-a="title">Save and return to title</button>
         ${window.echoNative ? '<button data-a="quit">Save and quit</button>' : ''}</div>`, 'pause');
       UI.pauseOpen = false; // the panel itself pauses the game
@@ -357,7 +356,6 @@
         if (a === 'journal') UI.openJournal();
         if (a === 'map') UI.openMap();
         if (a === 'char') UI.openCharacter();
-        if (a === 'help') UI.openJournal('help');
         if (a === 'keys') { Scr.openKeys(); return; }
         if (a === 'report') { Scr.report(); return; }
         if (a === 'save') { await ECHO.Game.save(); UI.toast('The world is saved.', 'info', 2); UI.closePanel(); }

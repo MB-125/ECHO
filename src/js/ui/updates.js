@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.49.0', items: [
+      'The menu is down to three pages: Hero, Map and Beasts. The Quests, World and Codex tabs are gone.',
+      'Tab now opens your Hero page. The J key (guide) and the Esc menu\'s "How the world works" button are gone with the Codex.',
+      'Augment picks still pop up when you click the trials tracker on the left of the screen, and the tracker still shows your trials.',
+      'Nothing in your save changes: your quests, ambitions, letters and the rest carry on in the world as before.'
+    ] },
     { v: '0.48.0', items: [
       'Building is gone. You can no longer place walls, floors or anything else on the land.',
       'Crafting stays. Press = to open it. The workbench, furnace and anvil are now kit you make once and carry with you, instead of things you place: planks make a workbench, stone (dressed at the workbench) makes a furnace, and ingots (smelted at the furnace) make an anvil.',

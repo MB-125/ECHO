@@ -173,7 +173,7 @@
         el = document.createElement('div'); el.id = 'hud-trials';
         el.title = 'Trials: finish one for crowns and an augment. Click to see them and your augments.';
         el.style.cssText = 'margin:4px 0 2px;font-size:11px;line-height:1.5;font-weight:500;color:#bfe9f5;cursor:pointer;pointer-events:auto;max-width:250px';
-        el.addEventListener('click', () => { if (!ECHO.UI.modalOpen) { if (ECHO.Game.pl.trials && ECHO.Game.pl.trials.pick > 0) B.choose(ECHO.Game); else ECHO.UI.openJournal('trials'); } });
+        el.addEventListener('click', () => { if (!ECHO.UI.modalOpen) { if (ECHO.Game.pl.trials && ECHO.Game.pl.trials.pick > 0) B.choose(ECHO.Game); } });
         host.appendChild(el);
       }
       const key = T.act.map(a => a.k + a.n + '/' + a.need).join('|') + T.pick;

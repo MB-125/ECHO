@@ -54,8 +54,7 @@
       if (!game.pl) return;
       if (!UI.paused()) {
         if (In.pressed.has('e') && game._interact) game.interact(game._interact);
-        if (In.pressed.has('Tab')) UI.openJournal();
-        if (In.pressed.has('j')) UI.openJournal('guide');
+        if (In.pressed.has('Tab')) UI.openCharacter();
         if (In.pressed.has('m')) UI.openMap();
         // (C wakes your third relic; Ctrl sneaks; the character sheet is on K)
         if (In.pressed.has('k')) UI.openCharacter();
@@ -356,12 +355,12 @@
     // the pages run along the top of the panel: click one, or step through them with Q and E.
     HUBS: [
       { k: 'hero', name: 'Hero', icon: '◈', open: () => UI.openCharacter() },
-      { k: 'quests', name: 'Quests', icon: '◇', tabs: ['trials', 'ambition', 'story', 'tasks'], more: [] },
       { k: 'map', name: 'Map', icon: '⌖', open: () => UI.openMap() },
-      { k: 'world', name: 'World', icon: '◎', tabs: ['nearby', 'people', 'places', 'letters'], more: ['realm', 'powers', 'wonders', 'heard'] },
-      { k: 'beasts', name: 'Beasts', icon: '❖', tabs: ['tamed', 'animals'], more: [] },
-      { k: 'codex', name: 'Codex', icon: '☰', tabs: ['guide', 'help', 'self'], more: ['name', 'guild', 'pastimes', 'guard'] }
+      { k: 'beasts', name: 'Beasts', icon: '❖', tabs: ['tamed', 'animals'], more: [] }
     ],
+    // (the Quests, World and Codex pages are no longer in the menu: a page that is in none of the
+    //  hubs above is not shown, and asking for one opens your Hero page instead)
+    inMenu(tab) { return UI.HUBS.some(h => h.tabs && (h.tabs.includes(tab) || h.more.includes(tab))); },
     hubGo(k) {
       const h = UI.HUBS.find(x => x.k === k);
       if (!h || k === UI._hub) return;
@@ -383,7 +382,7 @@
       inner.classList.add('hubbed');
       const game = ECHO.Game, pl = game.pl, world = game.world;
       const unread = ECHO.Letters ? ECHO.Letters.unread(world).length : 0, picks = pl.trials ? pl.trials.pick || 0 : 0;
-      const badge = { quests: picks, world: unread };
+      const badge = {}; void picks; void unread;
       bar.innerHTML = `<span class="hubkey">Q</span>${UI.HUBS.map(h => `<button data-hub="${h.k}" class="${h.k === cur ? 'on' : ''}"><i>${h.icon}</i>${h.name}${badge[h.k] ? `<b>${badge[h.k]}</b>` : ''}</button>`).join('')}<span class="hubkey">E</span>`;
       bar.querySelectorAll('button[data-hub]').forEach(b => b.addEventListener('click', () => UI.hubGo(b.dataset.hub)));
     },
@@ -1720,6 +1719,7 @@
 
     // ------------------------------------------------------------ Journal, map, character
     openJournal(tab0) {
+      if (!tab0 || !UI.inMenu(tab0)) return UI.openCharacter();
       const game = ECHO.Game, world = game.world, pl = game.pl;
       let tab = tab0 || (pl.focus !== undefined ? 'ambition' : 'tasks'), kind = 'all';
       const body = UI.openPanel('Journal', '', 'journal');
@@ -1735,7 +1735,6 @@
         const GROUPS = UI.HUBS.filter(h => h.tabs).map(h => [h.k, h.tabs.concat(every || UI._jMore || h.more.includes(tab) ? h.more : [])]);
         const lbl = Object.fromEntries(tabs), has = k => tabs.some(t => t[0] === k);
         const groups = GROUPS.map(([n, ks]) => [n, ks.filter(has)]).filter(g => g[1].length);
-        for (const t of tabs) if (!UI.HUBS.some(h => h.tabs && (h.tabs.includes(t[0]) || h.more.includes(t[0])))) groups[groups.length - 1][1].push(t[0]);
         const cur = groups.find(g => g[1].includes(tab)) || groups[0];
         UI._jLast = UI._jLast || {}; UI._jLast[cur[0]] = tab;
         const badge = ks => { const n = ks.reduce((s, k) => s + (+(String(lbl[k]).match(/\((\d+)\)/) || [0, 0])[1]), 0); return n ? ` <span class="jbadge">${n}</span>` : ''; };
