@@ -25,7 +25,7 @@
       key: 'ember', name: 'the Cinder Gate', world: 'the Ashen Expanse', color: '#ff6a2a', glow: '#ffb060', dark: '#2a0c04',
       blurb: 'A world of ash and glass under a sky that is always burning. Rivers of fire run between the dunes; things made of embers hunt in packs.',
       zones: ['the Scorched Verge', 'the Cinderfields', 'the Glass Dunes', 'the Burning Steps', 'the Magma Throat', 'the Obsidian Crown', 'the Sovereign\'s Caldera'],
-      roster: ['cinderhound', 'magmabrute', 'ashwraith', 'emberdrake', 'slaggolem'], sovereign: 'cindersovereign'
+      roster: ['cinderhound', 'magmabrute', 'ashwraith', 'emberstalker', 'slaggolem'], sovereign: 'cindersovereign'
     },
     abyss: {
       key: 'abyss', name: 'the Drowned Gate', world: 'the Sunken Choir', color: '#3ad8d0', glow: '#9ff8ff', dark: '#021a1e',

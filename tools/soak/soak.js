@@ -74,15 +74,6 @@ async () => {
     out.counts.gateIn=!!ECHO.Interior.cur;
     if (ECHO.Interior.cur) { play(400, { extra:['z','x','c','o'] }); try { ECHO.Interior.leave(G); } catch(e){} await wait(2000); close(); step(5); }
   });
-  await S('fly', async()=>{
-    const t=ECHO.Titans.list(W).find(t=>ECHO.Titans.sp(t).flies); if(!t) return; t.bound=true; t.alive=true; t.restUntil=0;
-    const sp=ECHO.Ent.freeSpot(W, W.W*0.4, W.H*0.5, 20); G.pe.x=G.pl.x=sp.x; G.pe.y=G.pl.y=sp.y; step(3);
-    if (ECHO.Interior.cur) { ECHO.Interior.leave(G); await wait(2000); close(); step(5); } G.pl.beastOut=null; ECHO.Apex.call(G, t.id); step(60); const e=ECHO.Apex.entOf(G, t.id); if(!e) { window._errs.push('fly :: no dragon; interior='+(ECHO.Interior.cur&&ECHO.Interior.cur.type)+' rest='+t.restUntil+' day='+W.day+' alive='+t.alive); return; } e.tamed=true; e.faction='player'; e.x=G.pe.x+1.5; e.y=G.pe.y; e.alt=0; step(2);
-    ECHO.Apex.mount(G, e); step(30);
-    for (let i=0;i<300;i++){ In.down=new Set([keys[(i/60|0)%4], ...(i%100<40?['Shift']:[]), ...(i%150<20?[' ']:[])]); In.mdown[0]=i%40<10; if(i%50===0) In.mpressed[2]=true; if(i%120===60) press('q'); if(i%200===100) press('f'); G.update(0.05); }
-    In.down=new Set(); In.mdown=[false,false,false];
-    G.pe.x=G.pl.x=W.W*0.4; G.pe.y=G.pl.y=W.H*0.5; step(10); ECHO.Apex.land(G); for(let i=0;i<200 && G.pl.flying;i++) G.update(0.05); out.counts.landed=!G.pl.flying; step(20);
-  });
   await S('time', async()=>{ ECHO.Sim.fastForward(W, 3); step(5); play(600); });
   await S('save-load', async()=>{
     const json=ECHO.Save.serialize(W); out.counts.saveKB=Math.round(json.length/1024);

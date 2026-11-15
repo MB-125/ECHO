@@ -10,7 +10,7 @@
 // What you tame follows you (three at a time; the rest wait at your den until
 // you call them, from the Animals page, U), fights whatever comes at you, grows
 // stronger on what it kills, and if it is beaten it limps off to rest until
-// the next day. Titans (dragons and the great beasts of the wild) are bound as
+// the next day. Titans (winged beasts and the great beasts of the wild) are bound as
 // before.
 (function () {
   const { U } = ECHO;
@@ -204,7 +204,7 @@
       for (const r of out) {
         if (T.resting(world, r)) { r.out = false; continue; }
         const e = game.ents.find(o => o.pal === r && !o.dead);
-        // on a dragon's back: they follow far below, out of sight, and are at your side when you land
+        // on a winged beast's back: they follow far below, out of sight, and are at your side when you land
         if (pl.flying) { if (e) { e.dead = true; e.vanish = true; } T._flew = true; continue; }
         if (!ok || (L && !T.fits(r, L))) { if (e) { e.dead = true; e.vanish = true; } continue; }
         if (T.resting(world, r)) { if (e) { e.dead = true; e.vanish = true; } continue; }

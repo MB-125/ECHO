@@ -1,12 +1,12 @@
-// The titans in real time: dragons in the sky over their ranges, great beasts
+// The titans in real time: winged beasts in the sky over their ranges, great beasts
 // on the ground, their young about them and their prey around them.
 //
-// A dragon circles its range by day and sleeps on its roost by night; it
+// A winged beast circles its range by day and sleeps on its roost by night; it
 // hunts the deer and wolves below. Come onto its range and it warns you, then
 // fights — on the ground with jaws and tail and breath, and from the air with
 // strafing fire, rains of its element and a dive that shakes the ground.
 // Beaten down, a titan lies in the dust: bind it (you can keep four), or end
-// it. Bound, it follows you and fights beside you; a dragon carries you
+// it. Bound, it follows you and fights beside you; a winged beast carries you
 // through the sky.
 (function () {
   const { U } = ECHO;
@@ -30,10 +30,10 @@
   };
   // the young and the hangers-on of a titan's range
   const BROOD = {
-    frosthound: { name: 'Frost hound', hp: 60, dmg: 11, speed: 4.6, reach: 1.25, wind: 0.34, cd: 1.0, tier: 4, shape: 'hound', scale: 1.05, col: '#dfe8f0', em: '#8fd8ff', f2d: 'grayscale(1) brightness(1.7)', ab: { pack: true }, resist: { fire: -0.3 }, loot: [['winterpelt', 0.05, 1, 1]], gold: [4, 14], desc: 'White hounds that run with the frost dragon.', weak: 'Fire.' },
+    frosthound: { name: 'Frost hound', hp: 60, dmg: 11, speed: 4.6, reach: 1.25, wind: 0.34, cd: 1.0, tier: 4, shape: 'hound', scale: 1.05, col: '#dfe8f0', em: '#8fd8ff', f2d: 'grayscale(1) brightness(1.7)', ab: { pack: true }, resist: { fire: -0.3 }, loot: [['winterpelt', 0.05, 1, 1]], gold: [4, 14], desc: 'White hounds that run with the winter.', weak: 'Fire.' },
     stormwisp: { name: 'Storm wisp', hp: 50, dmg: 10, speed: 3.6, reach: 1.2, wind: 0.5, cd: 1.6, tier: 4, shape: 'horror', scale: 0.6, col: '#1a2440', em: '#bfe0ff', f2d: 'hue-rotate(200deg) brightness(1.2)', ab: { bolt: { color: '#bfe0ff', dmg: 1.2, cd: 3, type: 'magic' } }, resist: { ranged: 0.3 }, loot: [['ecto', 0.4, 1, 1]], gold: [3, 10], desc: 'A knot of lightning that hangs in the air where storms have been.', weak: 'Close in; it is frail.' },
-    sunling: { name: 'Sunling', hp: 70, dmg: 12, speed: 3.8, reach: 1.4, wind: 0.5, cd: 1.3, tier: 4, shape: 'hound', scale: 0.4, col: '#c8962a', belly: '#fff0a0', em: '#ffd84a', f2d: 'sepia(1) saturate(3) brightness(1.2)', ab: { bolt: { color: '#ffe08a', dmg: 1.2, cd: 3.4, type: 'fire' } }, resist: { fire: 0.7 }, loot: [['dragonscale', 0.1, 1, 1]], gold: [6, 18], desc: 'A golden whelp. It spits sunlight.', weak: 'Steel.' },
-    voidshade: { name: 'Voidshade', hp: 62, dmg: 13, speed: 3.4, reach: 1.3, wind: 0.5, cd: 1.4, tier: 4, ab: { teleport: { cd: 6 }, drain: 0.4 }, resist: { melee: 0.3, ranged: 0.4 }, vis: { cloth: '#14101c', cloth2: '#0a0810', skin: '#2a2040', hair: '#14101c', show: ['robe', 'hood'], em: '#3a1a6a', opacity: 0.6, f2d: 'brightness(0.4) hue-rotate(250deg)' }, loot: [['ecto', 0.6, 1, 2]], gold: [5, 15], desc: 'A shadow left behind where the void dragon has fed.', weak: 'Fire, and light.' },
+    sunling: { name: 'Sunling', hp: 70, dmg: 12, speed: 3.8, reach: 1.4, wind: 0.5, cd: 1.3, tier: 4, shape: 'hound', scale: 0.4, col: '#c8962a', belly: '#fff0a0', em: '#ffd84a', f2d: 'sepia(1) saturate(3) brightness(1.2)', ab: { bolt: { color: '#ffe08a', dmg: 1.2, cd: 3.4, type: 'fire' } }, resist: { fire: 0.7 }, loot: [['greatfang', 0.1, 1, 1]], gold: [6, 18], desc: 'A golden whelp. It spits sunlight.', weak: 'Steel.' },
+    voidshade: { name: 'Voidshade', hp: 62, dmg: 13, speed: 3.4, reach: 1.3, wind: 0.5, cd: 1.4, tier: 4, ab: { teleport: { cd: 6 }, drain: 0.4 }, resist: { melee: 0.3, ranged: 0.4 }, vis: { cloth: '#14101c', cloth2: '#0a0810', skin: '#2a2040', hair: '#14101c', show: ['robe', 'hood'], em: '#3a1a6a', opacity: 0.6, f2d: 'brightness(0.4) hue-rotate(250deg)' }, loot: [['ecto', 0.6, 1, 2]], gold: [5, 15], desc: 'A shadow left behind where the void has fed.', weak: 'Fire, and light.' },
     tuskling: { name: 'Tuskling', hp: 55, dmg: 10, speed: 4.2, reach: 1.2, wind: 0.4, cd: 1.1, tier: 3, shape: 'hound', scale: 0.95, col: '#6a4a32', em: '#2a1a10', f2d: 'sepia(0.8) brightness(0.8)', ab: { pack: true, charge: { cd: 9 } }, loot: [['hide', 0.5, 1, 1]], gold: [1, 6], desc: 'The young of the great horned beast. They charge as their parent does.', weak: 'Sidestep, then strike.' }
   };
   // what they do: ground and air
@@ -50,7 +50,7 @@
     rain: { shape: 'rain', n: 6, radius: 1.7, spread: 5, wind: 1.2, mult: 0.85, cd: 2.4, elem: true, air: true },
     dive: { shape: 'circle', radius: 2.8, wind: 1.15, mult: 1.6, cd: 1.6, air: true, dive: true, atTarget: true }
   };
-  const GROUND = { drake: ['bite', 'sweep', 'breath', 'stomp'], stag: ['gore', 'stomp', 'sweep', 'bite'], wyrm: ['bite', 'sweep', 'spit', 'quake'] };
+  const GROUND = { stag: ['gore', 'stomp', 'sweep', 'bite'], wyrm: ['bite', 'sweep', 'spit', 'quake'] };
 
   // ------------------------------------------------------------------ signatures
   // What makes each titan itself: two or three arts of its own, a passive,
@@ -59,148 +59,6 @@
   const R0 = () => Math.random();
   const ang = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
   const SIG = {
-    emberwing: {
-      passive: 'Scorching hide: from its second phase, the air around it burns',
-      arts: [
-        { k: 'firewall', name: 'Wall of Fire', ph: 1, cd: 12, tamed: true, use(g, e, t, tg) {
-          const a = ang(e, tg); A.busy(e, 1.3);
-          A.line(g, e, e.x, e.y, a, 11, 2, 0.85, 1.1, { then: () => { for (let s = 2; s < 11; s += 2.2) A.zone(g, e, { x: e.x + Math.cos(a) * s, y: e.y + Math.sin(a) * s, r: 1.5, life: 7, mult: 0.45, burn: true }); } });
-        } },
-        { k: 'nova', name: 'Inferno Nova', ph: 2, cd: 17, use(g, e, t, tg) {
-          A.busy(e, 2.3); e.altGoal = 0;
-          A.blast(g, e, e.x, e.y, 6.5, 1.9, 2.1, { knock: 0.9, then: (x, y) => { for (let i = 0; i < 9; i++) { const a = i / 9 * 6.28; A.zone(g, e, { x: x + Math.cos(a) * 4.6, y: y + Math.sin(a) * 4.6, r: 1.3, life: 6, mult: 0.4, burn: true }); } } });
-        } }
-      ],
-      ult: { k: 'meteors', name: 'Meteor Storm', use(g, e, t, tg) {
-        e.altGoal = 6; A.busy(e, 5.4);
-        for (let i = 0; i < 15; i++) A.after(g, e, 0.7 + i * 0.3, () => { const x = tg.x + (R0() - 0.5) * 5, y = tg.y + (R0() - 0.5) * 5; A.blast(g, e, x, y, 1.9, 0.9, 1.35, { fall: true, then: (x2, y2) => A.zone(g, e, { x: x2, y: y2, r: 1.2, life: 5, mult: 0.3, burn: true }) }); });
-      } }
-    },
-    rimefang: {
-      passive: 'Ice armour: from its second phase it shields itself in ice — fire breaks it three times as fast',
-      arts: [
-        { k: 'prison', name: 'Glacial Prison', ph: 1, cd: 14, use(g, e, t, tg) {
-          A.busy(e, 1.6); const cx = tg.x, cy = tg.y, gap = Math.floor(R0() * 12);
-          for (let i = 0; i < 12; i++) { if (i === gap || i === (gap + 1) % 12) continue; const a = i / 12 * 6.28; A.blast(g, e, cx + Math.cos(a) * 3.2, cy + Math.sin(a) * 3.2, 1.05, 1.2, 1.2, { col: 'rgba(190,230,255,0.4)' }); }
-          A.blast(g, e, cx, cy, 1.9, 1.7, 1.7, { col: 'rgba(190,230,255,0.45)' });
-          A.tip(g, 'prison', 'A ring of ice closes round you: get out through the gap before the middle shatters.');
-        } },
-        { k: 'blizzard', name: 'Blizzard', ph: 2, cd: 19, tamed: true, use(g, e, t, tg) {
-          A.busy(e, 1); A.zone(g, e, { x: tg.x, y: tg.y, r: 4.2, life: 9, mult: 0.3, slow: true, follow: tg, speed: 2.1 });
-          A.tip(g, 'blizzard', 'A blizzard follows you, slowing and freezing: keep moving, and fight the dragon from its edge.');
-        } }
-      ],
-      ult: { k: 'zero', name: 'Absolute Zero', use(g, e, t, tg) {
-        A.busy(e, 3.6); e.altGoal = 0;
-        for (let i = 0; i < 3; i++) A.after(g, e, 0.5 + i * 1.0, () => A.wave(g, e, e.x, e.y, 15, 1.6, 1.7, { freeze: true }));
-        A.tip(g, 'wave', 'Rings of power rush outward: roll (Space) through each ring just as it reaches you.');
-      } },
-      phase(g, e, ph) { if (ph >= 2) A.shield(g, e, 0.12, 'fire', 'ice armour'); }
-    },
-    mirevenom: {
-      passive: 'Corrosion: every hit of its venom eats your armour — each makes the next hurt more',
-      arts: [
-        { k: 'bog', name: 'Toxic Bog', ph: 1, cd: 11, tamed: true, use(g, e, t, tg) {
-          A.busy(e, 1.2);
-          for (let i = 0; i < 4; i++) { const x = tg.x + (R0() - 0.5) * 6, y = tg.y + (R0() - 0.5) * 6; A.blast(g, e, x, y, 1.4, 0.9 + i * 0.15, 0.9, { then: (x2, y2) => A.zone(g, e, { x: x2, y: y2, r: 2, life: 12, mult: 0.35, poison: true, pool: true }) }); }
-        } },
-        { k: 'hatch', name: 'The Brood Hatches', ph: 2, cd: 24, use(g, e, t, tg) {
-          A.busy(e, 1.2);
-          const pools = A.zones.filter(z => z.e === e && z.pool).slice(0, 3);
-          for (const z of (pools.length ? pools : [{ x: tg.x + 3, y: tg.y }, { x: tg.x - 3, y: tg.y }])) A.spawnFoe(g, e, t, 'rothound', z.x, z.y, 0.55);
-        } }
-      ],
-      ult: { k: 'plague', name: 'Plague Cloud', use(g, e, t, tg) {
-        A.busy(e, 2); const safe = [];
-        for (let i = 0; i < 3; i++) { const a = R0() * 6.28, r = 4 + R0() * 4; safe.push({ x: e.x + Math.cos(a) * r, y: e.y + Math.sin(a) * r, r: 1.8 }); }
-        for (const s of safe) A.zone(g, e, { x: s.x, y: s.y, r: s.r, life: 10, mult: 0, col: 'rgba(150,255,170,0.42)' });
-        A.zone(g, e, { x: e.x, y: e.y, r: 12, life: 10, mult: 0.55, poison: true, safe, delay: 1.2, col: 'rgba(120,200,60,0.22)' });
-        A.tip(g, 'plague', 'Poison fills the whole range — stand in the clean green circles.');
-      } }
-    },
-    skyrender: {
-      passive: 'Stormborn: arrows are half as good against it, and its lightning leaps from you to your friends',
-      arts: [
-        { k: 'chain', name: 'Chain Lightning', ph: 1, cd: 9, tamed: true, use(g, e, t, tg) {
-          A.busy(e, 1);
-          A.blast(g, e, tg.x, tg.y, 1.4, 0.8, 1.3, { bolt: true, then: (x, y) => {
-            let from = { x, y }, n = 0;
-            for (const o of A.targetsOf(g, e)) { if (n >= 3 || o === tg || U.dist(o.x, o.y, from.x, from.y) > 7) continue; n++; A.blast(g, e, o.x, o.y, 1.2, 0.3 + n * 0.15, 1.0, { bolt: true }); }
-          } });
-        } },
-        { k: 'marks', name: 'Thunder Marks', ph: 1, cd: 15, use(g, e, t, tg) {
-          A.busy(e, 1.2);
-          for (let i = 0; i < 3; i++) A.mark(g, e, tg, 1.3 + i * 0.8, 1.7, 1.4, { bolt: true });
-          A.tip(g, 'marks', 'Marks of lightning follow you, then strike where you stood: keep moving.');
-        } },
-        { k: 'vortex', name: 'Eye of the Storm', ph: 2, cd: 21, use(g, e, t, tg) {
-          A.busy(e, 6); e.altGoal = 0;
-          A.zone(g, e, { x: e.x, y: e.y, r: 10, life: 6, mult: 0, pull: 2.6, follow: e, speed: 99, col: 'rgba(150,180,255,0.18)' });
-          for (let i = 0; i < 12; i++) A.after(g, e, 0.6 + i * 0.42, () => { const a = R0() * 6.28, r = 4 + R0() * 6; A.blast(g, e, e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, 1.6, 0.7, 1.2, { bolt: true }); });
-          A.tip(g, 'vortex', 'The storm pulls you in, and lightning falls at its edges: its heart is the safe place — and the dragon is there.');
-        } }
-      ],
-      ult: { k: 'skybreak', name: 'Skybreak', use(g, e, t, tg) {
-        A.busy(e, 6.6); e.altGoal = 9; e.inv = g.time + 5.4;
-        for (let i = 0; i < 16; i++) A.after(g, e, 0.8 + i * 0.27, () => A.blast(g, e, tg.x + (R0() - 0.5) * 7, tg.y + (R0() - 0.5) * 7, 1.6, 0.75, 1.3, { bolt: true }));
-        A.after(g, e, 5.2, () => { const a = R0() * 6.28; A.line(g, e, tg.x - Math.cos(a) * 12, tg.y - Math.sin(a) * 12, a, 24, 3.4, 1.3, 2.6, { bolt: true }); });
-      } }
-    },
-    solgrim: {
-      passive: 'Rebirth: the first time it is beaten down, it rises again in fire',
-      arts: [
-        { k: 'flare', name: 'Solar Flare', ph: 1, cd: 14, use(g, e, t, tg) {
-          A.busy(e, 1.7); e.altGoal = 0;
-          ECHO.Combat.telegraph({ x: e.x, y: e.y, cx: e.x, cy: e.y, radius: 2.2, life: 1.4, shape: 'circle', color: 'rgba(255,250,200,0.55)' });
-          A.tip(g, 'flare', 'It gathers the sun — turn your back on it (or let go of your lock) or be blinded.');
-          A.after(g, e, 1.4, () => {
-            g.light(e.x, e.y, 16, 1, '#fff6c0');
-            if (tg === g.pe && U.dist(e.x, e.y, tg.x, tg.y) < 22 && Math.abs(U.angleDiff(g.pe.dir || 0, ang(g.pe, e))) < 1.25) {
-              g.pl.dazzleUntil = g.time + 4.5; g.hurtFlash(2); A.hurt(g, e, tg, 0.6, { noEffect: true });
-              ECHO.Combat.floater(tg.x, tg.y - 1.4, 'BLINDED — your blows go wide', '#fff6c0', true);
-            } else if (tg === g.pe) ECHO.Combat.floater(tg.x, tg.y - 1.4, 'you looked away', '#c8c0b0');
-            if (e.tamed) for (const o of A.targetsOf(g, e)) if (U.dist(o.x, o.y, e.x, e.y) < 14) { o.stagger = Math.max(o.stagger || 0, 1.8); ECHO.Combat.floater(o.x, o.y - 1.2, 'blinded', '#fff6c0'); }
-          });
-        } },
-        { k: 'beam', name: 'Sunbeam', ph: 1, cd: 15, tamed: true, use(g, e, t, tg) {
-          A.busy(e, 3.6); e.altGoal = 0; const dir = R0() < 0.5 ? 1 : -1, a0 = ang(e, tg) - dir * 1.4;
-          ECHO.Combat.telegraph({ x: e.x, y: e.y, angle: a0, len: 13, width: 1.5, life: 0.9, shape: 'line', color: 'rgba(255,240,150,0.45)' });
-          A.after(g, e, 0.9, () => A.beam(g, e, a0, dir * 2.8, 13, 1.5, 2.4, 1.1));
-          A.tip(g, 'beam', 'A beam of the sun sweeps round it: roll through it, or get in close behind it.');
-        } }
-      ],
-      ult: { k: 'supernova', name: 'Supernova', use(g, e, t, tg) {
-        A.busy(e, 4.4); e.altGoal = 0; e.charging = { dmg: 0, need: e.maxHp * 0.07 };
-        ECHO.Combat.telegraph({ x: e.x, y: e.y, cx: e.x, cy: e.y, radius: 16, life: 3.2, shape: 'circle', color: 'rgba(255,230,120,0.22)' });
-        A.after(g, e, 3.2, () => { e.charging = null; A.wave(g, e, e.x, e.y, 17, 1.1, 3.0, { w: 1.3 }); g.light(e.x, e.y, 20, 1, '#fff0a0'); });
-        A.tip(g, 'supernova', 'It is going to burst like a sun. Hit it hard enough now and you break the spell — or run, or roll through the wave.');
-      } }
-    },
-    nyxathar: {
-      passive: 'Hunger of the void: its blows drink your life to heal it',
-      arts: [
-        { k: 'rift', name: 'Void Rift', ph: 1, cd: 12, tamed: true, use(g, e, t, tg) {
-          A.busy(e, 1.1);
-          for (let i = 0; i < 2; i++) { const a = R0() * 6.28; A.zone(g, e, { x: tg.x + Math.cos(a) * 2.6, y: tg.y + Math.sin(a) * 2.6, r: 2.4, life: 8, mult: 0.45, pull: 1.8, delay: 0.6, col: 'rgba(110,50,200,0.32)' }); }
-          A.tip(g, 'rift', 'Rifts in the world drag you in — walk out against the pull.');
-        } },
-        { k: 'blink', name: 'Shadowstep', ph: 1, cd: 8, use(g, e, t, tg) {
-          ECHO.Combat.burst(e.x, e.y, '#3a1a6a', 30, 4, 0.6, 3);
-          const sp = A.clearing(g.world, e, tg.x - Math.cos(tg.dir || 0) * 2.6, tg.y - Math.sin(tg.dir || 0) * 2.6, 4);
-          if (sp) { e.x = sp.x; e.y = sp.y; e.alt = 0; e.altGoal = 0; }
-          ECHO.Combat.burst(e.x, e.y, '#a87aff', 30, 4, 0.6, 3);
-          A.start(g, e, t, 'bite'); e.atk.wind = 0.45;
-        } },
-        { k: 'clones', name: 'Shades of the End', ph: 2, cd: 26, use(g, e, t, tg) {
-          A.busy(e, 1);
-          for (let i = 0; i < 2; i++) { const a = R0() * 6.28; A.spawnFoe(g, e, t, 'voidshade', tg.x + Math.cos(a) * 4, tg.y + Math.sin(a) * 4, 0.7, 1.8, `Shade of ${t.name}`); }
-        } }
-      ],
-      ult: { k: 'end', name: 'The End of Days', use(g, e, t, tg) {
-        A.busy(e, 6.6); e.altGoal = 6; e.thirstUntil = g.time + 12;
-        for (let i = 0; i < 22; i++) A.after(g, e, 0.6 + i * 0.27, () => A.blast(g, e, tg.x + (R0() - 0.5) * 11, tg.y + (R0() - 0.5) * 11, 2.1, 1.0, 1.5, { fall: true }));
-      } }
-    },
     gorehorn: {
       passive: 'Ironhide: blows to its face glance off — strike it from the side or behind',
       arts: [
@@ -657,7 +515,7 @@
       if ((t.restUntil || 0) > game.world.day) { game.pl.beastOut = null; return null; }
       let at = ECHO.Ent.freeSpot(game.world, pe.x - 1.8, pe.y + 1.2, 6) || { x: pe.x, y: pe.y };
       const e = A.make(game, t, riding ? pe.x : at.x, riding ? pe.y : at.y, true);
-      // where its whole body fits (a dragon may come down a little further off, in a clearing)
+      // where its whole body fits (a winged beast may come down a little further off, in a clearing)
       if (!riding) { const c = A.clearing(game.world, e, at.x, at.y, sp.flies ? 10 : 6); if (c) { e.x = c.x; e.y = c.y; } }
       if (sp.flies && !riding) { e.alt = 6; e.altGoal = 0; }
       game.ents.push(e);
@@ -684,7 +542,7 @@
       } else e._noLand = false;
       if (e.alt !== goal) { const r = (goal > e.alt ? 3.2 : 4.5) * dt; e.alt = Math.abs(goal - e.alt) < r ? goal : e.alt + Math.sign(goal - e.alt) * r; }
       // set down among trees or rocks (by a blink, a charge, a long way to catch up):
-      // a dragon lifts clear of them, a great beast works its way out to open ground
+      // a winged beast lifts clear of them, a great beast works its way out to open ground
       if (e.alt < 0.3 && !e.burrowed && !e.atk && game.pl.flying !== e.titan && game.time > (e._roomT || 0)) {
         e._roomT = game.time + 0.5;
         if (!A.bodyAny(game.world, e, e.x, e.y)) {
@@ -800,7 +658,7 @@
     // ------------------------------------------------------------ a body this size in the world
     // On the ground a titan is a body as wide as it is, along its spine (chest,
     // middle, haunches): trunks, boulders, walls, tents and water stop it as they
-    // stop you. A dragon that finds the way blocked takes to the air; in the air
+    // stop you. A winged beast that finds the way blocked takes to the air; in the air
     // it keeps above the trees and roofs, and it comes down only where its body fits.
     bodyR(e) { const s = e.tscale || 1; return e.flies ? 0.3 + 0.26 * s : 0.28 + 0.2 * s; },
     tileFree(world, x, y) { return !ECHO.World.isSolid(world, x, y) && !(ECHO.Water && ECHO.Water.kind(world, x, y) === 'deep'); },
@@ -909,7 +767,7 @@
         const moved = off != null;
         e.moving = moved;
         e._blockT = moved ? 0 : (e._blockT || 0) + dt;
-        // boxed in, or a wood ahead: a dragon takes to the air over it
+        // boxed in, or a wood ahead: a winged beast takes to the air over it
         if (e.flies && (e._blockT > 0.5 || (d > 4 && (e._wayT = (e._wayT || 0) - dt) <= 0 && ((e._wayT = 0.4), !A.wayClear(world, e, a, Math.min(d, 4.8)))))) { e.altGoal = Math.max(e.altGoal || 0, 4); e._blockT = 0; }
       }
       return d;
@@ -1149,7 +1007,7 @@
       const world = game.world, pl = game.pl;
       if (!Ti().canBind(world)) {
         const mine = Ti().bound(world);
-        return UI().modal({ title: 'You can keep four', html: `<p>You already keep ${mine.length} beasts. Set one free to make room for ${esc(t.name)} — it goes back to its old range.</p>`, choices: mine.map(b => ({ label: `Set ${b.name} free`, sub: `${Ti().sp(b).flies ? 'Dragon' : 'Great beast'} · level ${b.lvl}`, onPick: () => { if (pl.beastOut === b.id) A.dismiss(game); Ti().release(world, b, pl); A.bind(game, e, t); } })).concat([{ label: `Finish ${t.name}`, sub: 'Kill it and take its hoard', onPick: () => { if (!e.dead && e.state === 'subdued') A.finish(game, e, t); } }, { label: 'Leave it', onPick: () => {} }]) });
+        return UI().modal({ title: 'You can keep four', html: `<p>You already keep ${mine.length} beasts. Set one free to make room for ${esc(t.name)} — it goes back to its old range.</p>`, choices: mine.map(b => ({ label: `Set ${b.name} free`, sub: `Great beast · level ${b.lvl}`, onPick: () => { if (pl.beastOut === b.id) A.dismiss(game); Ti().release(world, b, pl); A.bind(game, e, t); } })).concat([{ label: `Finish ${t.name}`, sub: 'Kill it and take its hoard', onPick: () => { if (!e.dead && e.state === 'subdued') A.finish(game, e, t); } }, { label: 'Leave it', onPick: () => {} }]) });
       }
       const saved = ECHO.Calamity ? ECHO.Calamity.stoppedBy(world, t, pl, 'bound') : [];
       Ti().bind(world, t, pl);
@@ -1171,7 +1029,7 @@
       const world = game.world, pl = game.pl, r = Math.random, L = e.lvl;
       A.xp(game, e, 1.1);
       const add = (kind, qty) => game.loot.push({ x: e.x + (r() - 0.5) * 3, y: e.y + (r() - 0.5) * 3, kind, qty });
-      add('dragonscale', Ti().sp(t).flies ? 3 + Math.floor(r() * 4) : 0); add('greathide', 2 + Math.floor(r() * 2)); add('greatfang', 2); if (r() < 0.6) add('heartstone', 1 + Math.floor(r() * 2));
+      add('greathide', 2 + Math.floor(r() * 2)); add('greatfang', 2); if (r() < 0.6) add('heartstone', 1 + Math.floor(r() * 2));
       add('gold', Math.round(200 + Math.min(L, 150) * 12));
       for (let i = 0; i < 2; i++) ECHO.Monsters.dropGear(game, e.x + (r() - 0.5) * 2, e.y + (r() - 0.5) * 2, L, 30, `in the hoard of ${t.name}`);
       if (ECHO.Arcana) for (let i = 0; i < 1 + (r() < 0.5 ? 1 : 0); i++) ECHO.Arcana.drop(game, e.x + (r() - 0.5) * 3, e.y + (r() - 0.5) * 3, L, { boost: 60, floor: r() < 0.55 ? 'legendary' : 'epic', where: `in the hoard of ${t.name}` });
@@ -1209,7 +1067,7 @@
         const s = A.chooseArt(game, e, t, foe, ctx, false);
         if (s) { A.useSig(game, e, t, s, foe); return true; }
       }
-      const kind = Ti().sp(t).kind, k = df > 2.6 && (kind === 'drake' || kind === 'wyrm') ? (kind === 'drake' ? 'breath' : 'spit') : df < e.r + foe.r + 1.6 ? (Math.random() < 0.5 ? 'bite' : 'sweep') : null;
+      const kind = Ti().sp(t).kind, k = df > 2.6 && kind === 'wyrm' ? 'spit' : df < e.r + foe.r + 1.6 ? (Math.random() < 0.5 ? 'bite' : 'sweep') : null;
       if (!k) return false;
       const a0 = ATK[k];
       e.atk = { k, ...a0, t: 0, ang, x0: e.x, y0: e.y, wind: a0.wind * 0.6 };
@@ -1360,34 +1218,14 @@
     },
 
     // ------------------------------------------------------------ the sky
-    // V: climb onto your dragon, or bring it down
     vKey(game) {
-      const pl = game.pl, pe = game.pe;
-      if (pl.flying) { A.land(game); return true; }
-      if (pl.mounted) return false;
-      const e = A.ents(game).find(o => o.tamed && o.flies && U.dist(o.x, o.y, pe.x, pe.y) < o.r + 2.5);
-      if (!e) return false;
-      A.mount(game, e);
-      return true;
+      if (game.pl.flying) { A.land(game); return true; }
+      return false;
     },
     // ------------------------------------------------------------ flight
     // The land's height under (x, y) as it is drawn (0 where there is no 3D view).
     gnd(x, y) { const R3 = ECHO.Renderer3D; return R3 && R3.hc && R3.world ? R3.groundH(x, y) : 0; },
     FLY: { cruise: 9, hMin: 4, hMax: 22, slow: 22, fast: 42, gale: 52, climb: 11 },
-    mount(game, e) {
-      const pl = game.pl, pe = game.pe, t = Ti().byId(game.world, e.titan);
-      if (!t || pl.mounted || ECHO.Interior.cur) return;
-      if (e.hp < e.maxHp * 0.25) return UI().toast(`${t.name} is too hurt to carry you.`, 'info', 3);
-      pl.flying = t.id;
-      const seat = A.SEAT * (e.tscale || 1), z0 = A.gnd(pe.x, pe.y);
-      // a crouch, a leap, and great wingbeats up into the sky
-      A.fly = { phase: 'takeoff', t: 0, v: 0, vx: 0, vy: 0, dir: e.dir != null ? e.dir : (pe.dir || 0), yawRate: 0, z: z0, vz: 0, h: A.FLY.cruise, seat, bank: 0, pitch: 0, flap: 0, crouch: 0 };
-      pe.x = e.x; pe.y = e.y; pe.alt = seat;
-      e.atk = null; e.altGoal = 0;
-      ECHO.PlayerCtl.unlock && ECHO.PlayerCtl.unlock(game, false);
-      ECHO.Combat.ring(pe.x, pe.y, 3, 'rgba(230,230,255,0.7)', 0.6);
-      if (!A.told.fly) { A.told.fly = true; UI().toast(`You are on ${t.name}'s back. WASD to steer, Shift to fly fast (hold it and it rides the wind), Space to climb, Ctrl to go lower, V to come down over open ground (V again to drop straight down). Fight from up here: LMB breathes along the ground toward your mark, RMB rains it down round the mark, Q dives on the mark, F looses its own art (R marks a foe for all of it). Nothing on the ground can reach you up here.`, 'legend', 9); }
-    },
     land(game, force) {
       const F = A.fly, pe = game.pe, world = game.world;
       if (!F) { game.pl.flying = null; pe.alt = 0; return; }
@@ -1418,7 +1256,7 @@
       game.checkPlace();
     },
     // ------------------------------------------------------------ fighting from the sky
-    // From your dragon's back: LMB breathes its element along the ground toward your mark,
+    // From your winged beast's back: LMB breathes its element along the ground toward your mark,
     // RMB rains it down round the mark, Q dives on the mark and slams it, F looses its own art (R marks a foe).
     AIR: { breath: { cd: 0.9 }, rain: { cd: 3.2 }, dive: { cd: 6 }, art: { cd: 10 } },
     airCd: {},
@@ -1479,7 +1317,7 @@
       const k = (lbl, key) => { const left = Math.max(0, (A.airCd[key] || 0) - game.time); return `<span style="color:${left > 0 ? '#7a7a8a' : '#ffcf8a'}">${lbl}${left > 0 ? ' ' + Math.ceil(left) + 's' : ''}</span>`; };
       return k('LMB breath', 'breath') + k('RMB rain', 'rain') + k('Q dive', 'dive') + (art ? k('F ' + art.name, 'art') : '');
     },
-    // Flying, every frame (instead of walking). The dragon has weight: it banks
+    // Flying, every frame (instead of walking). The winged beast has weight: it banks
     // into its turns and carries its speed through them, climbs at the cost of
     // speed and gathers speed in a dive, glides when you let it, and keeps its
     // height above the land — rising early for the hills ahead.
@@ -1700,7 +1538,7 @@
       };
       setTimeout(next, 30);
     },
-    // The beasts that Y calls (dragons and great beasts you have bound, and your horse),
+    // The beasts that Y calls (winged beasts and great beasts you have bound, and your horse),
     // shown at the head of the Tamed beasts page, with their pictures.
     yHtml(game) {
       const world = game.world, pl = game.pl, mine = world.titans ? Ti().bound(world) : [];

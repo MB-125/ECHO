@@ -212,7 +212,7 @@
       if (R && R.key !== key && w0.vague && R.vague && !R.air && U.dist(R.to.x, R.to.y, w.x, w.y) < 24) key = R.key;
       N.t -= dt;
       const strayed = R && R.key === key && N.offRoute(pe, R) > 7;
-      // on a dragon's back the land's roads don't matter: the line points straight
+      // on a winged beast's back the land's roads don't matter: the line points straight
       // there, and no route is planned while you fly
       if (game.pl && game.pl.flying) {
         N.job = null;

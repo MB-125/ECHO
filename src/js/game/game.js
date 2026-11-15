@@ -20,7 +20,9 @@
       Game.ents = []; Game.loot = [];
       ECHO.Interior.cur = null;
       if (Game.pl.x >= 9000 || !isFinite(Game.pl.x)) { const h = ECHO.Sim.settlement(world, Game.pl.homeId) || world.settlements[0]; Game.pl.x = h.x + 0.5; Game.pl.y = h.y + 2.5; }
-      ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset(); if (ECHO.Guns) ECHO.Guns.reset(); if (ECHO.Craft) ECHO.Craft.reset(); if (ECHO.NoDragons) ECHO.NoDragons.reset(); if (ECHO.React) ECHO.React.reset(); if (ECHO.Build) ECHO.Build.reset(); if (ECHO.Live) ECHO.Live.reset(); if (ECHO.Riders) ECHO.Riders.reset(); if (ECHO.Water) ECHO.Water.ripples = [];
+      ECHO.Combat.reset(); ECHO.Spawner.reset(); ECHO.PlayerCtl.reset(); if (ECHO.Guns) ECHO.Guns.reset(); if (ECHO.Craft) ECHO.Craft.reset(); if (ECHO.OldKinds) ECHO.OldKinds.reset(); if (ECHO.React) ECHO.React.reset(); if (ECHO.Build) ECHO.Build.reset(); if (ECHO.Live) ECHO.Live.reset(); if (ECHO.Riders) ECHO.Riders.reset(); if (ECHO.Water) ECHO.Water.ripples = [];
+      // (the kinds no longer in the world are taken out of an old one before anything looks at it)
+      if (ECHO.OldKinds) { try { ECHO.OldKinds.tick(Game); } catch (err) { console.error('ECHO: old kinds', err); } }
       if (ECHO.Wonders) ECHO.Wonders.state(world);
       if (ECHO.Globe && !world.globe) { try { ECHO.Globe.ensure(world); } catch (err) { console.error('ECHO: the world could not be made round', err); } }
       if (ECHO.Globe && world.globe && !world._filled) { try { ECHO.Globe.fill(world); } catch (err) { console.error('ECHO: the far lands could not be drawn', err); } }
@@ -163,7 +165,7 @@
       ECHO.Ent.pathBudget = 3;   // (route plans allowed in the next frame)
       for (const e of Game.ents) if (!e.dead || (e.deathT || 0) < 0.5) ECHO.Ent.applyPush(world, e);
       if (ECHO.Thrown) ECHO.Thrown.update(Game, dt);   // (what a blow has sent flying, or sliding: thrown.js)
-      if (ECHO.NoDragons) ECHO.NoDragons.tick(Game);
+      if (ECHO.OldKinds) ECHO.OldKinds.tick(Game);
       if (ECHO.Craft) ECHO.Craft.tick(Game, dt);
       if (ECHO.Guns) ECHO.Guns.tick(Game, dt);   // (guns, the salvo, gunships: guns.js)
       if (ECHO.React) ECHO.React.tick(Game, dt);
@@ -702,7 +704,7 @@
     interactables() {
       const world = Game.world, pe = Game.pe;
       const out = [];
-      if (Game.pl.flying) return out;   // nothing on the ground is in reach from a dragon's back
+      if (Game.pl.flying) return out;   // nothing on the ground is in reach from a winged beast's back
       const near = (x, y, r = 1.7) => U.dist(x, y, pe.x, pe.y) < r;
       for (const e of Game.ents) {
         if (e.dead || e.hidden || e.type !== 'person') continue;

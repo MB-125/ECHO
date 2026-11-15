@@ -392,7 +392,7 @@
       const need = Gl.unmade(w, Math.floor(pe.x), Math.floor(pe.y), Gl.NEAR);
       if (need.length) {
         // the nearest first (as unmade gives them), one at a time, so the world never stops for long
-        // (one at a time — and not from the sky: from a dragon's back the land is seen, not visited;
+        // (one at a time — and not from the sky: from a winged beast's back the land is seen, not visited;
         //  its people and places are made when you come down to it)
         if (!pl.flying) Gl.go(game, need.slice(0, 1));
       }
@@ -432,7 +432,7 @@
       if (ECHO.UI) ECHO.UI.mapDirty = true;
       if (ECHO.WorldMap) ECHO.WorldMap._mf = null;
     },
-    // start the world again with you at (x, y), in your boat or on your dragon if you were
+    // start the world again with you at (x, y), in your boat or on your winged beast if you were
     restart(game, x, y, turn) {
       const w = game.world, pl = game.pl, pe = game.pe, A = ECHO.Apex;
       const boat = pe.inBoat === true && pl.boat;
@@ -445,7 +445,7 @@
         const t = ECHO.Titans.byId(w, F.id), e = t && A.spawnTamed(game, t, true);
         if (e) {
           e.x = game.pe.x; e.y = game.pe.y; A.mount(game, e);
-          if (turn) F.dir += Math.PI;                 // (over the pole, north turns to south: on a dragon too)
+          if (turn) F.dir += Math.PI;                 // (over the pole, north turns to south: on a winged beast too)
           if (A.fly) { A.fly.phase = 'fly'; A.fly.t = 2; A.fly.dir = F.dir; A.fly.v = F.v; A.fly.vx = Math.cos(F.dir) * F.v; A.fly.vy = Math.sin(F.dir) * F.v; A.fly.h = F.h; A.fly.z = F.z; game.pe.alt = F.alt; }
         }
       }

@@ -1,9 +1,9 @@
 // Your beast as a partner, not a piece of furniture.
 //
-// A bound dragon or great beast has a mind of its own. It reads what is going
+// A bound winged beast or great beast has a mind of its own. It reads what is going
 // on around you and decides what it wants to do, moment to moment:
 //   · it fights beside you — going first for whatever is hurting you, then for
-//     what you are fighting — and fights like itself: a dragon takes to the air
+//     what you are fighting — and fights like itself: a winged beast takes to the air
 //     against a crowd and strafes it with its breath; when it is badly hurt it
 //     pulls back, circles out of reach or stands off behind you to lick its
 //     wounds, and comes back in when it is ready;
@@ -11,7 +11,7 @@
 //     loping to catch up, or flying ahead and coming down near you;
 //   · when you stop it finds itself something to do: it settles near you and
 //     watches the land, wanders off to sniff at something, stretches its wings,
-//     lies down for a rest when you linger, or (a dragon) takes a turn round the
+//     lies down for a rest when you linger, or (a winged beast) takes a turn round the
 //     sky above you;
 //   · it gets hungry, and when it is, it hunts the deer and hares nearby and
 //     eats what it catches;
@@ -99,7 +99,7 @@
         if (!moved) pt.spd *= 0.5;
         pt.blockT = moved ? 0 : (pt.blockT || 0) + dt;
         if (e.flies) {
-          // a dragon that sees a wood or a wall of rock between it and where it is
+          // a winged beast that sees a wood or a wall of rock between it and where it is
           // going (or is boxed in) takes to the air over it rather than push through
           let over = pt.blockT > 0.5;
           if (!over && d > 3.5 && now > (pt.wayT || 0)) { pt.wayT = now + 0.35; over = !A().wayClear(world, e, goal, Math.min(d, 4.8)) && !A().wayClear(world, e, goal + 0.6, 3.6) && !A().wayClear(world, e, goal - 0.6, 3.6); }
@@ -112,7 +112,7 @@
       pt.gait = pt.spd;
       return d;
     },
-    // a dragon going any distance flies; it comes down near where it is going
+    // a winged beast going any distance flies; it comes down near where it is going
     travel(game, e, tx, ty, want, dt, arrive) {
       const d = U.dist(e.x, e.y, tx, ty);
       if (e.flies) {
@@ -204,7 +204,7 @@
       // hunger, and closeness to you
       t.hunger = Math.min(1, (t.hunger || 0) + dt / 600);
       if (d < 16) P.bond(t, dt / 150);
-      // far behind (you went through a door, rode off): it comes after you — a dragon flies
+      // far behind (you went through a door, rode off): it comes after you — a winged beast flies
       if (d > 90 || (d > 40 && !e.flies)) { const sp = (!e.flies && A().clearing(world, e, pe.x - 3, pe.y - 3, 8)) || ECHO.Ent.freeSpot(world, pe.x - 3, pe.y - 3, 6); if (sp) { e.x = sp.x; e.y = sp.y; if (e.flies) e.alt = 6; } pt.intent = 'greet'; pt.it = 0; }
       // ---- what does it want?
       const foes = P.foes(game, e);
@@ -370,7 +370,7 @@
       if (!p || p.dead || pt.it > 25 || U.dist(e.x, e.y, pe.x, pe.y) > 34 || pt.pspd > 4) { pt.prey = null; pt.intent = 'follow'; pt.it = 0; e.altGoal = 0; return; }
       const d = U.dist(e.x, e.y, p.x, p.y);
       pt.look = { x: p.x, y: p.y };
-      // a dragon drops on its prey from the air; a beast runs it down
+      // a winged beast drops on its prey from the air; a beast runs it down
       if (e.flies && d > 9 && e.alt < 1) P.takeOff(game, e, 4);
       if (e.flies && d < 4) e.altGoal = 0;
       P.move(game, e, p.x, p.y, e.alt > 1 ? 11 : 7.5, dt, 0.2);
@@ -420,7 +420,7 @@
       const youLow = pe.hp < pe.maxHp * 0.35, eager = (youLow ? 0.25 : 0) + ((t.bond || 0) / 400);
       if (youLow && !pt.toldLow) { pt.toldLow = true; P.emote(e, '!', '#ff5a3c'); if (ECHO.Sfx) ECHO.Sfx.play('roar', { vol: 0.5, pitch: 1 / Math.sqrt(e.tscale || 1) }); }
       if (!youLow) pt.toldLow = false;
-      // a dragon against a crowd (or something it can't reach) takes to the air and strafes it
+      // a winged beast against a crowd (or something it can't reach) takes to the air and strafes it
       const crowd = foes.filter(o => U.dist(o.x, o.y, foe.x, foe.y) < 6).length;
       if (e.flies) {
         if (pt.air == null) pt.air = false;

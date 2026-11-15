@@ -1,6 +1,6 @@
 // The slimes: the strongest things that live, and the cleverest.
 //
-// Whatever its level, a slime outfights anything of that level — a dragon included — and of all
+// Whatever its level, a slime outfights anything of that level — a winged beast included — and of all
 // the things that live it has the highest potential: six forms, the first of them early, each a
 // bigger step than any other kind takes (evolve.js). And it thinks:
 //   • It notices everything, from far off, and the first time it sees you it holds back and
@@ -106,7 +106,7 @@
       const pl = game.pl, pe = game.pe;
       if (pl && pe && !pl._slimeTip2 && U.dist(e.x, e.y, pe.x, pe.y) < 16) {
         pl._slimeTip2 = true;
-        ECHO.UI.toast(`A slime: the strongest and cleverest thing that lives, stronger than a dragon of its level. It is fast and it hunts; it leaps from far off (watch for the glow where it means to land) and swallows you whole; it learns whatever you hurt it with and hardens to it; it eats other monsters to grow; it heals as you cut it and drinks your mana. Fire is what it fears: fire stops its healing. When it first sees you it stops and watches you — that is your moment to leave.`, 'warn', 16);
+        ECHO.UI.toast(`A slime: the strongest and cleverest thing that lives, stronger than a great beast of its level. It is fast and it hunts; it leaps from far off (watch for the glow where it means to land) and swallows you whole; it learns whatever you hurt it with and hardens to it; it eats other monsters to grow; it heals as you cut it and drinks your mana. Fire is what it fears: fire stops its healing. When it first sees you it stops and watches you — that is your moment to leave.`, 'warn', 16);
       }
       // left alone, it goes hunting the other things of the place, and eats them
       if (!e.aggro && e.rareSlime && !e.summoned && (!pe || U.dist(e.x, e.y, pe.x, pe.y) > 12)) {
@@ -673,7 +673,7 @@
       e.lvl = L1; if (e._plv) e._plv = L1;
       e.scale = Math.min(2.6, (e.scale || 1) * 1.03);
       // a trait, once each
-      const sp = p.species || (p.foe && p.foe.shape) || '', t = SL.TRAITS[sp] || (p.elem === 'fire' || (p.foe && p.foe.shape === 'drake') ? 'fire-eater' : null);
+      const sp = p.species || (p.foe && p.foe.shape) || '', t = SL.TRAITS[sp] || (p.elem === 'fire' ? 'fire-eater' : null);
       // (its gifts: not "traits", which is the hide of an evolved beast — see Combat.damage)
       e.gifts = e.gifts || [];
       if (t && !e.gifts.includes(t)) {

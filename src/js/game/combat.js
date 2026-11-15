@@ -302,7 +302,7 @@
       // (a life that has gone bad — not a number — is mended, so nothing is ever left unkillable)
       if (!Number.isFinite(target.maxHp) || target.maxHp <= 0) target.maxHp = Number.isFinite(target.hp) && target.hp > 0 ? target.hp : 100;
       if (!Number.isFinite(target.hp)) target.hp = target.maxHp * 0.5;
-      if (target === game.pe && game.pl.flying) return 0;   // on a dragon's back, nothing on the ground can reach you
+      if (target === game.pe && game.pl.flying) return 0;   // on a winged beast's back, nothing on the ground can reach you
       if (target === game.pe && (game.defeating || game.pl.capture)) return 0;
       if (target.iframes > 0) { if (target === game.pe) { C.floater(target.x, target.y - 0.8, 'dodged', '#9fd3ff'); if (src.from && src.from !== game.pe) ECHO.Tech.onDodgedHit(game); } return 0; }
       const from = src.from;

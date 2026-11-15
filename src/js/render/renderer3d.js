@@ -131,7 +131,7 @@
       R.applyQuality();
       if (ECHO.Post) ECHO.Post.init(R);
     },
-    // Shaders, built ahead. The first time a kind of surface is drawn — a dragon
+    // Shaders, built ahead. The first time a kind of surface is drawn — a winged beast
     // fading in, a spell's glow, a hidden shrine's stone — the graphics driver has
     // to build a shader for it, and on some machines that is a long stall right in
     // the middle of a ride. So, once the world is up, one of every kind we draw is
@@ -157,7 +157,7 @@
         o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
         zoo.add(o); mats.push(m);
       }
-      // creatures with skeletons (the dragons): their own shader, opaque and fading
+      // creatures with skeletons (the winged beasts): their own shader, opaque and fading
       {
         const sg = new THREE.BoxGeometry(0.01, 0.01, 0.01), n = sg.attributes.position.count;
         sg.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Array(n * 4).fill(0), 4));
@@ -1119,7 +1119,7 @@
       }
     },
     // The land is built in 16-tile chunks around the camera. At speed (a gallop, a
-    // dragon's back) it looks ahead along the way you are going, so the ground is
+    // winged beast's back) it looks ahead along the way you are going, so the ground is
     // ready before it comes into view; it lets go of what is behind only once that
     // is well out of sight (so turning back costs nothing); and each frame it builds
     // only as much as fits in a few milliseconds, so the frame rate holds.
@@ -1860,7 +1860,7 @@
         R.addStatic(g, 'tent', EX.camp.x - 1.6, EX.camp.y - 1.2, { tent: '#6a6050' }, 0.6, 0.85);
         R.addStatic(g, 'crate', EX.camp.x + 1.4, EX.camp.y - 0.6, null, 0.3, 0.8);
       }
-      // the hidden places: sunken temples, sky ruins, sealed vaults, forgotten tombs; dragons' graves,
+      // the hidden places: sunken temples, sky ruins, sealed vaults, forgotten tombs; winged beasts' graves,
       // lost battlefields, witches' hollows, giants' forges, starfall hearts; silver pools and eldest trees
       if (ECHO.Hidden && world.hidden) for (const h of world.hidden.list) {
         if (!near(h.x, h.y, 36)) continue;
@@ -1891,11 +1891,6 @@
             disc(0, 0, 3.0, '#3e4a30', 0.6); disc(0, 0, 2.1, '#4a5838', 0.6);
             for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2; add('tablet', Math.cos(a) * 3.1, Math.sin(a) * 2.6, { rune: '#5a6a7a' }, a + Math.PI / 2 + ((seed >> i) % 3 - 1) * 0.2, 0.8); }
             add('standard', 1.4, -1.6, { banner: '#4a5a7a' }, 0.3, 0.7); hole(0, 0.4, 0.6); light(0, 0, 5, 0.7, K.col, 0.5); break;
-          case 'dragongrave':
-            disc(0, 0, 3.4, '#1e1410', 0.75); disc(0, 0, 2.2, '#3a1e12', 0.5);
-            add('bones', 0, 0, null, seed % 6, 2.4); add('bones', -2.2, 1.3, null, 2.1, 1.1); add('bones', 2.0, -1.4, null, 4.2, 0.9);
-            add('boulder', 2.6, 1.5, null, 1, 0.7); add('boulder', -2.4, -1.6, null, 2, 0.6);
-            light(0, 0, 6, 0.8 + Math.sin(R.time * 2.1) * 0.2, K.col, 0.3); break;
           case 'warfield':
             for (let i = 0; i < 5; i++) { const a = i * 1.26 + 0.4; add('standard', Math.cos(a) * 2.6, Math.sin(a) * 2.2, { banner: ['#6a3a2a', '#4a4a3a', '#5a2a2a', '#3a4a5a', '#6a5a3a'][i] }, a + 0.3 * (i % 2 ? 1 : -1), 0.85); }
             for (let i = 0; i < 4; i++) add('bones', Math.cos(i * 1.9) * 1.4, Math.sin(i * 1.9) * 1.1, null, i * 1.3, 0.6);
@@ -2505,7 +2500,6 @@
       if (e.shape === 'spider' || e.shape === 'slime' || e.shape === 'serpent' || e.shape === 'horror') inst = R.procMonster(e);
       else if (e.shape === 'rat') inst = ECHO.Models.instance('gnawer');
       else if (e.shape === 'hound') inst = ECHO.Models.instance(e.foe && e.foe.model && ECHO.Models.scenes[e.foe.model] ? e.foe.model : 'wolf');
-      else if (e.shape === 'drake') inst = ECHO.Models.instance('drake');
       else if (e.shape === 'stag') inst = ECHO.Models.instance('stag');
       else if (e.humanoid && e.foe && e.foe.vis && R.MON_MODEL[e.species] && ECHO.Models.scenes[R.MON_MODEL[e.species]]) inst = ECHO.Models.instance(R.MON_MODEL[e.species]);
       else if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) inst = ECHO.Models.instance('person');
@@ -2544,7 +2538,6 @@
         const glow = () => { for (const m of inst.mats) if (m.emissive) m.emissive.set(em || '#000000').multiplyScalar(e.rage ? 0.8 : 0.45); };
         if (e.shape === 'rat') { M.recolor(inst, 'rat', e.evo >= 3 ? '#2a1a1e' : e.elite || e.evo >= 2 ? '#4a2a2a' : '#5a4a42'); inst.root.scale.setScalar(1.15 * (e.scale || 1)); }
         else if (e.shape === 'hound') { M.recolor(inst, 'fur', Fd.col || '#2a2a2a'); M.recolor(inst, 'eyeglow', Fd.em || '#ff3a2a'); M.show(inst, 'horn', !!e.elite || e.evo >= 3); glow(); inst.root.scale.setScalar(1.05 * (e.scale || 1)); }
-        else if (e.shape === 'drake') { for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false); M.recolor(inst, 'drake', Fd.col || '#5a1a0a'); M.recolor(inst, 'drakebelly', Fd.belly || '#ff8a3a'); glow(); inst.root.scale.setScalar(e.scale || 1); }
         else if (e.shape === 'stag') { M.recolor(inst, 'stag', Fd.col || '#1a1420'); M.recolor(inst, 'cloth2', '#0e0a12'); M.recolor(inst, 'darkwood', Fd.em || '#c86aff'); M.recolor(inst, 'white', '#2a2030'); M.recolor(inst, 'eyeglow', Fd.em || '#c86aff'); for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false); M.show(inst, 'antlers', true); glow(); inst.root.scale.setScalar(0.52 * (e.scale || 1)); }
         else { inst.root.scale.setScalar(e.scale || 1); if (inst.mats && Fd.em) for (const m of inst.mats) if (m.emissive && !(m.userData && m.userData.keep)) m.emissive.set(e.rage ? '#ff3a0a' : Fd.em).multiplyScalar(e.rage ? 0.5 : 0.18); }
         return;
@@ -2620,12 +2613,6 @@
         M.show(inst, 'armorFire', a.fire > 0.05);
         M.show(inst, 'armorRanged', a.ranged > 0.05);
         inst.root.scale.setScalar(1.05);
-        if (e.dragon) {
-          for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false);
-          if (e.boss.color) M.recolor(inst, 'drake', e.boss.color);
-          if (e.boss.belly) M.recolor(inst, 'drakebelly', e.boss.belly);
-          inst.root.scale.setScalar(1.8);
-        }
         if (e.titan) {
           for (const k of ['armorMelee', 'armorFire', 'armorRanged']) M.show(inst, k, false);
           const kd = e.boss.kind;
@@ -2649,7 +2636,7 @@
             keep.position.set(cn.x - inst.root.position.x, bx.min.y - inst.root.position.y + sz.y * 0.55, cn.z - inst.root.position.z);
             inst.root.add(keep); v._keep = keep;
           }
-          inst.root.scale.setScalar(1.05 * (e.tscale || 1) * (kd === 'drake' ? 1.4 : 1.1));
+          inst.root.scale.setScalar(1.05 * (e.tscale || 1) * 1.1);
         }
         return;
       }
@@ -2845,61 +2832,6 @@
         g.visible = true; g.position.set(n.x, R.groundH(n.x, n.y), n.y); g.rotation.y = (n.x * 7.3 + n.y * 3.1) % 6.28;
       }
       for (const k in R.forPool) for (let i = used[k] || 0; i < R.forPool[k].length; i++) R.forPool[k][i].visible = false;
-    },
-    // A dragon's shadow sweeping across the ground.
-    // On a dragon's back: the dragon banks, pitches and crouches as the flight
-    // says, and you sit astride its back and lean with it; a soft shadow on the
-    // ground below shows how high you are.
-    syncDragonFlight(game, dt) {
-      const pl = game.pl, F = ECHO.Apex && ECHO.Apex.fly, pe = game.pe;
-      // your beast on the wing by itself banks into its turns too
-      for (const [e, v] of R.views) {
-        if (!e.tamed || !e.titan || e.dead || (pl && pl.flying === e.titan) || !e.pt) continue;
-        const air = Math.min(1, Math.max(0, (e.alt || 0) - 0.8) / 2);
-        const want = U.clamp(-(e.pt.yaw || 0) * 0.45, -0.55, 0.55) * air;
-        v.bank = (v.bank || 0) + (want - (v.bank || 0)) * Math.min(1, dt * 3);
-        if (Math.abs(v.bank) < 0.005) continue;
-        const root = v.inst.root;
-        root.rotation.order = 'YZX'; root.rotation.x = v.bank;
-      }
-      const blob = R.flyShadow;
-      if (!pl || !pl.flying || !F || ECHO.Interior.cur) { if (blob) blob.visible = false; return; }
-      let dv = null, dEnt = null;
-      for (const [e, v] of R.views) if (e.tamed && e.titan === pl.flying && !e.dead) { dv = v; dEnt = e; break; }
-      const pv = R.views.get(pe);
-      if (!dv) return;
-      const root = dv.inst.root;
-      // turn, bank and pitch about the middle of its body, not its feet
-      root.rotation.order = 'YZX';
-      root.rotation.x = F.bank; root.rotation.z = F.pitch;
-      const s = root.scale.x, mid = R._fv1 || (R._fv1 = new THREE.Vector3()), q = root.quaternion;
-      root.updateMatrix();
-      mid.set(0, 1.1 * s, 0).applyQuaternion(q);
-      root.position.set(dEnt.x, F.z - F.crouch * 0.35 * s, dEnt.y);      // (the beast you ride is exactly under you, every frame)
-      dv.px = dEnt.x; dv.py = dEnt.y;
-      root.position.x += 0 - mid.x; root.position.y += 1.1 * s - mid.y; root.position.z += 0 - mid.z;
-      root.updateMatrixWorld(true);
-      // the rider, astride the back
-      if (pv) {
-        const r = pv.inst.root, seat = R._fv2 || (R._fv2 = new THREE.Vector3()), up = R._fv3 || (R._fv3 = new THREE.Vector3());
-        seat.set(-0.12, 1.66, 0); root.localToWorld(seat);
-        up.set(0, 1, 0).applyQuaternion(q);
-        r.position.copy(seat).addScaledVector(up, -0.4);
-        r.quaternion.copy(q);
-        r.updateMatrixWorld(true);
-      }
-      // the shadow below
-      if (!blob) {
-        R.flyShadow = new THREE.Mesh(new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.3, depthWrite: false }));
-        R.flyShadow.renderOrder = 2; R.scene.add(R.flyShadow);
-      }
-      const b = R.flyShadow, alt = Math.max(0, F.z - R.groundH(pe.x, pe.y));
-      b.visible = alt > 0.6;
-      b.position.set(pe.x, R.groundH(pe.x, pe.y) + 0.08, pe.y);
-      b.rotation.y = -F.dir;
-      const sz = s * (1.3 + alt * 0.04);
-      b.scale.set(sz * 1.6, 1, sz * 1.1);
-      b.material.opacity = 0.32 * Math.max(0.15, 1 - alt / 28);
     },
     syncFly(game) {
       const f = ECHO.Events && ECHO.Events.fly;
@@ -3276,7 +3208,7 @@
         if (hs.rear > 0.05) { P.body.rotation.z = lean + hs.rear * 0.35; }
         P.head.rotation.z = -lean * 0.6;
       }
-      // on a dragon's back: astride, low over its neck at speed, hands on its spines
+      // on a winged beast's back: astride, low over its neck at speed, hands on its spines
       if (e === game.pe && game.pl && game.pl.flying && !e.dead && ECHO.Apex && ECHO.Apex.fly) {
         const Fl = ECHO.Apex.fly, lean = 0.12 + Math.min(0.45, Fl.v * 0.016) + Math.max(0, -Fl.pitch) * 0.3;
         P.legL.rotation.z = P.legR.rotation.z = -0.95; P.legL.rotation.x = -0.75; P.legR.rotation.x = 0.75;
@@ -3604,103 +3536,7 @@
       if (P.tail && !Fl) P.tail.rotation.y = Math.sin(R.time * 2) * 0.25;
       v.yOff = 0;
       if (e.pt && !Fl) R.animatePartner(game, e, v, e.pt);
-      if (P.tail1) R.animateDragon(game, e, v, Fl);
       if (e.state === 'charge' && e.chargePhase === 'go') v.inst.root.rotation.z = 0.12; else if (e.state === 'subdued') { v.inst.root.rotation.z = 0.5; v.yOff = 0.2; } else v.inst.root.rotation.z = 0;
-    },
-    // A dragon with a skeleton moves through its whole body: the spine bends into
-    // its turns, the tail sways and trails (each bone a beat behind the one before),
-    // the neck carries the head in an easy curve and bobs with the stride, the legs
-    // bend at knee and ankle as they step, and the wings fold at elbow and wrist on
-    // the ground and beat as a wave from shoulder to fingertip in the air.
-    animateDragon(game, e, v, Fl) {
-      if (Fl && v.pw) for (const k in v.pw) v.pw[k] = 0;   // (on the wing nothing of resting or sniffing lingers)
-      const P = v.inst.parts, dt = R._dt || 0.016, T = R.time, pw = v.pw || {}, rest = pw.rest || 0;
-      if (Fl) R.flightLook(e, v, Fl, dt);
-      const spd = v.spd || 0, air = (e.alt || 0) > 0.6 || !!Fl, amp = Math.min(1, spd / 3.5);
-      // how hard it is turning (from what we draw), eased; the tail answers later than the neck
-      const yr = v.prevDir == null ? 0 : U.angleDiff(v.prevDir, v.dir || 0) / Math.max(dt, 1e-3);
-      v.prevDir = v.dir || 0;
-      const turn = U.clamp(yr * (air ? 0.18 : 0.3), -0.5, 0.5) + (Fl ? -Fl.bank * 0.5 : 0);
-      v.flexN = (v.flexN || 0) + (turn - (v.flexN || 0)) * Math.min(1, dt * 5);
-      v.flexT = (v.flexT || 0) + (turn - (v.flexT || 0)) * Math.min(1, dt * 2);
-      const ph = (v.lph || 0) * 2;
-      // ---- spine
-      if (P.hips) { P.hips.rotation.y = v.flexT * 0.25; P.hips.rotation.z = Math.sin(ph) * 0.03 * amp; }
-      // ---- tail: a travelling wave, larger toward the tip; curled round when it lies down;
-      // streaming straight behind it in the air
-      const tw = air ? 1.6 : 1.2 + spd * 0.8, ta = air ? 0.035 : 0.05 + amp * 0.06;
-      const lift = e.state === 'roar' || e.state === 'windup' || e.state === 'fight' ? 0.06 : 0;
-      for (let k = 0; k < 6; k++) {
-        const b = P[k ? 'tail' + k : 'tail'];
-        if (!b) continue;
-        const a = ta * (0.6 + k * 0.45);
-        b.rotation.y = Math.sin(T * tw - k * 0.75) * a + v.flexT * (0.12 + k * 0.03) + rest * 0.3;
-        b.rotation.z = (k === 0 ? lift + 0.03 : -lift * 0.4 - 0.01) + (air ? Math.sin(T * 1.6 - k * 0.6) * 0.03 : 0) + (air && Fl ? Fl.pitch * 0.15 : 0);
-      }
-      // ---- neck: shares the look and the turn among its bones, keeps the head level
-      const look = v.lookYaw || 0, into = -v.flexN * 0.7;
-      const pitch = v.neckPitch || 0;      // what the pose asked of the neck (sniff, eat, rest…)
-      const bob = Math.sin(ph + 1.2) * 0.04 * amp + Math.sin(T * 1.3 + (v.bob || 0)) * 0.015 * (1 - amp);
-      const roar = e.state === 'roar' ? -0.12 : 0;
-      const NK = [['neck', 0.3, 0.4], ['neck1', 0.35, 0.35], ['neck2', 0.25, 0.25]];
-      let pz = 0;
-      for (const [n, wy, wz] of NK) {
-        const b = P[n];
-        if (!b) continue;
-        b.rotation.y = (look + into) * wy;
-        b.rotation.z = pitch * wz + bob * (n === 'neck1' ? 1 : 0.4) + roar;
-        pz += b.rotation.z;
-      }
-      if (P.head) { P.head.rotation.y = (look + into) * 0.1; P.head.rotation.z = (P.head.rotation.z || 0) - (pz - pitch) * 0.7; }
-      // ---- legs: knees and ankles bend as each foot lifts and swings through
-      if (!air && P.legFL2) {
-        const L = [['legFL', 1, true], ['legBR', 1, false], ['legFR', -1, true], ['legBL', -1, false]];
-        for (const [n, sg, front] of L) {
-          const lift = Math.max(0, -Math.cos(ph) * sg) * amp;
-          const knee = P[n + '2'], ank = P[n + '3'];
-          if (front) { knee.rotation.z = lift * 0.9; ank.rotation.z = -lift * 0.5; }
-          else { knee.rotation.z = lift * 0.7; ank.rotation.z = -lift * 0.6; }
-          if (rest > 0.01) {
-            P[n].rotation.z = U.lerp(P[n].rotation.z, -0.9, rest);
-            knee.rotation.z = U.lerp(knee.rotation.z, front ? 1.6 : 1.2, rest);
-            ank.rotation.z = U.lerp(ank.rotation.z, front ? -0.6 : -0.4, rest);
-          }
-        }
-      } else if (P.legFL2) {
-        // in the air: legs drawn up, feet trailing
-        for (const n of ['legFL', 'legFR', 'legBL', 'legBR']) { P[n].rotation.z = n[3] === 'F' ? -0.35 : 0.55; P[n + '2'].rotation.z = n[3] === 'F' ? 0.9 : 0.5; P[n + '3'].rotation.z = -0.4; }
-      }
-      // ---- wings: folded at elbow and wrist on the ground; a wave through the wing in the air
-      if (P.wingL2) {
-        const fold = v.fold == null ? (air ? 0 : 1) : v.fold;
-        const wa = v.wAmp || 0, wp = v.wPh || 0, sg = v.wSign || 1;
-        for (const [side, s] of [['L', 1], ['R', -1]]) {
-          const e2 = P['wing' + side + '2'], e3 = P['wing' + side + '3'];
-          const lag1 = Math.sin(wp - 0.7) * wa * 0.45 * sg * s, lag2 = Math.sin(wp - 1.4) * wa * 0.6 * sg * s;
-          e2.rotation.y = s * fold * 1.0; e3.rotation.y = s * fold * 1.05;
-          e2.rotation.x = lag1 * (1 - fold); e3.rotation.x = lag2 * (1 - fold) + (air && !Fl ? 0 : 0) - s * 0.08 * (1 - fold) * (wa < 0.3 ? 1 : 0);
-        }
-      }
-      // ---- breathing: the chest rises and falls; slow and deep at rest
-      if (P.body && v.bodyY0 != null && !air) P.body.position.y += Math.sin(T * (rest > 0.5 ? 0.9 : 1.6)) * 0.01;
-    },
-    // Where a dragon looks with you on its back: its head leads into the turn you
-    // are asking for, glances at whatever caught its eye below, and otherwise
-    // looks about it — never held fixed. It lifts its head to climb and drops it
-    // to dive.
-    flightLook(e, v, Fl, dt) {
-      const T = R.time, pt = e.pt, dir = Fl.dir != null ? Fl.dir : (v.dir || 0);
-      let yaw, pitch = Fl.pitch * 0.45;
-      const steering = Fl.want != null && !Fl.auto;
-      if (steering) yaw = U.clamp(-U.angleDiff(dir, Fl.want) * 0.75, -0.9, 0.9);
-      else yaw = Math.sin(T * 0.37 + (v.bob || 0)) * 0.32 + Math.sin(T * 0.11 + 1.7) * 0.18;
-      if (pt && pt.look) {
-        const a = -U.angleDiff(dir, Math.atan2(pt.look.y - e.y, pt.look.x - e.x));
-        if (Math.abs(a) < 1.7) { const k = steering ? 0.3 : 0.75; yaw = U.lerp(yaw, U.clamp(a, -1, 1), k); pitch += 0.22 * k; }
-      }
-      if (e.state === 'roar') pitch -= 0.2;
-      v.lookYaw = (v.lookYaw || 0) + (yaw - (v.lookYaw || 0)) * Math.min(1, dt * 2.6);
-      v.neckPitch = (v.neckPitch || 0) + (pitch - (v.neckPitch || 0)) * Math.min(1, dt * 2.2);
     },
     // Your beast's body language: it looks at what it is looking at, lies down to
     // rest, puts its head down to sniff or eat, stretches its wings, and leans its
@@ -3776,7 +3612,7 @@
         // Smooth what the eye sees: position eases toward the simulation,
         // and "walking" fades in and out instead of flickering on and off.
         // (a jump snaps; steady speed, however fast, eases — the limit grows with the pace, so a
-        //  dragon at full stretch doesn't snap one frame and lag the next, flickering)
+        //  winged beast at full stretch doesn't snap one frame and lag the next, flickering)
         const stp = v.lx == null ? 0 : Math.hypot(e.x - v.lx, e.y - v.ly);
         if (v.px == null || Math.hypot(e.x - v.px, e.y - v.py) > Math.max(1.5, stp < 6 ? stp * 3.5 : 0) || e === game.pe) { v.px = e.x; v.py = e.y; }
         else { const kp = 1 - Math.exp(-dt * 16); v.px += (e.x - v.px) * kp; v.py += (e.y - v.py) * kp; }
@@ -3793,7 +3629,6 @@
         if (e.shape === 'rat') R.animateCreature(game, as('species', 'gnawer'), v);
         else if (e.shape === 'hound') R.animateCreature(game, as('species', 'wolf'), v);
         else if (e.shape === 'stag') R.animateCreature(game, as('species', 'deer'), v);
-        else if (e.shape === 'drake') R.animateBoss(game, as('state', e.state === 'cast' ? 'roar' : e.state), v);
         else if (e.shape) R.animateProc(game, e, v, dt);
         else if (e.type === 'player' || e.type === 'person' || e.type === 'ghost' || e.humanoid) R.animatePerson(game, e, v, dt);
         else if (e.type === 'creature') R.animateCreature(game, e, v);
@@ -3951,7 +3786,6 @@
       R.syncBirds(game, dt);
       R.syncForage(game);
       R.syncFly(game);
-      R.syncDragonFlight(game, dt);
       R.endHorses(); R.frameNo = (R.frameNo || 0) + 1;
       for (const [e, v] of R.views) {
         if (!seen.has(e)) {
@@ -5109,7 +4943,7 @@
       // camera
       const pe = game.pe;
       let tx = pe ? pe.x : game.cam.x, ty = pe ? pe.y : game.cam.y;
-      // on a dragon the view leads the way you are flying
+      // on a winged beast the view leads the way you are flying
       const Fa = game.pl && game.pl.flying && ECHO.Apex && ECHO.Apex.fly;
       R._lead = R._lead || { x: 0, y: 0 };
       R._lead.x += ((Fa ? Fa.vx * 0.28 : 0) - R._lead.x) * Math.min(1, dt * 1.5); R._lead.y += ((Fa ? Fa.vy * 0.22 : 0) - R._lead.y) * Math.min(1, dt * 1.5);
@@ -5122,11 +4956,11 @@
         tx = U.lerp(tx, cx, rm.W > 12 ? 0.25 : 0.6); ty = U.lerp(ty, cy, 0.55) + 0.6;
       }
       R.flyK = U.lerp(R.flyK || 0, game.pl && game.pl.flying ? 1 : 0, Math.min(1, dt * 2));
-      const gh = R.groundH(tx, ty) + (pe && pe.alt ? pe.alt * (game.pl && game.pl.flying ? 0.95 : 0.75) : 0);   // in the air the view is on you and your dragon; the land falls away below
+      const gh = R.groundH(tx, ty) + (pe && pe.alt ? pe.alt * (game.pl && game.pl.flying ? 0.95 : 0.75) : 0);   // in the air the view is on you and your winged beast; the land falls away below
       R.camTarget = R.camTarget || new THREE.Vector3(tx, gh, ty);
       if (Math.abs(R.camTarget.x - tx) + Math.abs(R.camTarget.z - ty) > 24) {   // a jump (a door, a road taken in a blink), not a gallop
         R.camTarget.set(tx, gh, ty); R.firstFrame = true; R.sitesT = 0; }
-      // the camera keeps up: the faster you go the tighter it follows (at a dragon's
+      // the camera keeps up: the faster you go the tighter it follows (at a winged beast's
       // pace a loose camera trails a few tiles behind and the ride feels laggy), and
       // in the air it doesn't bob over every hill passing underneath
       const k = Math.min(1, dt * (7 + Math.min(14, (R.camSpeed || 0) * 0.6)));

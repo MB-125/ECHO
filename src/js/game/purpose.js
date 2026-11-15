@@ -133,7 +133,7 @@
         if (d < 4) ang = null;
       }
       set('label', g.label); set('tag', g.kind === 'track' ? 'Tracked' : '');
-      const dd = dist == null ? '' : dist < 4 ? '<b>HERE</b>' : `<b>${vague ? '~' : ''}${Math.max(1, Math.round(dist / 2) * 2)}</b><i>LG</i>`;   // (every odd league would rewrite it twenty times a second on a dragon)
+      const dd = dist == null ? '' : dist < 4 ? '<b>HERE</b>' : `<b>${vague ? '~' : ''}${Math.max(1, Math.round(dist / 2) * 2)}</b><i>LG</i>`;   // (every odd league would rewrite it twenty times a second on a winged beast)
       set('dist', dd, true);
       set('dest', g.where ? `<i>◆</i>${esc(g.where.name || '')}` : '', true);
       set('leg', leg ? `▸ ${leg}` : dist != null && dist < 4 ? '▸ you are there' : '');

@@ -346,7 +346,7 @@
       const id = A.slots(pl)[slot], it = id && slot < A.nslots(pl) && world.items[id];
       if (!it || it.kind !== 'relic' || !RELICS[it.relic]) { if (auto) return false; C.floater(pe.x, pe.y - 1.2, `no relic on ${A.keyName(slot)}`, '#c8c0b0'); if (!pl.tips || !pl.tips.relic0) { pl.tips = pl.tips || {}; pl.tips.relic0 = 1; game.ui.toast('Relics — rods, rings, amulets and the like — are worn from your character page (K) or the relics page (I). Each gives a gift that is always on, and a power that wakes by itself when it is needed (Z, X and C wake them by hand). Find them on what you kill — above all in dungeons and on the strong — or buy them from the arcanist at a market.', 'study', 9); } return false; }
       if (pe.swimming) return false;
-      if (pl.flying && it.relic === 'blink') return false;   // (no stepping through the air from a dragon's back)
+      if (pl.flying && it.relic === 'blink') return false;   // (no stepping through the air from a winged beast's back)
       const D = RELICS[it.relic], t = A.tierOf(it);
       const left = (A.cd[id] || 0) - game.time;
       if (left > 0) { if (!auto) C.floater(pe.x, pe.y - 1.2, `${D.what}: ${left.toFixed(1)} s`, '#c8c0b0'); return false; }

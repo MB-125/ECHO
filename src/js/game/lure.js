@@ -1,4 +1,4 @@
-// Luring a calamity: strike a dragon or a great beast and it comes after you — a long
+// Luring a calamity: strike a winged beast or a great beast and it comes after you — a long
 // way after you. Lead it into a bandit camp, an outlaw town, or another titan's range,
 // and it forgets you for what it finds there: it falls on the camp, or the two of them
 // fight it out while you watch from a safe distance.

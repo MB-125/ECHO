@@ -19,7 +19,7 @@
     spider: { name: 'Cave spider', hp: 40, dmg: 8, speed: 4.4, reach: 1.1, wind: 0.32, cd: 1.1, tier: 2, shape: 'spider', scale: 1, ab: { poison: { dps: 2.5, dur: 6 }, web: { cd: 6 } }, resist: { fire: -0.3 }, loot: [['silk', 0.6, 1, 2], ['venom', 0.25, 1, 1]], gold: [0, 3], desc: 'Fast, venomous, and it spits webs that slow you.', weak: 'Fire burns them and their webs.' },
     queen: { name: 'the Spider Queen', hp: 260, dmg: 15, speed: 3.6, reach: 1.6, wind: 0.5, cd: 1.3, tier: 3, shape: 'spider', scale: 2.4, boss: true, ab: { poison: { dps: 4, dur: 6 }, web: { cd: 4 }, summon: { kind: 'spider', n: 2, cd: 14 } }, resist: { fire: -0.2, ranged: 0.15 }, loot: [['queensilk', 1, 1, 2], ['venom', 1, 2, 3], ['silk', 1, 3, 5]], gold: [40, 90], desc: 'The mother of the nest, as big as a cart.', weak: 'Burn the brood; keep moving; never stand in her webs.' },
     // The slimes are the strongest things that live, and the cleverest (slimes.js). Whatever its
-    // level, a slime outlasts and outfights anything of that level, a dragon included: it heals as
+    // level, a slime outlasts and outfights anything of that level, a winged beast included: it heals as
     // you cut it, drinks your mana with every blow, learns what you hurt it with and hardens to it,
     // leaps on you from far off and swallows you whole, spits acid that eats the ground, eats other
     // monsters to grow, and splits when it dies — and the pieces crawl back together. It is fast and

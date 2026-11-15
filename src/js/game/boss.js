@@ -8,7 +8,6 @@
   const G = () => ECHO.Game;
 
   const KIND = {
-    drake: { dmg: 17, speed: 3.1, r: 1.05, attacks: ['bite', 'sweep', 'breath'], color: '#5d6b3c' },
     wyrm: { dmg: 15, speed: 3.4, r: 1.0, attacks: ['sweep', 'slam', 'spit'], color: '#4b5d6e' },
     stag: { dmg: 19, speed: 3.6, r: 1.0, attacks: ['gore', 'stomp', 'sweep'], color: '#6b5a4a' }
   };
@@ -341,7 +340,6 @@
       const rng = ECHO.Sim.rngFor(world);
       e.dead = true; e.vanish = true;
       game.ui.bossBar(null);
-      if (e.dragon && ECHO.Events) ECHO.Events.dragonFled(game, e);
       b.fleeCount = (b.fleeCount || 0) + 1;
       b.absentUntil = world.day + rng.int(5, 9);
       // Adapt to what hurt it most this time.

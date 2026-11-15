@@ -1,6 +1,6 @@
 // Calamities: the titans as forces of the world, not bosses waiting in arenas.
 //
-// Every dragon and great beast has a class, from a Lesser Calamity that can ruin a
+// Every winged beast and great beast has a class, from a Lesser Calamity that can ruin a
 // village to the Primordial one that sleeps and should never be woken. They do not
 // stay put: hunger or restlessness sends them across the country to new ground —
 // over hills, along valleys, past (or through) the towns in their way. A town in
@@ -23,7 +23,7 @@
     { n: 5, roman: 'V', name: 'Primordial Calamity', max: Infinity, harm: 'sleeps; it should never be woken', food: 0.8, prosp: 30, dead: [3, 6] }
   ];
   // how far it goes in a day of the world, in leagues (tiles)
-  const SPEED = { drake: 60, stag: 32, wyrm: 24 };
+  const SPEED = { stag: 32, wyrm: 24 };
   const MAX_MOVING = 3;
 
   // what lives in the ground where one of them fell, by its element
@@ -46,7 +46,7 @@
       const to = t.mig.to, s = Wd().nearestSettlement ? Wd().nearestSettlement(world, to.x, to.y) : null;
       return `${C.dirWord(to.x - t.x, to.y - t.y)}${s && U.dist(s.x, s.y, to.x, to.y) < 40 ? ', toward the country of ' + s.name : ''}`;
     },
-    // the land it can stand on (a dragon flies over anything)
+    // the land it can stand on (a winged beast flies over anything)
     ok(world, t, x, y) {
       if (x < 2 || y < 2 || x > world.W - 3 || y > world.H - 3) return false;
       if (Ti().sp(t).flies) return true;
@@ -54,7 +54,7 @@
     },
 
     // A walking one goes round lakes and rivers (a serpent wades the shallows); its road
-    // is kept as a few waypoints. A dragon flies straight.
+    // is kept as a few waypoints. A winged beast flies straight.
     route(world, t, to) {
       if (Ti().sp(t).flies) return [];
       const TT = ECHO.TILE, wyrm = Ti().sp(t).kind === 'wyrm', W = world.W;
@@ -97,7 +97,7 @@
           const step = Math.min(left, Math.max(d, 0.05), 1);
           left -= step;
           const a0 = Math.atan2(to.y - t.y, to.x - t.x);
-          // on its road it goes where the road goes; off it (a dragon), wherever it can
+          // on its road it goes where the road goes; off it (a winged beast), wherever it can
           let done = false;
           for (const da of t.mig.path ? [0] : [0, 0.5, -0.5, 1.1, -1.1]) {
             const nx = t.x + Math.cos(a0 + da) * step, ny = t.y + Math.sin(a0 + da) * step;

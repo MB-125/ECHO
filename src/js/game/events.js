@@ -4,7 +4,7 @@
 //   · A hill-giant walking across the land. The ground shakes with each step,
 //     birds lift out of the trees, and it ignores you unless you get under its
 //     feet or pick a fight. Bring it down and the chronicles will say so.
-//   · A dragon. First its shadow passes over you, with a roar that sets the
+//   · A winged beast. First its shadow passes over you, with a roar that sets the
 //     horses screaming. Then word comes of where it has come down, near some
 //     village whose herds it is eating. Go and face it, or leave it to fly on.
 //   · A siege. An outlaw warband gathers to fall on a town at dusk. Be there
@@ -19,10 +19,9 @@
   const T = ECHO.TIME;
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const GIANTS = ['Grumbold', 'Hrungnir', 'Old Ottar', 'Bergelmir', 'Thrym', 'Skrymir', 'Mossback', 'Kettle-Head'];
-  const DRAGONS = ['Vyrmathra', 'Ashwing', 'Calcharon', 'Sevrith', 'Morgrath', 'Ysolde Emberjaw'];
 
   const E = ECHO.Events = {
-    st(world) { return (world.events = world.events || { lastGiant: -99, lastDragon: -99, lastSiege: -99, siege: null, dragon: null, giant: null, winterYear: -1, herdYear: -1, salmonYear: -1 }); },
+    st(world) { return (world.events = world.events || { lastGiant: -99, lastSiege: -99, siege: null, giant: null, winterYear: -1, herdYear: -1, salmonYear: -1 }); },
     date(world) { return T.dateOf(world.day); },
     salmonRun(world) { const d = E.date(world); return d.seasonIdx === 0 && d.dayOfSeason >= 4 && d.dayOfSeason <= 8; },
     greatHerd(world) { const d = E.date(world); return d.seasonIdx === 2 && d.dayOfSeason >= 3 && d.dayOfSeason <= 7; },
@@ -34,9 +33,7 @@
       const world = game.world, pe = game.pe;
       if (!world || !pe) return;
       const S = E.st(world);
-      if (E.fly) E.flyTick(game, dt);
       if (S.siege) E.siegeTick(game, dt);
-      if (S.dragon) E.dragonTick(game, dt);
       E.hourT = (E.hourT || 0) - dt * game.minPerSec();
       if (E.hourT > 0) return;
       E.hourT = 60;
@@ -126,90 +123,7 @@
           game.ui.toast(`${e.label} falls like a tree. Its heart, its hoard and its hide are yours.`, 'boss', 7);
         }
       }
-      if (e.event === 'dragon') {
-        S.dragon = null; S.lastDragon = world.day;
-        if (byYou) {
-          add('dragonscale', 3 + Math.floor(r() * 2)); add('gold', 300 + Math.floor(r() * 200));
-          pl.renown += 60;
-          game.ui.banner('Dragonslayer', `${e.boss.name} will trouble no one again`);
-          for (const s of world.settlements) { s.rep = s.rep || {}; s.rep[pl.charId] = U.clamp((s.rep[pl.charId] || 0) + 6, -100, 100); }
-        }
-      }
-    },
-    // ------------------------------------------------------------ the dragon
-    flyover(game) {
-      const pe = game.pe;
-      const a = Math.random() * Math.PI * 2;
-      E.fly = { x: pe.x - Math.cos(a) * 30, y: pe.y - Math.sin(a) * 30, dx: Math.cos(a), dy: Math.sin(a), t: 0, dur: 6, roared: false, speed: 11 };
-    },
-    flyTick(game, dt) {
-      const f = E.fly, pe = game.pe;
-      f.t += dt; f.x += f.dx * f.speed * dt; f.y += f.dy * f.speed * dt;
-      const d = U.dist(f.x, f.y, pe.x, pe.y);
-      if (!f.roared && d < 9) {
-        f.roared = true;
-        if (ECHO.Sfx) { ECHO.Sfx.play('roar', { pitch: 0.45 }); ECHO.Sfx.noise(ECHO.Sfx.ctx ? ECHO.Sfx.ctx.currentTime : 0, 1.6, 'lowpass', 600, 140, 0.6, 0.35, 0.2); }
-        game.shake(0.45);
-        if (ECHO.Fauna) for (const fl of ECHO.Fauna.flocks) if (!fl.up) ECHO.Fauna.takeOff(game, fl, pe);
-        for (const e of game.ents) {
-          if (e.dead || e.hidden) continue;
-          if (e.species === 'deer' && ECHO.Fauna) ECHO.Fauna.panic(game, e.herd, { x: f.x, y: f.y });
-          if (e.type === 'person' && U.dist(e.x, e.y, pe.x, pe.y) < 18 && Math.random() < 0.6) { e.say = ['DRAGON!', 'Gods preserve us!', 'Get inside!', 'Did you see that?!'][Math.floor(Math.random() * 4)]; e.sayT = 2.5; }
-        }
-        if (ECHO.Life && game.pe.mounted && ECHO.PlayerCtl.ride) ECHO.PlayerCtl.ride.rearT = 1.1;
-        game.ui.toast('A shadow sweeps over you, huge and fast, and a roar shakes the air. A dragon!', 'boss', 6);
-      }
-      if (f.t > f.dur) { E.fly = null; E.dragonLand(game); }
-    },
-    dragonLand(game) {
-      const world = game.world, pe = game.pe, S = E.st(world), pl = game.pl;
-      const vill = world.settlements.filter(s => U.dist(s.x, s.y, pe.x, pe.y) < 90 && s.kind !== 'capital').sort(() => Math.random() - 0.5);
-      for (const s of vill) {
-        for (let k = 0; k < 20; k++) {
-          const a = Math.random() * Math.PI * 2, r = 13 + Math.random() * 6;
-          const x = Math.round(s.x + Math.cos(a) * r), y = Math.round(s.y + Math.sin(a) * r);
-          if (ECHO.World.isSolid(world, x, y) || ECHO.World.isSolid(world, x, y - 2.5) || (ECHO.Water && ECHO.Water.kind(world, x, y))) continue;
-          if (world.settlements.some(t => U.dist(t.x, t.y, x, y) < 10)) continue;
-          const name = DRAGONS[Math.floor(Math.random() * DRAGONS.length)];
-          const hp = 1500 + (ECHO.Prowess ? ECHO.Prowess.level(pl) * 60 : 300);
-          const lair = { id: 'dragon' + world.day, x, y, rocks: [], regionId: ECHO.World.regionAt(world, x, y).id, dragon: true,
-            boss: { id: 'dragon' + world.day, name, title: 'the Dragon', kind: 'drake', maxHp: hp, hp, alive: true, fled: false, absentUntil: -1, dmgMul: 1.6, color: '#8a2a1a', belly: '#c8803a',
-              armor: { melee: 0.1, ranged: 0.15, fire: 0.6 }, scars: [], memory: { encounters: 0, dodge: { left: 0, right: 0, back: 0 }, blocks: 0, attacksSeen: 0, rangedTime: 0, meleeTime: 0, damageBy: { melee: 0, ranged: 0, fire: 0 }, knownFoes: {} }, kills: 0, bornDay: world.day - 900 } };
-          S.dragon = { x, y, sid: s.id, town: s.name, name, day: world.day, lair };
-          S.lastDragon = world.day;
-          ECHO.Chronicle.add(world, { text: `A dragon, ${name}, has come down near ${s.name}. The herds there are being taken.`, kind: 'beast', importance: 2, x, y });
-          const free = !pl.tracked || pl.tracked.startsWith('mark:');
-          if (free) pl.tracked = `mark:${x.toFixed(1)}:${y.toFixed(1)}:${name} the Dragon`;
-          game.ui.toast(`Word spreads fast: the dragon has come down near ${s.name}, and is eating the herds. Its name, they say, is ${name}.${free ? ' (The line at the top of the screen points the way.)' : ` (Head for ${s.name}; it is somewhere outside the village.)`}`, 'boss', 8);
-          if (ECHO.Purpose) { ECHO.Purpose._html = null; ECHO.Purpose.t = 0; }
-          return;
-        }
-      }
-    },
-    dragonTick(game, dt) {
-      const world = game.world, pe = game.pe, S = E.st(world), D = S.dragon;
-      // it leaves after a fortnight, fat on the herds
-      if (world.day - D.day > 14) {
-        S.dragon = null;
-        for (const e of game.ents) if (e.dragon) { e.dead = true; e.vanish = true; game.ui.bossBar(null); }
-        ECHO.Chronicle.add(world, { text: `The dragon ${D.name} has flown on from ${D.town}.`, kind: 'beast', importance: 1, x: D.x, y: D.y });
-        return;
-      }
-      if (D.lastDay !== world.day) { D.lastDay = world.day; const s = world.settlements.find(t => t.id === D.sid); if (s && s.stock) { s.stock.food = Math.max(0, s.stock.food * 0.93); s.wealth = Math.max(0, (s.wealth || 0) * 0.97); } }
-      if (ECHO.Interior.cur) return;
-      const near = U.dist(D.x, D.y, pe.x, pe.y) < 28;
-      const has = game.ents.some(e => e.dragon && !e.dead);
-      if (near && !has) {
-        const e = ECHO.Boss.spawn(game, D.lair);
-        e.dragon = true; e.event = 'dragon'; e.r = 1.5; e.label = `${D.name} the Dragon`;
-        game.addEnt(e);
-      }
-    },
-    dragonFled(game, e) {
-      const S = E.st(game.world);
-      if (S.dragon) ECHO.Chronicle.add(game.world, { text: `${S.dragon.name} the Dragon was driven off, wounded, from ${S.dragon.town}.`, kind: 'beast', importance: 2, x: e.x, y: e.y });
-      S.dragon = null; S.lastDragon = game.world.day - 6;
-      game.ui.toast('The dragon beats into the sky, bleeding, and is gone over the hills. It will remember you.', 'legend', 6);
+
     },
     // ------------------------------------------------------------ the siege
     planSiege(game, force) {
@@ -356,7 +270,6 @@
     force(game, kind) {
       const S = E.st(game.world);
       if (kind === 'giant') return E.spawnGiant(game);
-      if (kind === 'dragon') { S.dragon = null; return E.flyover(game); }
       if (kind === 'siege') { S.siege = null; return E.planSiege(game, true); }
       if (kind === 'winter') return E.winterWolf(game);
     }

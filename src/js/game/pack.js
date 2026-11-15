@@ -84,8 +84,8 @@
         ranged: !!(ab.ranged || ab.bolt), bolt: ab.bolt || null,
         venom: !!(ab.poison || sp === 'spider' || bk === 'wyrm' || /venom/i.test(e.pal ? e.pal.was || '' : '')),
         web: !!ab.web, slam: !!(ab.slam || bk === 'stag' || bk === 'wyrm' || wab.rootquake || e.type === 'boss' || (e.scale || 1) >= 1.6),
-        charge: !!(ab.charge || sp === 'wolf' || e.shape === 'hound' || bk === 'stag' || bk === 'drake' || wab.hunt),
-        breath: bk === 'drake' || e.shape === 'drake' || (ab.bolt && ab.bolt.type === 'fire' && (e.scale || 1) > 1.2),
+        charge: !!(ab.charge || sp === 'wolf' || e.shape === 'hound' || bk === 'stag' || wab.hunt),
+        breath: (ab.bolt && ab.bolt.type === 'fire' && (e.scale || 1) > 1.2),
         blink: !!(ab.teleport || sp === 'wraith' || wab.drop), drain: !!(ab.drain || ab.drain === 0), heal: !!ab.heal,
         howl: !!(ab.pack || sp === 'wolf' || e.shape === 'hound'), regen: !!ab.regen, frenzy: !!ab.frenzy,
         big: e.type === 'boss' || !!e.pal && (e.pal.lord || e.pal.cat === 'boss') || (e.scale || 1) >= 1.5

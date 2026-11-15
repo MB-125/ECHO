@@ -10,7 +10,7 @@
   const { U } = ECHO;
   const P = () => ECHO.People;
 
-  // kind: the body (drake = winged dragon; wyrm = serpent; stag = great horned beast)
+  // kind: the body (wyrm = serpent; stag = great horned beast)
   const SPECIES = {
     gorehorn: { kind: 'stag', flies: false, element: 'earth', name: 'Gorehorn', title: 'the Ironhide Behemoth', lv: 26, scale: 1.5, color: '#5a4636', terr: ['GRASS', 'FARM', 'HILL'], brood: 'tuskling', far: 0.1,
       desc: 'A great horned beast as big as a house. Its charge breaks walls.', names: ['Gorehorn', 'Ironbrow', 'Old Thunderhead'] },
@@ -23,7 +23,7 @@
     grimmaw: { kind: 'wyrm', flies: false, element: 'earth', name: 'Grimmaw', title: 'the Mountain Wyrm', lv: 520, scale: 2.3, color: '#5a4a3a', terr: ['HILL', 'SNOW'], brood: 'slaggolem', far: 0.7,
       desc: 'It burrows through hills. The ground heaves where it hunts.', names: ['Grimmaw', 'Stonegullet', 'the Deepbore'] }
   };
-  // (there are no dragons: the kinds that were dragons are gone from the world — nodragons.js)
+  // (the winged kinds are gone from the world — oldkinds.js)
   const ORDER = ['gorehorn', 'thunderhoof', 'mawtide', 'ironback', 'grimmaw'];
   const MAX_BOUND = 4;
 

@@ -19,7 +19,6 @@
     whitestag: 'A white-antlered stag: seen only in the years the great herds move.',
     hind: 'The White Hind shows herself only to those the forest favours.',
     giant: 'Hill-giants walk the land slowly, and the ground shakes at each step.',
-    dragon: 'A dragon: the largest living thing you have ever seen, and fire does not trouble it.',
     beast: 'A great beast of the wilds, that remembers those who fought it.',
     winter: 'The Winter Wolf: white as snow and twice the size of the rest of her pack.',
     horse: 'Your own horse, drawn at rest.'
@@ -44,7 +43,6 @@
         else if (e.species === 'deer') { key = e.white ? 'whitestag' : e.stag ? 'stag' : 'deer'; name = e.white ? 'the white-antlered stag' : e.stag ? 'a red stag' : 'a red deer'; value = e.white ? 60 : e.stag ? 18 : 12; }
         else if (e.species === 'hind') { key = 'hind'; name = 'the White Hind'; value = 80; }
         else if (e.giant) { key = 'giant'; name = e.label; value = 70; }
-        else if (e.dragon) { key = 'dragon'; name = e.label; value = 120; }
         else if (e.type === 'boss') { key = 'beast:' + e.boss.id; name = e.label; value = 50; }
         if (key) add(key, name, 'creature', e.x, e.y, value, { ent: e, nkey: key.startsWith('beast:') ? 'beast' : key });
       }

@@ -5,7 +5,7 @@
 // (F), clearing the deep places floor by floor, standing against the calamities, and
 // enduring the worst of the weather on the open road. A hunter who has studied the
 // wolves fights them better than a stronger man who never looked; one who has stood
-// under a dragon's breath knows how to take less of it.
+// under a winged beast's breath knows how to take less of it.
 (function () {
   const { U } = ECHO;
   const UI = () => ECHO.UI;
@@ -16,8 +16,8 @@
       perk: r => `+${r * 4}% harm to every kind you have studied${r >= 4 ? ' · and 5% less from them' : ''}` },
     delve: { name: 'Delver', icon: '🕯', col: '#b48aff', at: [3, 10, 25, 50, 100], how: 'Clear the floors of dungeons, caves and crypts.',
       perk: r => `+${r * 4}% harm below ground` },
-    titan: { name: 'Calamity-hunter', icon: '🐉', col: '#ff8a5a', at: [5, 20, 50, 100, 200], how: 'Stand against dragons and great beasts — every wound you give one counts.',
-      perk: r => `${r * 6}% less harm from dragons, great beasts and their arts` },
+    titan: { name: 'Calamity-hunter', icon: '🦣', col: '#ff8a5a', at: [5, 20, 50, 100, 200], how: 'Stand against great beasts — every wound you give one counts.',
+      perk: r => `${r * 6}% less harm from great beasts and their arts` },
     endure: { name: 'Wayfarer', icon: '🧭', col: '#8fb8ff', at: [5, 15, 40, 90, 180], how: 'Keep to the open road in storm, snow, rain, fog and heat.',
       perk: r => `+${r * 3}% life` }
   };

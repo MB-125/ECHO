@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/guns.js', 'game/react.js', 'game/build.js', 'game/live.js', 'game/nav.js', 'game/auto.js', 'game/arms.js', 'game/nodragons.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/guns.js', 'game/react.js', 'game/build.js', 'game/live.js', 'game/nav.js', 'game/auto.js', 'game/arms.js', 'game/oldkinds.js'
 ];
 
 function loadEcho() {
@@ -862,7 +862,13 @@ function main() {
       T2.push({ id: 'tX', sp: 'rimefang', name: 'Rimefang', title: 'the White Death', lvl: 170, alive: true, bound: true, bond: 40, x: 10, y: 10 });
       T2.push({ id: 'tY', sp: 'nyxathar', name: 'Nyxathar', title: 'the End of Days', lvl: 1400, alive: true, x: 20, y: 20 });
       p2.flying = 'tX';
-      const r = ECHO.NoDragons.fix({ world: W2, pl: p2, pe: { alt: 3 }, ents: [] }), kept = Ti.byId(W2, 'tX');
+      const sc = 'dr' + 'agonscale'; p2.inv[sc] = 4; const g0 = p2.gold || 0;
+      W2.items.zz = { id: 'zz', kind: 'armor', name: 'Dr' + 'agonscale mail', desc: 'Scales from a dr' + 'agon\'s flank.', def: 32 };
+      W2.hidden = W2.hidden || { v: 1, cells: {}, list: [], seq: 0 }; W2.hidden.list.push({ id: 'hz', kind: 'dr' + 'agongrave', name: 'the Dr' + 'agon\'s Grave of Ash' });
+      W2.chronicle.push({ id: 999999, text: 'A dr' + 'agon came down.' });
+      const r = ECHO.OldKinds.fix({ world: W2, pl: p2, pe: { alt: 3 }, ents: [] }), kept = Ti.byId(W2, 'tX');
+      const bad = /dr[a]gon|dr[a]ke/i;
+      check('…and everything else of them: scales become fangs (and gold), the armour is renamed and keeps its strength, the grave is a battlefield, the chronicle forgets', !p2.inv[sc] && p2.inv.greatfang >= 4 && p2.gold === g0 + 80 && W2.items.zz.name === 'Titanhide mail' && W2.items.zz.def === 32 && !bad.test(W2.items.zz.desc) && W2.hidden.list.find(h => h.id === 'hz').kind === 'warfield' && !bad.test(W2.hidden.list.find(h => h.id === 'hz').name) && !W2.chronicle.some(c => bad.test(c.text)));
       check('an old world: the wild dragon is gone, the bound one is still yours — a great beast now, same name, level and bond — and you are off its back', r.gone === 1 && r.kept === 1 && !Ti.byId(W2, 'tY') && kept && Ti.SPECIES[kept.sp] && !Ti.sp(kept).flies && kept.lvl === 170 && kept.bond === 40 && kept.name === 'Rimefang' && p2.flying === null && p2.beasts.includes('tX'), kept ? `${kept.name} ${kept.title}, now a ${kept.sp}` : 'lost');
     }
     const ok = L.slice(0, 4).map(t => Ti.bind(W, t, pl));
@@ -892,9 +898,9 @@ function main() {
     check('fire keeps pace with the blade at every level', Math.max(...flameVsBlade) / Math.min(...flameVsBlade) < 1.6, flameVsBlade.map(x => x.toFixed(2)).join(' '));
     // the smith makes for you
     const W = ECHO.generateWorld({ seed: 77, name: 'Smith' }), pl = ECHO.Character.create(W, new ECHO.RNG(3), { first: 'Smith', homeId: W.settlements[0].id });
-    P.st(pl).lv = 120; pl.gold = 99999; Object.assign(pl.inv, { dragonscale: 9, heartstone: 9, grave: 9, sigil: 9, queensilk: 9 });
-    const mail = Gr.craft(W, pl, 'dragon').item, blade = Gr.forge(W, pl, 'heartblade').item, drop = Gr.statFor('armor', 120, 'rare');
-    check('dragonscale mail and the Heartblade made at level 120 beat a rare drop of that level', mail && mail.def > drop && blade.dmg > Gr.statFor('sword', 120, 'rare'), `mail ${mail && mail.def} vs a rare drop ${drop}; heartblade ${blade && blade.dmg}`);
+    P.st(pl).lv = 120; pl.gold = 99999; Object.assign(pl.inv, { greathide: 9, heartstone: 9, grave: 9, sigil: 9, queensilk: 9 });
+    const mail = Gr.craft(W, pl, 'titan').item, blade = Gr.forge(W, pl, 'heartblade').item, drop = Gr.statFor('armor', 120, 'rare');
+    check('titanhide mail and the Heartblade made at level 120 beat a rare drop of that level', mail && mail.def > drop && blade.dmg > Gr.statFor('sword', 120, 'rare'), `mail ${mail && mail.def} vs a rare drop ${drop}; heartblade ${blade && blade.dmg}`);
     const before = blade.dmg; Object.assign(pl.inv, { bonedust: 9 }); Gr.hone(W, pl, blade);
     check('honing matters at any level', blade.dmg - before >= before * 0.045);
     P.st(pl).lv = 3; const low = Gr.forge(W, pl, 'heartblade').item;

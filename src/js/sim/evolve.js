@@ -96,7 +96,7 @@
     genericAb(kind, s) {
       const D = Ev.def(kind) || {}, has = k => !!(D.ab && D.ab[k]);
       if (s === 2) return has('frenzy') ? { regen: 2 } : { frenzy: true };
-      if (s === 3) return D.shape === 'hound' || D.shape === 'stag' || D.shape === 'drake' ? { charge: { cd: 9 } } : has('slam') ? { regen: 3 } : { slam: { cd: 9, r: 2.2, dmg: 1 } };
+      if (s === 3) return D.shape === 'hound' || D.shape === 'stag' ? { charge: { cd: 9 } } : has('slam') ? { regen: 3 } : { slam: { cd: 9, r: 2.2, dmg: 1 } };
       return D.boss || has('summon') ? { teleport: { cd: 9 } } : { summon: { kind, n: 2, cd: 16 } };
     },
     // its whole ladder, for the bestiary (only what you have seen is named)

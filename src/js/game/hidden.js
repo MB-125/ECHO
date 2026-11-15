@@ -7,7 +7,7 @@
 //     heights with its stones still hanging in the air, a SEALED VAULT in the rock that only a
 //     vault key opens, the forgotten TOMB of a king no one remembers. Each is a dungeon of its
 //     own, of three floors or two, with a treasure of its own at the bottom;
-//   • places that are guarded: a DRAGON'S GRAVE, a LOST BATTLEFIELD whose dead still hold it, a
+//   • places that are guarded: a LOST BATTLEFIELD whose dead still hold it, a
 //     WITCH'S HOLLOW, a GIANT'S FORGE, a STARFALL HEART. Something strong keeps each; beat it
 //     and its hoard is yours — a fortune, a relic, fine gear, and often a treasure map or a
 //     vault key;
@@ -49,9 +49,6 @@
       lore: ['A door of bronze in the hillside, sealed with three runes. {W} locked away the treasure of {N} here and took the keys with them.', 'The vault of {N} was made never to be opened. Vault keys still turn up in old hoards — and every one of them fits.', '{W} hid here what they could not bear to lose. The seal holds. Behind it, something has been counting the coins for a long time.'] },
     tomb: { label: 'Forgotten tomb', type: 'delve', where: 'open', col: '#9fd3ff', icon: '✝', titles: ['the Tomb of the King of {N}', 'the Forgotten Barrow of {N}', 'the Grave of {N}\'s Last King'],
       lore: ['A king of {N} lies here, whose name no one alive remembers. He was buried with his household, his hoard and his guard — and the guard took its oath seriously.', '{W} buried their dead kings in the open grass, with standing stones to keep them in. The stones lean now.', 'No song is left of the last king of {N}. Only this mound, and what still walks inside it.'] },
-    dragongrave: { label: 'Dragon\'s grave', type: 'guard', where: 'dry', col: '#ff7a3a', icon: '☠', titles: ['the Dragon\'s Grave of {N}', 'the Burnt Bones of {N}', 'the Wyrm\'s Rest at {N}'],
-      guards: [['troll', 2], ['golemling', 2]], champ: 'golem', champName: 'the Ember-Hulk', hoardMul: 1.6,
-      lore: ['A dragon died here, long ago. Its bones are still warm, and the things that came to pick them grew into something worse.', 'The great wyrm of {N} came down here in its last fire. The ground is glass. Its hoard went into the ground with it.', '{W} killed the dragon of {N} at last, and left its bones to keep the hoard. Something keeps it still.'] },
     warfield: { label: 'Lost battlefield', type: 'guard', where: 'open', col: '#c8b89a', icon: '⚔', titles: ['the Lost Field of {N}', 'the Last Stand of {N}', 'the Broken Host of {N}'],
       guards: [['skeleton', 3], ['skelarcher', 2], ['wight', 2]], champ: 'barrow-king', champName: 'the Last Captain', hoardMul: 1.2,
       lore: ['The host of {N} made its last stand here, and lost, and would not leave. Their banners are rags; their captain still gives orders.', 'No one remembers what the battle of {N} was for. The dead remember the battle.', '{W} sent an army here and it never came home. It is still here, and it still holds the field.'] },
@@ -69,7 +66,7 @@
     eldertree: { label: 'Eldest tree', type: 'bless', where: 'wood', col: '#ffe08a', icon: '♣', when: 'day', titles: ['the Eldest Tree of {N}', 'the Grandmother Oak of {N}', 'the Heart-Tree of {N}'],
       lore: ['The oldest living thing in all this country. Rest under it by daylight, and you will walk lighter for the rest of your life.', '{W} planted this tree when {N} was young. {N} is gone. The tree is not.', 'Its roots go down further than any well. Sit in its shade by day and something of its long patience goes into you.'] }
   };
-  const TYPES = { delve: ['drowned', 'skyruin', 'vault', 'tomb'], guard: ['dragongrave', 'warfield', 'witch', 'giantforge', 'starheart'], bless: ['silverpool', 'eldertree'] };
+  const TYPES = { delve: ['drowned', 'skyruin', 'vault', 'tomb'], guard: ['warfield', 'witch', 'giantforge', 'starheart'], bless: ['silverpool', 'eldertree'] };
   // the dungeons they open into
   const DELVE_DEFS = {
     drowned: { label: 'Sunken temple', names: ['the Sunken Temple'], desc: 'A temple drowned to its roof in green water. A stair goes down through the flood into halls that have never dried.', boss: 'crypt-warden', hiddenFloors: 3, roster: [['ghoul', 2], ['wraith', 2], ['wight', 2], ['skeleton', 2]], deep: [['wraith', 1], ['ghoul', 1]], style: 'crypt', glow: '#4ad8c8', lvl: 2 },
