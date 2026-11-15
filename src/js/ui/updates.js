@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.52.0', items: [
+      'One map: the flat chart. North is always up, you drag to move it and use the wheel (or + and -) to zoom, and it opens on where you are. The spinning globe view and its button (T) are gone.',
+      'The chart was kept because it is the easiest to read at any age: nothing turns or tilts under you, places stay where you last saw them, and the whole world can be seen at once with the fit button.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.51.0', items: [
       'Everything to do with the winged titans is gone, not only the beasts: the graves they left (now old battlefields), their scales and the armour made from them, the gate world\'s winged hounds, riding one, and every mention of them in the game, its guide and its update notes.',
       'Scales you were carrying become great beast fangs, and you get 20 gold for each on top. Armour you had made from them keeps its strength and is renamed Titanhide mail. The legendary armour is now made from great beast hide.',
