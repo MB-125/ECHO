@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.52.1', items: [
+      'Fixed the red "Something went wrong … reading \'hp\'" message on the Beasts page. A tamed beast of the gate world\'s fire hound had kept its old name, which the game no longer knew. It is now an Ember Stalker, at the same level, with the same name you gave it.',
+      'Kills, sketches and anything else in your save that named the old kind now name the new one.',
+      'A tamed beast of any kind the game no longer has is shown as the nearest kind there is, instead of an error.'
+    ] },
     { v: '0.52.0', items: [
       'One map: the flat chart. North is always up, you drag to move it and use the wheel (or + and -) to zoom, and it opens on where you are. The spinning globe view and its button (T) are gone.',
       'The chart was kept because it is the easiest to read at any age: nothing turns or tilts under you, places stay where you last saw them, and the whole world can be seen at once with the fit button.',

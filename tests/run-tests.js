@@ -862,12 +862,15 @@ function main() {
       T2.push({ id: 'tX', sp: 'rimefang', name: 'Rimefang', title: 'the White Death', lvl: 170, alive: true, bound: true, bond: 40, x: 10, y: 10 });
       T2.push({ id: 'tY', sp: 'nyxathar', name: 'Nyxathar', title: 'the End of Days', lvl: 1400, alive: true, x: 20, y: 20 });
       p2.flying = 'tX';
+      p2.pack = [{ id: 'pq', cat: 'monster', kind: 'ember' + 'drake', name: 'Thorn the Ember Dr' + 'ake', lvl: 50 }]; p2.kills = { ['ember' + 'drake']: 7 };
+      W2.player = p2;
       const sc = 'dr' + 'agonscale'; p2.inv[sc] = 4; const g0 = p2.gold || 0;
       W2.items.zz = { id: 'zz', kind: 'armor', name: 'Dr' + 'agonscale mail', desc: 'Scales from a dr' + 'agon\'s flank.', def: 32 };
       W2.hidden = W2.hidden || { v: 1, cells: {}, list: [], seq: 0 }; W2.hidden.list.push({ id: 'hz', kind: 'dr' + 'agongrave', name: 'the Dr' + 'agon\'s Grave of Ash' });
       W2.chronicle.push({ id: 999999, text: 'A dr' + 'agon came down.' });
       const r = ECHO.OldKinds.fix({ world: W2, pl: p2, pe: { alt: 3 }, ents: [] }), kept = Ti.byId(W2, 'tX');
       const bad = /dr[a]gon|dr[a]ke/i;
+      check('a tamed beast of a kind that was renamed is the new kind, by its new name, and its kills are counted under it', p2.pack[0].kind === 'emberstalker' && !bad.test(p2.pack[0].name) && p2.kills.emberstalker === 7 && !('ember' + 'drake' in p2.kills), JSON.stringify([p2.pack[0], p2.kills, W2.player === p2]));
       check('…and everything else of them: scales become fangs (and gold), the armour is renamed and keeps its strength, the grave is a battlefield, the chronicle forgets', !p2.inv[sc] && p2.inv.greatfang >= 4 && p2.gold === g0 + 80 && W2.items.zz.name === 'Titanhide mail' && W2.items.zz.def === 32 && !bad.test(W2.items.zz.desc) && W2.hidden.list.find(h => h.id === 'hz').kind === 'warfield' && !bad.test(W2.hidden.list.find(h => h.id === 'hz').name) && !W2.chronicle.some(c => bad.test(c.text)));
       check('an old world: the wild dragon is gone, the bound one is still yours — a great beast now, same name, level and bond — and you are off its back', r.gone === 1 && r.kept === 1 && !Ti.byId(W2, 'tY') && kept && Ti.SPECIES[kept.sp] && !Ti.sp(kept).flies && kept.lvl === 170 && kept.bond === 40 && kept.name === 'Rimefang' && p2.flying === null && p2.beasts.includes('tX'), kept ? `${kept.name} ${kept.title}, now a ${kept.sp}` : 'lost');
     }

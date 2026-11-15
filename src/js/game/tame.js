@@ -336,6 +336,7 @@
           const FM = ECHO.Prowess.foeMul(r.lvl);
           e.maxHp = e.hp = Math.round(e.maxHp * FM.hp); e.palDmg = ((ECHO.SPECIES[r.kind] || {}).dmg || 8) * FM.dmg; e.lvl = r.lvl;
         } else {
+          if (!ECHO.Monsters.DEFS[r.kind] && !(ECHO.Quests.FOES && ECHO.Quests.FOES[r.kind])) r.kind = (ECHO.OldKinds && ECHO.OldKinds.RENAMED[r.kind]) || ['emberstalker', 'cinderhound', 'wolf'].find(k => ECHO.Monsters.DEFS[k]) || 'wolf';
           e = ECHO.Monsters.DEFS[r.kind] ? ECHO.Monsters.make(game, r.kind, sp.x, sp.y, r.lvl, { noElite: true, evo: 1 }) : ECHO.Quests.makeFoe(game, r.kind, sp.x, sp.y, {});
           e.palDmg = (e.foe.dmg || 8) * (e.dmgMul || 1);
           if (r.elite) { e.elite = r.elite; const X = ECHO.Monsters.ELITE.find(z => z.k === r.elite); if (X) { if (X.hp) e.maxHp = Math.round(e.maxHp * X.hp); if (X.dmg) e.palDmg *= X.dmg; if (X.scale) e.scale *= X.scale; } }

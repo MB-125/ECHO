@@ -13,7 +13,25 @@
 (function () {
   const GONE = { emberwing: { element: 'fire', lv: 48 }, rimefang: { element: 'frost', lv: 165 }, mirevenom: { element: 'venom', lv: 240 }, skyrender: { element: 'storm', lv: 330 }, solgrim: { element: 'sun', lv: 720 }, nyxathar: { element: 'void', lv: 1400 } };
   const WORD = new RegExp('dr' + 'agon|dr' + 'ake|wy' + 'vern', 'i');            // (what is being forgotten)
+  const RENAMED = { ['emberdr' + 'ake']: 'emberstalker' };
   const D = ECHO.OldKinds = {
+    RENAMED,
+    // every string that is an old name, and every key that is one, anywhere in the save
+    rename(world, map) {
+      const seen = new Set();
+      const walk = (o, depth) => {
+        if (!o || typeof o !== 'object' || depth > 14 || seen.has(o) || ArrayBuffer.isView(o)) return;
+        seen.add(o);
+        if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) { const v = o[i]; if (typeof v === 'string' && map[v]) o[i] = map[v]; else if (v && typeof v === 'object') walk(v, depth + 1); } return; }
+        for (const k of Object.keys(o)) {
+          let v = o[k];
+          if (typeof v === 'string' && map[v]) o[k] = v = map[v];
+          if (map[k]) { const nk = map[k]; if (o[nk] === undefined) o[nk] = v; else if (typeof v === 'number' && typeof o[nk] === 'number') o[nk] += v; delete o[k]; }
+          if (v && typeof v === 'object') walk(v, depth + 1);
+        }
+      };
+      for (const k of Object.keys(world)) if (k[0] !== '_' && k !== 'tiles') walk(world[k], 0);
+    },
     _done: null,
     reset() { D._done = null; },
     tick(game) { if (game.world && D._done !== game.world) { D._done = game.world; D.fix(game); } },
@@ -68,6 +86,10 @@
       const sites = H && (H.list || H.sites || (Array.isArray(H) ? H : null));
       if (sites) for (const h of sites) if (h && h.kind === 'dr' + 'agongrave') { h.kind = 'warfield'; if (h.name) h.name = D.scrub(h.name).replace(/Titan's Grave/, 'Old Battlefield'); }
       if (world.chronicle && Array.isArray(world.chronicle)) world.chronicle = world.chronicle.filter(c => !(c && typeof c.text === 'string' && WORD.test(c.text)));
+      // a monster renamed (the gate world's fire hound): every place a save names it — a tamed beast
+      // in your pack, a count of kills, a page of your sketchbook — names the new one
+      D.rename(world, RENAMED);
+      if (pl) for (const r of (pl.pack || [])) if (r && typeof r.name === 'string' && WORD.test(r.name)) r.name = D.scrub(r.name.replace(new RegExp('Ember Dr' + 'ake', 'g'), 'Ember Stalker'));
       if (kept.length && ECHO.UI) ECHO.UI.toast(`The winged titans are gone from the world. ${kept.map(t => t.name).join(', ')} ${kept.length > 1 ? 'are' : 'is'} still yours, now ${kept.length > 1 ? 'great beasts' : 'a great beast'} of the land, at the same level.`, 'legend', 10);
       return { gone, kept: kept.length };
     }

@@ -25,6 +25,7 @@
 
     // ------------------------------------------------------------ foes
     makeFoe(game, kind, x, y, o = {}) {
+      if (!FOES[kind]) kind = FOES.brigand ? 'brigand' : Object.keys(FOES)[0];   // (a kind no longer in the world: the nearest plain foe, never a crash)
       const F = FOES[kind];
       const e = ECHO.Ent.make({ type: 'creature', species: kind, humanoid: true, foe: F, x, y, r: 0.36, hp: F.hp, maxHp: F.hp, speed: F.speed, faction: 'wild', label: F.elite ? F.name : null, state: 'idle', gear: { bow: kind === 'brigand' && Math.random() < 0.3 }, look: { skin: F.look === 'wight' || F.look === 'king' ? '#cfe3d8' : ['#e0ac85', '#c68a62', '#a8694a'][Math.floor(Math.random() * 3)], hair: F.look === 'wight' || F.look === 'king' ? '#e8f0e8' : '#2b1d14', hairStyle: Math.floor(Math.random() * 4), beard: Math.random() < 0.4 }, ...o });
       return e;
