@@ -1301,9 +1301,6 @@
         const h1 = hash(x, y, world.seed + 31), h2 = hash(x, y, world.seed + 32), h3 = hash(x, y, world.seed + 33);
         const px = x + 0.5 + (h2 - 0.5) * 0.5, py = y + 0.5 + (h3 - 0.5) * 0.5;
         const ii = y * world.W + x, trl = world._trail ? world._trail[ii] : 0, dwt = world._wd ? world._wd[ii] : 0;
-        // something you built stands here (builder.js): that, and nothing growing through it
-        const bE = world.built && ECHO.Builder ? ECHO.Builder.at(world, x, y) : null;
-        if (bE) { const BP = ECHO.Builder.PIECES[bE.k]; if (BP) add(BP.model, null, x + 0.5, y + 0.5, 1, 0); continue; }
         // felled, or broken: what is left of it
         const cutE = world.cut && ECHO.Clearing ? ECHO.Clearing.at(world, x, y) : null;
         if (cutE) { R.cutProps(world, cutE, x, y, add, season); continue; }
@@ -5174,7 +5171,6 @@
       R.updateGunships(game, dt);
       R.updateLive(game, dt);
       R.updateFlutter(game, dt);
-      R.updateBuild(game);
       R.updatePush(game, dt, room);
       R.updateAura(game, dt);
       R.updateGlows(game);
@@ -5233,21 +5229,6 @@
     },
     // Live events (live.js): the rift — a ring of light standing in the air, turning, a dark
     // heart in it — and the drop pod, a scorched capsule with its lamps still lit.
-    // Where the piece you are placing would go: green if it can, red if it cannot.
-    updateBuild(game) {
-      const Bd = ECHO.Builder, gh = Bd && Bd.mode ? Bd.ghost : null;
-      if (!gh) { if (R._bghost) R._bghost.visible = false; return; }
-      if (!R._bghost) {
-        R._bghost = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0x66ff99, transparent: true, opacity: 0.38, depthWrite: false }));
-        R._bghost.renderOrder = 5; R.scene.add(R._bghost);
-      }
-      const P = Bd.PIECES[gh.k], h = Math.max(0.12, P.h || 1), m = R._bghost;
-      m.visible = true;
-      m.material.color.setHex(gh.ok ? 0x66ff99 : gh.mine ? 0xffd070 : 0xff5a4a);
-      m.material.opacity = 0.3 + 0.1 * Math.sin(R.time * 6);
-      m.scale.set(1.02, h, 1.02);
-      m.position.set(gh.x + 0.5, R.groundH(gh.x + 0.5, gh.y + 0.5) + h / 2 + 0.02, gh.y + 0.5);
-    },
     // Butterflies over the meadow: by day, in fair weather, out of winter, where there is grass.
     // (Only to look at: nothing in the world knows of them, and nothing is saved.)
     updateFlutter(game, dt) {

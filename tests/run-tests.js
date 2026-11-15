@@ -933,31 +933,21 @@ function main() {
   }
 
 
-  console.log('\nBuilding and crafting');
+  console.log('\nCrafting');
   {
     const ctx = { console, Math, JSON, Set, Map, Object, Array, String, Number, isFinite };
     ctx.globalThis = ctx; vm.createContext(ctx);
-    for (const f of ['core.js', 'game/builder.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx, { filename: f });
-    const E = ctx.ECHO, B = E.Builder, T = E.TILE = { DEEP: 0, WATER: 1, SAND: 2, GRASS: 3, FOREST: 4, TREE: 5, HILL: 6, ROCK: 7, FARM: 8, ROAD: 9, SWAMP: 10, SNOW: 11, RUIN: 12, BRIDGE: 13, PLAZA: 14, RUINWALL: 15 };
-    const W = 40, H = 30, world = { W, H, tiles: new Uint8Array(W * H).fill(T.GRASS), structures: [], settlements: [] };
-    world.tiles[5 * W + 5] = T.WATER; world.tiles[5 * W + 6] = T.TREE; world.tiles[5 * W + 7] = T.ROAD;
-    const pl = { inv: { timber: 10, ore: 20 }, items: [], stats: {} }, pe = { x: 10.5, y: 10.5, r: 0.33 };
-    const game = { world, pl, pe, ents: [pe] }, R = k => B.RECIPES.find(r => r.k === k);
-    check('a world nobody has built in carries nothing new', world.built === undefined && B.at(world, 3, 3) === null && world.built === undefined);
-    check('the tree starts by hand: timber is sawn into planks, four to the load', B.craft(game, R('planks'), 5) === 5 && pl.inv.planks === 20 && pl.inv.timber === 5);
-    check('…stone wants a workbench, ingots a furnace, the forge an anvil — and none is near', /workbench/.test(B.whyNot(world, pl, R('stone'), 10.5, 10.5)) && /furnace/.test(B.whyNot(world, pl, R('ingots'), 10.5, 10.5)) && /anvil/.test(B.whyNot(world, pl, R('cells'), 10.5, 10.5)));
-    check('a piece goes on open ground: not on water, a tree, a road, or where someone stands', /water/.test(B.why(world, pl, 'wall', 5, 5, [pe])) && /tree/.test(B.why(world, pl, 'wall', 6, 5, [pe])) && /road/.test(B.why(world, pl, 'wall', 7, 5, [pe])) && /standing/.test(B.why(world, pl, 'wall', 10, 10, [pe])) && B.why(world, pl, 'floor', 10, 10, [pe]) === null && B.why(world, pl, 'wall', 12, 10, [pe]) === null);
-    check('placed, it is paid for, it is there, and nothing else goes on it', B.place(world, pl, 'bench', 12, 10, [pe]) && pl.inv.planks === 14 && B.at(world, 12, 10).k === 'bench' && /built/.test(B.why(world, pl, 'wall', 12, 10, [pe])) && world.built.list.length === 1);
-    check('with the bench near: ore is dressed into stone; with the stone, a furnace; with the furnace, ingots; with the ingots, an anvil', B.craft(game, R('stone'), 4) === 4 && pl.inv.stone === 12 && B.place(world, pl, 'furnace', 13, 10, [pe]) && B.craft(game, R('ingots'), 6) === 6 && pl.inv.ingots === 6 && B.place(world, pl, 'anvil', 14, 10, [pe]) && pl.inv.ingots === 1, `planks ${pl.inv.planks}, stone ${pl.inv.stone}, ingots ${pl.inv.ingots}, ore ${pl.inv.ore}`);
-    check('…and the anvil charges cells', B.craft(game, R('cells'), 1) === 1 && pl.inv.cells === 20 && pl.inv.ingots === 0);
-    check('…far from the stations, nothing that needs them can be made', /anvil/.test(B.whyNot(world, pl, R('cells'), 30.5, 25.5)) && B.near(world, 14.5, 10.5, 'anvil') && !B.near(world, 30, 25, 'bench'));
-    check('what cannot be paid for is not placed', !B.place(world, pl, 'anvil', 20, 20, [pe]) && /needs 5 ingots/.test(B.why(world, pl, 'anvil', 20, 20, [pe])));
-    const before = pl.inv.planks; B.place(world, pl, 'wall', 20, 20, [pe]);
-    check('a piece taken up again gives back all it cost; one broken by a foe gives nothing', (B.remove(world, pl, 20, 20) || {}).k === 'wall' && pl.inv.planks === before && B.at(world, 20, 20) === null && B.place(world, pl, 'wall', 20, 20, [pe]) && !!B.remove(world, null, 20, 20, true) && pl.inv.planks === before - 2);
-    // moved with the map, it is still found
-    for (const e of world.built.list) { e.x += 3; e.y += 2; }
-    check('when the land grows and everything shifts, what was built is found where it now stands', B.at(world, 15, 12) && B.at(world, 15, 12).k === 'bench' && B.at(world, 12, 10) === null);
-    check('one of each tool is enough', (pl.inv.axe = 1, /have one/.test(B.whyNot(world, pl, R('axe'), 15.5, 12.5))));
+    for (const f of ['core.js', 'game/craft.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'js', f), 'utf8'), ctx, { filename: f });
+    const K = ctx.ECHO.Craft, R = k => K.RECIPES.find(r => r.k === k);
+    const pl = { inv: { timber: 10, ore: 20 }, items: [], stats: {} }, world = { W: 40, H: 30 }, game = { world, pl, pe: {} };
+    check('the tree starts by hand: timber is sawn into planks, four to the load', K.craft(game, R('planks'), 5) === 5 && pl.inv.planks === 20 && pl.inv.timber === 5);
+    check('…stone wants a workbench, ingots a furnace, the forge an anvil — and you have none', /workbench/.test(K.whyNot(pl, R('stone'))) && /furnace/.test(K.whyNot(pl, R('ingots'))) && /anvil/.test(K.whyNot(pl, R('cells'))));
+    check('the workbench is kit you make once and carry', K.craft(game, R('workbench'), 1) === 1 && pl.inv.workbench === 1 && pl.inv.planks === 14 && /have one/.test(K.whyNot(pl, R('workbench'))));
+    check('…then stone, a furnace, ingots, an anvil, and cells from it', K.craft(game, R('stone'), 4) === 4 && K.craft(game, R('furnace'), 1) === 1 && K.craft(game, R('ingots'), 6) === 6 && K.craft(game, R('anvil'), 1) === 1 && K.craft(game, R('cells'), 1) === 1 && pl.inv.cells === 20, `stone ${pl.inv.stone}, ingots ${pl.inv.ingots}, planks ${pl.inv.planks}`);
+    // a save from the time of building: what was built is taken up and paid back
+    const w2 = { W: 40, H: 30, built: { list: [{ x: 1, y: 1, k: 'wall' }, { x: 2, y: 1, k: 'wall' }, { x: 3, y: 1, k: 'swall' }, { x: 4, y: 1, k: 'bench' }, { x: 5, y: 1, k: 'torch' }] } }, p2 = { inv: { planks: 1 }, items: [] };
+    check('a save from the days of building: everything built is taken up, all it cost given back, and a placed workbench is the one in your kit', K.undoBuilt({ world: w2, pl: p2 }) === 5 && w2.built === undefined && p2.inv.planks === 6 && p2.inv.stone === 2 && p2.inv.timber === 1 && p2.inv.workbench === 1);
+    check('…and a world that never had any is left alone', K.undoBuilt({ world: { W: 1, H: 1 }, pl: p2 }) === 0 && p2.inv.planks === 6);
   }
 
   console.log('\nMagazines, headshots, fittings');

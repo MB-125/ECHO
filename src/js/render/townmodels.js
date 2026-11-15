@@ -245,51 +245,6 @@
     });
     // the sward: a clump of long blades, dark at the foot and pale at the tip, to stand thick
     // in the meadows (each blade two faces of one leaning sliver; they shade as the ground does)
-    // ---- what you build (builder.js): each fills a tile
-    make('b_wall', g => {
-      const A = m('bwood', '#a9763f'), D = m('bwood2', '#7c5229');
-      box(g, A, 1, 1.5, 1, 0, 0, 0);
-      for (const y of [0.36, 0.74, 1.12]) box(g, D, 1.02, 0.04, 1.02, 0, y, 0);
-      box(g, D, 1.04, 0.07, 1.04, 0, 1.46, 0);
-    });
-    make('b_swall', g => {
-      const A = m('bstone', '#9a9790'), D = m('bstone2', '#6f6c66');
-      box(g, A, 1, 1.5, 1, 0, 0, 0);
-      for (const y of [0.48, 0.98]) box(g, D, 1.02, 0.035, 1.02, 0, y, 0);
-      box(g, D, 1.05, 0.09, 1.05, 0, 1.44, 0);
-    });
-    make('b_floor', g => { const A = m('bwood', '#a9763f'), D = m('bwood2', '#7c5229'); box(g, A, 0.98, 0.07, 0.98, 0, 0, 0); for (const z of [-0.25, 0, 0.25]) box(g, D, 0.98, 0.075, 0.02, 0, 0, z); });
-    make('b_sfloor', g => { const A = m('bstone', '#9a9790'), D = m('bstone2', '#6f6c66'); box(g, A, 0.98, 0.07, 0.98, 0, 0, 0); box(g, D, 0.02, 0.075, 0.98, 0, 0, 0); box(g, D, 0.98, 0.075, 0.02, 0, 0, 0); });
-    make('b_fence', g => {
-      const A = m('bwood2', '#7c5229');
-      box(g, A, 0.12, 0.85, 0.12, 0, 0, 0);
-      for (const y of [0.3, 0.6]) { box(g, A, 1, 0.07, 0.06, 0, y, 0); box(g, A, 0.06, 0.07, 1, 0, y, 0); }
-    });
-    make('b_door', g => {
-      const A = m('bwood2', '#7c5229');
-      box(g, A, 0.14, 1.7, 0.9, -0.43, 0, 0); box(g, A, 0.14, 1.7, 0.9, 0.43, 0, 0); box(g, A, 1, 0.16, 0.92, 0, 1.56, 0);
-    });
-    make('b_torch', g => {
-      box(g, m('bwood2', '#7c5229'), 0.09, 1.1, 0.09, 0, 0, 0);
-      cone(g, m('bflame', '#ffb648'), 0.11, 0.3, 7, 0, 1.1, 0);
-    });
-    make('b_bench', g => {
-      const A = m('bwood', '#a9763f'), D = m('bwood2', '#7c5229');
-      box(g, A, 0.96, 0.1, 0.7, 0, 0.7, 0);
-      for (const [x, z] of [[-0.4, -0.27], [0.4, -0.27], [-0.4, 0.27], [0.4, 0.27]]) box(g, D, 0.09, 0.7, 0.09, x, 0, z);
-      box(g, D, 0.9, 0.06, 0.6, 0, 0.25, 0);
-      box(g, m('biron', '#5a6068'), 0.3, 0.08, 0.1, 0.2, 0.8, 0.1); box(g, D, 0.08, 0.06, 0.34, -0.2, 0.8, -0.05);
-    });
-    make('b_furnace', g => {
-      const A = m('bstone', '#9a9790'), D = m('bstone2', '#6f6c66');
-      box(g, A, 0.92, 1.0, 0.92, 0, 0, 0); box(g, D, 0.5, 0.5, 0.5, 0, 1.0, 0); box(g, D, 0.98, 0.08, 0.98, 0, 0.96, 0);
-      box(g, m('bember', '#ff7a2a'), 0.36, 0.3, 0.04, 0, 0.18, 0.47);
-    });
-    make('b_anvil', g => {
-      const I = m('biron', '#5a6068');
-      box(g, m('bwood2', '#7c5229'), 0.5, 0.42, 0.5, 0, 0, 0);
-      box(g, I, 0.34, 0.14, 0.3, 0, 0.42, 0); box(g, I, 0.2, 0.14, 0.2, 0, 0.56, 0); box(g, I, 0.72, 0.16, 0.3, 0, 0.7, 0);
-    });
     make('sward', g => {
       const blade = (mt, x, z, h, w, ry, lean) => {
         const geo = new THREE.BufferGeometry(), tx = Math.sin(lean) * h;

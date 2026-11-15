@@ -114,8 +114,6 @@
         } else if (o.kind === 'circle') for (const a of [-Math.PI / 2, 0, Math.PI / 2, Math.PI]) C(o.x + Math.cos(a) * 2.4, o.y + Math.sin(a) * 2.4, 0.27);
         else if (o.kind === 'hut') { B(o.x - 1.1, o.y - 0.9, o.x + 1.1, o.y + 0.9); C(o.x + 1.4, o.y + 0.6, 0.3); }
       }
-      // what you have built (builder.js): a wall, a fence, a bench fills its tile
-      if (world.built && world.built.list && ECHO.Builder) for (const e of world.built.list) { const P = ECHO.Builder.PIECES[e.k]; if (P && P.solid) B(e.x, e.y, e.x + 1, e.y + 1); }
       // your homestead
       const s = pl && pl.stead, H = ECHO.Homestead;
       if (s && H) {
@@ -145,7 +143,7 @@
       const s = pl && pl.stead;
       const key = [world.W, world.H, (world.sites || []).length, world.secrets ? world.secrets.list.length : 0, (world.caches || []).length, world.ruins.length, world.structures.length,
         world.camps.map(c => (c.alive ? 1 : 0) + (c.captives.length ? 2 : 0)).join(''), world.expedition && world.expedition.camp ? 1 : 0,
-        s ? s.x + ',' + s.y + ':' + Object.keys(s.builds).sort().join('.') : '', (world.sites || []).filter(x => x.secret).length, world.gates ? world.gates.list.length : 0, world.built ? world.built.n || 0 : 0].join('|');
+        s ? s.x + ',' + s.y + ':' + Object.keys(s.builds).sort().join('.') : '', (world.sites || []).filter(x => x.secret).length, world.gates ? world.gates.list.length : 0].join('|');
       if (G && G.world === world && G.key === key) { G.t = now; return G; }
       const CS = 8, cells = new Map();
       for (const sh of So.shapesOf(world, pl)) {

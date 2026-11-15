@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.48.0', items: [
+      'Building is gone. You can no longer place walls, floors or anything else on the land.',
+      'Crafting stays. Press = to open it. The workbench, furnace and anvil are now kit you make once and carry with you, instead of things you place: planks make a workbench, stone (dressed at the workbench) makes a furnace, and ingots (smelted at the furnace) make an anvil.',
+      'If you built anything in 0.47, it is taken up the first time you enter the world and everything it cost is given back. A workbench, furnace or anvil you had placed comes back as the one in your kit.',
+      'Your save is otherwise untouched.'
+    ] },
     { v: '0.47.0', items: [
       'Build what you like, where you like. Press = to open Build & craft, pick a piece, and click the ground to place it. Hold and drag to lay a row. Right-click takes a piece of yours up again and gives back everything it cost.',
       'Pieces: wooden wall, stone wall, wooden floor, stone floor, fence, doorway, torch, and three stations (workbench, furnace, anvil). Each fills one tile. Walls, fences and stations are solid: nothing walks through them, you included.',
