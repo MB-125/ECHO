@@ -1914,35 +1914,21 @@
       if (ECHO.Tutorial) ECHO.Tutorial.flag('char');
       const game = ECHO.Game, world = game.world, pl = game.pl;
       const Ch = ECHO.Character;
-      const bio = Ch.biography(world, pl);
-      const skills = Object.entries(pl.skills).map(([k, v]) => `<div class="skill"><span>${ECHO.SKILLS[k].name}</span><div class="t"><div style="width:${v}%"></div></div><span>${Math.round(v)}</span></div>`).join('');
-      const tends = [['aggression', 'Aggression'], ['caution', 'Patience'], ['reckless', 'Recklessness'], ['protect', 'Protectiveness'], ['mercy', 'Mercy'], ['cruelty', 'Cruelty'], ['betrayal', 'Faithlessness'], ['curiosity', 'Curiosity'], ['night', 'Night-work']]
-        .map(([k, l]) => `<div class="skill tend"><span>${l}</span><div class="t"><div style="width:${Math.round(Ch.tendency(pl, k) * 100)}%"></div></div><span></span></div>`).join('');
       const items = pl.items.map(id => world.items[id]).filter(Boolean);
       const reps = world.settlements.filter(s => s.rep && s.rep[pl.charId]).map(s => `${s.name}: ${s.rep[pl.charId] > 0 ? '+' : ''}${Math.round(s.rep[pl.charId])}`);
       const S = UI._csec || 'gear';
       const secs = [['gear', 'Gear'], ['me', 'Hero'], ['skills', 'Skills'], ['company', 'Allies']];   // (Progress is on the Hero page now)
       UI.openPanel(`${pl.first} ${pl.last}, ${Ch.title(pl)}`, `<div class="tabs csec tidy-skip">${secs.map(([k, l]) => `<button data-csec="${k}" class="${S === k ? 'on' : ''}">${l}</button>`).join('')}</div>
-        <section data-csec="me"><p class="prose">${bio.map(esc).join(' ')}</p>
-        <p class="dim">Renown ${Math.round(pl.renown)} · Armour ${ECHO.Gear.def(world, pl)} (${Math.round((1 - ECHO.Gear.taken(world, pl, 'melee')) * 100)}% of every blow turned) · Fate ${pl.fate}/3${pl.knighted ? ' · Knight of ' + world.factions[pl.knighted].short : ''}${pl.legacyOf ? ' · kin of ' + esc((ECHO.Legacy.legendOf(world, pl.legacyOf) || {}).name || '') : ''}</p>
-        ${pl.spells.length ? `<p class="gold">Secrets: ${pl.spells.map(k => ECHO.Mysteries.REWARDS[k].name).join(', ')}</p>` : ''}
-        ${UI.prowessHtml(world, pl, 'core')}
-        ${ECHO.Inv ? UI.wornLineHtml(world, pl) : UI.equipHtml(world, pl)}</section>
+        <section data-csec="me">${ECHO.HeroPage ? UI.safe(() => ECHO.HeroPage.me(game), 'hero') : ''}</section>
         <section data-csec="gear">${ECHO.Inv ? `<div class="inv-host"></div>${UI.shareAllHtml(game)}${ECHO.Mending ? ECHO.Mending.html(game) : ''}` : `${ECHO.Arcana ? ECHO.Arcana.html(game) : ''}
         ${ECHO.Mending ? ECHO.Mending.html(game) : ''}
         <h3 class="gold">Belongings</h3>${UI.shareAllHtml(game)}`}${ECHO.Inv ? '' : `<div class="list">${items.map(it => `<div class="card" style="display:flex;gap:10px">${it.kind === 'sword' || it.kind === 'bow' || it.kind === 'armor' || it.kind === 'relic' ? ECHO.GearArt.img(it, 'gear-ic small') : ''}<div style="flex:1"><h4 style="color:${ECHO.Gear.rarity(it.rarity).color}">${esc(it.name)}${it.plus ? ' +' + it.plus : ''}${it.id === pl.weapon ? ' <span class="gold">(wielded)</span>' : it.id === pl.bow ? ' <span class="gold">(your bow)</span>' : it.id === pl.armor ? ' <span class="gold">(worn)</span>' : ''}</h4><div style="font-size:13px">${esc(ECHO.Gear.line(it))}</div><div class="dim" style="font-size:13px">${it.history.slice(-4).map(h => `${T.fmtShort(h.d)}: ${esc(h.t)}`).join('<br>')}</div>${it.kind === 'sword' && it.id !== pl.weapon ? `<div class="row"><button class="small" data-w="${it.id}">Wield</button></div>` : it.kind === 'bow' && it.id !== pl.bow ? `<div class="row"><button class="small" data-bow="${it.id}">Use this bow</button></div>` : it.kind === 'armor' && it.id !== pl.armor ? `<div class="row"><button class="small" data-arm="${it.id}">Wear</button></div>` : it.kind === 'armor' ? `<div class="row"><button class="small" data-arm="">Take off</button></div>` : ''}${UI.canGive(pl, it) ? `<div class="row"><button class="small" data-give="${it.id}">Give away…</button><button class="small" data-keep="${it.id}">${UI.kept(pl, it) ? '🔒 Kept — unlock' : '🔒 Keep (never sold in bulk)'}</button></div>` : ''}</div></div>`).join('')}</div>`}
         ${!ECHO.Inv && ECHO.Gear.mats(pl).length ? `<h3 class="gold">Monster parts</h3><div>${ECHO.Gear.mats(pl).map(m => `<span style="color:${m.color}">◆</span> ${m.n} ${esc(m.name)}`).join(' · ')}</div><p class="dim" style="font-size:13px">Sell them at a market, or bring them to a smith to improve your gear.</p>` : ''}</section>
-        <section data-csec="skills"><h3 class="gold">Skills — grown by use</h3>${skills}<h3 class="gold" style="margin-top:16px">Tendencies — what you keep doing</h3>${tends}
-        <p class="dim" style="font-size:13px">Tendencies change how you fight: aggression quickens strikes and weakens your guard; patience cheapens guarding; recklessness strengthens fire and makes it unstable.</p>
-        ${ECHO.Tech.pageHtml(pl)}
-        ${ECHO.Lore ? ECHO.Lore.html(game) : ''}</section>
+        <section data-csec="skills">${ECHO.HeroPage ? UI.safe(() => ECHO.HeroPage.skills(game), 'skills') : ''}</section>
         <section data-csec="growth">${UI.prowessHtml(world, pl, 'extra')}
         ${reps.length ? `<h3 class="gold">Standing</h3><div class="dim">${reps.join(' · ')}</div>` : ''}
         ${ECHO.Renown ? ECHO.Renown.sheetHtml(game) : ''}</section>
-        <section data-csec="company">${ECHO.Companions ? ECHO.Companions.card(world, pl) : ''}
-        ${ECHO.Fellow ? ECHO.Fellow.html(game) : ''}
-        ${ECHO.Apex ? ECHO.Apex.html(game) : ''}
-        ${ECHO.Life ? ECHO.Life.card(world, pl) : ''}</section>`, 'char');
+        <section data-csec="company">${ECHO.HeroPage ? UI.safe(() => ECHO.HeroPage.allies(game), 'allies') : ''}</section>`, 'char');
       // one part at a time (the rest is there, a tab away); a part with nothing in it has no tab
       UI.hub('hero');
       { const pb = document.querySelector('#panel .panel-body');
@@ -1958,6 +1944,7 @@
       document.querySelectorAll('#panel button[data-rnpage]').forEach(b => b.addEventListener('click', () => b.dataset.rnpage === 'guild' ? ECHO.Guild.open(game) : ECHO.Renown.open(game)));
       document.querySelectorAll('#panel button[data-bow]').forEach(b => b.addEventListener('click', () => { pl.bow = b.dataset.bow; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
       document.querySelectorAll('#panel button[data-arm]').forEach(b => b.addEventListener('click', () => { pl.armor = b.dataset.arm || null; ECHO.PlayerCtl.derivedT = 0; UI.openCharacter(); }));
+      document.querySelectorAll('#panel [data-hubgo]').forEach(b => b.addEventListener('click', () => UI.hubGo(b.dataset.hubgo)));
       if (ECHO.Fellow) ECHO.Fellow.bind(document.querySelector('#panel'), game);
       if (ECHO.Arcana) ECHO.Arcana.bind_(document.querySelector('#panel'), game, () => UI.openCharacter());
       if (ECHO.Mending) ECHO.Mending.bind(document.querySelector('#panel'), game, () => { const b = document.querySelector('#panel .panel-body'), y = b ? b.scrollTop : 0; UI.openCharacter(); const b2 = document.querySelector('#panel .panel-body'); if (b2) b2.scrollTop = y; });

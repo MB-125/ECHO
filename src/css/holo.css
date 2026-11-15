@@ -545,3 +545,40 @@ details summary { cursor: pointer; color: var(--hc); }
 .inv-tile[data-id] { cursor: grab; }
 .inv-dragging, .inv-dragging * { cursor: grabbing !important; }
 .inv-dragging .inv-slot:not(.accept) { opacity: .4; }
+
+/* the Hero tab's pages (heropage.js) */
+.hp-head { --rc: #9fe8ff; display: flex; gap: 18px; align-items: center; padding: 14px 16px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--rc) 45%, transparent);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--rc) 12%, rgba(4,12,22,0.9)), rgba(4,12,22,0.75)); margin-bottom: 12px; }
+.hp-ring { flex: 0 0 auto; width: 84px; height: 84px; border-radius: 50%; border: 3px solid var(--rc); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--rc) 40%, transparent), inset 0 0 14px rgba(0,0,0,.5); background: rgba(2,8,16,.7); }
+.hp-ring small { font-size: 9px; letter-spacing: .18em; color: var(--ink-faint); }
+.hp-ring b { font-size: 30px; line-height: 1; color: #fff; }
+.hp-who { flex: 1 1 auto; min-width: 0; }
+.hp-name { font-size: 20px; font-weight: 700; color: #eef8ff; }
+.hp-rank { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin: 2px 0 8px; }
+.hp-xp { height: 10px; border-radius: 5px; background: rgba(255,255,255,.08); overflow: hidden; }
+.hp-xp i { display: block; height: 100%; background: linear-gradient(90deg, var(--rc), #fff); border-radius: 5px; }
+.hp-xpl { font-size: 12.5px; color: var(--ink-dim, #b8c4cc); margin-top: 6px; }
+.hp-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.hp-tile { --tc: #9fe8ff; padding: 9px 10px; border-radius: 8px; background: rgba(2,8,16,.55); border: 1px solid rgba(95,242,255,.12); border-top: 2px solid var(--tc); }
+.hp-tile span { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
+.hp-tile b { display: block; font-size: 20px; color: var(--tc); margin-top: 2px; }
+.hp-tile em { display: block; font-style: normal; font-size: 11px; color: var(--ink-faint); }
+.hp-note { font-size: 13px; padding: 9px 12px; border-left: 3px solid #ffd27a; background: rgba(255,210,122,.06); border-radius: 0 8px 8px 0; margin-bottom: 12px; }
+.hp-fold { margin-top: 10px; } .hp-fold summary { cursor: pointer; color: var(--hc, #5ff2ff); font-weight: 700; padding: 6px 0; }
+.hp-sks { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+.hp-sk { display: flex; gap: 10px; padding: 10px 12px; border-radius: 9px; background: rgba(2,8,16,.55); border: 1px solid rgba(95,242,255,.12); }
+.hp-sk.best { border-color: rgba(255,210,122,.55); box-shadow: 0 0 12px rgba(255,210,122,.15); }
+.hp-ski { font-size: 22px; width: 32px; text-align: center; flex: 0 0 auto; }
+.hp-skm { flex: 1 1 auto; min-width: 0; }
+.hp-skt { display: flex; justify-content: space-between; align-items: baseline; } .hp-skt b { font-size: 15px; } .hp-skt span { font-size: 16px; font-weight: 700; color: #fff; } .hp-skt i { font-style: normal; font-size: 11px; color: var(--ink-faint); margin-left: 2px; }
+.hp-bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,.08); overflow: hidden; margin: 5px 0 6px; } .hp-bar.thin { height: 5px; margin: 4px 0; }
+.hp-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #3ab8d8, #9ff4ff); }
+.hp-skd { font-size: 12.5px; color: #dfeaf0; } .hp-skg { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
+.hp-tends { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 14px; }
+.hp-tend span { font-size: 13px; font-weight: 700; } .hp-tend em { font-style: normal; font-size: 11px; color: var(--ink-faint); }
+.hp-allies { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.hp-ally { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; background: rgba(2,8,16,.45); border: 1px solid rgba(95,242,255,.1); }
+.hp-ai { font-size: 20px; width: 28px; text-align: center; flex: 0 0 auto; }
+.hp-ally b { display: block; font-size: 14px; } .hp-ally em b { display: inline; font-size: inherit; color: #fff; }
+.hp-ally em { display: block; font-style: normal; font-size: 12px; color: var(--ink-dim, #b8c4cc); }

@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.53.0', items: [
+      'Hero tab, Hero page: your level, title and XP bar at the top with the next title to aim for, then your numbers as tiles — power, life, stamina, mana, sword, bow, gun, armour, renown, fate and the strongest foe you have beaten. Your story is folded away underneath.',
+      'Hero tab, Skills page: each skill is a card that says what it does for you and how to grow it, with your current rank. Your best skill is marked. Tendencies show only once you have one.',
+      'Hero tab, Allies page: your companion, fellows, great beasts, tamed beasts, horse, dog and family in one place, with a button to the Beasts page. For anything you do not have yet, it tells you how to get it (and names the nearest town to hire a fighter).',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.52.1', items: [
       'Fixed the red "Something went wrong … reading \'hp\'" message on the Beasts page. A tamed beast of the gate world\'s fire hound had kept its old name, which the game no longer knew. It is now an Ember Stalker, at the same level, with the same name you gave it.',
       'Kills, sketches and anything else in your save that named the old kind now name the new one.',
