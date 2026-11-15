@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.49.1', items: [
+      'Drag and drop on the gear screen. Press on any piece and move the mouse: it lifts off and follows the cursor, the slots it fits glow (the others dim), and hovering a slot shows what wearing it would change. Let go on the slot to wear it.',
+      'Drag a worn piece back onto the grid to take it off. Let go anywhere else and nothing changes.',
+      'A plain click still puts a piece on, and right-click still opens its menu.',
+      'Your save is untouched.'
+    ] },
     { v: '0.49.0', items: [
       'The menu is down to three pages: Hero, Map and Beasts. The Quests, World and Codex tabs are gone.',
       'Tab now opens your Hero page. The J key (guide) and the Esc menu\'s "How the world works" button are gone with the Codex.',

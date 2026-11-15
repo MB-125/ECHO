@@ -126,13 +126,13 @@
       const icon = ECHO.GearArt ? ECHO.GearArt.img(it, 'inv-ic') : '';
       const isNew = !Inv.seen.has(it.id) && Inv._seenReady;
       const T = ECHO.Temper && ECHO.Temper.ok(it) && it.temper ? ECHO.Temper.lv(it) : 0;
-      return `<div class="inv-tile r-${esc(it.rarity || 'common')}${worn ? ' worn' : ''}${Inv.sel === it.id ? ' sel' : ''}${Inv.flash === it.id ? ' flash' : ''}" style="--rc:${R.color}" draggable="true" data-id="${esc(it.id)}" tabindex="-1">
+      return `<div class="inv-tile r-${esc(it.rarity || 'common')}${worn ? ' worn' : ''}${Inv.sel === it.id ? ' sel' : ''}${Inv.flash === it.id ? ' flash' : ''}" style="--rc:${R.color}" draggable="false" data-id="${esc(it.id)}" tabindex="-1">
         ${icon}${it.plus ? `<span class="inv-plus">+${it.plus}</span>` : ''}${T ? `<span class="inv-tmp" title="Tempered in battle">✦${T}</span>` : ''}
         <span class="inv-pw">${short(Inv.power(it))}</span>${worn ? '<span class="inv-eq">E</span>' : b > 0 ? '<span class="inv-up">▲</span>' : b < 0 ? '<span class="inv-dn">▼</span>' : ''}${isNew ? '<span class="inv-new">NEW</span>' : ''}</div>`;
     },
     slotHtml(game, key, label, it, glyph, extra) {
       const R = it ? G().rarity(it.rarity) : null;
-      return `<div class="inv-slot${it ? ' full' : ''}${extra && extra.locked ? ' locked' : ''}" data-slot="${key}" ${R ? `style="--rc:${R.color}"` : ''} ${it ? `data-id="${esc(it.id)}" draggable="true"` : ''} title="${esc(extra && extra.title || '')}">
+      return `<div class="inv-slot${it ? ' full' : ''}${extra && extra.locked ? ' locked' : ''}" data-slot="${key}" ${R ? `style="--rc:${R.color}"` : ''} ${it ? `data-id="${esc(it.id)}" draggable="false"` : ''} title="${esc(extra && extra.title || '')}">
         ${it ? (ECHO.GearArt ? ECHO.GearArt.img(it, 'inv-ic') : '') : `<span class="inv-glyph">${glyph}</span>`}
         ${it && it.plus ? `<span class="inv-plus">+${it.plus}</span>` : ''}<span class="inv-sl">${esc(label)}</span>${extra && extra.key ? `<b class="inv-key">${esc(extra.key)}</b>` : ''}</div>`;
     },
@@ -180,7 +180,7 @@
           </div>
           <div class="inv-grid" data-grid>${cells}</div>
           ${mats.length ? `<div class="inv-mats">${mats.map(m => `<span title="${esc(m.name)}"><i style="color:${m.color}">◆</i>${m.n} ${esc(m.name)}</span>`).join('')}</div>` : ''}
-          <div class="inv-help">Click to put on · Drag onto a slot · Drag a worn piece back here to take it off · Right-click for more · Arrow keys and Enter work too</div>
+          <div class="inv-help"><b>Drag</b> a piece onto a glowing slot to wear it · drag a worn piece back here to take it off · or just click it · right-click for more</div>
         </div>
       </div>`;
     },
@@ -260,36 +260,76 @@
         el.addEventListener('mousemove', ev => Inv.tip(true, it, ev.clientX, ev.clientY, game));
         el.addEventListener('mouseleave', () => { Inv.tip(false); Inv.showStats(host, game, null); });
         el.addEventListener('contextmenu', ev => { ev.preventDefault(); Inv.tip(false); Inv.menu(host, game, it, ev.clientX, ev.clientY); });
-        el.addEventListener('dragstart', ev => { Inv.tip(false); Inv.drag = it.id; ev.dataTransfer.effectAllowed = 'move'; try { ev.dataTransfer.setData('text/plain', it.id); } catch (e) { /* fine */ } el.classList.add('dragging'); host.classList.add('inv-dragging'); host.querySelectorAll('.inv-slot').forEach(s => s.classList.toggle('accept', Inv.accepts(s, it))); });
-        el.addEventListener('dragend', () => { el.classList.remove('dragging'); host.classList.remove('inv-dragging'); host.querySelectorAll('.inv-slot').forEach(s => s.classList.remove('accept', 'over')); Inv.drag = null; });
+        el.addEventListener('pointerdown', ev => Inv.grab(host, game, it, el, ev));
       });
       host.querySelectorAll('.inv-tile[data-id]').forEach(el => el.addEventListener('click', () => {
+        if (Inv._justDropped) return;                       // (the end of a drag is not a click)
         const it = itemOf(el); Inv.sel = it.id;
         if (!Inv.worn(game.pl, it) && Inv.put(game, it)) { Inv.tip(false); Inv.refresh(host, game); }
         else { host.querySelectorAll('.inv-tile.sel').forEach(x => x.classList.remove('sel')); el.classList.add('sel'); }
       }));
-      // slots take what fits them
-      host.querySelectorAll('.inv-slot[data-slot]').forEach(s => {
-        s.addEventListener('dragover', ev => { const it = W.items[Inv.drag]; if (it && Inv.accepts(s, it)) { ev.preventDefault(); s.classList.add('over'); } });
-        s.addEventListener('dragleave', () => s.classList.remove('over'));
-        s.addEventListener('drop', ev => {
-          ev.preventDefault(); s.classList.remove('over');
-          const it = W.items[Inv.drag]; if (!it || !Inv.accepts(s, it)) return;
-          const k = s.dataset.slot, slot = k.startsWith('relic:') ? +k.slice(6) : null;
-          if (Inv.put(game, it, slot)) Inv.refresh(host, game);
-        });
-      });
-      // the grid takes back what is worn
-      const grid = host.querySelector('[data-grid]');
-      if (grid) {
-        grid.addEventListener('dragover', ev => { const it = W.items[Inv.drag]; if (it && Inv.worn(game.pl, it)) { ev.preventDefault(); grid.classList.add('over'); } });
-        grid.addEventListener('dragleave', ev => { if (!grid.contains(ev.relatedTarget)) grid.classList.remove('over'); });
-        grid.addEventListener('drop', ev => { ev.preventDefault(); grid.classList.remove('over'); const it = W.items[Inv.drag]; if (it && Inv.worn(game.pl, it) && Inv.takeOff(game, it)) Inv.refresh(host, game); });
-      }
       host.querySelectorAll('[data-if]').forEach(b => b.addEventListener('click', () => { Inv.filter = b.dataset.if; Inv.refresh(host, game); }));
       host.querySelectorAll('[data-is]').forEach(b => b.addEventListener('click', () => { Inv.sort = b.dataset.is; Inv.refresh(host, game); }));
       host.querySelectorAll('[data-ibest]').forEach(b => b.addEventListener('click', () => { if (A()) { A().best(game.pl, W); Inv.changed(game, { kind: 'relic', id: '' }, true); Inv.refresh(host, game); } }));
       Inv._host = host; Inv._game = game;
+    },
+    // ------------------------------------------------------------ drag and drop
+    // Press on any piece (in the grid or worn) and move: it lifts off and follows the mouse; every
+    // slot it fits glows, and the one under it shows what wearing it would change. Let go on a
+    // slot to put it on (what was there goes back to the grid), on the grid to take a worn piece
+    // off, anywhere else to put it down where it was. A press without moving is still a click.
+    grab(host, game, it, el, ev) {
+      if (!it || ev.button !== 0) return;
+      const x0 = ev.clientX, y0 = ev.clientY, W = game.world;
+      let D = null;
+      const hit = (x, y) => {
+        const e = document.elementFromPoint(x, y);
+        const slot = e && e.closest ? e.closest('.inv-slot[data-slot]') : null;
+        const grid = e && e.closest ? e.closest('[data-grid]') : null;
+        return { slot: slot && host.contains(slot) && Inv.accepts(slot, it) ? slot : null, grid: grid && host.contains(grid) ? grid : null };
+      };
+      const start = () => {
+        Inv.tip(false); Inv.closeMenu();
+        const g = document.createElement('div');
+        g.className = 'inv-ghost';
+        const R = G().rarity(it.rarity);
+        g.style.setProperty('--rc', R.color);
+        g.innerHTML = (ECHO.GearArt ? ECHO.GearArt.img(it, 'inv-ic') : '') + `<span>${esc(it.name)}</span>`;
+        document.body.appendChild(g);
+        D = { g, slot: null, grid: null };
+        el.classList.add('dragging'); host.classList.add('inv-dragging');
+        host.querySelectorAll('.inv-slot').forEach(s2 => s2.classList.toggle('accept', Inv.accepts(s2, it)));
+        if (ECHO.Sfx) ECHO.Sfx.play('uiTick', { vol: 0.5 });
+      };
+      const move = e => {
+        if (!D) { if (Math.hypot(e.clientX - x0, e.clientY - y0) < 6) return; start(); }
+        D.g.style.transform = `translate(${e.clientX + 12}px, ${e.clientY + 10}px)`;
+        const h = hit(e.clientX, e.clientY);
+        if (h.slot !== D.slot) {
+          if (D.slot) D.slot.classList.remove('over');
+          D.slot = h.slot;
+          if (D.slot) { D.slot.classList.add('over'); Inv.showStats(host, game, Inv.worn(game.pl, it) ? null : it); }
+          else Inv.showStats(host, game, null);
+        }
+        const gridOk = !!(h.grid && !h.slot && Inv.worn(game.pl, it));
+        if (gridOk !== !!D.grid) { D.grid = gridOk ? h.grid : null; host.querySelector('[data-grid]') && host.querySelector('[data-grid]').classList.toggle('over', gridOk); }
+        D.g.classList.toggle('ok', !!(D.slot || D.grid));
+      };
+      const up = e => {
+        document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.removeEventListener('pointercancel', up);
+        if (!D) return;                                    // (no drag: the click handler has it)
+        Inv._justDropped = true; setTimeout(() => { Inv._justDropped = false; }, 0);
+        D.g.remove(); el.classList.remove('dragging'); host.classList.remove('inv-dragging');
+        host.querySelectorAll('.inv-slot').forEach(s2 => s2.classList.remove('accept', 'over'));
+        const h = hit(e.clientX, e.clientY);
+        let done = false;
+        if (h.slot) { const k = h.slot.dataset.slot, slot = k.startsWith('relic:') ? +k.slice(6) : null; done = Inv.put(game, it, slot); }
+        else if (h.grid && Inv.worn(game.pl, it)) done = Inv.takeOff(game, it);
+        if (done) { Inv.flash = it.id; if (ECHO.Sfx) ECHO.Sfx.play('gunSwap'); }
+        Inv.refresh(host, game);
+        void W;
+      };
+      document.addEventListener('pointermove', move); document.addEventListener('pointerup', up); document.addEventListener('pointercancel', up);
     },
     accepts(slotEl, it) {
       const k = slotEl.dataset.slot || '';

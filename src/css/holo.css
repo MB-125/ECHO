@@ -534,3 +534,14 @@ details summary { cursor: pointer; color: var(--hc); }
 .modal-choices.pin { position: sticky; bottom: -22px; z-index: 3; margin: 0 -26px -22px; padding: 14px 26px 22px;
   background: linear-gradient(180deg, rgba(4,12,22,0) 0, rgba(4,12,22,0.97) 14px, rgba(3,10,18,0.99) 100%); }
 .modal-body .digest-scroll { max-height: 38vh; overflow-y: auto; }
+
+/* the piece you are dragging on the gear screen */
+.inv-ghost { --rc: #c8c0b0; position: fixed; left: 0; top: 0; z-index: 9999; pointer-events: none; display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px 6px 6px; border-radius: 9px; border: 1px solid var(--rc); background: rgba(4,12,22,0.94);
+  box-shadow: 0 10px 28px rgba(0,0,0,.55), 0 0 16px color-mix(in srgb, var(--rc) 40%, transparent); font-size: 12px; color: #eef8ff; white-space: nowrap; opacity: .92; }
+.inv-ghost .inv-ic { width: 40px; height: 40px; }
+.inv-ghost.ok { border-color: var(--hc); box-shadow: 0 10px 28px rgba(0,0,0,.55), 0 0 20px var(--hc-d); }
+.inv-tile[data-id], .inv-slot.full { touch-action: none; }
+.inv-tile[data-id] { cursor: grab; }
+.inv-dragging, .inv-dragging * { cursor: grabbing !important; }
+.inv-dragging .inv-slot:not(.accept) { opacity: .4; }
