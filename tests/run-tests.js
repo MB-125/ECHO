@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/guns.js', 'game/react.js', 'game/build.js', 'game/live.js', 'game/nav.js', 'game/auto.js', 'game/arms.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/guns.js', 'game/react.js', 'game/build.js', 'game/live.js', 'game/nav.js', 'game/auto.js', 'game/arms.js', 'game/nodragons.js'
 ];
 
 function loadEcho() {
@@ -853,8 +853,18 @@ function main() {
     const pl = ECHO.Character.create(W, new ECHO.RNG(4), { first: 'Tamer', homeId: W.settlements[0].id });
     const L = Ti.list(W);
     const minTown = Math.min(...L.map(t => Math.min(...W.settlements.map(s => ECHO.U.dist(s.x, s.y, t.x, t.y)))));
-    check('the titans roam the world, each on its own range', L.length >= 8 && new Set(L.map(t => t.sp)).size === L.length && minTown >= 15 && L.filter(t => Ti.sp(t).flies).length >= 5, `${L.length} titans, nearest town ${minTown.toFixed(0)}: ${L.map(t => t.name + ' Lv ' + t.lvl).join(', ')}`);
-    check('from a young dragon to a catastrophe', Math.min(...L.map(t => t.lvl)) < 60 && Math.max(...L.map(t => t.lvl)) >= 1000);
+    check('the titans roam the world, each on its own range', L.length >= 5 && new Set(L.map(t => t.sp)).size === L.length && minTown >= 15, `${L.length} titans, nearest town ${minTown.toFixed(0)}: ${L.map(t => t.name + ' Lv ' + t.lvl).join(', ')}`);
+    check('there are no dragons: every titan walks the land', L.every(t => !Ti.sp(t).flies && Ti.sp(t).kind !== 'drake') && Math.min(...L.map(t => t.lvl)) < 60 && Math.max(...L.map(t => t.lvl)) >= 500);
+    {
+      // a world made with dragons: a wild one is gone, a bound one is kept as a great beast of the same level
+      const W2 = ECHO.generateWorld({ seed: 5152, name: 'Old' }), p2 = ECHO.Character.create(W2, new ECHO.RNG(5), { first: 'Old', homeId: W2.settlements[0].id });
+      const T2 = Ti.list(W2);
+      T2.push({ id: 'tX', sp: 'rimefang', name: 'Rimefang', title: 'the White Death', lvl: 170, alive: true, bound: true, bond: 40, x: 10, y: 10 });
+      T2.push({ id: 'tY', sp: 'nyxathar', name: 'Nyxathar', title: 'the End of Days', lvl: 1400, alive: true, x: 20, y: 20 });
+      p2.flying = 'tX';
+      const r = ECHO.NoDragons.fix({ world: W2, pl: p2, pe: { alt: 3 }, ents: [] }), kept = Ti.byId(W2, 'tX');
+      check('an old world: the wild dragon is gone, the bound one is still yours — a great beast now, same name, level and bond — and you are off its back', r.gone === 1 && r.kept === 1 && !Ti.byId(W2, 'tY') && kept && Ti.SPECIES[kept.sp] && !Ti.sp(kept).flies && kept.lvl === 170 && kept.bond === 40 && kept.name === 'Rimefang' && p2.flying === null && p2.beasts.includes('tX'), kept ? `${kept.name} ${kept.title}, now a ${kept.sp}` : 'lost');
+    }
     const ok = L.slice(0, 4).map(t => Ti.bind(W, t, pl));
     const fifth = L[4];
     check('you can bind four, and no more', ok.every(Boolean) && Ti.bound(W).length === 4 && !Ti.bind(W, fifth, pl) && pl.beasts.length === 4);

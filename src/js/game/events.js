@@ -57,7 +57,6 @@
       if (ECHO.Director && !ECHO.Director.allow(game, 'rare')) return;
       // the rare ones
       if (!S.giant && world.day - S.lastGiant > 9 && !inTown && Math.random() < 0.05) E.spawnGiant(game);
-      else if (!S.dragon && !E.fly && world.day - S.lastDragon > 16 && !night && Math.random() < 0.03) E.flyover(game);
       else if (!S.siege && world.day - S.lastSiege > 12 && Math.random() < 0.04) E.planSiege(game);
     },
     // ------------------------------------------------------------ the hill-giant

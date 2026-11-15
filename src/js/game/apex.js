@@ -32,7 +32,7 @@
   const BROOD = {
     frosthound: { name: 'Frost hound', hp: 60, dmg: 11, speed: 4.6, reach: 1.25, wind: 0.34, cd: 1.0, tier: 4, shape: 'hound', scale: 1.05, col: '#dfe8f0', em: '#8fd8ff', f2d: 'grayscale(1) brightness(1.7)', ab: { pack: true }, resist: { fire: -0.3 }, loot: [['winterpelt', 0.05, 1, 1]], gold: [4, 14], desc: 'White hounds that run with the frost dragon.', weak: 'Fire.' },
     stormwisp: { name: 'Storm wisp', hp: 50, dmg: 10, speed: 3.6, reach: 1.2, wind: 0.5, cd: 1.6, tier: 4, shape: 'horror', scale: 0.6, col: '#1a2440', em: '#bfe0ff', f2d: 'hue-rotate(200deg) brightness(1.2)', ab: { bolt: { color: '#bfe0ff', dmg: 1.2, cd: 3, type: 'magic' } }, resist: { ranged: 0.3 }, loot: [['ecto', 0.4, 1, 1]], gold: [3, 10], desc: 'A knot of lightning that hangs in the air where storms have been.', weak: 'Close in; it is frail.' },
-    sunling: { name: 'Sunling', hp: 70, dmg: 12, speed: 3.8, reach: 1.4, wind: 0.5, cd: 1.3, tier: 4, shape: 'drake', scale: 0.4, col: '#c8962a', belly: '#fff0a0', em: '#ffd84a', f2d: 'sepia(1) saturate(3) brightness(1.2)', ab: { bolt: { color: '#ffe08a', dmg: 1.2, cd: 3.4, type: 'fire' } }, resist: { fire: 0.7 }, loot: [['dragonscale', 0.1, 1, 1]], gold: [6, 18], desc: 'A golden whelp. It spits sunlight.', weak: 'Steel.' },
+    sunling: { name: 'Sunling', hp: 70, dmg: 12, speed: 3.8, reach: 1.4, wind: 0.5, cd: 1.3, tier: 4, shape: 'hound', scale: 0.4, col: '#c8962a', belly: '#fff0a0', em: '#ffd84a', f2d: 'sepia(1) saturate(3) brightness(1.2)', ab: { bolt: { color: '#ffe08a', dmg: 1.2, cd: 3.4, type: 'fire' } }, resist: { fire: 0.7 }, loot: [['dragonscale', 0.1, 1, 1]], gold: [6, 18], desc: 'A golden whelp. It spits sunlight.', weak: 'Steel.' },
     voidshade: { name: 'Voidshade', hp: 62, dmg: 13, speed: 3.4, reach: 1.3, wind: 0.5, cd: 1.4, tier: 4, ab: { teleport: { cd: 6 }, drain: 0.4 }, resist: { melee: 0.3, ranged: 0.4 }, vis: { cloth: '#14101c', cloth2: '#0a0810', skin: '#2a2040', hair: '#14101c', show: ['robe', 'hood'], em: '#3a1a6a', opacity: 0.6, f2d: 'brightness(0.4) hue-rotate(250deg)' }, loot: [['ecto', 0.6, 1, 2]], gold: [5, 15], desc: 'A shadow left behind where the void dragon has fed.', weak: 'Fire, and light.' },
     tuskling: { name: 'Tuskling', hp: 55, dmg: 10, speed: 4.2, reach: 1.2, wind: 0.4, cd: 1.1, tier: 3, shape: 'hound', scale: 0.95, col: '#6a4a32', em: '#2a1a10', f2d: 'sepia(0.8) brightness(0.8)', ab: { pack: true, charge: { cd: 9 } }, loot: [['hide', 0.5, 1, 1]], gold: [1, 6], desc: 'The young of the great horned beast. They charge as their parent does.', weak: 'Sidestep, then strike.' }
   };
@@ -613,7 +613,7 @@
         if (!t.seen && d < 52) {
           t.seen = true;
           const sp = Ti().sp(t), D = ECHO.Prowess.diff(t.lvl, ECHO.Prowess.level(pl));
-          UI().banner(`${t.name} ${t.title}`, `${sp.flies ? 'A dragon' : 'A great beast'} · level ${t.lvl} · ${ECHO.Calamity ? ECHO.Calamity.label(t) : ''}${t.mig ? ' · on the move' : ' · this is its range'}`, false);
+          UI().banner(`${t.name} ${t.title}`, `A great beast · level ${t.lvl} · ${ECHO.Calamity ? ECHO.Calamity.label(t) : ''}${t.mig ? ' · on the move' : ' · this is its range'}`, false);
           if (!A.told.first) { A.told.first = true; setTimeout(() => UI().toast(`${sp.desc} ${D.skulls >= 2 ? 'It is far beyond you — stay off its range.' : 'Beat it down and you can bind it (E): it will fight for you' + (sp.flies ? ', and carry you through the sky' : '') + '. Or strike it once more as it lies beaten, and it dies.'}`, D.skulls >= 2 ? 'warn' : 'legend', 8), 900); }
         }
         // its young about the roost, as you come close
@@ -1621,7 +1621,7 @@
       h += `<h3 class="gold">Beasts (${mine.length}/${T.MAX_BOUND})</h3>`;
       if (!mine.length) {
         const near = world.titans ? T.list(world).filter(t => t.alive && !t.bound).sort((a, b) => U.dist(a.x, a.y, pe.x, pe.y) - U.dist(b.x, b.y, pe.x, pe.y)).slice(0, 3) : [];
-        h += `<p class="dim">None yet. Beat a dragon or a great beast down on its range and bind it (E) — you can keep four.${near.length ? ' The nearest: ' + near.map(t => `<b>${esc(t.name)}</b> (level ${t.lvl}, ${where(t)})`).join(', ') + '.' : ''}</p>`;
+        h += `<p class="dim">None yet. Beat a great beast down on its range and bind it (E) — you can keep four.${near.length ? ' The nearest: ' + near.map(t => `<b>${esc(t.name)}</b> (level ${t.lvl}, ${where(t)})`).join(', ') + '.' : ''}</p>`;
       } else h += `<div class="list">${mine.map(t => {
         const sp = T.sp(t), S = SIG[t.sp] || { arts: [] }, out = pl.beastOut === t.id, rest = (t.restUntil || 0) > world.day, flying = pl.flying === t.id;
         const e = out && A.entOf(game, t.id), hp = e ? e.hp / e.maxHp : (t.hp == null ? 1 : t.hp), fights = A.effLv(game, t);
@@ -1629,7 +1629,7 @@
         const bondTxt = ECHO.Partner ? ` · bond ${Math.round(t.bond || 0)} (${ECHO.Partner.bondWord(t.bond || 0)})${(t.hunger || 0) > 0.7 ? ' · hungry' : ''}` : '';
         const arts = S.arts.filter(a => a.tamed).map(a => esc(a.name));
         return `<div class="card"><div class="pal-thumb" data-tipic="${t.id}" style="float:right;margin-left:10px;width:120px;height:86px">${A._pics[t.id + ':' + t.lvl] ? `<img src="${A._pics[t.id + ':' + t.lvl]}" alt="">` : `<span class="pal-ph">${sp.flies ? '🐉' : '🦬'}</span>`}</div><h4>${sp.flies ? '🐉' : '🦬'} ${esc(t.name)} <span class="dim">· ${esc(t.title)}</span></h4>
-          <div class="dim" style="font-size:13px">${sp.flies ? 'Dragon' : 'Great beast'} of ${esc(ELEM[sp.element] ? ELEM[sp.element].word : sp.element)} · level ${t.lvl}${fights < t.lvl ? ` (fights at ${fights} for you — it grows as you do)` : ''} · yours since day ${t.boundDay || '?'}${bondTxt}</div>
+          <div class="dim" style="font-size:13px">Great beast of ${esc(ELEM[sp.element] ? ELEM[sp.element].word : sp.element)} · level ${t.lvl}${fights < t.lvl ? ` (fights at ${fights} for you — it grows as you do)` : ''} · yours since day ${t.boundDay || '?'}${bondTxt}</div>
           <div class="row" style="gap:10px;font-size:13px"><span style="width:52px">Life</span>${bar(hp, hp > 0.5 ? '#9fe08a' : hp > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hp * 100)}%</span><span class="dim">· ${status}</span></div>
           <div style="font-size:13px">${arts.length ? `Uses for you: <b>${arts.join(', ')}</b>.` : ''} ${S.passive ? `<span class="dim">${esc(S.passive)}.</span>` : ''}${sp.flies ? ' <span class="gold">It can carry you: stand beside it and press V.</span>' : ''}</div>
           <div class="row">${flying ? '' : out ? `<button class="small" data-an-dismiss="1">Send away</button>` : `<button class="small" data-an-call="${t.id}" ${rest ? 'disabled' : ''}>Call</button>`}<button class="small" data-an-free="${t.id}" ${flying ? 'disabled' : ''}>Set free…</button></div></div>`;
@@ -1715,7 +1715,7 @@
           <div class="pal-pic" data-tipic="${t.id}" data-lv="${t.lvl}"${pic ? ' data-done="1"' : ''}>${pic ? `<img src="${pic}" alt="">` : `<span class="pal-ph">${sp.flies ? '🐉' : '🦬'}</span>`}<span class="pal-lv">Lv ${t.lvl}</span></div>
           <div class="pal-body">
             <div class="pal-head"><h4>${esc(t.name)}</h4></div>
-            <div class="pal-sub">${sp.flies ? 'Dragon' : 'Great beast'} · ${esc(t.title || '')}${sp.flies ? ' · carries you (V)' : ''}</div>
+            <div class="pal-sub">Great beast · ${esc(t.title || '')}</div>
             <div class="pal-bar"><span>Life</span>${bar(hp, hp > 0.5 ? '#9fe08a' : hp > 0.25 ? '#e0c060' : '#e05a4a')}<span>${Math.round(hp * 100)}%</span></div>
             <div style="font-size:12px">${status}</div>
             <div class="row">${flying ? '' : out ? '<button class="small" data-ti-away="1">Send away</button>' : `<button class="small" data-ti-call="${t.id}" ${rest || ECHO.Interior.cur ? 'disabled' : ''}>${ECHO.Interior.cur ? 'Call outside' : 'Call (Y)'}</button>`}</div>
@@ -1728,7 +1728,7 @@
           <div class="pal-body"><div class="pal-head"><h4>${esc(H.name)}</h4></div><div class="pal-sub">Horse · ${esc(B.name.toLowerCase())}</div><div style="font-size:12px">${status}</div>
           <div class="row">${pl.mounted ? '' : '<button class="small" data-ti-horse="1">Whistle (V)</button>'}</div></div></div>`);
       }
-      return `<h3 class="gold">Called with Y (${mine.length + (pl.horse ? 1 : 0)})</h3><p class="dim" style="margin-top:-4px">Your bound dragons and great beasts, and your horse. <b>Y</b> brings the next one; one of them is with you at a time. The beasts you tame with <b>E</b> are below.</p><div class="pal-grid">${cards.join('')}</div>`;
+      return `<h3 class="gold">Called with Y (${mine.length + (pl.horse ? 1 : 0)})</h3><p class="dim" style="margin-top:-4px">Your bound great beasts, and your horse. <b>Y</b> brings the next one; one of them is with you at a time. The beasts you tame with <b>E</b> are below.</p><div class="pal-grid">${cards.join('')}</div>`;
     },
     yBind(root, game, again) {
       const on = (sel, fn) => root.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => { fn(b); again(); }));

@@ -325,7 +325,7 @@
       if (ECHO.Growth) ECHO.Growth._noAdapt = true;
       try {
         if (r.cat === 'boss' && r.boss) {
-          const k = ECHO.Boss.KIND[r.boss.kind] || ECHO.Boss.KIND.drake;
+          const k = ECHO.Boss.KIND[r.boss.kind] || ECHO.Boss.KIND.wyrm;
           const FM = ECHO.Prowess.foeMul(r.lvl, true);
           const mh = Math.round((r.boss.maxHp || 600) * Math.max(1, FM.hp / Math.max(1, ECHO.Prowess.foeMul(r.lvl0 || r.lvl, true).hp)));
           e = ECHO.Ent.make({ type: 'boss', x: sp.x, y: sp.y, r: k.r, hp: mh, maxHp: mh, speed: k.speed, faction: 'player', boss: { ...r.boss, alive: true, memory: { encounters: 0, dodge: { left: 0, right: 0, back: 0 }, blocks: 0, attacksSeen: 0, rangedTime: 0, meleeTime: 0, damageBy: { melee: 0, ranged: 0, fire: 0 }, knownFoes: {} } }, state: 'chase', t: 0, cd: 1, label: r.name });

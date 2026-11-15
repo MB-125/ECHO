@@ -1,30 +1,17 @@
-// The titans: dragons that fly and great beasts that walk, each one of a kind,
+// The titans: great beasts that walk the land, each one of a kind,
 // each with a territory of its own in the open world.
 //
 // They are the strongest things under the sky — some catastrophically so —
 // and they live by what they eat: the game of their range, then the herds and
 // granaries of the nearest town when that runs out, and now and then, for the
 // oldest, a whole town. They have young about them and prey around them. Beaten,
-// they can be bound (you can keep four); a bound dragon can carry you through
-// the sky. A territory left empty is claimed again in time by another of the kind.
+// they can be bound (you can keep four). A territory left empty is claimed again in time by another of the kind.
 (function () {
   const { U } = ECHO;
   const P = () => ECHO.People;
 
   // kind: the body (drake = winged dragon; wyrm = serpent; stag = great horned beast)
   const SPECIES = {
-    emberwing: { kind: 'drake', flies: true, element: 'fire', name: 'Emberwing', title: 'the Scorch-Mother', lv: 48, scale: 1.35, color: '#8a2a12', belly: '#ffb04a', terr: ['HILL', 'RUIN', 'SAND'], brood: 'cinderhound', far: 0.2,
-      desc: 'A young fire dragon. She burns the grass for the game it drives out.', names: ['Emberwing', 'Ashvane', 'Cinderveil'] },
-    rimefang: { kind: 'drake', flies: true, element: 'frost', name: 'Rimefang', title: 'the White Death', lv: 165, scale: 1.75, color: '#cfe0ee', belly: '#7aa8d0', terr: ['SNOW', 'HILL'], brood: 'frosthound', far: 0.45,
-      desc: 'A dragon of the snows. Its breath stops blood in the veins.', names: ['Rimefang', 'Hoarwing', 'Gelidra'] },
-    mirevenom: { kind: 'drake', flies: true, element: 'venom', name: 'Mirevenom', title: 'the Rot in the Reeds', lv: 240, scale: 1.8, color: '#3a5a2a', belly: '#a8d04a', terr: ['SWAMP', 'FOREST'], brood: 'rothound', far: 0.5,
-      desc: 'A marsh dragon whose breath melts flesh off bone.', names: ['Mirevenom', 'Bogscale', 'Virulex'] },
-    skyrender: { kind: 'drake', flies: true, element: 'storm', name: 'Skyrender', title: 'the Storm Made Flesh', lv: 330, scale: 1.95, color: '#3a4a8a', belly: '#bfe0ff', terr: ['GRASS', 'HILL', 'SAND'], brood: 'stormwisp', far: 0.6,
-      desc: 'Thunder follows it. Lightning answers when it calls.', names: ['Skyrender', 'Tempestra', 'Voltharn'] },
-    solgrim: { kind: 'drake', flies: true, element: 'sun', name: 'Solgrim', title: 'the Burning Crown', lv: 720, scale: 2.3, color: '#c8962a', belly: '#fff0a0', terr: ['HILL', 'SAND', 'RUIN'], brood: 'sunling', far: 0.8,
-      desc: 'An elder dragon of gold. Looking at it too long blinds you.', names: ['Solgrim', 'Aurelath', 'Heliax'] },
-    nyxathar: { kind: 'drake', flies: true, element: 'void', name: 'Nyxathar', title: 'the End of Days', lv: 1400, scale: 2.8, color: '#1a1024', belly: '#8a4aff', terr: ['RUIN', 'HILL', 'SNOW', 'SAND'], brood: 'voidshade', far: 1,
-      desc: 'The oldest thing under the sky. Where it passes, towns are only names.', names: ['Nyxathar', 'Umbravex', 'the Unmaker'] },
     gorehorn: { kind: 'stag', flies: false, element: 'earth', name: 'Gorehorn', title: 'the Ironhide Behemoth', lv: 26, scale: 1.5, color: '#5a4636', terr: ['GRASS', 'FARM', 'HILL'], brood: 'tuskling', far: 0.1,
       desc: 'A great horned beast as big as a house. Its charge breaks walls.', names: ['Gorehorn', 'Ironbrow', 'Old Thunderhead'] },
     thunderhoof: { kind: 'stag', flies: false, element: 'storm', name: 'Thunderhoof', title: 'the Storm Elk', lv: 72, scale: 1.7, color: '#4a4a6a', terr: ['FOREST', 'GRASS'], brood: 'stormwisp', far: 0.3,
@@ -36,7 +23,8 @@
     grimmaw: { kind: 'wyrm', flies: false, element: 'earth', name: 'Grimmaw', title: 'the Mountain Wyrm', lv: 520, scale: 2.3, color: '#5a4a3a', terr: ['HILL', 'SNOW'], brood: 'slaggolem', far: 0.7,
       desc: 'It burrows through hills. The ground heaves where it hunts.', names: ['Grimmaw', 'Stonegullet', 'the Deepbore'] }
   };
-  const ORDER = ['gorehorn', 'emberwing', 'thunderhoof', 'mawtide', 'rimefang', 'mirevenom', 'skyrender', 'ironback', 'grimmaw', 'solgrim', 'nyxathar'];
+  // (there are no dragons: the kinds that were dragons are gone from the world — nodragons.js)
+  const ORDER = ['gorehorn', 'thunderhoof', 'mawtide', 'ironback', 'grimmaw'];
   const MAX_BOUND = 4;
 
   const T = ECHO.Titans = {
@@ -115,7 +103,7 @@
       if (!t || !t.bound) return false;
       t.bound = false; t.hp = 1; t.hunger = 0; t.fed = world.day; t.released = world.day;
       if (pl) { pl.beasts = T.bound(world).map(b => b.id); if (pl.beastOut === t.id) pl.beastOut = null; }
-      ECHO.Chronicle.add(world, { text: `${t.name} ${t.title} was set free, and flew back to its old ground.`, kind: 'beast', importance: 1, x: t.x, y: t.y });
+      ECHO.Chronicle.add(world, { text: `${t.name} ${t.title} was set free, and went back to its old ground.`, kind: 'beast', importance: 1, x: t.x, y: t.y });
       return true;
     },
     slain(world, t, by) {
@@ -136,7 +124,7 @@
           // the range is claimed again by another of the kind
           if (world.day - (t.diedDay || 0) > 35 && !S.list.some(o => o.sp === t.sp && o.alive && !o.bound && o !== t) && rng.chance(0.25)) {
             const n = T.place(world, rng, t.sp, (t.gen || 0) + 1);
-            if (n) { S.list = S.list.filter(o => o !== t); S.list.push(n); ECHO.Chronicle.add(world, { text: `A new ${sp.flies ? 'dragon' : 'great beast'}, ${n.name}, has claimed the range of ${t.name}.`, kind: 'beast', importance: 2, x: n.x, y: n.y }); }
+            if (n) { S.list = S.list.filter(o => o !== t); S.list.push(n); ECHO.Chronicle.add(world, { text: `A new great beast, ${n.name}, has claimed the range of ${t.name}.`, kind: 'beast', importance: 2, x: n.x, y: n.y }); }
           }
           continue;
         }

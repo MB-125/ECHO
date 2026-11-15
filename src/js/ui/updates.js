@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.50.0', items: [
+      'There are no dragons in the world any more. The six dragons of the sky (Emberwing, Rimefang, Mirevenom, Skyrender, Solgrim, Nyxathar) are gone from their ranges, and a dragon no longer comes down near a town to eat the herds.',
+      'The great beasts that walk the land stay: Gorehorn, Thunderhoof, Mawtide, Ironback and Grimmaw.',
+      'Lairs that had a Fen Drake have a Fen Serpent instead. In the burning gate world, the Ember Drakes are now Ember Stalkers, and the Cinder Sovereign is no longer a dragon.',
+      'If you had bound a dragon, it is not taken from you. It becomes a great beast of the land with the same name, level and bond (of its own element where there is one). If you were on its back, you are set down where you were.',
+      'Dragonscale you already have stays in your pack.'
+    ] },
     { v: '0.49.1', items: [
       'Drag and drop on the gear screen. Press on any piece and move the mouse: it lifts off and follows the cursor, the slots it fits glow (the others dim), and hovering a slot shows what wearing it would change. Let go on the slot to wear it.',
       'Drag a worn piece back onto the grid to take it off. Let go anywhere else and nothing changes.',

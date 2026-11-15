@@ -602,7 +602,7 @@
 
   // ------------------------------------------------------------------ Lairs (apex monsters)
   const APEX_KINDS = [
-    { kind: 'drake', title: 'the Fen Drake', base: ['Marrowjaw', 'Gristlemaw', 'Old Sorrow', 'Bilecrown'] },
+    { kind: 'wyrm', title: 'the Fen Serpent', base: ['Marrowjaw', 'Gristlemaw', 'Old Sorrow', 'Bilecrown'] },
     { kind: 'wyrm', title: 'the Thornback', base: ['Hollowcoil', 'Rotfang', 'the Grey Widow', 'Saltgrave'] },
     { kind: 'stag', title: 'the Antlered Dread', base: ['Mournhorn', 'Ninebranch', 'Ashantler', 'the Pale Hart'] }
   ];
