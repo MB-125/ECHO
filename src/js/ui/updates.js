@@ -7,6 +7,16 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.47.0', items: [
+      'Build what you like, where you like. Press = to open Build & craft, pick a piece, and click the ground to place it. Hold and drag to lay a row. Right-click takes a piece of yours up again and gives back everything it cost.',
+      'Pieces: wooden wall, stone wall, wooden floor, stone floor, fence, doorway, torch, and three stations (workbench, furnace, anvil). Each fills one tile. Walls, fences and stations are solid: nothing walks through them, you included.',
+      'A crafting tree, starting from what you fell and mine. Timber is sawn into planks by hand. Planks make a workbench. At a workbench, ore is dressed into stone, and you can fletch arrows or make an axe or a pick. Stone makes a furnace, which smelts ore into ingots. Ingots make an anvil.',
+      'At your anvil you can charge energy cells, build missiles, and forge a fine blade, coat of mail or sidearm of your own level.',
+      'A recipe that needs a station needs one within a few paces of you. The panel shows which stations are near and why a recipe cannot be made yet.',
+      'Where you can build: open ground within a few paces of you. Not in or beside a town, not on water, roads, rock or fields, not where a tree or boulder stands (fell or break it first), and not on top of anybody. The tile under the mouse shows green where a piece can go and red where it cannot, with the reason.',
+      'Walls hold, but not for ever. A foe that cannot reach you through a wall starts breaking it: a fence goes quickly, wood lasts longer, stone longest. Great beasts walk straight through. A broken piece gives nothing back.',
+      'Nothing is added to an old save until you place or craft something. What you build is saved with the world.'
+    ] },
     { v: '0.46.0', items: [
       'Guns have magazines. The pistol holds 12 shots, the pulse rifle 30, the scattergun 6; the rest of your cells stay in your pack. An empty gun reloads by itself, and R reloads early. You cannot fire while reloading. The bar at the foot of the screen shows shots loaded and cells in reserve.',
       'With your gun out and room in the magazine, R reloads. Otherwise R is still the target lock.',
