@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.53.1', items: [
+      'Fixed the controls card vanishing: it was set to hide whenever an enemy was targeted, so it disappeared in every fight. It now stays on screen and shortens itself to sit above the enemy bar.',
+      'The "F1 · controls" tab can now be clicked to open the card, and "F1 hide ✕" on the card closes it.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.53.0', items: [
       'Hero tab, Hero page: your level, title and XP bar at the top with the next title to aim for, then your numbers as tiles — power, life, stamina, mana, sword, bow, gun, armour, renown, fate and the strongest foe you have beaten. Your story is folded away underneath.',
       'Hero tab, Skills page: each skill is a card that says what it does for you and how to grow it, with your current rank. Your best skill is marked. Tendencies show only once you have one.',

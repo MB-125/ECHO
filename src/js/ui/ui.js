@@ -113,16 +113,23 @@
       const seasoned = !!(pl && ECHO.Prowess && ECHO.Prowess.level(pl) >= 5);
       if (UI._seasoned !== seasoned) { UI._seasoned = seasoned; UI.applyHelp(); }
       const set = (sel, v) => { const el = $(sel); if (el && el.textContent !== v) el.textContent = v; };
-      if (!UI.helpApplied) { UI.helpApplied = true; UI.applyHelp(); }
+      if (!UI.helpApplied) {
+        UI.helpApplied = true; UI.applyHelp();
+        const tab = $('#hud-help-tab'), x = $('#hud-help .hh-title span');
+        if (tab) tab.addEventListener('click', e => { e.stopPropagation(); UI.toggleHelp(true); });
+        if (x) x.addEventListener('click', e => { e.stopPropagation(); UI.toggleHelp(false); });
+      }
       const fighting = game.combatT != null && game.time - game.combatT < 4;
       if (fighting !== UI.wasFighting) { UI.wasFighting = fighting; $('#hud').classList.toggle('fighting', fighting); }
       // a short window (a laptop, a scaled desktop): the controls card must not run under the bar or other panels
       if ((UI._fitT = (UI._fitT || 0) - dt) <= 0) {
-        UI._fitT = 0.5;
+        UI._fitT = 0.25;
         const help = $('#hud-help');
         if (help && !help.classList.contains('hidden')) {
           help.style.maxHeight = '';
-          const room = window.innerHeight - 64 - help.getBoundingClientRect().top;
+          const tg = $('#hud-target'), tgOn = tg && !tg.classList.contains('hidden');
+          const floor = tgOn ? tg.getBoundingClientRect().top - 8 : window.innerHeight - 64;
+          const room = floor - help.getBoundingClientRect().top;
           const tooShort = room < help.scrollHeight;
           help.classList.toggle('clipped', tooShort);
           if (tooShort) help.style.maxHeight = Math.max(60, room) + 'px';
