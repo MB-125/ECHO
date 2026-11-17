@@ -812,7 +812,37 @@
       const world = game.world;
       const j = (world.journeys || []).find(x => x.id === e.journeyId);
       if (!j) { e.despawnSoon = true; return; }
-      const p = ECHO.Sim.journeyPos(world, j);
+      let p = ECHO.Sim.journeyPos(world, j);
+      const first = !e._jSeen; e._jSeen = true;
+      // a column still in the town it is leaving forms up at the edge of town, along its road out —
+      // not on the square round the well, where it would wall off the whole town
+      const from = j.kind === 'army' && j.pos < 12 && ECHO.Sim.settlement(world, j.from);
+      if (from && U.dist(p.x, p.y, from.x, from.y) < Math.max(8, (from.reach || 12) * 0.7)) {
+        const G = Person._muster || (Person._muster = {});
+        let gi = G[j.id];
+        if (gi == null) {
+          gi = 0;
+          const edge = Math.max(8, (from.reach || 12) * 0.7);
+          for (let k = 0; k < Math.min(j.path.length, 40); k++) { const t = j.path[k], tx = t % world.W + 0.5, ty = ((t / world.W) | 0) + 0.5; if (U.dist(tx, ty, from.x, from.y) >= edge) { gi = k; break; } }
+          G[j.id] = gi;
+        }
+        if (gi > j.pos) { const t = j.path[gi]; p = { x: t % world.W + 0.5, y: ((t / world.W) | 0) + 0.5 }; }
+      }
+      // home, or nearly: the journey ends at the well, but they don't all wait on that one tile — each goes
+      // to a spot of their own about the town (by the houses, off the square) until the day's turn sends them in
+      const to = ECHO.Sim.settlement(world, j.to);
+      if (to && j.pos > j.path.length - 14 && U.dist(p.x, p.y, to.x, to.y) < Math.max(8, (to.reach || 12) * 0.6)) {
+        if (!e._arr || e._arr.sid !== to.id) {
+          const h = ECHO.hashStr(String(e.npcId || e.id)), a = (h % 360) * Math.PI / 180, r = 4 + (h >> 9) % 6;
+          const sp = ECHO.Ent.freeSpot(world, to.x + 0.5 + Math.cos(a) * r, to.y + 0.5 + Math.sin(a) * r, 4) || { x: p.x, y: p.y };
+          e._arr = { sid: to.id, x: sp.x, y: sp.y };
+          // (one just made, standing where the road ends: already at their spot — no scrum round the well)
+          if (U.dist(e.x, e.y, p.x, p.y) < 2.5 && first) { e.x = sp.x; e.y = sp.y; }
+        }
+        if (U.dist(e.x, e.y, e._arr.x, e._arr.y) > 0.6) ECHO.Ent.travel(world, e, e._arr.x, e._arr.y, e.speed * 0.6, dt);
+        else e.moving = false;
+        return;
+      }
       // armies march in ranks; everyone else straggles in a line
       const sl = e.slot || 0;
       const ox = j.kind === 'army' ? (sl % 3 - 1) * 0.8 : sl * 0.6, oy = j.kind === 'army' ? Math.floor(sl / 3) * 0.9 : (sl % 2) * 0.4;

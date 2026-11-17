@@ -5573,7 +5573,12 @@
         if (avoid) {
           const hh = parseInt(ctx.font, 10) || fs;
           y = Math.max(y, hh + 92 * R.dpr);
-          for (let k = 0; k < 8; k++) { const hit = placed.find(r => x - w / 2 - 4 < r[2] && x + w / 2 + 4 > r[0] && y - hh - 2 < r[3] && y + 2 > r[1]); if (!hit) break; y = hit[1] - 3 * R.dpr; }
+          // (what you look at or lock on to may climb over a crowd; anything else steps up once or twice, or is not drawn —
+          // a crowd is a few names, not a tower of them)
+          const tries = avoid === 'force' ? 8 : 2;
+          let clear = false;
+          for (let k = 0; k <= tries; k++) { const hit = placed.find(r => x - w / 2 - 4 < r[2] && x + w / 2 + 4 > r[0] && y - hh - 2 < r[3] && y + 2 > r[1]); if (!hit) { clear = true; break; } if (k < tries) y = hit[1] - 3 * R.dpr; }
+          if (!clear) return;
           if (ECHO.UI.overHud(x - w / 2 - 6 * R.dpr, y - hh - 4 * R.dpr, x + w / 2 + 6 * R.dpr, y + 3 * R.dpr, R.dpr)) return;
           placed.push([x - w / 2, y - hh, x + w / 2, y]);
         }
@@ -5594,9 +5599,10 @@
       if (ECHO.Progress) { ctx.font = `600 ${Math.round(fs * 0.85)}px Inter, system-ui, sans-serif`; for (const ll of ECHO.Progress.lootLabels(game)) { if (!R.onScreen(game, ll.x, ll.y)) continue; const p = R.project(ll.x, ll.y, 0.75); if (p.z > 1) continue; text(ll.text, p.x, p.y - (ll.line || 0) * Math.round(fs * 1.05), ll.color, null, true); } ctx.font = `600 ${fs}px Inter, system-ui, sans-serif`; }
       if (ECHO.Progress) for (const sl of ECHO.Progress.siteLabels(game)) { if (!R.onScreen(game, sl.x, sl.y)) continue; const p = R.project(sl.x, sl.y, 2.6); if (p.z > 1) continue; ctx.globalAlpha = sl.a; text(sl.text, p.x, p.y, sl.color, 'rgba(4,14,26,0.72)', true); ctx.globalAlpha = 1; }
       const heights = { player: 1.25, person: 1.25, boss: 3.6 };
-      for (const e of game.ents) {
-        if (e.dead || e.hidden || e === game.pe) continue;
-        if (!R.onScreen(game, e.x, e.y)) continue;
+      // (nearest first, and whatever you look at or lock on to before all: they get the room)
+      const lockE = ECHO.PlayerCtl.lock, pri = o => (o === lockE ? -1e4 : 0) + (U.dist(mouse.x, mouse.y, o.x, o.y) < 0.9 ? -5e3 : 0) + (o.type === 'boss' ? -2e3 : 0) + U.dist(o.x, o.y, game.pe.x, game.pe.y);
+      const shown = game.ents.filter(o => !o.dead && !o.hidden && o !== game.pe && R.onScreen(game, o.x, o.y)).map(o => [pri(o), o]).sort((a, b) => a[0] - b[0]);
+      for (const [, e] of shown) {
         const h = (e.type === 'creature' ? (e.species === 'wolf' ? 1.0 : 0.65) : (heights[e.type] || 1.2)) * (e.titan ? (e.tscale || 1) * 0.9 : 1) + (e.alt || 0);
         const p = R.project(e.x, e.y, h);
         const hover = U.dist(mouse.x, mouse.y, e.x, e.y) < 0.9;
@@ -5621,7 +5627,9 @@
           const w = ctx.measureText(e.say).width;
           // bubbles stack instead of covering each other
           let tyb = ty;
-          for (let k = 0; k < 8; k++) { const r0 = [p.x - w / 2 - 7 * R.dpr, tyb - fs - 10 * R.dpr, p.x + w / 2 + 7 * R.dpr, tyb - 1 * R.dpr]; const hit = placed.find(r => r0[0] < r[2] && r0[2] > r[0] && r0[1] < r[3] && r0[3] > r[1]); if (!hit) break; tyb = hit[1] - 2 * R.dpr; }
+          let bOk = false;
+          for (let k = 0; k < 3; k++) { const r0 = [p.x - w / 2 - 7 * R.dpr, tyb - fs - 10 * R.dpr, p.x + w / 2 + 7 * R.dpr, tyb - 1 * R.dpr]; const hit = placed.find(r => r0[0] < r[2] && r0[2] > r[0] && r0[1] < r[3] && r0[3] > r[1]); if (!hit) { bOk = true; break; } tyb = hit[1] - 2 * R.dpr; }
+          if (!bOk && !hover) continue;   // (in a chattering crowd, the nearest few are heard)
           if (ECHO.UI.overHud(p.x - w / 2 - 8 * R.dpr, tyb - fs - 10 * R.dpr, p.x + w / 2 + 8 * R.dpr, tyb, R.dpr)) continue;
           placed.push([p.x - w / 2 - 7 * R.dpr, tyb - fs - 10 * R.dpr, p.x + w / 2 + 7 * R.dpr, tyb - 1 * R.dpr]);
           const ty0 = ty; { const ty = tyb; void ty0;
@@ -5640,7 +5648,7 @@
           }
           continue;
         }
-        if (e.type === 'boss') { const lb = ECHO.Progress ? ECHO.Progress.label(game, e) : { text: e.label, color: '#ffcf8a' }; text(lb.text, p.x, ty, lb.color, 'rgba(4,14,26,0.72)', true); continue; }
+        if (e.type === 'boss') { const lb = ECHO.Progress ? ECHO.Progress.label(game, e) : { text: e.label, color: '#ffcf8a' }; text(lb.text, p.x, ty, lb.color, 'rgba(4,14,26,0.72)', 'force'); continue; }
         if (e.marvel) { if (e.label && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 6) text(e.label, p.x, ty, '#bfe8ff'); continue; }
         if (e.yielded) { text('yields — [E] to spare', p.x, ty, '#9fe0c8'); continue; }
         if (e.sleeping && hover) { text('asleep', p.x, ty, '#9fb7d8'); continue; }
@@ -5648,7 +5656,7 @@
         if (foeish) {
           if (hover || e === ECHO.PlayerCtl.lock || e.boss2 || e.beast || nearFoes.has(e) || (e.type === 'person' && U.dist(e.x, e.y, game.pe.x, game.pe.y) < 9)) {
             const lb = ECHO.Progress.label(game, e);
-            text(lb.text, p.x, ty, lb.color, 'rgba(4,14,26,0.72)', true);
+            text(lb.text, p.x, ty, lb.color, 'rgba(4,14,26,0.72)', hover || e === lockE ? 'force' : true);
             if (e.hp < e.maxHp && e.type === 'creature') { const bw = 44 * R.dpr, bh = 4 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw, bh); ctx.fillStyle = e.boss2 ? '#ffcf5a' : '#e05a4a'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw * Math.max(0, e.hp / e.maxHp), bh); }
           }
           continue;
@@ -5658,15 +5666,15 @@
         const pn = e.type === 'person' && world.npcs[e.npcId], pd = pn ? U.dist(e.x, e.y, game.pe.x, game.pe.y) : 99;
         const big = pn && (pn.title || pn.rank >= 1 || pn.prof === 'ruler' || (pn.adv && pn.adv.status !== 'retired'));
         const arm = pn && (e.role === 'guard' || e.role === 'soldier');
-        if (e.type === 'person' && (hover || (e.carrying && pd < 6) || (big && pd < 8) || (arm && pd < 3) || ((e.assault || e.warDef) && pd < 15))) {
+        if (e.type === 'person' && (hover || (e.carrying && pd < 6) || (big && pd < 6) || (arm && pd < 3) || ((e.assault || e.warDef) && pd < 15))) {
           const npc = world.npcs[e.npcId];
           if (!npc) continue;
           const col = game.hostileTo(game.pe, e) ? '#ff8a7a' : e.isCompanion ? '#9fe0c8' : '#f0e6d0';
           const L = ECHO.Delvers ? ECHO.Delvers.lv(npc) : (npc.lv || 1), Dl = ECHO.Prowess && ECHO.Prowess.diff ? ECHO.Prowess.diff(L, ECHO.Prowess.level(game.pl)) : null;
           if (big || arm || hover) {
-            text(`${ECHO.People.fullTitle(world, npc)} · Lv ${L}`, p.x, ty, game.hostileTo(game.pe, e) ? '#ff8a7a' : big && Dl ? Dl.color : col, 'rgba(4,14,26,0.62)', !!big);
+            text(`${ECHO.People.fullTitle(world, npc)} · Lv ${L}`, p.x, ty, game.hostileTo(game.pe, e) ? '#ff8a7a' : big && Dl ? Dl.color : col, 'rgba(4,14,26,0.62)', hover || e === lockE ? 'force' : true);
             if (e.hp < e.maxHp && (e.assault || e.warDef || game.hostileTo(game.pe, e))) { const bw = 40 * R.dpr, bh = 3 * R.dpr; ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw, bh); ctx.fillStyle = e.assault ? '#e05a4a' : '#e0c060'; ctx.fillRect(p.x - bw / 2, ty + 4 * R.dpr, bw * Math.max(0, e.hp / e.maxHp), bh); }
-          } else text(ECHO.People.fullTitle(world, npc), p.x, ty, col);
+          } else text(ECHO.People.fullTitle(world, npc), p.x, ty, col, null, true);
           const it = e.carrying && world.items[e.carrying];
           if (it) {
             const yours = game.pl && it.history.some(hh => hh.t.includes(game.pl.first + ' ' + game.pl.last));

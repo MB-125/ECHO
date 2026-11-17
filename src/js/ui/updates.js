@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.55.0', items: [
+      'Less clutter over people\'s heads. Names are drawn nearest first, so what is close to you gets the room. A name that would land on another moves up once or twice, or is left out, so you no longer see towers of stacked names. Whatever you point at or lock on to always shows. Officers are named when you are a little closer.',
+      'Speech bubbles in a crowd no longer pile up: the nearest few are shown.',
+      'Soldiers coming home no longer pile up in one heap at the town well. Each waits at a spot of their own around town, and an army leaving town forms up at the edge of town by its road out, not in the middle of the square.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.54.0', items: [
       'Towns are laid out with more room. Every street is now two tiles wide, the main avenues and the town square are bigger, and every building has a yard around it, so you can walk, ride and fight through town without squeezing down one-tile alleys.',
       'Lamps and notice boards are spread along the streets instead of bunched together at the square, and none stand right by a door.',
