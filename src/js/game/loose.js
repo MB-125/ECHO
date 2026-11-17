@@ -87,6 +87,8 @@
       let decor = [];
       try { decor = ECHO.TownStyle && ECHO.TownStyle.decor ? ECHO.TownStyle.decor(world, s) : []; } catch (e) { decor = []; }
       for (const d of decor) used.add(Math.floor(d.y) * 100000 + Math.floor(d.x));
+      // (no doorway in the town is ever blocked: a neighbour's wall can stand right beside one)
+      for (const b of s.buildings) used.add((b.y + b.h) * 100000 + b.x + Math.floor(b.w / 2));
       const add = (k, x, y, px, py, tag) => {
         out.push({ key: s.id + ':' + (x - s.x) + ',' + (y - s.y), k, x: px, y: py, yaw: h2(x, y, seed + 74) * Math.PI * 2, sid: s.id, town: tag !== 'field' });
         used.add(y * 100000 + x);

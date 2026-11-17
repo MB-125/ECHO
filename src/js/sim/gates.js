@@ -113,8 +113,8 @@
           const { x, y } = ECHO.World.spot(world, rng, 12, 13, 12, 13);
           if (!reach[y * W + x] || !OK.has(Wd.tile(world, x, y))) continue;
           let dTown = Infinity;
-          for (const s of world.settlements) dTown = Math.min(dTown, U.dist(s.x, s.y, x, y));
-          if (dTown < minD * (1 - relax * 0.15)) continue;
+          for (const s of world.settlements) dTown = Math.min(dTown, U.dist(s.x, s.y, x + 0.5, y + 0.5));
+          if (dTown < Math.max(24, minD * (1 - relax * 0.15))) continue;   // (never in a town's back yard)
           // nothing of the world inside the menace (in a crowded world, at least nothing near the door)
           let dO = 60;
           for (const o of others) dO = Math.min(dO, U.dist(o.x, o.y, x, y));

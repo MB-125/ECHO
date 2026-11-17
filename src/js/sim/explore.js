@@ -61,7 +61,9 @@
       const T = ECHO.TILE;
       const sites = world.sites = [];
       const used = new Set();
-      const far = (x, y, d) => world.settlements.every(s => U.dist(s.x, s.y, x, y) > d) && world.camps.every(c => U.dist(c.x, c.y, x, y) > 9) && world.lairs.every(l => U.dist(l.x, l.y, x, y) > 10) &&
+      // (the towns, and the land a crown has chosen for its next village)
+      const towns = world.settlements.concat(Object.values(world.factions || {}).map(f => f && f.realm && f.realm.plan).filter(p => p && isFinite(p.x)));
+      const far = (x, y, d) => towns.every(s => U.dist(s.x, s.y, x, y) > d) && world.camps.every(c => U.dist(c.x, c.y, x, y) > 9) && world.lairs.every(l => U.dist(l.x, l.y, x, y) > 10) &&
         world.ruins.every(r => U.dist(r.x, r.y, x, y) > 8) && sites.every(o => U.dist(o.x, o.y, x, y) > 16) && (!world.wonders || !world.wonders.echoes || world.wonders.echoes.every(e => U.dist(e.x, e.y, x, y) > 9));
       const near = (x, y, r, set) => { let n = 0; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (set.includes(ECHO.World.tile(world, x + dx, y + dy))) n++; return n; };
       const want = [
@@ -75,7 +77,7 @@
           const { x, y } = ECHO.World.spot(world, rng, 8, 9, 8, 9);
           const t = ECHO.World.tile(world, x, y);
           if (![T.GRASS, T.FOREST, T.HILL, T.SAND, T.SNOW, T.SWAMP].includes(t) || ECHO.World.isSolid(world, x + 0.5, y + 0.5)) continue;
-          if (!far(x, y, kind === 'wayshrine' ? 10 : 15)) continue;
+          if (!far(x + 0.5, y + 0.5, kind === 'wayshrine' ? 10.5 : 15)) continue;
           let sc = rng.next() * 2;
           if (kind === 'lookout') sc += near(x, y, 3, [T.HILL, T.ROCK, T.SNOW]) * 0.3;
           if (kind === 'wreck' || kind === 'moonwell') sc += near(x, y, 2, [T.WATER]) * 0.5 - (near(x, y, 2, [T.WATER]) ? 0 : 5);
@@ -104,7 +106,8 @@
       const T = ECHO.TILE, sites = world.sites;
       const near = (x, y, r, set) => { let n = 0; for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (set.includes(ECHO.World.tile(world, x + dx, y + dy))) n++; return n; };
       let relax = 0;
-      const far = (x, y) => world.settlements.every(s => U.dist(s.x, s.y, x, y) > 16 - relax * 4) && world.camps.every(c => U.dist(c.x, c.y, x, y) > 9) && world.lairs.every(l => U.dist(l.x, l.y, x, y) > 10) && world.ruins.every(r => U.dist(r.x, r.y, x, y) > 8) && sites.every(o => U.dist(o.x, o.y, x, y) > 14 - relax * 5) && !(ECHO.Gates && ECHO.Gates.inMenace(world, x, y));
+      const towns = world.settlements.concat(Object.values(world.factions || {}).map(f => f && f.realm && f.realm.plan).filter(p => p && isFinite(p.x)));
+      const far = (x, y) => towns.every(s => U.dist(s.x, s.y, x, y) > 16 - relax * 4) && world.camps.every(c => U.dist(c.x, c.y, x, y) > 9) && world.lairs.every(l => U.dist(l.x, l.y, x, y) > 10) && world.ruins.every(r => U.dist(r.x, r.y, x, y) > 8) && sites.every(o => U.dist(o.x, o.y, x, y) > 14 - relax * 5) && !(ECHO.Gates && ECHO.Gates.inMenace(world, x, y));
       const scale = ECHO.World.scale ? ECHO.World.scale(world) : 1;
       const used = new Set(sites.map(s => s.name));
       for (const [kind, n0] of DUNGEONS) for (let k = 0; k < n0 * scale; k++) {
@@ -140,6 +143,7 @@
     // so a new adventurer always has somewhere to start. Added once, old worlds too.
     starters(world) {
       world._starter = 1;
+      const plans = Object.values(world.factions || {}).map(f => f && f.realm && f.realm.plan).filter(p => p && isFinite(p.x));
       const T = ECHO.TILE, rng = new RNG((world.seed ^ 0x57a7) >>> 0);
       const sites = world.sites;
       const OK = [T.GRASS, T.FOREST, T.HILL];
@@ -152,7 +156,7 @@
           const a = rng.next() * Math.PI * 2, d = rng.range(13, 28);
           const x = Math.round(t.x + Math.cos(a) * d), y = Math.round(t.y + Math.sin(a) * d);
           if (!OK.includes(ECHO.World.tile(world, x, y)) || ECHO.World.isSolid(world, x + 0.5, y + 0.5)) continue;
-          if (world.settlements.some(o => U.dist(o.x, o.y, x, y) < 11) || sites.some(o => U.dist(o.x, o.y, x, y) < 9) || world.lairs.some(l => U.dist(l.x, l.y, x, y) < 12) || world.camps.some(c => U.dist(c.x, c.y, x, y) < 10) || (ECHO.Gates && ECHO.Gates.inMenace(world, x, y))) continue;
+          if (world.settlements.concat(plans).some(o => U.dist(o.x, o.y, x, y) < 11) || sites.some(o => U.dist(o.x, o.y, x, y) < 9) || world.lairs.some(l => U.dist(l.x, l.y, x, y) < 12) || world.camps.some(c => U.dist(c.x, c.y, x, y) < 10) || (ECHO.Gates && ECHO.Gates.inMenace(world, x, y))) continue;
           let wet = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (ECHO.World.isSolid(world, x + dx + 0.5, y + dy + 0.5)) wet++;
           if (wet > 2) continue;
           spot = { x, y };

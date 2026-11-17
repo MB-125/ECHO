@@ -47,7 +47,7 @@
         military: cnt('arms') >= 3 ? rel('arms') * 0.85 + (s.kind === 'capital' ? 0.3 : 0) + (ECHO.GuardWork && ECHO.GuardWork.garrisonOf(world, s.id) ? 0.25 : 0) : 0,
         holy: cnt('holy') >= 3 ? rel('holy') * 0.8 + (s.kind === 'temple' ? 0.4 : 0) : 0,
         fortified: (W.walls ? 1.35 : 0) + (W.walls && W.watch ? 0.2 : 0) + (W.walls && s.drilled && D - s.drilled < 60 ? 0.1 : 0),
-        adventurer: guild * 0.3 + (camp ? 0.7 : 0) + Math.min(0.4, delves * 0.08),
+        adventurer: Math.min(1.2, guild * 0.3) + (camp ? 0.7 : 0) + Math.min(0.4, delves * 0.08),
         growing: pop > Math.max(12, (s.foundingPop || peak * 0.8)) * 1.25 && pros >= 62 ? 1.3 + (pros - 62) / 80 : 0,
         declining: (pop < peak * 0.68 && peak >= 10 && (pros < 40 || unrest > 45) ? 1.1 + (1 - pop / peak) : 0) + (pros < 15 ? 1.2 : 0),
         village: s.kind === 'village' ? 1.12 : 0.6

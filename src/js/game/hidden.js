@@ -129,7 +129,7 @@
         if ((world.sites || []).some(s => U.dist(s.x, s.y, x + 0.5, y + 0.5) < 9) || S.list.some(h => U.dist(h.x, h.y, x + 0.5, y + 0.5) < 22)) continue;
         if ((world.lairs || []).some(l => U.dist(l.x, l.y, x + 0.5, y + 0.5) < 10) || (world.camps || []).some(c => U.dist(c.x, c.y, x + 0.5, y + 0.5) < 9) || (world.secrets && world.secrets.list.some(o => U.dist(o.x, o.y, x + 0.5, y + 0.5) < 7))) continue;
         if (ECHO.Gates && ECHO.Gates.inMenace && ECHO.Gates.inMenace(world, x, y)) continue;
-        let tame = false; for (let dy = -5; dy <= 5 && !tame; dy++) for (let dx = -5; dx <= 5; dx++) { const u = tile(x + dx, y + dy); if (u === T.FARM || u === T.ROAD || u === T.PLAZA || u === T.BRIDGE) { tame = true; break; } }
+        let tame = false; for (let dy = -3; dy <= 3 && !tame; dy++) for (let dx = -3; dx <= 3; dx++) { const u = tile(x + dx, y + dy); if (u === T.FARM || u === T.ROAD || u === T.PLAZA || u === T.BRIDGE) { tame = true; break; } }
         if (tame) continue;
         // what suits this ground
         const water = count(x, y, 3, [T.WATER, T.DEEP]) + (count(x, y, 2, [T.SWAMP]) > 3 ? 3 : 0), high = count(x, y, 3, [T.HILL, T.ROCK, T.SNOW]), rock = count(x, y, 2, [T.ROCK]), wood = count(x, y, 3, [T.FOREST, T.TREE]) + count(x, y, 2, [T.SWAMP]);

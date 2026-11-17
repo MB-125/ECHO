@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.54.0', items: [
+      'Towns are laid out with more room. Every street is now two tiles wide, the main avenues and the town square are bigger, and every building has a yard around it, so you can walk, ride and fight through town without squeezing down one-tile alleys.',
+      'Lamps and notice boards are spread along the streets instead of bunched together at the square, and none stand right by a door.',
+      'Trees, banners and braziers no longer go in the gap right beside a building or a door, so the paths between houses stay clear. Barrels and crates never block any doorway.',
+      'Your towns are laid out on the new plan once, the first time you load. Each town keeps its own style, and your house, everything you own, the statues, and the mills, mines and lumber camps stay exactly where they are. Nothing else in your save changes.',
+      'A town boxed in by water and rock can still grow, squeezing its last houses in without yards.'
+    ] },
     { v: '0.53.1', items: [
       'Fixed the controls card vanishing: it was set to hide whenever an enemy was targeted, so it disappeared in every fight. It now stays on screen and shortens itself to sit above the enemy bar.',
       'The "F1 · controls" tab can now be clicked to open the card, and "F1 hide ✕" on the card closes it.',

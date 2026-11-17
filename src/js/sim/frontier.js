@@ -424,7 +424,7 @@
         for (let ddy = -4; ddy <= 4; ddy++) for (let ddx = -5; ddx <= 5; ddx++) {
           const edge = Math.abs(ddx) === 5 || Math.abs(ddy) === 4;
           const tt = Wo.tile(world, p.x + ddx, p.y + ddy);
-          if (tt === T.WATER || tt === T.DEEP) continue;
+          if (tt === T.WATER || tt === T.DEEP || tt === T.ROAD || tt === T.BRIDGE || tt === T.PLAZA) continue;   // (a road through it stays a road)
           if (edge && hash2(p.x + ddx, p.y + ddy, world.seed + 3) < 0.55 && !(ddy === 4 && Math.abs(ddx) <= 1)) Wo.setTile(world, p.x + ddx, p.y + ddy, T.RUINWALL);
           else Wo.setTile(world, p.x + ddx, p.y + ddy, T.RUIN);
         }

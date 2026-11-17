@@ -275,7 +275,7 @@
         if (near < 26) continue;
         if (world.camps.some(c => c.alive && U.dist(c.x, c.y, x, y) < 12) || world.lairs.some(l => U.dist(l.x, l.y, x, y) < 16) || world.ruins.some(r => U.dist(r.x, r.y, x, y) < 12)) continue;
         if (world.wonders && world.wonders.echoes && world.wonders.echoes.some(e => U.dist(e.x, e.y, x, y) < 10)) continue;
-        if (world.sites && world.sites.some(e => U.dist(e.x, e.y, x, y) < 9)) continue;
+        if (world.sites && world.sites.some(e => U.dist(e.x, e.y, x, y) < 12)) continue;
         const sc = ECHO.World.siteScore(world, x, y);
         if (sc < 70) continue;
         const ownD = Math.min(...own.map(s => U.dist(s.x, s.y, x, y)));
@@ -322,6 +322,16 @@
       for (const prof of ['herbalist', 'smith', 'hunter', 'woodcutter']) add(res.find(n => n.prof === prof && !settlers.includes(n)));
       while (settlers.length < 8) { const n = res.find(x => !settlers.includes(x) && x.prof !== 'ruler' && x.id !== from.ruler && P().age(world, x) > 16); if (!n) break; add(n); }
       if (settlers.length < 5) { st.plan = null; return null; }
+      // (a landmark or a dungeon found on that land since it was chosen: the village goes up a little way off)
+      const Tl0 = ECHO.TILE, clash = (x, y) => (world.sites || []).some(e => U.dist(e.x, e.y, x, y) < 11);
+      if (clash(plan.x, plan.y)) {
+        let bestP = null;
+        for (let r = 1; r <= 10 && !bestP; r++) for (let k = 0; k < 16 && !bestP; k++) {
+          const x = Math.round(plan.x + Math.cos(k * Math.PI / 8) * r), y = Math.round(plan.y + Math.sin(k * Math.PI / 8) * r), t = ECHO.World.tile(world, x, y);
+          if ((t === Tl0.GRASS || t === Tl0.FOREST) && !clash(x, y) && world.settlements.every(o => U.dist(o.x, o.y, x, y) >= 24)) bestP = { x, y };
+        }
+        if (bestP) { plan.x = bestP.x; plan.y = bestP.y; }
+      }
       const used = new Set(world.settlements.map(s => s.name));
       const name = plan.name || ECHO.makePlaceName(rng, used);
       const s = {

@@ -19,6 +19,8 @@
 // A town's way is kept on it (`s.style`: its people and plan); a world from before is laid out
 // again once, as it loads: every building keeps what it is and who owns it, and your house,
 // what you own, the statues to legends and the mills, mines and lumber camps stay where they are.
+// (V2: two-tile streets, a yard about every lot, lamps spread out, the walkways kept clear of trees;
+// a world laid out by V1 is laid out once more, keeping each town's way.)
 (function () {
   const { U } = ECHO;
   const T = () => ECHO.TILE;
@@ -71,78 +73,80 @@
   const mod = (a, n) => ((a % n) + n) % n;
   const circ = (dx, dy) => Math.sqrt(dx * dx + dy * dy);
   const cheb = (dx, dy) => Math.max(Math.abs(dx), Math.abs(dy));
+  // (every street is two tiles wide and every lot has a yard about it: room to walk, ride and fight)
+  const band = (v, n, w) => mod(v, n) < w;
   const PLANS = {
     // straight streets and square blocks round a square: the iron kingdom's way
     grid: {
       word: 'a grid of stone streets about a square', shape: 'square', gap: 1, dist: cheb,
-      pave(dx, dy, P) { const ax = Math.abs(dx), ay = Math.abs(dy); if (ax <= P && ay <= P) return 2; if (ax <= 1) return 2; if (ay > P && mod(dy, 4) === 0) return 1; if (ax > P && mod(dx, 13) === 0) return 1; return 0; }
+      pave(dx, dy, P) { const ax = Math.abs(dx), ay = Math.abs(dy); if (ax <= P + 1 && ay <= P + 1) return 2; if (ax <= 1) return 2; if (ay > P && band(dy, 5, 2)) return 1; if (ax > P && band(dx, 13, 2)) return 1; return 0; }
     },
-    // long terraced rows wall to wall, a diamond of streets: the same people, another crown
+    // long terraced rows, a diamond of streets: the same people, another crown
     terraces: {
-      word: 'terraced rows wall to wall', shape: 'diamond', gap: 0, dist: (dx, dy) => (Math.abs(dx) + Math.abs(dy)) * 0.72,
-      pave(dx, dy, P) { const ax = Math.abs(dx), ay = Math.abs(dy); if (ax + ay <= P + 1) return 2; if (ax === 0) return 2; if (mod(dy, 4) === 0) return 1; if (mod(dx, 10) === 5) return 1; return 0; }
+      word: 'terraced rows along straight streets', shape: 'diamond', gap: 1, dist: (dx, dy) => (Math.abs(dx) + Math.abs(dy)) * 0.72,
+      pave(dx, dy, P) { const ax = Math.abs(dx), ay = Math.abs(dy); if (ax + ay <= P + 2) return 2; if (ax <= 1) return 2; if (band(dy, 5, 2)) return 1; if (band(dx - 5, 11, 2)) return 1; return 0; }
     },
     // a round square, ring streets and spokes like a wheel
     radial: {
-      word: 'ring streets and spokes about a round square', shape: 'circle', gap: 1, dist: circ, open: true, rings: [9.8, 14.8, 19.8, 24.8],
+      word: 'ring streets and spokes about a round square', shape: 'circle', gap: 1, dist: circ, open: true, rings: [10.4, 16.4, 22.4, 28.4],
       pave(dx, dy, P) {
-        const d = circ(dx, dy); if (d <= P + 0.5) return 2;
-        for (const r of [7.5, 12.5, 17.5, 22.5]) if (Math.abs(d - r) < 0.62) return 1;
-        const a = Math.atan2(dy, dx); for (let k = 0; k < 8; k++) { const b = k * Math.PI / 4; if (Math.abs(Math.sin(a - b)) * d < 0.7 && Math.cos(a - b) > 0) return k % 2 ? 1 : 2; }
+        const d = circ(dx, dy); if (d <= P + 1.5) return 2;
+        for (const r of [7.6, 13.6, 19.6, 25.6]) if (Math.abs(d - r) < 1.05) return 1;
+        const a = Math.atan2(dy, dx); for (let k = 0; k < 8; k++) { const b = k * Math.PI / 4; if (Math.abs(Math.sin(a - b)) * d < 1.05 && Math.cos(a - b) > 0) return k % 2 ? 1 : 2; }
         return 0;
       }
     },
     // villas each in its garden, along winding lanes
     garden: {
       word: 'villas in gardens along winding lanes', shape: 'circle', gap: 2, dist: circ,
-      pave(dx, dy, P) { const d = circ(dx, dy); if (d <= P + 0.4) return 2; if (Math.abs(dx) === 0) return 2; if (mod(dy - Math.round(1.6 * Math.sin(dx / 3.4)), 6) === 0) return 1; return 0; }
+      pave(dx, dy, P) { const d = circ(dx, dy); if (d <= P + 1.4) return 2; if (Math.abs(dx) <= 1) return 2; if (band(dy - Math.round(1.6 * Math.sin(dx / 3.4)), 7, 2)) return 1; return 0; }
     },
     // the processional ways crossing at the temple, and lanes in the four quarters
     cross: {
       word: 'two processional ways crossing at the temple', shape: 'circle', gap: 1, dist: circ,
-      pave(dx, dy, P) { const ax = Math.abs(dx), ay = Math.abs(dy); if (ax <= P && ay <= P) return 2; if (ax <= 1 || ay <= 1) return 2; if (mod(dy, 4) === 0) return 1; return 0; }
+      pave(dx, dy, P) { const ax = Math.abs(dx), ay = Math.abs(dy); if (ax <= P + 1 && ay <= P + 1) return 2; if (ax <= 1 || ay <= 1) return 2; if (band(dy, 5, 2)) return 1; if (ax > P && band(dx, 13, 2)) return 1; return 0; }
     },
     // longhouses about a green, round the great hall: rings of beaten earth
     ring: {
-      word: 'longhouses about a green round the great hall', shape: 'circle', gap: 2, dist: circ, earth: true, rings: [8.5, 13.5, 18.5],
-      pave(dx, dy, P) { const d = circ(dx, dy); if (d <= P - 0.5) return 2; for (const r of [7, 12, 17]) if (Math.abs(d - r) < 0.6) return 1; if ((Math.abs(dx) === 0 || Math.abs(dy) === 0) && d > P) return 1; return 0; }
+      word: 'longhouses about a green round the great hall', shape: 'circle', gap: 2, dist: circ, earth: true, rings: [10, 16, 22],
+      pave(dx, dy, P) { const d = circ(dx, dy); if (d <= P + 0.5) return 2; for (const r of [7.2, 13.2, 19.2]) if (Math.abs(d - r) < 1.0) return 1; if ((Math.abs(dx) <= 1 || Math.abs(dy) <= 1) && d > P) return 1; return 0; }
     },
     // longhouses in long rows, each row a little askew
     rows: {
       word: 'long rows of longhouses', shape: 'ellipse', gap: 2, dist: (dx, dy) => Math.sqrt(dx * dx * 0.55 + dy * dy * 1.3), earth: true,
-      pave(dx, dy, P) { if (circ(dx, dy) <= P) return 2; if (mod(dy, 5) === 0) return 1; if (dx === 0) return 1; return 0; }
+      pave(dx, dy, P) { if (circ(dx, dy) <= P + 1) return 2; if (band(dy, 6, 2)) return 1; if (Math.abs(dx) <= 1) return 1; return 0; }
     },
-    // houses wall to wall, narrow alleys, a bazaar street and a fountain square
+    // houses close about alleys, a bazaar street and a fountain square
     courtyard: {
-      word: 'close-packed houses, alleys and a bazaar', shape: 'square', gap: 0, dist: cheb,
-      pave(dx, dy, P) { const ax = Math.abs(dx), ay = Math.abs(dy); if (ax <= P && ay <= P) return 2; if (dy === 0 || dy === 1) return 2; if (mod(dy, 4) === 0) return 1; if (mod(dx, 7) === 0) return 1; return 0; }
+      word: 'close-set houses, alleys and a bazaar', shape: 'square', gap: 1, dist: cheb,
+      pave(dx, dy, P) { const ax = Math.abs(dx), ay = Math.abs(dy); if (ax <= P + 1 && ay <= P + 1) return 2; if (dy >= -1 && dy <= 1) return 2; if (band(dy, 5, 2)) return 1; if (band(dx, 9, 2)) return 1; return 0; }
     },
-    // a great round pool among palms, and the houses packed round it
+    // a great round pool among palms, and the houses about it
     oasis: {
-      word: 'packed houses about a pool among palms', shape: 'circle', gap: 0, dist: circ,
-      pave(dx, dy, P) { const d = circ(dx, dy); if (d <= P + 2) return 2; if (Math.abs(d - (P + 3)) < 0.7) return 2; if (mod(dy, 4) === 0) return 1; if (mod(dx, 8) === 0) return 1; return 0; }
+      word: 'houses about a pool among palms', shape: 'circle', gap: 1, dist: circ,
+      pave(dx, dy, P) { const d = circ(dx, dy); if (d <= P + 2) return 2; if (Math.abs(d - (P + 3.5)) < 1.05) return 2; if (band(dy, 5, 2)) return 1; if (band(dx, 10, 2)) return 1; return 0; }
     },
     // rings of yurts on open ground about the khan's great yurt
     camp: {
-      word: 'rings of yurts on open ground', shape: 'circle', gap: 1, dist: circ, earth: true, rings: [7, 11, 15, 19],
-      pave(dx, dy, P) { const d = circ(dx, dy); if (d <= P - 0.5) return 2; if ((Math.abs(dx) <= 0 || Math.abs(dy) <= 0) && d > P) return 1; return 0; }
+      word: 'rings of yurts on open ground', shape: 'circle', gap: 2, dist: circ, earth: true, rings: [7.5, 12, 16.5, 21],
+      pave(dx, dy, P) { const d = circ(dx, dy); if (d <= P + 0.5) return 2; if ((Math.abs(dx) <= 1 || Math.abs(dy) <= 1) && d > P) return 1; return 0; }
     },
     // the yurts of each clan in its own circle, about the khan's
     horde: {
-      word: 'each clan\'s yurts in its own circle', shape: 'circle', gap: 1, dist: circ, earth: true, clusters: 5,
-      pave(dx, dy, P) { const d = circ(dx, dy); if (d <= P - 0.5) return 2; if ((Math.abs(dx) === 0 || Math.abs(dy) === 0) && d > P) return 1; return 0; }
+      word: 'each clan\'s yurts in its own circle', shape: 'circle', gap: 2, dist: circ, earth: true, clusters: 5,
+      pave(dx, dy, P) { const d = circ(dx, dy); if (d <= P + 0.5) return 2; if ((Math.abs(dx) <= 1 || Math.abs(dy) <= 1) && d > P) return 1; return 0; }
     },
     // a great forum, the cardo and the decumanus, and square blocks
     forum: {
       word: 'a forum, colonnaded avenues and square blocks', shape: 'square', gap: 1, dist: cheb,
-      pave(dx, dy, P) { const ax = Math.abs(dx), ay = Math.abs(dy); if (ax <= P + 2 && ay <= P) return 2; if (ax <= 1 || ay <= 0) return 2; if (mod(dy, 4) === 0) return 1; if (mod(dx, 9) === 0) return 1; return 0; }
+      pave(dx, dy, P) { const ax = Math.abs(dx), ay = Math.abs(dy); if (ax <= P + 3 && ay <= P + 1) return 2; if (ax <= 1 || ay <= 1) return 2; if (band(dy, 5, 2)) return 1; if (band(dx, 10, 2)) return 1; return 0; }
     }
   };
   // the old crowns keep the plan they always had
   const FIXED = { valdren: 'grid', ashmere: 'radial', lantern: 'cross' };
 
   const TS = ECHO.TownStyle = {
-    ARCH, PLANS, V: 1,
+    ARCH, PLANS, V: 2,
     // ------------------------------------------------------------ whose way
     power(f) { return !!f && !f.fallen && (f.type === 'kingdom' || f.type === 'order'); },
     planOf(f, culture, world) {
@@ -209,10 +213,10 @@
         let area = 0;
         for (const it of items) area += (it.b.w + 1.5) * (it.b.h + 1.5);
         for (const b of o.pinned || []) if (!b.fac) area += (b.w + 1) * (b.h + 1);
-        const E0 = Math.max(16, Math.min(30, Math.ceil(Math.sqrt(area * 2.8 / Math.PI) + 7)));
+        const E0 = Math.max(16, Math.min(36, Math.ceil(Math.sqrt(area * 2.8 / Math.PI) + 7)));
         const R0 = TS.place(world, s, items, Object.assign({}, o, { E: E0 }));
-        if (!R0.left.length || E0 >= 30) return R0;
-        return TS.place(world, s, items, Object.assign({}, o, { E: 30 }));
+        if (!R0.left.length || E0 >= 36) return R0;
+        return TS.place(world, s, items, Object.assign({}, o, { E: 36 }));
       }
       const Tl = T(), P0 = TS.parse(s.style), PL = PLANS[P0.p], E = o.E, N = 2 * E + 1;
       const cap = s.kind === 'capital' || s.kind === 'temple';
@@ -294,13 +298,15 @@
           if (ground[i] || occ[i]) return false;
           if ((pave[i] === 2 && !(great && PL.earth)) || (pave[i] === 1 && (small || tiny))) return false;
         }
-        const g = tiny ? 0 : PL.gap;
+        const g = tiny || o.tight ? 0 : PL.gap;
         if (g) for (let yy = y0 - g; yy < y0 + h + g; yy++) for (let xx = x0 - g; xx < x0 + w + g; xx++) {
           if (yy >= y0 && yy < y0 + h && xx >= x0 && xx < x0 + w) continue;
           if (inG(xx, yy) && occ[at(xx, yy)] === 2) return false;
         }
         if (tiny) {
-          // a lamp, a board, a statue: beside a street, not on it
+          // a lamp, a board, a statue: beside a street, not on it, not at a door, and not bunched together
+          for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (inG(x0 + ax, y0 + ay) && occ[at(x0 + ax, y0 + ay)] === 3) return false;
+          for (const q of tinies) if (Math.abs(q[0] - x0) < 4 && Math.abs(q[1] - y0) < 4) return false;
           for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (inG(x0 + ax, y0 + ay) && pave[at(x0 + ax, y0 + ay)] && !occ[at(x0 + ax, y0 + ay)] && !ground[at(x0 + ax, y0 + ay)]) return true;
           return false;
         }
@@ -314,8 +320,10 @@
       };
       const claim = (x0, y0, w, h, tiny) => {
         for (let yy = y0; yy < y0 + h; yy++) for (let xx = x0; xx < x0 + w; xx++) occ[at(xx, yy)] = 2;
-        if (!tiny) { const di = at(x0 + Math.floor(w / 2), y0 + h); if (!occ[di]) occ[di] = 3; }
+        if (!tiny) { const di = at(x0 + Math.floor(w / 2), y0 + h); if (!occ[di]) occ[di] = 3; } else tinies.push([x0, y0]);
       };
+      const tinies = [];
+      for (const b of o.pinned || []) if (b.w === 1 && b.h === 1 && b.type !== 'well') tinies.push([b.x - s.x, b.y - s.y]);
       const left = [];
       for (const it of items) {
         const { b } = it, w = b.w, h = b.h, tiny = w === 1 && h === 1, small = !tiny && w <= 3 && h <= 3, great = b.type === 'keep' || b.type === 'temple';
@@ -507,9 +515,12 @@
       const S0 = world.townStyle;
       if (S0 && S0.v >= TS.V && world.settlements.every(s => s.style)) return;
       let n = 0;
+      // (a world laid out by an older plan — streets a tile wide, houses shoulder to shoulder — is laid
+      // out once more on the roomier one, each town in the way it already had)
+      const again = !!(S0 && S0.v < TS.V);
       for (const s of world.settlements) {
-        if (s.style) continue;
-        try { if (TS.replan(world, s)) n++; else s.style = TS.styleFor(world, s); } catch (err) { s.style = s.style || TS.styleFor(world, s); if (typeof console !== 'undefined') console.error('ECHO: a town could not be laid out again', s.id, err); }
+        if (s.style && !again) continue;
+        try { if (TS.replan(world, s, s.style || undefined)) n++; else s.style = s.style || TS.styleFor(world, s); } catch (err) { s.style = s.style || TS.styleFor(world, s); if (typeof console !== 'undefined') console.error('ECHO: a town could not be laid out again', s.id, err); }
       }
       world.townStyle = { v: TS.V, day: world.day, n: (S0 && S0.n || 0) + n };
       Wd().rebuildBlocked(world);
@@ -541,8 +552,10 @@
       // (a town grows out over its own fields; as many go under the plough again further out)
       // (nor across a road: the roads into the town run along its streets)
       const avoid = new Set(), W = world.W;
-      for (const r of world.roads || []) if (Array.isArray(r.path)) for (const i of r.path) { const x = i % W, y = (i / W) | 0; if (Math.abs(x - s.x) <= 31 && Math.abs(y - s.y) <= 31) avoid.add(i); }
-      const R = TS.place(world, s, items, { pinned: s.buildings, farms: true, avoid });
+      for (const r of world.roads || []) if (Array.isArray(r.path)) for (const i of r.path) { const x = i % W, y = (i / W) | 0; if (Math.abs(x - s.x) <= 37 && Math.abs(y - s.y) <= 37) avoid.add(i); }
+      let R = TS.place(world, s, items, { pinned: s.buildings, farms: true, avoid });
+      // (a town hemmed in by water and rock squeezes the last lots in without their yards)
+      if (R.left.length) R = TS.place(world, s, items, { pinned: s.buildings, farms: true, avoid, tight: true });
       if (R.left.length) return null;
       const b = items[0].b, Tl = T();
       let ploughed = 0;
@@ -560,7 +573,7 @@
       for (const s of world.settlements) {
         let dx = x - s.x; if (world.globe) { if (dx > W / 2) dx -= W; else if (dx < -W / 2) dx += W; }
         const dy = y - s.y;
-        if (dx > 32 || dx < -32 || dy > 32 || dy < -32 || !s.style) continue;
+        if (dx > 38 || dx < -38 || dy > 38 || dy < -38 || !s.style) continue;
         const d = dx * dx + dy * dy;
         if (d < bd) { bd = d; best = s; }
       }
@@ -582,6 +595,8 @@
       const blocked = (x, y) => { const wx = world.globe ? mod(x, world.W) : x; return y < 0 || y >= world.H || wx < 0 || wx >= world.W || world.blocked[y * world.W + wx]; };
       const nextTo = (x, y, tt) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => Wd().tile(world, x + a, y + b) === tt);
       const doorAt = new Set(s.buildings.map(b => (b.y + b.h) * 100000 + (b.x + Math.floor(b.w / 2))));
+      // (the ground right about a building is a walkway: nothing is planted there)
+      const hug = (x, y) => { for (let b2 = -1; b2 <= 1; b2++) for (let a2 = -1; a2 <= 1; a2++) { if (!a2 && !b2) continue; if (blocked(x + a2, y + b2) || doorAt.has((y + b2) * 100000 + x + a2)) return true; } return false; };
       for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
         if (PL.dist(dx, dy) > reach) continue;
         const x = s.x + dx, y = s.y + dy;
@@ -590,11 +605,12 @@
         const t = Wd().tile(world, x, y), a = h2(x, y, seed + 11);
         let k = null, solid = 0, sc = 1;
         if (t === Tl.GRASS) {
-          if (!nextTo(x, y, Tl.PLAZA) && a < 0.17 && A.tree) { k = A.tree; solid = 0.2; sc = 0.75 + h2(x, y, seed + 12) * 0.35; }
+          if (hug(x, y)) continue;
+          if (!nextTo(x, y, Tl.PLAZA) && a < 0.13 && A.tree) { k = A.tree; solid = 0.2; sc = 0.75 + h2(x, y, seed + 12) * 0.35; }
           else if (a > 0.93 && A.decor[1]) { k = A.decor[1]; solid = k === 'bush' || k === 'statue' || k === 'cypress' || k === 'palm' ? 0.22 : k === 'post' || k === 'totem' ? 0.15 : 0; }
         } else if (t === Tl.PLAZA) {
           // at the corners of streets: its lamps, braziers, standards
-          if (a < 0.045 && !nextTo(x, y, Tl.ROAD)) { k = A.decor[0]; solid = k === 'brazier' || k === 'standard' || k === 'lanternpost' || k === 'palm' || k === 'cypress' || k === 'statue' || k === 'totem' ? 0.18 : 0; }
+          if (a < 0.04 && !nextTo(x, y, Tl.ROAD) && !hug(x, y) && nextTo(x, y, Tl.GRASS)) { k = A.decor[0]; solid = k === 'brazier' || k === 'standard' || k === 'lanternpost' || k === 'palm' || k === 'cypress' || k === 'statue' || k === 'totem' ? 0.18 : 0; }
         }
         if (!k) continue;
         out.push({ k, x: x + 0.5, y: y + 0.5, s: sc, r: solid });

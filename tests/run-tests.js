@@ -97,6 +97,8 @@ function main() {
     let maxHunger = 0, maxUnrest = 0;
     for (let d = 0; d < 90; d++) {
       ECHO.Sim.dailyTick(A, true); ECHO.Sim.dailyTick(B, true);
+      // (the control: in A the beast lives on, whatever befalls it, so the only difference is its death in B)
+      { const bA = A.lairs[li].boss; if (!bA.alive) { bA.alive = true; bA.hp = bA.maxHp; delete bA.diedDay; } }
       maxHunger = Math.max(maxHunger, vB.hunger); maxUnrest = Math.max(maxUnrest, vB.unrest - vA.unrest);
       if (d % 15 === 14) series.push(`d${d + 1}: gnawers ${Math.round(A.regions[regionId].eco.gnawer)}→${Math.round(B.regions[regionId].eco.gnawer)}, crop ${A.regions[regionId].eco.crop.toFixed(2)}→${B.regions[regionId].eco.crop.toFixed(2)}, bread ${vA.prices.food}→${vB.prices.food}, hunger ${vA.hunger.toFixed(2)}→${vB.hunger.toFixed(2)}, unrest ${vA.unrest.toFixed(0)}→${vB.unrest.toFixed(0)}`);
     }
