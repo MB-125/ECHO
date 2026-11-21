@@ -114,6 +114,7 @@
       const buckets = { base: [], glow: [], window: [] };
       // built new (render/theme.js): its own colours, the surfaces drawn on it, its lines of light
       const T = ECHO.Theme, tech = !!(T && T.tech(name)) && colors.trim !== 'off';   // (a burned house is not)
+      const real = !tech && !!(T && T.real && T.real());
       // (its pieces depend on its shape alone: found once a model)
       const PC = M._pieces || (M._pieces = {}), known = tech && !!PC[name], pieces = tech ? PC[name] || (PC[name] = []) : [];
       scene.traverse(o => {
@@ -124,6 +125,7 @@
         g.applyMatrix4(o.matrixWorld);
         if (g.index) g = g.toNonIndexed();
         let col = colors[mname] ? M.srgb(colors[mname]) : o.material.color;
+        if (real && bucket === 'base') col = M.srgb(T.realColor(mname, colors[mname] || T.hex(o.material.color)));
         if (tech) {
           col = M.srgb(T.remap(name, mname, colors[mname] || T.hex(o.material.color)));
           if (bucket === 'base' && !known) for (const p of T.pieces(mname, g)) pieces.push(p);
@@ -137,7 +139,7 @@
           const j = 1 + (((i * 2654435761) >>> 0) % 1000 / 1000 - 0.5) * 0.08;
           for (let k = 0; k < 3; k++) { c[(i + k) * 3] = col.r * j; c[(i + k) * 3 + 1] = col.g * j; c[(i + k) * 3 + 2] = col.b * j; }
         }
-        buckets[bucket].push({ pos: g.attributes.position.array, nor: g.attributes.normal ? g.attributes.normal.array : null, col: c, tech: tech ? T.kind(mname) : 0 });
+        buckets[bucket].push({ pos: g.attributes.position.array, nor: g.attributes.normal ? g.attributes.normal.array : null, col: c, tech: tech ? T.kind(mname) : real && bucket === 'base' ? T.realKind(mname) : 0 });
       });
       if (tech && pieces.length) {
         const tr = T.trims(name, pieces, T.accent(colors));
@@ -194,6 +196,7 @@
           m.name = mname;
           if (colors && colors[mname]) m.color.copy(M.srgb(colors[mname]));
           if (ECHO.Theme && ECHO.Theme.tech(name)) m.color.copy(M.srgb(ECHO.Theme.remap(name, mname, (colors && colors[mname]) || ECHO.Theme.hex(base.color))));
+          else if (ECHO.Theme && ECHO.Theme.real && ECHO.Theme.real() && !GLOW.has(mname) && !name.startsWith('m_')) m.color.copy(M.srgb(ECHO.Theme.realColor(mname, (colors && colors[mname]) || ECHO.Theme.hex(m.color))));
           const R3 = ECHO.Renderer3D;
           // a monster of its own shape: what it is made of drawn on it; ghost-stuff
           // drifts and shows through, crystal glows

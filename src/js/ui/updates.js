@@ -7,6 +7,12 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.56.0', items: [
+      'A new look, Realistic, is now the look of the world for everyone. Buildings are drawn in what they are made of: walls of stone laid in courses with mortar between, lime plaster, roofs of clay tiles or slate in overlapping rows with moss here and there, timber in planks with the grain showing, and worn iron. Colours are natural, and walls are damp and grimy at the foot.',
+      'No more glass houses. When a building stood between you and the camera, the whole building turned into a see-through box. Now it stays solid, and a small round window opens in it just where it hides you.',
+      'Arcanotech (ceramic and sun-glass) and Classic are still in Menu → Settings → The look of the world, if you want them back.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.55.0', items: [
       'Less clutter over people\'s heads. Names are drawn nearest first, so what is close to you gets the room. A name that would land on another moves up once or twice, or is left out, so you no longer see towers of stacked names. Whatever you point at or lock on to always shows. Officers are named when you are a little closer.',
       'Speech bubbles in a crowd no longer pile up: the nearest few are shown.',

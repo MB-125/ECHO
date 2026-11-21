@@ -10,7 +10,41 @@
 // metal); trims() — the lines of light to add, found from the model's own shape.
 (function () {
   const T = ECHO.Theme = {
-    on() { const s = ECHO.UI && ECHO.UI.settings; return !(s && s.look === 'classic'); },
+    // which look: 'real' (the default: stone, plaster, timber and tile, as things are), 'arcano' or 'classic'
+    mode() { const s = ECHO.UI && ECHO.UI.settings, l = s && s.look; return l === 'arcano' || l === 'classic' ? l : 'real'; },
+    on() { return T.mode() === 'arcano'; },
+    real() { return T.mode() === 'real'; },
+    // ------------------------------------------------------------ the realistic look
+    // what the surface shader draws (aTech): 4 coursed stone, 5 plaster, 6 roof tiles, 7 boards,
+    // 8 metal, worn; and the colour of each stuff, toned to what such stuff looks like
+    realKind(mname) {
+      return mname === 'wall' || mname === 'stone' || mname === 'darkstone' || mname === 'marble' ? 4
+        : mname === 'plaster' ? 5 : mname === 'roof' || mname === 'dome' ? 6 : mname === 'wood' || mname === 'darkwood' ? 7
+        : mname === 'metal' || mname === 'darkmetal' || mname === 'iron' ? 8 : 0;
+    },
+    REAL: {
+      wall: (o) => [0.09 + (o.h - 0.09) * 0.15, Math.min(0.16, o.s * 0.25 + 0.05), 0.5 + o.l * 0.28],
+      stone: (o) => [0.1 + (o.h - 0.1) * 0.12, Math.min(0.12, o.s * 0.2 + 0.04), 0.34 + o.l * 0.4],
+      darkstone: (o) => [0.1, 0.06, 0.22 + o.l * 0.3],
+      marble: (o) => [0.11, 0.08, 0.72 + o.l * 0.18],
+      plaster: (o) => [0.1, 0.2, 0.74 + o.l * 0.14],
+      // a roof: the blues and greys go to slate, the rest to fired clay
+      roof: (o) => (o.h > 0.45 && o.h < 0.8) || o.s < 0.15 ? [0.6, 0.09, 0.34 + o.l * 0.14] : [0.035 + ((o.h + 0.5) % 1 - 0.5) * 0.04, 0.5, 0.36 + o.l * 0.12],
+      dome: (o) => [0.47, 0.2, 0.36 + o.l * 0.1],
+      wood: (o) => [0.075, 0.38, 0.22 + o.l * 0.22],
+      darkwood: (o) => [0.07, 0.34, 0.12 + o.l * 0.16],
+      metal: (o) => [0.58, 0.04, 0.4 + o.l * 0.2],
+      darkmetal: (o) => [0.6, 0.04, 0.16 + o.l * 0.2],
+      iron: (o) => [0.6, 0.04, 0.16 + o.l * 0.24],
+      awning: (o) => [o.h, Math.min(o.s, 0.62), o.l * 0.92],
+      banner: (o) => [o.h, Math.min(o.s, 0.7), o.l * 0.9]
+    },
+    realColor(mname, hex) {
+      const f = T.REAL[mname];
+      if (!f) return hex;
+      const [h, s, l] = f(T.hsl(hex));
+      return T.fromHsl(h, s, l);
+    },
     // the halls and houses (and the things in the streets) that are built new
     BUILD: new Set(['house', 'inn', 'market', 'smithy', 'board', 'shrine', 'archive', 'keep', 'temple', 'well', 'statue', 'mill', 'mine', 'lumber', 'stocks',
       'h_ash', 'h_lan', 'h_nor', 'h_sar', 'h_sar2', 'h_kes', 'h_aur', 'k_ash', 'k_nor', 'k_sar', 'k_kes', 'k_aur']),

@@ -15,6 +15,8 @@
       UI.toastsEl = $('#toasts');
       $('#panel .close').addEventListener('click', () => UI.closePanel());
       try { const s = JSON.parse(localStorage.getItem('echo.settings') || '{}'); Object.assign(UI.settings, s); } catch (e) { /* ignore */ }
+      // (0.56: the realistic look is the look of the world now — once, for everyone; Arcanotech and Classic stay in the menu)
+      if (!UI.settings.lookV) { UI.settings.lookV = 2; UI.settings.look = 'real'; try { localStorage.setItem('echo.settings', JSON.stringify(UI.settings)); } catch (e) { /* ignore */ } }
       UI.applyZoom();
       if (ECHO.Input.applyBinds) { ECHO.Input.applyBinds(); setTimeout(() => UI.applyKeys(), 0); }
     },

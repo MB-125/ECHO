@@ -319,8 +319,8 @@
         <div class="upd-slot"></div>
         ${(() => { const st = UI.settings, opt = (k, v, lbl, def) => `<button class="small" data-gs="${k}:${v}" ${(st[k] || def) === v ? 'disabled' : ''}>${lbl}</button>`;
           return `<div class="card"><h4>The look of the world</h4>
-          <div class="row"><span style="min-width:190px">World style</span>${opt('look', 'arcano', 'Arcanotech', 'arcano')}${opt('look', 'classic', 'Classic', 'arcano')}</div>
-          <div class="dim" style="margin:-2px 0 6px">Arcanotech: the towns built new — ceramic and sun-glass, framed in light — while the wilds, ruins and deeps stay old and strange. Classic: the world as it was first drawn. Only the look changes; your world is untouched.</div></div>
+          <div class="row"><span style="min-width:190px">World style</span>${opt('look', 'real', 'Realistic', 'real')}${opt('look', 'arcano', 'Arcanotech', 'real')}${opt('look', 'classic', 'Classic', 'real')}</div>
+          <div class="dim" style="margin:-2px 0 6px">Realistic: stone laid in courses, lime plaster, clay and slate roof tiles, timber boards and worn iron, in natural colours, weathered at the foot of the walls. Arcanotech: the towns built new — ceramic and sun-glass, framed in light — while the wilds, ruins and deeps stay old and strange. Classic: the world as it was first drawn. Only the look changes; your world is untouched.</div></div>
           <div class="card"><h4>Gameplay</h4>
           <div class="row"><span style="min-width:190px">Challenge</span>${opt('difficulty', 'story', 'Story', 'normal')}${opt('difficulty', 'normal', 'Balanced', 'normal')}${opt('difficulty', 'hard', 'Hard', 'normal')}</div>
           <div class="dim" style="margin:-2px 0 6px">Story: foes hit half as hard and fall sooner. Hard: they hit harder and take more killing. Change it any time; your world is untouched.</div>

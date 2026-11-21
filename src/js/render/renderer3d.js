@@ -119,7 +119,7 @@
       // See-through versions for buildings that stand between the camera and the player.
       R.mat.propFade = R.mat.prop.clone(); R.mat.propFade.transparent = true; R.mat.propFade.opacity = 0.28; R.mat.propFade.depthWrite = false;
       R.mat.windowFade = R.mat.window.clone(); R.mat.windowFade.transparent = true; R.mat.windowFade.opacity = 0.28; R.mat.windowFade.depthWrite = false;
-      R.techify(R.mat.prop); R.techify(R.mat.propFade);
+      R.techify(R.mat.prop); R.techify(R.mat.propFade); R.cutify(R.mat.prop); R.cutify(R.mat.window);
       { const on = !ECHO.Theme || ECHO.Theme.on(); R.techU.uTech.value = on ? 1 : 0; if (on) { R.mat.window.emissive.copy(C('#7fe9ff')); R.mat.windowFade.emissive.copy(C('#7fe9ff')); } }
       R.groups = {};
       for (const g of ['terrain', 'props', 'towns', 'sites', 'room', 'ents', 'fx']) { R.groups[g] = new THREE.Group(); s.add(R.groups[g]); }
@@ -414,6 +414,45 @@
     // made of (the aTech of its corners): walls of ceramic panels in courses, roofs of sun-glass
     // in their frames, metal that shines; the seams and frames glow a little at night, in the
     // town's light. Off (uTech 0) for the classic look, and for everything not built new.
+    // A building between you and the eye: a round hole is opened in it, just where it hides you, its
+    // edge dithered — the rest of it stays solid (not the whole house turned to glass).
+    cutify(mat) {
+      if (!mat || mat.userData.cut) return mat;
+      mat.userData.cut = true;
+      const CU = R.cutU || (R.cutU = { uCutP: { value: new THREE.Vector3() }, uCutC: { value: new THREE.Vector3() }, uCutR: { value: 0 } });
+      const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey;
+      mat.customProgramCacheKey = () => (prevKey ? prevKey.call(mat) : '') + '|cut1';
+      mat.onBeforeCompile = (sh, r) => {
+        if (prev) prev(sh, r);
+        Object.assign(sh.uniforms, CU);
+        if (sh.fragmentShader.indexOf('uCutP') >= 0) return;   // (it has its hole already: the near-ground detail's own)
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vCutW;')
+          .replace('#include <project_vertex>', `#include <project_vertex>
+          { vec4 cw = vec4(transformed, 1.0);
+            #ifdef USE_INSTANCING
+              cw = instanceMatrix * cw;
+            #endif
+            vCutW = (modelMatrix * cw).xyz; }`);
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+          varying vec3 vCutW; uniform vec3 uCutP; uniform vec3 uCutC; uniform float uCutR;
+          float bCutBayer(vec2 p) { vec2 q = mod(floor(p), 4.0); int i = int(q.x) + int(q.y) * 4;
+            float m[16]; m[0]=0.0;m[1]=8.0;m[2]=2.0;m[3]=10.0;m[4]=12.0;m[5]=4.0;m[6]=14.0;m[7]=6.0;m[8]=3.0;m[9]=11.0;m[10]=1.0;m[11]=9.0;m[12]=15.0;m[13]=7.0;m[14]=13.0;m[15]=5.0;
+            for (int k = 0; k < 16; k++) if (k == i) return (m[k] + 0.5) / 16.0;
+            return 0.5; }`)
+          .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+          if (uCutR > 0.0 && vCutW.y > uCutP.y - 0.75) {
+            vec3 seg = uCutP - uCutC;
+            float t = dot(vCutW - uCutC, seg) / dot(seg, seg);
+            if (t > 0.25 && t < 0.99) {
+              float d = length(vCutW - (uCutC + seg * t));
+              float rad = uCutR * 1.45 * smoothstep(0.25, 0.75, t);
+              if (d < rad) { float a = d / rad; if (bCutBayer(gl_FragCoord.xy) > a * a * 1.2 - 0.08) discard; }
+            }
+          }`);
+      };
+      mat.needsUpdate = true;
+      return mat;
+    },
     techU: null,
     techify(mat) {
       if (!mat || mat.userData.tech) return mat;
@@ -422,7 +461,7 @@
       mat.defaultAttributeValues = Object.assign({}, mat.defaultAttributeValues || {}, { aTech: [0] });
       mat.extensions = Object.assign(mat.extensions || {}, { derivatives: true });
       const prev = mat.onBeforeCompile, prevKey = mat.customProgramCacheKey;
-      mat.customProgramCacheKey = () => (prevKey ? prevKey.call(mat) : '') + '|tech2';
+      mat.customProgramCacheKey = () => (prevKey ? prevKey.call(mat) : '') + '|tech3';
       mat.onBeforeCompile = (sh, r) => {
         if (prev) prev(sh, r);
         Object.assign(sh.uniforms, U2);
@@ -439,10 +478,67 @@
               tw = instanceMatrix * tw;
             #endif
             vTechW = (modelMatrix * tw).xyz; }`);
-        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uTech; uniform float uNight; uniform vec3 uTechCol; uniform float uCT; uniform float uCloud; varying float vTech; varying vec3 vTechN; varying vec3 vTechW;\nfloat cN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); float a = fract(sin(dot(i, vec2(41.3, 289.1))) * 15731.743), b = fract(sin(dot(i + vec2(1.0, 0.0), vec2(41.3, 289.1))) * 15731.743), c = fract(sin(dot(i + vec2(0.0, 1.0), vec2(41.3, 289.1))) * 15731.743), d = fract(sin(dot(i + vec2(1.0, 1.0), vec2(41.3, 289.1))) * 15731.743); return mix(mix(a, b, f.x), mix(c, d, f.x), f.y); }\n          // the shadows of clouds, drifting over the land\n          float cloudSh(vec2 wp) { vec2 cp = wp * 0.05 + vec2(uCT * 0.011, uCT * 0.006); float c = cN(cp) * 0.62 + cN(cp * 2.3 + 7.0) * 0.38; return 1.0 - uCloud * smoothstep(0.5, 0.7, c) * 0.3; }')
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uTech; uniform float uNight; uniform vec3 uTechCol; uniform float uCT; uniform float uCloud; varying float vTech; varying vec3 vTechN; varying vec3 vTechW;\nfloat cN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); float a = fract(sin(dot(i, vec2(41.3, 289.1))) * 15731.743), b = fract(sin(dot(i + vec2(1.0, 0.0), vec2(41.3, 289.1))) * 15731.743), c = fract(sin(dot(i + vec2(0.0, 1.0), vec2(41.3, 289.1))) * 15731.743), d = fract(sin(dot(i + vec2(1.0, 1.0), vec2(41.3, 289.1))) * 15731.743); return mix(mix(a, b, f.x), mix(c, d, f.x), f.y); }\n          // the shadows of clouds, drifting over the land\n          float cloudSh(vec2 wp) { vec2 cp = wp * 0.05 + vec2(uCT * 0.011, uCT * 0.006); float c = cN(cp) * 0.62 + cN(cp * 2.3 + 7.0) * 0.38; return 1.0 - uCloud * smoothstep(0.5, 0.7, c) * 0.3; }\nfloat rH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }\nfloat rN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(rH(i), rH(i + vec2(1.0, 0.0)), f.x), mix(rH(i + vec2(0.0, 1.0)), rH(i + vec2(1.0, 1.0)), f.x), f.y); }\nfloat rF(vec2 p) { return rN(p) * 0.5 + rN(p * 2.07 + 3.1) * 0.3 + rN(p * 4.3 + 7.7) * 0.2; }')
           .replace('#include <color_fragment>', `#include <color_fragment>
           float tK = floor(vTech + 0.5); vec3 tEm = vec3(0.0); float tRough = 1.0, tMetal = 0.0;
-          if (uTech > 0.5 && tK > 0.5) {
+          if (tK > 3.5) {
+            // the realistic look: what each surface is made of, drawn on it from where it stands in the world
+            vec3 tN = normalize(vTechN);
+            float side = abs(tN.x) > abs(tN.z) ? vTechW.z : vTechW.x;
+            vec2 wp = abs(tN.y) > 0.75 ? vTechW.xz : vec2(side, vTechW.y);
+            float grain = rF(wp * 9.0), blot = rF(wp * 1.3 + 11.0);
+            float dist = max(fwidth(wp.x), fwidth(wp.y)), fade = 1.0 - smoothstep(0.05, 0.2, dist);
+            vec3 c = diffuseColor.rgb;
+            if (tK < 4.5) {
+              // stone in courses: blocks of uneven length, each its own shade, set in pale mortar
+              vec2 p = vec2(wp.x / 0.46, wp.y / 0.24);
+              float row = floor(p.y); p.x += rH(vec2(row, 3.0)) * 3.0;
+              float cw = 0.75 + rH(vec2(row, 9.0)) * 0.6; p.x /= cw;
+              vec2 cell = floor(p), fr = fract(p), fw = max(fwidth(p), vec2(1e-4)), e = min(fr, 1.0 - fr) / fw;
+              float mortar = 1.0 - smoothstep(0.7, 2.2, min(e.x, e.y));
+              float tone = rH(cell + row * 7.1);
+              vec3 stone = c * (0.74 + tone * 0.42) * (0.84 + grain * 0.3);
+              stone = mix(stone, stone * vec3(0.92, 0.95, 0.85), smoothstep(0.55, 0.8, blot) * 0.6);
+              c = mix(c * (0.9 + grain * 0.2), mix(stone, c * 0.62, mortar), fade);
+              tRough = 0.96;
+            } else if (tK < 5.5) {
+              // lime plaster, smoothed by hand, weathered in patches; a little cracked
+              c *= 0.93 + grain * 0.1 - smoothstep(0.6, 0.85, blot) * 0.1;
+              c = mix(c, c * vec3(0.95, 0.9, 0.82), smoothstep(0.5, 0.75, rF(wp * 0.6 + 4.0)) * 0.35);
+              tRough = 0.92;
+            } else if (tK < 6.5) {
+              // tiles or slates, in courses that overlap, each lip casting a little shadow
+              vec2 p = vec2(wp.x / 0.24, (vTechW.y + (abs(tN.y) > 0.75 ? 0.0 : 0.0)) / 0.15);
+              if (abs(tN.y) > 0.2) p = vec2((abs(tN.x) > abs(tN.z) ? vTechW.z : vTechW.x) / 0.24, vTechW.y / 0.15);
+              float row = floor(p.y); p.x += mod(row, 2.0) * 0.5;
+              vec2 cell = floor(p), fr = fract(p);
+              float lip = smoothstep(0.0, 0.3, fr.y);
+              float curve = 1.0 - pow(abs(fr.x - 0.5) * 2.0, 2.0) * 0.25;
+              float tone = rH(cell + 2.3);
+              vec3 tile = c * (0.72 + tone * 0.42) * (0.55 + lip * 0.45) * curve * (0.86 + grain * 0.26);
+              tile = mix(tile, tile * vec3(0.8, 0.88, 0.72), smoothstep(0.62, 0.85, blot) * 0.5);   // (moss and lichen)
+              c = mix(c, tile, fade);
+              tRough = 0.85;
+            } else if (tK < 7.5) {
+              // boards: long planks, the grain running along them, the gaps dark
+              bool up = abs(tN.y) > 0.75;
+              vec2 p = up ? vec2(vTechW.x / 0.6, vTechW.z / 0.16) : vec2(side / 0.9, vTechW.y / 0.17);
+              float row = floor(p.y); p.x += rH(vec2(row, 1.0)) * 2.0;
+              vec2 cell = floor(p), fr = fract(p), fw = max(fwidth(p), vec2(1e-4));
+              float gap = 1.0 - smoothstep(0.5, 1.6, min(fr.y, 1.0 - fr.y) / fw.y);
+              float wood = rN(vec2(p.x * 1.5, fr.y * 14.0 + rH(cell) * 30.0));
+              vec3 pl = c * (0.78 + rH(cell) * 0.3) * (0.85 + wood * 0.3);
+              c = mix(c, mix(pl, c * 0.35, gap), fade);
+              tRough = 0.88;
+            } else {
+              // iron, worn: darkened, a little rust where it is rough
+              c = mix(c, c * vec3(1.15, 0.8, 0.6), smoothstep(0.55, 0.8, blot) * 0.4) * (0.9 + grain * 0.15);
+              tRough = 0.62; tMetal = 0.55;
+            }
+            // weather: damp and grime at the foot of every wall, and a little soot under the eaves
+            if (abs(tN.y) < 0.75) c *= mix(0.72, 1.0, smoothstep(0.0, 0.9, vTechW.y)) * (0.94 + 0.06 * smoothstep(0.3, 0.7, rF(wp * vec2(3.0, 0.7))));
+            diffuseColor.rgb = c;
+          } else if (uTech > 0.5 && tK > 0.5) {
             vec3 tN = normalize(vTechN);
             if (tK < 1.5) {
               // ceramic panels, in courses, each its own faint shade, thin seams between
@@ -5480,7 +5576,9 @@
         const I = R.img(o.x, o.y), ox = I.x, oy = I.y;            // (where it is drawn: round the world, or past a pole)
         const S = R.viewS || 1, py = oy + (pe.y - oy) * S;        // (the side toward the camera, whichever way the view faces)
         const hides = py < oy + o.h / 2 + 0.5 && py > oy - o.h / 2 - o.tall && Math.abs(pe.x - ox) < o.w / 2 + 0.8;
-        const want = hides ? (o.part === 'window' ? R.mat.windowFade : R.mat.propFade) : (o.part === 'window' ? R.mat.window : R.mat.prop);
+        // (the cutaway hole does this now — R.cutify; a whole house turned to glass only if that is switched off)
+        const holed = R.cutU && R.cutU.uCutR.value > 0.01;
+        const want = hides && !holed ? (o.part === 'window' ? R.mat.windowFade : R.mat.propFade) : (o.part === 'window' ? R.mat.window : R.mat.prop);
         if (m.material !== want) { m.material = want; m.castShadow = !hides && o.part === 'base'; }
       }
     },
