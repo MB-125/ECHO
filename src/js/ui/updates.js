@@ -7,6 +7,11 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.57.0', items: [
+      'Towns have their animals now. Hens peck about the doors of the houses and scatter, wings going, if you run through them, and they are shut in at dusk. Cats sit on doorsteps and slink off if you rush at them. Dogs trot the streets, and one may come and walk at your heel for a while. Out by the fields, sheep graze in a loose flock, cows stand chewing and pigs root about; at night they lie down. Ride or run through a flock and it bunches and trots off; creep, and they let you pass.',
+      'Night in town: anyone walking after dark carries a torch, a moving pool of light down the street, and so does the watch on its rounds. People head home at night, and the streets empty until morning.',
+      'The animals are made fresh from each town\'s houses and fields when you come near (the same town always has the same animals in the same yards), so nothing in your save changes.'
+    ] },
     { v: '0.56.0', items: [
       'A new look, Realistic, is now the look of the world for everyone. Buildings are drawn in what they are made of: walls of stone laid in courses with mortar between, lime plaster, roofs of clay tiles or slate in overlapping rows with moss here and there, timber in planks with the grain showing, and worn iron. Colours are natural, and walls are damp and grimy at the foot.',
       'No more glass houses. When a building stood between you and the camera, the whole building turned into a see-through box. Now it stays solid, and a small round window opens in it just where it hides you.',

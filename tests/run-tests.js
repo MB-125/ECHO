@@ -8,7 +8,7 @@ const vm = require('vm');
 const SIM_FILES = [
   'core.js', 'world/worldgen.js', 'world/townstyle.js', 'sim/sim.js', 'sim/people.js', 'sim/ecology.js', 'sim/economy.js',
   'sim/politics.js', 'sim/intel.js', 'sim/plights.js', 'sim/chronicle.js', 'sim/civ.js',
-  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/guns.js', 'game/react.js', 'game/build.js', 'game/live.js', 'game/nav.js', 'game/auto.js', 'game/arms.js', 'game/oldkinds.js'
+  'sim/mysteries.js', 'sim/legacy.js', 'sim/minds.js', 'sim/weather.js', 'sim/disease.js', 'sim/production.js', 'sim/property.js', 'sim/law.js', 'sim/watch.js', 'sim/realm.js', 'sim/military.js', 'sim/danger.js', 'sim/realms.js', 'sim/arsenal.js', 'sim/explore.js', 'sim/discover.js', 'sim/ambition.js', 'sim/holding.js', 'sim/gear.js', 'sim/temper.js', 'sim/prowess.js', 'sim/story.js', 'sim/bounty.js', 'sim/rivals.js', 'sim/delvers.js', 'sim/powers.js', 'sim/evolve.js', 'sim/gates.js', 'sim/wildwood.js', 'sim/clearing.js', 'sim/guardwork.js', 'sim/titans.js', 'sim/migrations.js', 'sim/dungeonlife.js', 'sim/renown.js', 'sim/guild.js', 'sim/worldevents.js', 'sim/townlife.js', 'sim/calamity.js', 'sim/wonders.js', 'game/patron.js', 'sim/festivals.js', 'sim/letters.js', 'sim/frontier.js', 'sim/globe.js', 'save.js', 'game/arcana.js', 'game/pastimes.js', 'game/harvest.js', 'game/slimes.js', 'game/well.js', 'game/manawear.js', 'game/deep.js', 'game/hidden.js', 'game/ground.js', 'game/loose.js', 'game/entities.js', 'game/thrown.js', 'game/guns.js', 'game/react.js', 'game/build.js', 'game/live.js', 'game/nav.js', 'game/auto.js', 'game/arms.js', 'game/oldkinds.js', 'game/yard.js'
 ];
 
 function loadEcho() {
@@ -2831,6 +2831,39 @@ function main() {
     check('Rain-arrows: your arrows soak', so1.rx.wet > 0);
     pl.aug = {}; delete pl.trials;
     E.UI = UI0; E.Combat = C0; E.Sfx = S0; E.Game = G0; E.Prowess = P0; RX.reset(); B.reset();
+  }
+
+  console.log('\nAnimals of the town');
+  {
+    const E = ECHO, Y = E.Yard, W = E.generateWorld({ seed: 7171, name: 'Yardland' }), U0dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    const s = W.settlements.find(t => t.kind === 'capital') || W.settlements[0];
+    const pe = { x: s.x + 0.5, y: s.y + 3.5, vx: 0, vy: 0, dir: 0 };
+    const G = { world: W, pe, time: 0 };
+    W.minute = 10 * 60;
+    for (let i = 0; i < 60; i++) { G.time += 0.05; Y.update(G, 0.05); }
+    const kinds = new Set(Y.list.map(a => a.kind));
+    check('a town has its animals: hens, cats, dogs, and beasts by the fields', Y.list.length >= 8 && kinds.has('hen') && kinds.has('dog'), `${Y.list.length}: ${[...kinds].join(' ')}`);
+    for (let i = 0; i < 600; i++) { G.time += 0.05; Y.update(G, 0.05); }
+    const stuck = Y.list.filter(a => !Y.free(W, a.x, a.y));
+    check('none of them stands in a wall, a house or the water', stuck.length === 0, stuck.map(a => a.kind).join(' '));
+    // run through the hens: they scatter
+    const hen = Y.list.find(a => a.kind === 'hen');
+    pe.x = hen.x + 1; pe.y = hen.y; pe.vx = -4;
+    const h0 = U0dist(hen, pe); for (let i = 0; i < 10; i++) { G.time += 0.05; Y.update(G, 0.05); }
+    check('run at a hen and it scatters', hen.st === 'flee' || U0dist(hen, pe) > h0 + 0.3);
+    pe.vx = 0;
+    // night: hens shut in, the rest lie down
+    W.minute = 23 * 60;
+    for (let i = 0; i < 900; i++) { G.time += 0.05; Y.update(G, 0.05); }
+    const hens = Y.list.filter(a => a.kind === 'hen'), inN = hens.filter(a => a.hidden).length;
+    check('at night the hens are shut in', inN >= hens.length * 0.7, `${inN}/${hens.length}`);
+    // gone when you leave; the same yards when you come back
+    const first = Y.list.map(a => a.kind + Math.round(a.home.x) + ',' + Math.round(a.home.y)).join('|');
+    pe.x = s.x + 400; pe.y = s.y; for (let i = 0; i < 50; i++) { G.time += 0.05; Y.update(G, 0.05); }
+    const gone = Y.list.length === 0;
+    pe.x = s.x + 0.5; pe.y = s.y + 3.5; for (let i = 0; i < 50; i++) { G.time += 0.05; Y.update(G, 0.05); }
+    check('gone when you leave, the same animals when you come back (nothing saved)', gone && Y.list.map(a => a.kind + Math.round(a.home.x) + ',' + Math.round(a.home.y)).join('|') === first && !('yard' in W));
+    Y.reset();
   }
 
   console.log(`\n${passes} passed, ${failures} failed`);

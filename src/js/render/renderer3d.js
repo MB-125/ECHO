@@ -2772,7 +2772,7 @@
       M.show(inst, 'shield', !!gear.shield || (e.type === 'player' && pl && pl.skills.ward > 25));
       M.show(inst, 'bow', !!gear.bow);
       M.show(inst, 'spear', !!gear.spear);
-      M.show(inst, 'torch', !ECHO.Interior.cur && (!!gear.torch || (e.type === 'player' && game.isNight())));
+      M.show(inst, 'torch', !ECHO.Interior.cur && (!!gear.torch || (e.type === 'player' && game.isNight()) || R.nightTorch(game, e)));
       M.show(inst, 'staff', prof === 'elder' || !!gear.staff);
       const fighter = e.type === 'player' ? !!(pl && pl.weapon) : (prof === 'guard' || bandit || prof === 'wanderer' || e.role === 'soldier' || !!e.carrying || e.isCompanion);
       M.show(inst, 'sword', fighter && !gear.spear && !gear.bow);
@@ -2981,6 +2981,69 @@
         n++;
       }
       for (let i = n; i < R.birdPool.length; i++) R.birdPool[i].g.visible = false;
+    },
+    // Out after dark: someone walking home late, a traveller on the road, the watch on its rounds —
+    // each with a torch, a moving pool of light down the street.
+    nightTorch(game, e) {
+      if (e.type !== 'person' || e.hidden || e.indoor || e.dead || !game.isNight || !game.isNight()) return false;
+      if (e.role === 'bandit' || e.role === 'companion' || e.sneaking) return false;
+      // (one in three of the watch on its rounds; anyone walking somewhere — not those standing at their posts)
+      if (e.role === 'guard') return !!e.moving && !!e.goal && e.goal.why === 'patrol' && (e.id % 3 === 0);
+      return !!e.moving && (e.role === 'traveler' || e.role === 'villager');
+    },
+    // The animals of the town (game/yard.js): hens, cats, dogs, and the sheep, cows and pigs by the fields.
+    // Each a few simple shapes, its legs stepping as it goes, its head down to the grass as it grazes.
+    syncYard(game, dt) {
+      const L = ECHO.Yard && !ECHO.Interior.cur ? ECHO.Yard.list : [];
+      R.yardPool = R.yardPool || {};
+      const M3 = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.92, flatShading: true });
+      const mats = R.yardMats || (R.yardMats = {
+        hen: [M3('#e8dcc4'), M3('#8a4a24'), M3('#2a2a2a')], cat: [M3('#c27a3a'), M3('#4a4440'), M3('#dcd2c0')], dog: [M3('#8a6038'), M3('#2e2820'), M3('#c8a878')],
+        sheep: [M3('#e6e0d2'), M3('#2a2622'), M3('#4a4038')], cow: [M3('#f0ece4'), M3('#3a2a20'), M3('#2a2420')], pig: [M3('#e8b0a0'), M3('#c88a7a'), M3('#e8b0a0')],
+        red: M3('#c8281e'), yel: M3('#e0a020')
+      });
+      // body length, body height, leg length, head size; and where the head sits
+      const DIM = { hen: [0.22, 0.18, 0.1, 0.1], cat: [0.36, 0.14, 0.12, 0.12], dog: [0.58, 0.22, 0.22, 0.17], sheep: [0.78, 0.42, 0.26, 0.2], cow: [1.25, 0.6, 0.48, 0.3], pig: [0.72, 0.36, 0.18, 0.24] };
+      const make = (kind) => {
+        const [bl, bh, ll, hs] = DIM[kind], m = mats[kind];
+        const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+        const box = (w, h, d, mt, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mt); o.position.set(x, y, z); o.castShadow = true; return o; };
+        const torso = box(bl, bh, bh * (kind === 'hen' ? 0.85 : 0.95), m[0], 0, ll + bh / 2, 0); body.add(torso);
+        if (kind === 'sheep') { torso.scale.set(1, 1, 1.05); }
+        const head = new THREE.Group(); head.position.set(bl / 2 + hs * 0.25, ll + bh * (kind === 'hen' ? 1.0 : 0.85), 0); body.add(head);
+        head.add(box(hs * (kind === 'pig' ? 1.1 : 1.3), hs, hs * 0.9, kind === 'sheep' ? m[1] : m[kind === 'cow' ? 0 : 0], hs * 0.4, 0, 0));
+        if (kind === 'hen') { head.add(box(0.05, 0.05, 0.03, mats.red, hs * 0.4, hs * 0.6, 0)); head.add(box(0.07, 0.03, 0.04, mats.yel, hs * 1.15, -0.01, 0)); torso.add(box(0.1, 0.12, 0.12, m[0], -bl * 0.55, bh * 0.35, 0)); }
+        if (kind === 'cat') { head.add(box(0.04, 0.07, 0.03, m[0], hs * 0.3, hs * 0.6, 0.05)); head.add(box(0.04, 0.07, 0.03, m[0], hs * 0.3, hs * 0.6, -0.05)); const tail = box(0.34, 0.04, 0.04, m[0], -bl * 0.75, bh * 0.6, 0); tail.rotation.z = 0.7; torso.add(tail); }
+        if (kind === 'dog') { head.add(box(0.12, 0.08, 0.1, m[2], hs * 1.2, -0.03, 0)); head.add(box(0.05, 0.1, 0.04, m[1], hs * 0.25, hs * 0.5, 0.07)); head.add(box(0.05, 0.1, 0.04, m[1], hs * 0.25, hs * 0.5, -0.07)); const tail = box(0.22, 0.05, 0.05, m[0], -bl * 0.62, bh * 0.4, 0); tail.rotation.z = 0.9; torso.add(tail); }
+        if (kind === 'cow') { torso.add(box(bl * 0.3, bh * 0.6, bh * 0.98, m[1], -bl * 0.1, bh * 0.15, 0)); head.add(box(0.06, 0.12, 0.06, m[2], hs * 0.2, hs * 0.7, 0.12)); head.add(box(0.06, 0.12, 0.06, m[2], hs * 0.2, hs * 0.7, -0.12)); head.add(box(hs * 0.5, hs * 0.5, hs * 0.8, mats.pig[1], hs * 1.1, -hs * 0.2, 0)); }
+        if (kind === 'pig') { head.add(box(0.08, 0.12, 0.14, m[1], hs * 1.1, -0.02, 0)); }
+        const legs = [];
+        const legMat = kind === 'hen' ? mats.yel : kind === 'sheep' ? m[1] : kind === 'cow' ? m[0] : m[kind === 'pig' ? 0 : 0];
+        const lw = kind === 'hen' ? 0.025 : Math.max(0.05, bh * 0.22);
+        const pts = kind === 'hen' ? [[0, 0.05], [0, -0.05]] : [[bl * 0.35, bh * 0.32], [bl * 0.35, -bh * 0.32], [-bl * 0.35, bh * 0.32], [-bl * 0.35, -bh * 0.32]];
+        for (const [x, z] of pts) { const p = new THREE.Group(); p.position.set(x, ll, z); const l = box(lw, ll, lw, legMat, 0, -ll / 2, 0); p.add(l); body.add(p); legs.push(p); }
+        R.scene.add(g);
+        return { g, body, head, legs, kind };
+      };
+      const used = {};
+      for (const a of L) {
+        if (a.hidden || U.dist(a.x, a.y, game.pe.x, game.pe.y) > 30 || !R.onScreen(game, a.x, a.y)) continue;
+        const pool = R.yardPool[a.kind] = R.yardPool[a.kind] || [];
+        const i = used[a.kind] = (used[a.kind] || 0) + 1;
+        let o = pool[i - 1]; if (!o) { o = make(a.kind); pool.push(o); }
+        o.g.visible = true;
+        const I = R.img(a.x, a.y);
+        o.g.position.set(I.x, R.groundH(a.x, a.y) + (a.z || 0), I.y);
+        o.g.rotation.y = -a.dir;
+        // each its own shade (a brown hen, a black cat, a dun cow)
+        const sc = 0.92 + a.coat * 0.16; o.g.scale.setScalar(sc);
+        const step = a.moving ? Math.sin(a.anim * (a.st === 'flee' ? 22 : 11)) * 0.5 : 0;
+        o.legs.forEach((p, k) => { p.rotation.z = (k % 2 ? -step : step) * (k > 1 ? -1 : 1); });
+        const graze = a.peck && !a.moving ? (a.kind === 'hen' ? (Math.sin(a.anim * 4 + a.id) > 0.3 ? 0.9 : 0.1) : 0.55 + Math.sin(a.anim * 0.7 + a.id) * 0.15) : 0;
+        o.head.rotation.z = -graze;
+        o.body.position.y = a.rest ? -DIM[a.kind][2] * 0.7 : (a.moving ? Math.abs(Math.sin(a.anim * 11)) * 0.02 : 0);
+      }
+      for (const k in R.yardPool) for (let i = used[k] || 0; i < R.yardPool[k].length; i++) R.yardPool[k][i].g.visible = false;
     },
     // Your own camp: the fire, a bedroll, and a spit when something's cooking.
     syncCamp(game, dt) {
@@ -3880,6 +3943,7 @@
       R.syncBoats(game, dt);
       R.syncCamp(game, dt);
       R.syncBirds(game, dt);
+      R.syncYard(game, dt);
       R.syncForage(game);
       R.syncFly(game);
       R.endHorses(); R.frameNo = (R.frameNo || 0) + 1;
@@ -4937,6 +5001,7 @@
       for (const e of game.ents) {
         if (e.dead || e.hidden) continue;
         if (e.gear && e.gear.torch && night) push(e.x, e.y, 4.5, 0.9, '#ffb060', 1.2);
+        else if (R.nightTorch(game, e)) push(e.x, e.y, 3.6, 0.75, '#ffa85a', 1.2);
         if (e.burn > 0) push(e.x, e.y, 2.5, 0.8, '#ff7a2a', 0.6);
         if (e.type === 'boss' && night) push(e.x, e.y, 3, 0.5, '#ffcf3a', 2);
       }

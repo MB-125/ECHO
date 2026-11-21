@@ -202,6 +202,7 @@
       if (ECHO.Stealth) ECHO.Stealth.update(Game, dt);
       if (ECHO.Camp) ECHO.Camp.update(Game, dt);
       if (ECHO.Fauna) ECHO.Fauna.update(Game, dt);
+      if (ECHO.Yard) ECHO.Yard.update(Game, dt);
       if (ECHO.Events) ECHO.Events.update(Game, dt);
       if (ECHO.Migrations) ECHO.Migrations.update(Game, dt);
       if (ECHO.DungeonLife) ECHO.DungeonLife.update(Game, dt);
