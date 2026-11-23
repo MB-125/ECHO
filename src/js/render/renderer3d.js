@@ -3839,19 +3839,62 @@
           root.position.x += ox * Math.cos(yaw); root.position.z -= ox * Math.sin(yaw); root.position.y += oy;
           root.scale.y *= 1 - 0.12 * v.roll.tuck;
         }
-        // death: thrown backward, then sink and fade
+        // death. Struck down where it stands, a body does not tip like a plank: the knees go, it drops
+        // and topples (slow at first, then all at once, as things fall), hits the ground, rocks and
+        // settles; the arms fly up and then fall slack, the head lolls. Each dies its own way —
+        // flung back by the blow, pitched forward onto its face, or down onto its knees and over. A
+        // beast's legs fold under it, it goes over on its side and kicks once or twice, and is still.
+        // Thrown by a great blow it tumbles through the air instead (thrown.js). It lies a while, then
+        // sinks and fades.
         if (e.dead) {
-          const k = Math.min(1, (e.deathT || 0) * 4);
-          const fall = (1 - Math.pow(1 - k, 2)) * Math.PI / 2, sp = e.tspin || 0;
+          const t = e.deathT || 0, sp = e.tspin || 0, thrown = sp || e.tz > 0 || e.tSet;
+          const k = Math.min(1, t * 4);
+          const fall = (1 - Math.pow(1 - k, 2)) * Math.PI / 2;
+          const cl = x => x < 0 ? 0 : x > 1 ? 1 : x;
+          if (!thrown && uprightBody && v.inst.parts.legL) {
+            const P = v.inst.parts, H = ((e.id || 0) * 2654435761 % 1000) / 1000;
+            const style = v.dstyle || (v.dstyle = e.deathAngle == null ? (H < 0.5 ? 'front' : 'knees') : H < 0.45 ? 'back' : H < 0.75 ? 'front' : 'knees');
+            const kneel = style === 'knees';
+            const dropT = kneel ? 0.32 : 0.16, fallT = kneel ? 0.5 : 0.42;
+            const bk = cl(t / dropT), bkE = 1 - (1 - bk) * (1 - bk);
+            const fk = cl((t - dropT * 0.8) / fallT), g = fk * fk;         // (falling: slow, then all at once)
+            const ti = t - (dropT * 0.8 + fallT);
+            const rock = ti > 0 ? Math.sin(ti * 17) * Math.exp(-ti * 6.5) * 0.14 : 0;     // (it hits, rocks, settles)
+            const sgn = style === 'back' ? -1 : 1;
+            root.rotation.x = 0;
+            root.rotation.z = sgn * (Math.PI / 2 * g - (ti > 0 ? rock : 0));
+            const drop = (kneel ? 0.34 : 0.1) * bkE * (1 - g * 0.6) * base;
+            root.position.y = gy + 0.08 - drop + (ti > 0 ? Math.max(0, rock) * 0.12 : 0) - Math.max(0, t - 3.6) * 0.09;
+            // limbs: the knees give; the arms fly up at the blow, reach out as it goes down, and fall slack
+            const limp = cl((t - dropT) / 0.6);
+            if (kneel) { const kq = bkE * (1 - limp * 0.7); P.legL.rotation.z = -1.5 * kq; P.legR.rotation.z = -1.1 * kq; }
+            else { P.legL.rotation.z = (sgn > 0 ? -0.35 : 0.25) * bkE * (1 - limp * 0.5); P.legR.rotation.z = (sgn > 0 ? 0.1 : -0.15) * bkE; }
+            P.legL.rotation.x = -0.14 * limp; P.legR.rotation.x = 0.18 * limp;
+            const fling = sgn < 0 ? -1.35 : -1.55;           // (back: thrown up; forward: reaching to break the fall)
+            const arm = fling * bkE * (1 - limp) + (sgn < 0 ? -2.4 : -0.35) * limp;
+            P.armL.rotation.z = arm; P.armR.rotation.z = arm * (0.85 + H * 0.3);
+            P.armL.rotation.x = -0.25 - 0.55 * limp; P.armR.rotation.x = 0.25 + 0.5 * limp;
+            if (P.head) { P.head.rotation.z = sgn * (-0.35 * bkE * (1 - limp) + 0.25 * limp); P.head.rotation.x = (H - 0.5) * 0.7 * limp; }
+            if (P.body) P.body.rotation.z = kneel ? 0.25 * bkE * (1 - g) : 0;
+          }
           // (thrown, it turns over as it flies, and comes to lie on its back or its front: thrown.js)
-          if (e.deathAngle != null && uprightBody) { root.rotation.z = -(fall + sp); root.rotation.x = 0; }
+          else if (e.deathAngle != null && uprightBody) { root.rotation.z = -(fall + sp); root.rotation.x = 0; }
           else if (e.deathAngle != null) {
-            // a beast goes down on its side, the side away from the blow, and rolls as it flies
+            // a beast goes down on its side, the side away from the blow, and rolls as it flies;
+            // struck down where it stands its legs fold first, then over it goes, and it kicks a little
             if (v.dside == null) v.dside = Math.sin(v.dir - e.deathAngle) >= 0 ? 1 : -1;
-            root.rotation.z = 0; root.rotation.x = v.dside * (fall + sp);
+            root.rotation.z = 0;
+            if (thrown) root.rotation.x = v.dside * (fall + sp);
+            else {
+              const fk = cl((t - 0.12) / 0.4), g = fk * fk, ti = t - 0.52;
+              const rock = ti > 0 ? Math.sin(ti * 15) * Math.exp(-ti * 6) * 0.12 : 0;
+              const kick = ti > 0.15 && ti < 1.4 ? Math.sin(ti * 26) * 0.05 * (1 - ti / 1.4) : 0;
+              root.rotation.x = v.dside * (Math.PI / 2 * g - rock + kick);
+              root.rotation.z = -0.18 * cl(t / 0.15) * (1 - g);      // (the forelegs give: it pitches a little first)
+            }
           }
           else root.rotation.x = fall * (v.bob > 3 ? 1 : -1);
-          root.position.y = gy + 0.1 + (e.tz > 0 ? e.tz : 0) + (sp || e.tz > 0 ? 0 : Math.sin(k * Math.PI) * 0.25) - Math.max(0, (e.deathT || 0) - 1) * 0.08;
+          if (thrown || !uprightBody || !v.inst.parts.legL) root.position.y = gy + 0.1 + (e.tz > 0 ? e.tz : 0) - Math.max(0, t - 3.6) * 0.09;
           // tumbling through the air it turns about its middle (not its feet, or it would go
           // over into the ground); once down, it lies along the ground as before
           const pw = (e.tz > 0 || (sp && !e.tSet)) ? 0.42 * base : 0;
@@ -3861,7 +3904,7 @@
             off.set(0, -v.pivH, 0).applyQuaternion(root.quaternion);
             root.position.x += off.x; root.position.y += v.pivH + off.y; root.position.z += off.z;
           }
-          const op = Math.max(0, 1 - Math.max(0, (e.deathT || 0) - 1.5) / 1.5);
+          const op = Math.max(0, 1 - Math.max(0, t - 4.2) / 1.7);
           for (const m of v.inst.mats) { if (op < 1) { m.transparent = true; m.opacity = op * ((m.userData && m.userData.a0) || 1); } }
         } else root.rotation.x = 0;
         // weight, as it shows: a body leans into a start and back from a stop, and into a turn
@@ -5129,12 +5172,10 @@
       const room = ECHO.Interior && ECHO.Interior.cur;
       R.setInteriorMode(!!room);
       if (room && (R.roomKey !== room || R.roomRev !== (room.rev || 0))) { const fresh = R.roomKey !== room; R.roomKey = room; R.roomRev = room.rev || 0; R.roomFlames = []; R.buildRoom(game, room); if (fresh) R.camTarget.set(tx, 0, ty); }
-      const punch = game.camPunch || 0;
+      // (0.58: no screen shake, no kick, no zoom-punch — the camera holds steady whatever happens)
+      const punch = 0;
       const D = R.camDistNow = R.camDist * (1 + R.zoomExtra) * (room ? (room.carved ? 0.82 : U.clamp(0.5 + room.H * 0.035, 0.72, 0.95)) : 1) * (1 - Math.min(0.12, punch * 0.07)) * (1 + (R.flyK || 0) * (1.0 + R.flyZoom()));
-      let sx = 0, sy = 0;
-      if (game.shakeT > 0) { sx = (Math.random() - 0.5) * game.shakeA * 0.4; sy = (Math.random() - 0.5) * game.shakeA * 0.4; }
-      const kk = game.camKick || { x: 0, y: 0 };
-      sx += kk.x; sy += kk.y;
+      const sx = 0, sy = 0;
       // over a pole of a round world the view turns about with you (you look the way you are going)
       const S = R.viewS = !room && game.pl && game.pl.viewTurn ? -1 : 1;
       R.camera.position.set(R.camTarget.x + sx, R.camTarget.y + D * 0.86, R.camTarget.z + D * 0.6 * S + sy);

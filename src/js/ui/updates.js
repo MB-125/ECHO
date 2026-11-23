@@ -7,6 +7,13 @@
 
   // What each version brought, newest first. Shown once after updating.
   const CHANGES = [
+    { v: '0.58.0', items: [
+      'No more screen shake. The camera holds steady through blows, explosions, stomping giants and everything else: no shake, no sideways kick, no zoom-in on hits. The Screen shake setting is gone because there is nothing left to set.',
+      'New death animations. A body no longer tips over like a plank. The arms fly up at the blow, the knees give, and it drops and topples, slow at first and then all at once. It hits the ground, rocks and settles, the arms fall slack and the head lolls. Each dies its own way: flung back by the blow, pitched forward onto its face, or down onto its knees and over.',
+      'A beast\'s legs fold, it pitches, goes over on its side away from the blow, kicks once or twice and is still. Anything thrown by a great blow still tumbles through the air as before.',
+      'The fallen lie a while longer before they sink and fade.',
+      'Nothing in your save changes.'
+    ] },
     { v: '0.57.0', items: [
       'Towns have their animals now. Hens peck about the doors of the houses and scatter, wings going, if you run through them, and they are shut in at dusk. Cats sit on doorsteps and slink off if you rush at them. Dogs trot the streets, and one may come and walk at your heel for a while. Out by the fields, sheep graze in a loose flock, cows stand chewing and pigs root about; at night they lie down. Ride or run through a flock and it bunches and trots off; creep, and they let you pass.',
       'Night in town: anyone walking after dark carries a torch, a moving pool of light down the street, and so does the watch on its rounds. People head home at night, and the streets empty until morning.',

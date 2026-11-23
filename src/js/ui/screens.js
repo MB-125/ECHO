@@ -326,7 +326,6 @@
           <div class="dim" style="margin:-2px 0 6px">Story: foes hit half as hard and fall sooner. Hard: they hit harder and take more killing. Change it any time; your world is untouched.</div>
           <div class="row"><span style="min-width:190px">Menu pages</span>${opt('journal', 'beasts', 'Essentials', 'beasts')}${opt('journal', 'all', 'Every page', 'beasts')}</div>
           <div class="row"><span style="min-width:190px">Pause when you switch away</span>${opt('autoPause', 'on', 'On', 'on')}${opt('autoPause', 'off', 'Off', 'on')}</div>
-          <div class="row"><span style="min-width:190px">Screen shake</span>${opt('shake', 'full', 'Full', 'full')}${opt('shake', 'gentle', 'Gentle', 'full')}${opt('shake', 'off', 'Off', 'full')}</div>
           <div class="row"><span style="min-width:190px">Damage numbers</span>${opt('dmgNums', 'on', 'On', 'on')}${opt('dmgNums', 'off', 'Off', 'on')}</div>
           <div class="row"><span style="min-width:190px">Look after yourself</span>${opt('autoCare', 'on', 'On', 'on')}${opt('autoCare', 'off', 'Off', 'on')}</div>
           <div class="dim" style="margin:-2px 0 6px">On: you eat when hungry, drink a healing draught when badly hurt, and cure poison, fire, webs and fever by yourself.</div>

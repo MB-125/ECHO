@@ -177,7 +177,7 @@
       ECHO.Combat.updateBurning(dt);
       // Corpses fade
       // (a body still flying, or sliding, has not yet come to rest where it lies)
-      for (const e of Game.ents) if (e.dead && !e.vanish) { const going = e.tz > 0 || Math.abs(e.tvx || 0) + Math.abs(e.tvy || 0) > 1; e.deathT = going ? Math.min((e.deathT || 0) + dt, 0.3) : (e.deathT || 0) + dt; if (e.deathT > 3) e.vanish = true; }
+      for (const e of Game.ents) if (e.dead && !e.vanish) { const going = e.tz > 0 || Math.abs(e.tvx || 0) + Math.abs(e.tvy || 0) > 1; e.deathT = going ? Math.min((e.deathT || 0) + dt, 0.3) : (e.deathT || 0) + dt; if (e.deathT > 6) e.vanish = true; }   // (0.58: a body lies a while before it fades — see the renderer's death)
       Game.ents = Game.ents.filter(e => !e.vanish);
       ECHO.Spawner.update(Game, dt);
       if (ECHO.Growth) ECHO.Growth.update(Game, dt);
@@ -382,7 +382,8 @@
       Game.camPunch *= Math.exp(-dt * 9);
       Game.hurtFlashT = Math.max(0, Game.hurtFlashT - dt * 1.8);
     },
-    shake(a) { const m = { full: 1, gentle: 0.4, off: 0 }[(ECHO.UI.settings && ECHO.UI.settings.shake) || 'full']; if (m == null || !m) return; a *= m; Game.shakeT = 0.25; Game.shakeA = Math.max(Game.shakeA * (Game.shakeT > 0 ? 1 : 0), a); },
+    // (0.58: the screen never shakes — kept as a no-op, so everything that once shook it still may call it)
+    shake(a) { Game.shakeT = 0; Game.shakeA = 0; },
     noise(x, y, r) {
       if (ECHO.Stealth) ECHO.Stealth.loud(Game, x, y, r * 1.3);
       if (ECHO.Senses) ECHO.Senses.noise(Game, x, y, r * 2, { kind: 'fight', by: Game.pe });
